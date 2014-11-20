@@ -26,6 +26,7 @@ basis/basis.o:
 mesh/Mesh.o:
 	cd mesh && $(MAKE)
 
+.PHONY: clean distclean
 clean:
 	rm -rf *.o *.x *.dSYM
 	cd basis && $(MAKE) clean

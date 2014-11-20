@@ -7,6 +7,7 @@ INCFLAGS = -I$(TRILINOS_INSTALL_DIR)/include -I./include
 Mesh.o:Mesh.C ./include/Mesh.h
 	$(CXX) $(CXX_FLAGS) $(INCFLAGS) -c Mesh.C -o Mesh.o $(LDFLAGS)
 
+.PHONY: clean distclean
 clean:
 	rm -f *.o  
 

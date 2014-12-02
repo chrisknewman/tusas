@@ -4,8 +4,8 @@ CXX=$(Trilinos_CXX_COMPILER)
 CXX_FLAGS=$(Trilinos_CXX_COMPILER_FLAGS)
 INCFLAGS = -I$(TRILINOS_INSTALL_DIR)/include -I./include 
 
-#basis.o:basis.cpp
-#	$(CXX) $(CXX_FLAGS) $(INCFLAGS) -c basis.cpp -o basis.o $(LDFLAGS)
+timestep.o:timestep.cpp
+	$(CXX) $(CXX_FLAGS) $(INCFLAGS) -c timestep.cpp -o timestep.o $(LDFLAGS)
 
 .PHONY: clean distclean
 clean:

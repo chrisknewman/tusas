@@ -17,8 +17,11 @@ INCFLAGS = -I. -I$(TRILINOS_INSTALL_DIR)/include -I./mesh/include -I./basis/incl
 CXX=$(Trilinos_CXX_COMPILER)
 CXX_FLAGS=$(Trilinos_CXX_COMPILER_FLAGS)
 
-all:	tusas.cpp basis/basis.o mesh/Mesh.o
+all:	tusas.cpp basis/basis.o mesh/Mesh.o timestep/timestep.o
 	$(CXX) $(CXX_FLAGS) $(INCFLAGS) tusas.cpp basis/basis.o mesh/Mesh.o -o tusas.x $(LDFLAGS)
+
+timestep/timestep.o:
+	cd timestep && $(MAKE)
 
 basis/basis.o:
 	cd basis && $(MAKE)

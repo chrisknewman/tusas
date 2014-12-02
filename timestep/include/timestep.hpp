@@ -5,11 +5,11 @@ class timestep
 {
 
 public:
-  timestep();
-  ~timestep();
-  virtual void initialize();
-  virtual void advance();
-  virtual void finalize();
+  timestep(){};
+  ~timestep(){};
+  virtual void initialize(){};
+  virtual void advance(){};
+  virtual void finalize(){};
   
 };
 

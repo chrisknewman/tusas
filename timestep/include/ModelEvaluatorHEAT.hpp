@@ -5,6 +5,7 @@
 
 #include "Mesh.h"
 #include "preconditioner.hpp"
+#include "timestep.hpp"
 template<class Scalar> class ModelEvaluatorHEAT;
 
 template<class Scalar>
@@ -22,6 +23,7 @@ public:
   ModelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
               Mesh *mesh,
               const Scalar dt);
+  ~ModelEvaluatorHEAT();
 
   /** \name Initializers/Accessors */
   //@{
@@ -54,6 +56,10 @@ public:
   /** \brief . */
   Teuchos::RCP< ::Thyra::PreconditionerBase< Scalar > > create_W_prec() const;
   //@}
+
+  void initialize(){};
+  void finalize(){};
+  void advance(){};
 
 private:
 

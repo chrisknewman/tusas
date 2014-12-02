@@ -263,7 +263,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
     }
 
     if (nonnull(W_prec_out)) {
-      //std::cout<<"nonnull(W_prec_out))"<<std::endl;
+      std::cout<<"nonnull(W_prec_out))"<<std::endl;
       //RCP<Epetra_Operator> M_epetra = Thyra::get_Epetra_Operator(*(W_prec_out->getNonconstRightPrecOp()));
       //M_inv = rcp_dynamic_cast<Epetra_CrsMatrix>(M_epetra);
       //TEUCHOS_ASSERT(nonnull(M_inv));
@@ -273,7 +273,6 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
       f->PutScalar(0.0);
     if (nonnull(P_))
       P_->PutScalar(0.0);
-
 
     const Epetra_Vector &u = *(Thyra::get_Epetra_Vector(*x_owned_map_,inArgs.get_x()));
 
@@ -331,7 +330,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	    int row = mesh_->get_node_id(blk, ne, i);
 	    double dphidx = ubasis->dphidxi[i]*ubasis->dxidx+ubasis->dphideta[i]*ubasis->detadx;
 	    double dphidy = ubasis->dphidxi[i]*ubasis->dxidy+ubasis->dphideta[i]*ubasis->detady;
-	    if (nonnull(f)) {
+	    if (nonnull(f)) {//cn f_out?
 	      double x = ubasis->xx;
 	      double y = ubasis->yy;
 	      
@@ -340,12 +339,18 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	      double pi = 3.141592653589793;
 	      //double ff = 2.*ubasis->phi[i];
 	      double ff = ((1. + 5.*dt_*pi*pi)*sin(pi*x)*sin(2.*pi*y)/dt_)*ubasis->phi[i];	      
-
-	      (*f)[row]  += ubasis->jac * ubasis->wt * (ut + divgradu - ff);
+	      double val = ubasis->jac * ubasis->wt * (ut + divgradu - ff);
+	      //(*f)[row]  += val;
+	      //std::cout<<"row = "<<row<<std::endl;
+	      //std::cout<<"gp = "<<gp<<std::endl;
+	      f->SumIntoGlobalValues ((int) 1, &val, &row);
 	      //(*f)[row]  += ubasis->jac * ubasis->wt * (divgradu - ff);
 	    }
+
+
 	    // Loop over Trial Functions
 	    if (nonnull(P_)) {
+	    //if (nonnull(W_prec_out)) {
 	      for(int j=0;j < n_nodes_per_elem; j++) {
 		int column = mesh_->get_node_id(blk, ne, j);
 		double dtestdx = ubasis->dphidxi[j]*ubasis->dxidx+ubasis->dphideta[j]*ubasis->detadx;
@@ -361,6 +366,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  }//i
 	}//gp
       }//ne
+    std::cout<<"DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_"<<std::endl;
 
       delete xx, yy, uu;
       
@@ -564,5 +570,9 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 
 //====================================================================
 
-
+template<class Scalar>
+ModelEvaluatorHEAT<Scalar>::~ModelEvaluatorHEAT()
+{
+  //  if(!prec_.is_null()) prec_ = Teuchos::null;
+}
 #endif

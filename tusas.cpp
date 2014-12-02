@@ -37,6 +37,7 @@
 
 #include "Mesh.h"
 #include "basis.hpp"
+#include "timestep.hpp"
 
 using namespace std;
 
@@ -59,8 +60,8 @@ int main(int argc, char *argv[])
   Mesh * in_mesh = new Mesh(0,false);
   //string   filename                = "meshes/tri24.e"    ;
   //string   filename                = "meshes/tri96.e"    ;
-  string   filename                = "meshes/tri384.e"    ;
-  //string   filename                = "meshes/quad16.e"    ;
+  //string   filename                = "meshes/tri384.e"    ;
+  string   filename                = "meshes/quad16.e"    ;
   //string   filename                = "meshes/quad64.e"    ;
   //string   filename                = "meshes/quad256.e"    ;
   in_mesh->read_exodus(&filename[0]);
@@ -134,10 +135,10 @@ int main(int argc, char *argv[])
     nox_group =
       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null));
   }
-  else{
+  else {
     nox_group =
       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null));
-    }
+  }
 
   nox_group->computeF();
 
@@ -187,6 +188,7 @@ int main(int argc, char *argv[])
   // Create the solver
   Teuchos::RCP<NOX::Solver::Generic> solver =
     NOX::Solver::buildSolver(nox_group, combo, nl_params);
+
   NOX::StatusTest::StatusType solvStatus = solver->solve();
 
   const Thyra::VectorBase<double> * sol = &((dynamic_cast<const NOX::Thyra::Vector&>(solver->getSolutionGroup().getX()).getThyraVector()));
@@ -196,10 +198,6 @@ int main(int argc, char *argv[])
   Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
   double outputdata[in_mesh->get_num_nodes()];
   for (int nn=0; nn < in_mesh->get_num_nodes(); nn++) {
-  //cn   double x = (x01-x00)/num_elements*ne;
-  //cn   double u = .5*x*x-x+1.;
-  //cn   double err = x_vec[ne];// - u;
-  //cn   norm += err*err;
     outputdata[nn]=x_vec[nn];
     //cout<<nn<<" "<<x_vec[nn]<<" "<<endl;
   }

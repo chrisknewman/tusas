@@ -10,6 +10,11 @@
 #include "Thyra_VectorStdOps.hpp"
 #include "Thyra_PreconditionerBase.hpp"
 #include "Thyra_MLPreconditionerFactory.hpp"
+#include "Thyra_DetachedSpmdVectorView.hpp"
+
+// NOX support
+#include "NOX_Thyra_MatrixFreeJacobianOperator.hpp"
+#include "NOX_MatrixFree_ModelEvaluatorDecorator.hpp"
 
 // Epetra support
 #include "Thyra_EpetraThyraWrappers.hpp"
@@ -20,6 +25,9 @@
 #include "Epetra_Import.h"
 #include "Epetra_CrsGraph.h"
 #include "Epetra_CrsMatrix.h"
+
+//teuchos support
+#include <Teuchos_RCP.hpp>
 
 // local support
 #include "preconditioner.hpp"
@@ -58,7 +66,7 @@ ModelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
     if (comm_->MyPID() == 0) std::cout<<std::endl<<"Only one processor supported"<<std::endl<<std::endl<<std::endl;
     exit(0);
   }
-
+  mesh_->compute_nodal_adj();
   //const int num_nodes = num_global_elements_ + 1;
   const int num_nodes = mesh_->get_num_nodes();
 
@@ -98,6 +106,7 @@ ModelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   nominalValues_ = inArgs;
   nominalValues_.set_x(x0_);
+  init_nox();
 }
 
 // Initializers/Accessors
@@ -242,13 +251,9 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 
   TEUCHOS_ASSERT(nonnull(inArgs.get_x()));
 
-  //const Thyra::ConstDetachedVectorView<Scalar> x(inArgs.get_x());
-
   const RCP<Thyra::VectorBase<Scalar> > f_out = outArgs.get_f();
   //const RCP<Thyra::LinearOpBase<Scalar> > W_out = outArgs.get_W_op();
-  //const RCP<Thyra::LinearOpBase<Scalar> > W_out;
   const RCP<Thyra::PreconditionerBase<Scalar> > W_prec_out = outArgs.get_W_prec();
-
 
   if ( nonnull(f_out) ||  nonnull(W_prec_out) ) {
 
@@ -258,23 +263,17 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 
     RCP<Epetra_Vector> f;
     if (nonnull(f_out)) {
-      f = Thyra::get_Epetra_Vector(*f_owned_map_,outArgs.get_f());
+      f = Thyra::get_Epetra_Vector(*f_owned_map_,outArgs.get_f());//f_out?
       //f->Print(std::cout);
-    }
-
-    if (nonnull(W_prec_out)) {
-      std::cout<<"nonnull(W_prec_out))"<<std::endl;
-      //RCP<Epetra_Operator> M_epetra = Thyra::get_Epetra_Operator(*(W_prec_out->getNonconstRightPrecOp()));
-      //M_inv = rcp_dynamic_cast<Epetra_CrsMatrix>(M_epetra);
-      //TEUCHOS_ASSERT(nonnull(M_inv));
     }
 
     if (nonnull(f))
       f->PutScalar(0.0);
-    if (nonnull(P_))
+    if (nonnull(W_prec_out))
       P_->PutScalar(0.0);
 
-    const Epetra_Vector &u = *(Thyra::get_Epetra_Vector(*x_owned_map_,inArgs.get_x()));
+    RCP<const Epetra_Vector> u = (Thyra::get_Epetra_Vector(*x_owned_map_,inArgs.get_x()));
+    //const Epetra_Vector &u = *(Thyra::get_Epetra_Vector(*x_owned_map_,inArgs.get_x()));
 
     double jac;
     double *xx, *yy;
@@ -298,14 +297,12 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	break;
 	
       }
+
       xx = new double[n_nodes_per_elem];
       yy = new double[n_nodes_per_elem];
       uu = new double[n_nodes_per_elem];
 
-      // Loop Over # of Finite Elements on Processor
-
-      for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
-
+      for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
 
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
@@ -313,12 +310,13 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  
 	  xx[k] = mesh_->get_x(nodeid);
 	  yy[k] = mesh_->get_y(nodeid);
-	  uu[k] = u[nodeid];  // copy initial guess or old solution into local temp
+	  //uu[k] = u[nodeid]; 
+	  uu[k] = (*u)[nodeid];  // copy initial guess 
+	                      //or old solution into local temp
 	  
 	}//k
-
-	// Loop Over Gauss Points
-	for(int gp=0; gp < ubasis->ngp; gp++) { 
+	
+	for(int gp=0; gp < ubasis->ngp; gp++) {// Loop Over Gauss Points 
 
 	  // Calculate the basis function at the gauss point
 
@@ -349,8 +347,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 
 
 	    // Loop over Trial Functions
-	    if (nonnull(P_)) {
-	    //if (nonnull(W_prec_out)) {
+	    if (nonnull(W_prec_out)) {
 	      for(int j=0;j < n_nodes_per_elem; j++) {
 		int column = mesh_->get_node_id(blk, ne, j);
 		double dtestdx = ubasis->dphidxi[j]*ubasis->dxidx+ubasis->dphideta[j]*ubasis->detadx;
@@ -366,17 +363,14 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  }//i
 	}//gp
       }//ne
-    std::cout<<"DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_DEBUG_"<<std::endl;
 
-      delete xx, yy, uu;
-      
       if (nonnull(f)) {//cn double check the use of notnull throughout
 	for ( int j = 0; j < mesh_->get_node_set(1).size(); j++ ){
 	  
 	  int row = mesh_->get_node_set_entry(1, j);
 	  
 	  (*f)[row] =
-	    u[row] - 0.0; // Dirichlet BC of zero
+	    (*u)[row] - 0.0; // Dirichlet BC of zero
 	  
 	}
 	for ( int j = 0; j < mesh_->get_node_set(2).size(); j++ ){
@@ -384,7 +378,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  int row = mesh_->get_node_set_entry(2, j);
 	  
 	  (*f)[row] =
-	    u[row] - 0.0; // Dirichlet BC of zero
+	    (*u)[row] - 0.0; // Dirichlet BC of zero
 	  
 	}
 	for ( int j = 0; j < mesh_->get_node_set(3).size(); j++ ){
@@ -392,7 +386,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  int row = mesh_->get_node_set_entry(3, j);
 	  
 	  (*f)[row] =
-	    u[row] - 0.0; // Dirichlet BC of zero
+	    (*u)[row] - 0.0; // Dirichlet BC of zero
 	  
 	}
 	for ( int j = 0; j < mesh_->get_node_set(0).size(); j++ ){
@@ -400,13 +394,13 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  int row = mesh_->get_node_set_entry(0, j);
 	  
 	  (*f)[row] =
-	    u[row] - 0.0; // Dirichlet BC of zero
+	    (*u)[row] - 0.0; // Dirichlet BC of zero
 	  
 	}
 	
       }
 
-      if (nonnull(P_)) {
+      if (nonnull(W_prec_out)) {
 	for ( int j = 0; j < mesh_->get_node_set(1).size(); j++ ){
 	  
 	  int row = mesh_->get_node_set_entry(1, j);
@@ -451,121 +445,21 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  P_->ReplaceGlobalValues (row, vals.size(), &vals[0],&column[0] );
 	  
 	}
-	
       
- 	P_->FillComplete();
   	//P_->Print(std::cout);
 //  	exit(0);
       }
 
     }//blk
 
-    //P_->FillComplete();
+    delete xx, yy, uu;
+    delete ubasis;
+    
     if (nonnull(W_prec_out)) {
+      P_->FillComplete();
       prec_->ReComputePreconditioner();
     }
-
-#if 0
-    Epetra_Vector& x = *node_coordinates_;
-
-    int ierr = 0;
-
-    double xx[2];
-    double uu[2];
-    Basis basis;
-
-    // Zero out the objects that will be filled
-    if (nonnull(f))
-      f->PutScalar(0.0);
-
-    if (nonnull(P_))
-      P_->PutScalar(0.0);
-
-    // Loop Over # of Finite Elements on Processor
-    for (int ne=0; ne < x_owned_map_->NumMyElements()-1; ne++) {
-      
-      // Loop Over Gauss Points
-      for(int gp=0; gp < 2; gp++) {
-	// Get the solution and coordinates at the nodes
-	xx[0]=x[ne];
-	xx[1]=x[ne+1];
-	uu[0]=u[ne];
-	uu[1]=u[ne+1];
-	// Calculate the basis function at the gauss point
-	basis.computeBasis(gp, xx, uu);
-	
-	// Loop over Nodes in Element
-	for (int i=0; i< 2; i++) {
-	  //int row=x_ghosted_map_->GID(ne+i);
-	  int row=ne+i;
-	  //printf("Proc=%d GlobalRow=%d LocalRow=%d Owned=%d\n",
-	  //     MyPID, row, ne+i,x_owned_map_.MyGID(row));
-	  if (x_owned_map_->MyGID(row)) {
-	    if (nonnull(f)) {
-	      //(*f)[x_owned_map_->LID(x_ghosted_map_->GID(ne+i))]+=
-	      (*f)[ne+i]+=
-		+basis.wt*basis.dz
-		*(
-		  (1.0/(basis.dz*basis.dz))*basis.duu*
-		  basis.dphide[i]
-		  +basis.phi[i]
-		  +basis.uu*basis.phi[i]/dt_
-		  );
-	    }
-	    // 	{
-	    //           (*f)[x_owned_map_->LID(x_ghosted_map_->GID(ne+i))]+=
-	    //         +basis.wt*basis.dz
-	    //         *((1.0/(basis.dz*basis.dz))*basis.duu*
-	    //           basis.dphide[i]+factor*basis.uu*basis.uu*basis.phi[i]);
-	    //         }
-	  }
-	  // Loop over Trial Functions
-	  if (nonnull(P_)) {
-	    for(int j=0;j < 2; j++) {
-	      //if (x_owned_map_->MyGID(row)) {
-	      //int column=x_ghosted_map_->GID(ne+j);
-	      int column=ne+j;
-	      //if (row == column) {
-	      //           double jac = basis.wt*basis.dz*((1.0/(basis.dz*basis.dz))*
-	      //                           basis.dphide[j]*basis.dphide[i]
-	      //                           +2.0*factor*basis.uu*basis.phi[j]*
-	      //                          basis.phi[i]);
-	      double jac = basis.wt*basis.dz*(
-					      (1.0/(basis.dz*basis.dz))* basis.dphide[j]*basis.dphide[i]
-					      +basis.phi[j]*basis.phi[i]/dt_
-					      );
-	      ierr = P_->SumIntoGlobalValues(row, 1, &jac, &column);
-	      //}
-	      //}
-	    }
-	  }
-	}
-      }
-    }
-
-    // Insert Boundary Conditions and modify Jacobian and function (F)
-    // U(0)=1
-    if (nonnull(f))
-      (*f)[0]= u[0] - 1.0;
-
-    if (nonnull(P_)) {
-      int column=0;
-      double jac=1.0;
-      ierr = P_->ReplaceGlobalValues(0, 1, &jac, &column);
-      column=1;
-      jac=0.0;
-      ierr = P_->ReplaceGlobalValues(0, 1, &jac, &column);
-    }
-
-    P_->FillComplete();
-    TEUCHOS_ASSERT(ierr > -1);
-
-//     if (nonnull(f)) {
-//       Teuchos::RCP< Epetra_Vector > Xe = Teuchos::rcp(new Epetra_Vector(*get_Epetra_Vector (*x_owned_map_, f_out)));
-//       Xe->Print(std::cout);
-//     }
-#endif
-  }
+  }	
 }
 
 //====================================================================
@@ -575,4 +469,236 @@ ModelEvaluatorHEAT<Scalar>::~ModelEvaluatorHEAT()
 {
   //  if(!prec_.is_null()) prec_ = Teuchos::null;
 }
+template<class Scalar>
+void ModelEvaluatorHEAT<Scalar>::init_nox()
+{
+  ::Stratimikos::DefaultLinearSolverBuilder builder;
+
+  Teuchos::RCP<Teuchos::ParameterList> lsparams =
+    Teuchos::rcp(new Teuchos::ParameterList);
+//   lsparams->set("Linear Solver Type", "Belos");
+//   lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
+//   lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
+  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
+
+  lsparams->set("Linear Solver Type", "AztecOO");
+  lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").set("Output Frequency",1);
+  //lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").sublist("AztecOO Preconditioner", "None");
+
+  lsparams->set("Preconditioner Type", "None");
+  builder.setParameterList(lsparams);
+  //lsparams->print(cout);
+  builder.getParameterList()->print(std::cout);
+
+  Teuchos::RCP< ::Thyra::LinearOpWithSolveFactoryBase<double> >
+    lowsFactory = builder.createLinearSolveStrategy("");
+
+  // Setup output stream and the verbosity level
+  Teuchos::RCP<Teuchos::FancyOStream>
+    out = Teuchos::VerboseObjectBase::getDefaultOStream();
+  lowsFactory->setOStream(out);
+  lowsFactory->setVerbLevel(Teuchos::VERB_EXTREME);
+
+  this->set_W_factory(lowsFactory);
+
+  // Create the initial guess
+  Teuchos::RCP< ::Thyra::VectorBase<double> >
+    initial_guess = this->getNominalValues().get_x()->clone_v();
+
+  Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
+
+  // Create the JFNK operator
+  Teuchos::ParameterList printParams;
+  Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::parameterList();
+  jfnkParams->set("Difference Type","Forward");
+  //jfnkParams->set("Perturbation Algorithm","KSP NOX 2001");
+  jfnkParams->set("lambda",1.0e-4);
+  Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
+    Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
+  jfnkOp->setParameterList(jfnkParams);
+  jfnkParams->print(std::cout);
+
+  Teuchos::RCP< ::Thyra::ModelEvaluator<double> > Model = Teuchos::rcpFromRef(*this);
+  // Wrap the model evaluator in a JFNK Model Evaluator
+  Teuchos::RCP< ::Thyra::ModelEvaluator<double> > thyraModel =
+    Teuchos::rcp(new NOX::MatrixFreeModelEvaluatorDecorator<double>(Model));
+
+  // Wrap the model evaluator in a JFNK Model Evaluator
+//   Teuchos::RCP< ::Thyra::ModelEvaluator<double> > thyraModel =
+//     Teuchos::rcp(new NOX::MatrixFreeModelEvaluatorDecorator<double>(this));
+
+  Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp = thyraModel->create_W_prec();
+  // Create the NOX::Thyra::Group
+
+
+
+
+  bool precon = true;
+  //bool precon = false;
+  Teuchos::RCP<NOX::Thyra::Group> nox_group;
+  if(precon){
+    nox_group =
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null));
+  }
+  else {
+    nox_group =
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null));
+  }
+
+  nox_group->computeF();
+
+  // VERY IMPORTANT!!!  jfnk object needs base evaluation objects.
+  // This creates a circular dependency, so use a weak pointer.
+  jfnkOp->setBaseEvaluationToNOXGroup(nox_group.create_weak());
+
+  // Create the NOX status tests and the solver
+  // Create the convergence tests
+  Teuchos::RCP<NOX::StatusTest::NormF> absresid =
+    Teuchos::rcp(new NOX::StatusTest::NormF(1.0e-8));
+  Teuchos::RCP<NOX::StatusTest::NormF> relresid = 
+    Teuchos::rcp(new NOX::StatusTest::NormF(*nox_group.get(), 1.0e-8));//1.0e-6 for paper
+  Teuchos::RCP<NOX::StatusTest::NormWRMS> wrms =
+    Teuchos::rcp(new NOX::StatusTest::NormWRMS(1.0e-2, 1.0e-8));
+  Teuchos::RCP<NOX::StatusTest::Combo> converged =
+    Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::AND));
+  //converged->addStatusTest(absresid);
+  converged->addStatusTest(relresid);
+  //converged->addStatusTest(wrms);
+  Teuchos::RCP<NOX::StatusTest::MaxIters> maxiters =
+    Teuchos::rcp(new NOX::StatusTest::MaxIters(20));
+  Teuchos::RCP<NOX::StatusTest::FiniteValue> fv =
+    Teuchos::rcp(new NOX::StatusTest::FiniteValue);
+  Teuchos::RCP<NOX::StatusTest::Combo> combo =
+    Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
+  combo->addStatusTest(fv);
+  combo->addStatusTest(converged);
+  combo->addStatusTest(maxiters);
+
+  // Create nox parameter list
+  Teuchos::RCP<Teuchos::ParameterList> nl_params =
+    Teuchos::rcp(new Teuchos::ParameterList);
+  nl_params->set("Nonlinear Solver", "Line Search Based");
+  //nl_params->sublist("Direction").sublist("Newton").sublist("Linear Solver").set("Tolerance", 1.0e-4);
+  Teuchos::ParameterList& nlPrintParams = nl_params->sublist("Printing");
+  nlPrintParams.set("Output Information",
+		  NOX::Utils::OuterIteration  +
+		  //                      NOX::Utils::OuterIterationStatusTest +
+		  NOX::Utils::InnerIteration +
+		  NOX::Utils::Details +
+		  NOX::Utils::LinearSolverDetails);
+  nl_params->set("Forcing Term Method", "Type 2");
+  nl_params->set("Forcing Term Initial Tolerance", 1.0e-1);
+  nl_params->set("Forcing Term Maximum Tolerance", 1.0e-2);
+  nl_params->set("Forcing Term Minimum Tolerance", 1.0e-5);//1.0e-6
+  // Create the solver
+  solver_ =  NOX::Solver::buildSolver(nox_group, combo, nl_params);
+}
+template<class Scalar>
+void ModelEvaluatorHEAT<Scalar>::advance()
+{
+  NOX::StatusTest::StatusType solvStatus = solver_->solve();
+}
+template<class Scalar>
+void ModelEvaluatorHEAT<Scalar>::finalize()
+{
+  const Thyra::VectorBase<double> * sol = &((dynamic_cast<const NOX::Thyra::Vector&>(solver_->getSolutionGroup().getX()).getThyraVector()));
+
+  //double norm = 0.;  
+
+  Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+  double outputdata[mesh_->get_num_nodes()];
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+    outputdata[nn]=x_vec[nn];
+    //cout<<nn<<" "<<x_vec[nn]<<" "<<endl;
+  }
+  //cout<<"norm = "<<sqrt(norm)<<endl;
+  const char *outfilename = "results.e";
+  mesh_->add_nodal_data("u", outputdata);
+  mesh_->write_exodus(outfilename);
+  compute_error(&outputdata[0]);
+}
+
+template<class Scalar>
+void ModelEvaluatorHEAT<Scalar>::compute_error( double *u)
+{
+  double error = 0.;
+  double jac;
+  double *xx, *yy;
+  double *uu;
+  int n_nodes_per_elem, nodeid;
+  
+  Basis *ubasis;
+  
+  for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+    
+    n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+
+    switch(n_nodes_per_elem){
+      
+    case 3 : // linear triangle
+      ubasis = new BasisLTri;
+      break;
+      
+    case 4 : // linear quad
+      ubasis = new BasisLQuad;
+      break;
+      
+    }
+    xx = new double[n_nodes_per_elem];
+    yy = new double[n_nodes_per_elem];
+    uu = new double[n_nodes_per_elem];
+    
+    // Loop Over # of Finite Elements on Processor
+    
+    for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
+      
+      
+      for(int k = 0; k < n_nodes_per_elem; k++){
+	
+	nodeid = mesh_->get_node_id(blk, ne, k);
+	
+	xx[k] = mesh_->get_x(nodeid);
+	yy[k] = mesh_->get_y(nodeid);
+	uu[k] = u[nodeid];  // copy initial guess or old solution into local temp
+	
+	//std::cout<<"u  "<<u[k]<<std::endl;
+
+      }//k
+      
+      // Loop Over Gauss Points
+      for(int gp=0; gp < ubasis->ngp; gp++) { 
+	
+	// Calculate the basis function at the gauss point
+	
+	ubasis->getBasis(gp, xx, yy, uu);
+	
+	// Loop over Nodes in Element
+	
+	//for (int i=0; i< n_nodes_per_elem; i++) {
+	  //nodeid = mesh_->get_node_id(blk, ne, i);
+	  //double dphidx = ubasis->dphidxi[i]*ubasis->dxidx+ubasis->dphideta[i]*ubasis->detadx;
+	  //double dphidy = ubasis->dphidxi[i]*ubasis->dxidy+ubasis->dphideta[i]*ubasis->detady;
+	  double x = ubasis->xx;
+	  double y = ubasis->yy;
+	  
+	  //double divgradu = ubasis->dudx*dphidx + ubasis->dudy*dphidy;//(grad u,grad phi)
+	  //double ut = (ubasis->uu)/dt_*ubasis->phi[i];
+	  double pi = 3.141592653589793;
+	  //double ff = 2.*ubasis->phi[i];
+	  double u_ex = sin(pi*x)*sin(2.*pi*y);	
+	  //double u_ex = -x*(x-1.);	      
+	  
+	  error  += ubasis->jac * ubasis->wt * ( ((ubasis->uu)- u_ex)*((ubasis->uu)- u_ex));
+	  //std::cout<<(ubasis->uu)<<" "<<u_ex<<" "<<(ubasis->uu)- u_ex<<std::endl;
+	  
+	  
+	  //}//i
+      }//gp
+    }//ne
+  }//blk
+  std::cout<<"num dofs  "<<mesh_->get_num_nodes()<<"  num elem  "<<mesh_->get_num_elem()<<"  error is  "<<sqrt(error)<<std::endl;
+  delete xx, yy, uu, ubasis;
+}
+
+
 #endif

@@ -16,7 +16,7 @@ modelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
 
 template<class Scalar>
 class ModelEvaluatorHEAT
-  : public ::Thyra::StateFuncModelEvaluatorBase<Scalar>
+  : public ::timestep<Scalar>, public ::Thyra::StateFuncModelEvaluatorBase<Scalar>
 {
 public:
 
@@ -57,9 +57,11 @@ public:
   Teuchos::RCP< ::Thyra::PreconditionerBase< Scalar > > create_W_prec() const;
   //@}
 
+  void init_nox();
   void initialize(){};
-  void finalize(){};
-  void advance(){};
+  void finalize();
+  void advance();
+  void compute_error( double *u);
 
 private:
 
@@ -104,6 +106,7 @@ private: // data members
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> prototypeOutArgs_;
   Teuchos::RCP<Epetra_CrsMatrix> P_;
   Teuchos::RCP<preconditioner <Scalar> > prec_;
+  Teuchos::RCP<NOX::Solver::Generic> solver_;
 
 };
 

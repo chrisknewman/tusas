@@ -53,12 +53,14 @@ int main(int argc, char *argv[])
   //string   filename                = "meshes/tri24.e"    ;
   //string   filename                = "meshes/tri96.e"    ;
   //string   filename                = "meshes/tri384.e"    ;
-  string   filename                = "meshes/quad16.e"    ;
+  //string   filename                = "meshes/quad16.e"    ;
   //string   filename                = "meshes/quad64.e"    ;
-  //string   filename                = "meshes/quad256.e"    ;
+  string   filename                = "meshes/quad256.e"    ;
+  //string   filename                = "meshes/quad1024.e"    ;
+  //string   filename                = "meshes/quad4096.e"    ;
   in_mesh->read_exodus(&filename[0]);
 
-  double dt = .01;
+  double dt = .1;
   int numSteps = 1;
 
   // Create the model evaluator object

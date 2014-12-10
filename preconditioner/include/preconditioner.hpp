@@ -55,6 +55,7 @@ public:
     ) const ;
   int Apply (const Epetra_MultiVector &X, Epetra_MultiVector &Y) const;//cn this will be virtual 
   int ReComputePreconditioner () const;
+  int ComputePreconditioner () const;
 private:
   RCP< Epetra_CrsMatrix> W_;
   RCP< const VectorSpaceBase<Scalar> > range_, domain_;

@@ -267,7 +267,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
       //f->Print(std::cout);
     }
 
-    if (nonnull(f))
+    if (nonnull(f_out))
       f->PutScalar(0.0);
     if (nonnull(W_prec_out))
       P_->PutScalar(0.0);
@@ -364,7 +364,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	}//gp
       }//ne
 
-      if (nonnull(f)) {//cn double check the use of notnull throughout
+      if (nonnull(f_out)) {//cn double check the use of notnull throughout
 	for ( int j = 0; j < mesh_->get_node_set(1).size(); j++ ){
 	  
 	  int row = mesh_->get_node_set_entry(1, j);
@@ -446,8 +446,6 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  
 	}
       
-  	//P_->Print(std::cout);
-//  	exit(0);
       }
 
     }//blk
@@ -455,8 +453,15 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
     delete xx, yy, uu;
     delete ubasis;
     
+    if (nonnull(f_out)){
+      //f->Print(std::cout);
+    }
     if (nonnull(W_prec_out)) {
       P_->FillComplete();
+      //P_->Print(std::cout);
+      //exit(0);
+      //std::cout<<" one norm P_ = "<<P_->NormOne()<<std::endl<<" inf norm P_ = "<<P_->NormInf()<<std::endl<<" fro norm P_ = "<<P_->NormFrobenius()<<std::endl;
+      //Epetra_Vector d(*f_owned_map_);P_->ExtractDiagonalCopy(d);d.Print(std::cout);	
       prec_->ReComputePreconditioner();
     }
   }	
@@ -476,7 +481,7 @@ void ModelEvaluatorHEAT<Scalar>::init_nox()
 
   Teuchos::RCP<Teuchos::ParameterList> lsparams =
     Teuchos::rcp(new Teuchos::ParameterList);
-//   lsparams->set("Linear Solver Type", "Belos");
+  //   lsparams->set("Linear Solver Type", "Belos");
 //   lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
 //   lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
   //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);

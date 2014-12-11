@@ -60,8 +60,8 @@ int main(int argc, char *argv[])
   //string   filename                = "meshes/quad4096.e"    ;
   in_mesh->read_exodus(&filename[0]);
 
-  double dt = .1;
-  int numSteps = 1;
+  double dt = .0125;
+  int numSteps = 4;
 
   // Create the model evaluator object
   timestep<double> * model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);

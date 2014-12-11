@@ -58,7 +58,7 @@ public:
   //@}
 
   void init_nox();
-  void initialize(){};
+  void initialize();
   void finalize();
   void advance();
   void compute_error( double *u);
@@ -107,6 +107,9 @@ private: // data members
   Teuchos::RCP<Epetra_CrsMatrix> P_;
   Teuchos::RCP<preconditioner <Scalar> > prec_;
   Teuchos::RCP<NOX::Solver::Generic> solver_;
+  Teuchos::RCP<Epetra_Vector> u_old_;
+
+  double time_;
 
 };
 

@@ -86,6 +86,7 @@ ModelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
   W_graph_ = createGraph();
   P_ = rcp(new Epetra_CrsMatrix(Copy,*W_graph_));
   prec_ = Teuchos::rcp(new preconditioner<Scalar>(P_, comm_));
+  u_old_ = rcp(new Epetra_Vector(*f_owned_map_));
 
   MEB::InArgsSetup<Scalar> inArgs;
   inArgs.setModelEvalDescription(this->description());
@@ -107,6 +108,7 @@ ModelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
   nominalValues_ = inArgs;
   nominalValues_.set_x(x0_);
   init_nox();
+  time_=0.;
 }
 
 // Initializers/Accessors
@@ -277,7 +279,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 
     double jac;
     double *xx, *yy;
-    double *uu;
+    double *uu, *uu_old;
     int n_nodes_per_elem;
 
     Basis *ubasis;
@@ -301,6 +303,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
       xx = new double[n_nodes_per_elem];
       yy = new double[n_nodes_per_elem];
       uu = new double[n_nodes_per_elem];
+      uu_old = new double[n_nodes_per_elem];
 
       for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
 
@@ -313,6 +316,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  //uu[k] = u[nodeid]; 
 	  uu[k] = (*u)[nodeid];  // copy initial guess 
 	                      //or old solution into local temp
+	  uu_old[k] = (*u_old_)[nodeid];
 	  
 	}//k
 	
@@ -320,7 +324,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 
 	  // Calculate the basis function at the gauss point
 
-	  ubasis->getBasis(gp, xx, yy, uu);
+	  ubasis->getBasis(gp, xx, yy, uu, uu_old);
 
 	  // Loop over Nodes in Element
 
@@ -328,16 +332,17 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	    int row = mesh_->get_node_id(blk, ne, i);
 	    double dphidx = ubasis->dphidxi[i]*ubasis->dxidx+ubasis->dphideta[i]*ubasis->detadx;
 	    double dphidy = ubasis->dphidxi[i]*ubasis->dxidy+ubasis->dphideta[i]*ubasis->detady;
-	    if (nonnull(f)) {//cn f_out?
+	    if (nonnull(f_out)) {
 	      double x = ubasis->xx;
 	      double y = ubasis->yy;
 	      
 	      double divgradu = ubasis->dudx*dphidx + ubasis->dudy*dphidy;//(grad u,grad phi)
-	      double ut = (ubasis->uu)/dt_*ubasis->phi[i];
-	      double pi = 3.141592653589793;
+	      double ut = (ubasis->uu-ubasis->uuold)/dt_*ubasis->phi[i];
+	      //double pi = 3.141592653589793;
 	      //double ff = 2.*ubasis->phi[i];
-	      double ff = ((1. + 5.*dt_*pi*pi)*sin(pi*x)*sin(2.*pi*y)/dt_)*ubasis->phi[i];	      
-	      double val = ubasis->jac * ubasis->wt * (ut + divgradu - ff);
+	      //double ff = ((1. + 5.*dt_*pi*pi)*sin(pi*x)*sin(2.*pi*y)/dt_)*ubasis->phi[i];	      
+	      //double val = ubasis->jac * ubasis->wt * (ut + divgradu - ff);	      
+	      double val = ubasis->jac * ubasis->wt * (ut + divgradu);
 	      //(*f)[row]  += val;
 	      //std::cout<<"row = "<<row<<std::endl;
 	      //std::cout<<"gp = "<<gp<<std::endl;
@@ -538,8 +543,8 @@ void ModelEvaluatorHEAT<Scalar>::init_nox()
 
 
 
-  bool precon = true;
-  //bool precon = false;
+  //bool precon = true;
+  bool precon = false;
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
   if(precon){
     nox_group =
@@ -598,24 +603,60 @@ void ModelEvaluatorHEAT<Scalar>::init_nox()
   // Create the solver
   solver_ =  NOX::Solver::buildSolver(nox_group, combo, nl_params);
 }
+
+
 template<class Scalar>
 void ModelEvaluatorHEAT<Scalar>::advance()
 {
+  Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
+  NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
+  solver_->reset(thyraguess);
+
   NOX::StatusTest::StatusType solvStatus = solver_->solve();
+  if( !(NOX::StatusTest::Converged == solvStatus)) {
+    std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
+    exit(0);
+  }
+  
+  const Thyra::VectorBase<double> * sol = 
+    &(dynamic_cast<const NOX::Thyra::Vector&>(
+					      solver_->getSolutionGroup().getX()
+					      ).getThyraVector()
+      );
+  //u_old_ = get_Epetra_Vector (*f_owned_map_,Teuchos::rcp_const_cast< ::Thyra::VectorBase< double > >(Teuchos::rcpFromRef(*sol))	);
+
+  Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+    (*u_old_)[nn]=x_vec[nn];
+  }
+  //u_old_->Print(std::cout);
+  time_ +=dt_;
 }
+
+template<class Scalar>
+void ModelEvaluatorHEAT<Scalar>::initialize()
+{
+  double pi = 3.141592653589793;
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+    double x = mesh_->get_x(nn);
+    double y = mesh_->get_y(nn);
+    (*u_old_)[nn]=sin(pi*x)*sin(pi*y);
+    //std::cout<<nn<<" "<<x<<" "<<y<<std::endl;
+  }
+  //exit(0);
+}
+
 template<class Scalar>
 void ModelEvaluatorHEAT<Scalar>::finalize()
 {
-  const Thyra::VectorBase<double> * sol = &((dynamic_cast<const NOX::Thyra::Vector&>(solver_->getSolutionGroup().getX()).getThyraVector()));
-
-  //double norm = 0.;  
-
-  Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
   double outputdata[mesh_->get_num_nodes()];
   for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
-    outputdata[nn]=x_vec[nn];
-    //cout<<nn<<" "<<x_vec[nn]<<" "<<endl;
+    outputdata[nn]=(*u_old_)[nn];
+    //std::cout<<nn<<" "<<outputdata[nn]<<" "<<std::endl;
   }
+
+
   //cout<<"norm = "<<sqrt(norm)<<endl;
   const char *outfilename = "results.e";
   mesh_->add_nodal_data("u", outputdata);
@@ -690,7 +731,7 @@ void ModelEvaluatorHEAT<Scalar>::compute_error( double *u)
 	  //double ut = (ubasis->uu)/dt_*ubasis->phi[i];
 	  double pi = 3.141592653589793;
 	  //double ff = 2.*ubasis->phi[i];
-	  double u_ex = sin(pi*x)*sin(2.*pi*y);	
+	  double u_ex = sin(pi*x)*sin(pi*y)*exp(-2.*pi*pi*time_);	
 	  //double u_ex = -x*(x-1.);	      
 	  
 	  error  += ubasis->jac * ubasis->wt * ( ((ubasis->uu)- u_ex)*((ubasis->uu)- u_ex));

@@ -627,7 +627,7 @@ void ModelEvaluatorHEAT<Scalar>::advance()
 
   Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
 
-  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {//cn figure out a better way here...
     (*u_old_)[nn]=x_vec[nn];
   }
   //u_old_->Print(std::cout);

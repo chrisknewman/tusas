@@ -31,6 +31,7 @@
 
 #include "ModelEvaluatorHEAT.hpp"
 #include "ModelEvaluatorPHASE_HEAT.hpp"
+#include "ModelEvaluatorPHASE_HEAT_Exp.hpp"
 
 #include "Mesh.h"
 
@@ -64,12 +65,17 @@ int main(int argc, char *argv[])
   //string   filename                = "meshes/dendquad600.e"    ;
   in_mesh->read_exodus(&filename[0]);
 
-  double dt = .001;
-  int numSteps = 140;
+  //we want end dt = .14 here; dt=.001   for dendquad300.e and ModelEvaluatorPHASE_HEAT
+  //                           dt=.0001  for dendquad600.e and ModelEvaluatorPHASE_HEAT
+  //                           dt=.00001 for dendquad600.e and ModelEvaluatorPHASE_HEAT_Exp
+  double dt = .0001;
+  //int numSteps = 14000;
+  int numSteps = 14;
 
   // Create the model evaluator object
   //timestep<double> * model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
   timestep<double> * model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
+  //timestep<double> * model = new ModelEvaluatorPHASE_HEAT_Exp<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
   
   double curTime = 0.0; 
   double endTime = (float)numSteps*dt;

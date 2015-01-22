@@ -1,29 +1,29 @@
-#ifndef NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_DECL_HPP
-#define NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_DECL_HPP
+#ifndef NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_Exp_DECL_HPP
+#define NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_Exp_DECL_HPP
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 
 #include "Mesh.h"
 #include "preconditioner.hpp"
 #include "timestep.hpp"
-template<class Scalar> class ModelEvaluatorPHASE_HEAT;
+template<class Scalar> class ModelEvaluatorPHASE_HEAT_Exp;
 
 template<class Scalar>
-Teuchos::RCP<ModelEvaluatorPHASE_HEAT<Scalar> >
-modelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
+Teuchos::RCP<ModelEvaluatorPHASE_HEAT_Exp<Scalar> >
+modelEvaluatorPHASE_HEAT_Exp(const Teuchos::RCP<const Epetra_Comm>& comm,
             Mesh &mesh,
             const Scalar dt);
 
 template<class Scalar>
-class ModelEvaluatorPHASE_HEAT
+class ModelEvaluatorPHASE_HEAT_Exp
   : public ::timestep<Scalar>, public ::Thyra::StateFuncModelEvaluatorBase<Scalar>
 {
 public:
 
-  ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
+  ModelEvaluatorPHASE_HEAT_Exp(const Teuchos::RCP<const Epetra_Comm>& comm,
               Mesh *mesh,
               const Scalar dt);
-  ~ModelEvaluatorPHASE_HEAT();
+  ~ModelEvaluatorPHASE_HEAT_Exp();
 
   /** \name Initializers/Accessors */
   //@{
@@ -129,7 +129,7 @@ private: // data members
 
 
 //==================================================================
-#include "ModelEvaluatorPHASE_HEAT_def.hpp"
+#include "ModelEvaluatorPHASE_HEAT_Exp_def.hpp"
 //==================================================================
 
 #endif

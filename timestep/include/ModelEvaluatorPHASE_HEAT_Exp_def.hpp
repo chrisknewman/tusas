@@ -1,5 +1,5 @@
-#ifndef NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_DEF_HPP
-#define NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_DEF_HPP
+#ifndef NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_Exp_DEF_HPP
+#define NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_Exp_DEF_HPP
 
 // Thyra support
 #include "Thyra_DefaultSpmdVectorSpace.hpp"
@@ -37,19 +37,19 @@
 // Nonmember constuctors
 
 template<class Scalar>
-Teuchos::RCP<ModelEvaluatorHEAT<Scalar> >
-modelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
+Teuchos::RCP<ModelEvaluatorPHASE_HEAT_Exp<Scalar> >
+modelEvaluatorPHASE_HEAT_Exp(const Teuchos::RCP<const Epetra_Comm>& comm,
             Mesh *mesh,
             const Scalar dt)
 {
-  return Teuchos::rcp(new ModelEvaluatorPHASE_HEAT<Scalar>(comm,mesh,dt));
+  return Teuchos::rcp(new ModelEvaluatorPHASE_HEAT_Exp<Scalar>(comm,mesh,dt));
 }
 
 // Constructor
 
 template<class Scalar>
-ModelEvaluatorPHASE_HEAT<Scalar>::
-ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::
+ModelEvaluatorPHASE_HEAT_Exp(const Teuchos::RCP<const Epetra_Comm>& comm,
             Mesh *mesh,
             const Scalar dt) :
   comm_(comm),
@@ -138,7 +138,7 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
 
 template<class Scalar>
 Teuchos::RCP<Epetra_CrsGraph>
-ModelEvaluatorPHASE_HEAT<Scalar>::createGraph()
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::createGraph()
 {
   Teuchos::RCP<Epetra_CrsGraph> W_graph;
 
@@ -173,7 +173,7 @@ ModelEvaluatorPHASE_HEAT<Scalar>::createGraph()
 }
 
 template<class Scalar>
-void ModelEvaluatorPHASE_HEAT<Scalar>::set_x0(const Teuchos::ArrayView<const Scalar> &x0_in)
+void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::set_x0(const Teuchos::ArrayView<const Scalar> &x0_in)
 {
 #ifdef TEUCHOS_DEBUG
   TEUCHOS_ASSERT_EQUALITY(x_space_->dim(), x0_in.size());
@@ -184,13 +184,13 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::set_x0(const Teuchos::ArrayView<const Sca
 
 
 template<class Scalar>
-void ModelEvaluatorPHASE_HEAT<Scalar>::setShowGetInvalidArgs(bool showGetInvalidArg)
+void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::setShowGetInvalidArgs(bool showGetInvalidArg)
 {
   showGetInvalidArg_ = showGetInvalidArg;
 }
 
 template<class Scalar>
-void ModelEvaluatorPHASE_HEAT<Scalar>::
+void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::
 set_W_factory(const Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> >& W_factory)
 {
   W_factory_ = W_factory;
@@ -201,7 +201,7 @@ set_W_factory(const Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Sca
 
 template<class Scalar>
 Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> >
-ModelEvaluatorPHASE_HEAT<Scalar>::get_x_space() const
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::get_x_space() const
 {
   return x_space_;
 }
@@ -209,7 +209,7 @@ ModelEvaluatorPHASE_HEAT<Scalar>::get_x_space() const
 
 template<class Scalar>
 Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> >
-ModelEvaluatorPHASE_HEAT<Scalar>::get_f_space() const
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::get_f_space() const
 {
   return f_space_;
 }
@@ -217,7 +217,7 @@ ModelEvaluatorPHASE_HEAT<Scalar>::get_f_space() const
 
 template<class Scalar>
 Thyra::ModelEvaluatorBase::InArgs<Scalar>
-ModelEvaluatorPHASE_HEAT<Scalar>::getNominalValues() const
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::getNominalValues() const
 {
   return nominalValues_;
 }
@@ -225,7 +225,7 @@ ModelEvaluatorPHASE_HEAT<Scalar>::getNominalValues() const
 
 template<class Scalar>
 Teuchos::RCP<Thyra::LinearOpBase<Scalar> >
-ModelEvaluatorPHASE_HEAT<Scalar>::create_W_op() const
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::create_W_op() const
 {
   Teuchos::RCP<Epetra_CrsMatrix> W_epetra =
     Teuchos::rcp(new Epetra_CrsMatrix(::Copy,*W_graph_));
@@ -235,7 +235,7 @@ ModelEvaluatorPHASE_HEAT<Scalar>::create_W_op() const
 
 template<class Scalar>
 Teuchos::RCP< ::Thyra::PreconditionerBase<Scalar> >
-ModelEvaluatorPHASE_HEAT<Scalar>::create_W_prec() const
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::create_W_prec() const
 {
 
   const Teuchos::RCP<Thyra::LinearOpBase< Scalar > > P_op = prec_;
@@ -249,7 +249,7 @@ ModelEvaluatorPHASE_HEAT<Scalar>::create_W_prec() const
 
 template<class Scalar>
 Teuchos::RCP<const Thyra::LinearOpWithSolveFactoryBase<Scalar> >
-ModelEvaluatorPHASE_HEAT<Scalar>::get_W_factory() const
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::get_W_factory() const
 {
   return W_factory_;
 }
@@ -257,7 +257,7 @@ ModelEvaluatorPHASE_HEAT<Scalar>::get_W_factory() const
 
 template<class Scalar>
 Thyra::ModelEvaluatorBase::InArgs<Scalar>
-ModelEvaluatorPHASE_HEAT<Scalar>::createInArgs() const
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::createInArgs() const
 {
   return prototypeInArgs_;
 }
@@ -268,14 +268,14 @@ ModelEvaluatorPHASE_HEAT<Scalar>::createInArgs() const
 
 template<class Scalar>
 Thyra::ModelEvaluatorBase::OutArgs<Scalar>
-ModelEvaluatorPHASE_HEAT<Scalar>::createOutArgsImpl() const
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::createOutArgsImpl() const
 {
   return prototypeOutArgs_;
 }
 
 
 template<class Scalar>
-void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
+void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::evalModelImpl(
   const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
   const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
   ) const
@@ -391,27 +391,27 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	      //double y = ubasis->yy;
 	      double delta = dx;	      
 
-	      double divgradu = K_*ubasis->dudx*dphidx + K_*ubasis->dudy*dphidy;//(grad u,grad phi)
+	      double divgradu = K_*ubasis->duolddx*dphidx + K_*ubasis->duolddy*dphidy;//(grad u,grad phi)
 	      double ut = (ubasis->uu-ubasis->uuold)/dt_*ubasis->phi[i];
 	      double phitu = -(phibasis->uu-phibasis->uuold)/dt_*ubasis->phi[i];     
 	      double val = ubasis->jac * ubasis->wt * (ut + divgradu + phitu);
 	      f->SumIntoGlobalValues ((int) 1, &val, &row);
 
-	      double dphiphidx = phibasis->dudx;
-	      double dphiphidy = phibasis->dudy;
+	      double dphiphidx = phibasis->duolddx;
+	      double dphiphidy = phibasis->duolddy;
 
 	      double theta_ = theta(dphiphidx,dphiphidy);
 	      double gs2_ = gs2(theta_);
 
-	      double divgradphi = gs2_*phibasis->dudx*dphidx + gs2_*phibasis->dudy*dphidy;//(grad u,grad phi)
+	      double divgradphi = gs2_*phibasis->duolddx*dphidx + gs2_*phibasis->duolddy*dphidy;//(grad u,grad phi)
 	      double phit = gs2_*(phibasis->uu-phibasis->uuold)/dt_*phibasis->phi[i];
 	      double dg2 = dgs2_2dtheta(theta_);
-	      double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);
+	      double curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy);
 
-	      double phidel2 = phibasis->uu*(1.-phibasis->uu)*(1.-2.*phibasis->uu)/delta/delta*phibasis->phi[i];
+	      double phidel2 = phibasis->uuold*(1.-phibasis->uuold)*(1.-2.*phibasis->uuold)/delta/delta*phibasis->phi[i];
 
-	      double phidel = -5.*alpha_*(T_m_ - ubasis->uu)
-		*phibasis->uu*phibasis->uu*(1.-phibasis->uu)*(1.-phibasis->uu)/delta*phibasis->phi[i];
+	      double phidel = -5.*alpha_*(T_m_ - ubasis->uuold)
+		*phibasis->uuold*phibasis->uuold*(1.-phibasis->uuold)*(1.-phibasis->uuold)/delta*phibasis->phi[i];
 
 	      val = phibasis->jac * phibasis->wt * (phit + divgradphi + curlgrad + phidel2 + phidel);
 	      int row1 = row+1;
@@ -420,9 +420,6 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 
 
 	    // Loop over Trial Functions
-
-
-	    //cn add the phitu term here
 	    if (nonnull(W_prec_out)) {
 	      for(int j=0;j < n_nodes_per_elem; j++) {
 		int column = numeqs_*(mesh_->get_node_id(blk, ne, j));
@@ -430,7 +427,8 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 		double dtestdy = K_*ubasis->dphidxi[j]*ubasis->dxidy+K_*ubasis->dphideta[j]*ubasis->detady;
 		double divgrad = dtestdx * dphidx + dtestdy * dphidy;
 		double phi_t = ubasis->phi[i] * ubasis->phi[j]/dt_;
-		double jac = ubasis->jac*ubasis->wt*(phi_t + divgrad);
+		//double jac = ubasis->jac*ubasis->wt*(phi_t + divgrad);
+		double jac = ubasis->jac*ubasis->wt*phi_t;
 		//std::cout<<row<<" "<<column<<" "<<jac<<std::endl;
 		P_->SumIntoGlobalValues(row, 1, &jac, &column);
 
@@ -445,7 +443,8 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 		dtestdy = phibasis->dphidxi[j]*phibasis->dxidy+phibasis->dphideta[j]*phibasis->detady;
 		divgrad = gs2_*dtestdx * dphidx + gs2_*dtestdy * dphidy;
 		phi_t = gs2_*phibasis->phi[i] * phibasis->phi[j]/dt_;
-		jac = phibasis->jac*phibasis->wt*(phi_t + divgrad);
+		//jac = phibasis->jac*phibasis->wt*(phi_t + divgrad);
+		jac = phibasis->jac*phibasis->wt*phi_t;
 		P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
 	      }//j
 	    }
@@ -497,7 +496,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	}
 	
       }
-
+      
       if (nonnull(W_prec_out)) {
 	int ns_id = 0;
 	for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
@@ -636,12 +635,12 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 //====================================================================
 
 template<class Scalar>
-ModelEvaluatorPHASE_HEAT<Scalar>::~ModelEvaluatorPHASE_HEAT()
+ModelEvaluatorPHASE_HEAT_Exp<Scalar>::~ModelEvaluatorPHASE_HEAT_Exp()
 {
   //  if(!prec_.is_null()) prec_ = Teuchos::null;
 }
 template<class Scalar>
-void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
+void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::init_nox()
 {
   ::Stratimikos::DefaultLinearSolverBuilder builder;
 
@@ -704,8 +703,8 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
 
 
 
-  bool precon = true;
-  //bool precon = false;
+  //bool precon = true;
+  bool precon = false;
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
   if(precon){
     nox_group =
@@ -767,7 +766,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
 
 
 template<class Scalar>
-void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
+void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::advance()
 {
   Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
@@ -799,7 +798,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
 }
 
 template<class Scalar>
-void ModelEvaluatorPHASE_HEAT<Scalar>::initialize()
+void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::initialize()
 {
   //double pi = 3.141592653589793;
   for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
@@ -823,7 +822,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::initialize()
 }
 
 template<class Scalar>
-void ModelEvaluatorPHASE_HEAT<Scalar>::finalize()
+void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::finalize()
 {
   double outputu[mesh_->get_num_nodes()];
   double outputphi[mesh_->get_num_nodes()];
@@ -849,7 +848,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::finalize()
 }
 
 template<class Scalar>
-void ModelEvaluatorPHASE_HEAT<Scalar>::compute_error( double *u)
+void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::compute_error( double *u)
 {
   double error = 0.;
   double jac;
@@ -930,31 +929,31 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::compute_error( double *u)
   delete xx, yy, uu, ubasis;
 }
 template<class Scalar>
-const double ModelEvaluatorPHASE_HEAT<Scalar>::gs( const double &theta)
+const double ModelEvaluatorPHASE_HEAT_Exp<Scalar>::gs( const double &theta)
 {
   return 1. + eps_ * (M_*cos(theta));
 }
 template<class Scalar>
-double ModelEvaluatorPHASE_HEAT<Scalar>::gs2( const double &theta) const
+double ModelEvaluatorPHASE_HEAT_Exp<Scalar>::gs2( const double &theta) const
 { 
   //double g = 1. + eps_ * (M_*cos(theta));
   double g = 1. + eps_ * (cos(M_*theta));
   return g*g;
 }
 template<class Scalar>
-double ModelEvaluatorPHASE_HEAT<Scalar>::dgs2_2dtheta(const double &theta) const
+double ModelEvaluatorPHASE_HEAT_Exp<Scalar>::dgs2_2dtheta(const double &theta) const
 {
   //return -1.*(eps_*M_*(1. + eps_*M_*cos(theta))*sin(theta));
   return -1.*(eps_*M_*(1. + eps_*cos(M_*theta))*sin(M_*theta));
 }
 template<class Scalar>
-const double ModelEvaluatorPHASE_HEAT<Scalar>::R(const double &theta)
+const double ModelEvaluatorPHASE_HEAT_Exp<Scalar>::R(const double &theta)
 {
   return .3*(1. + eps_ * cos(M_*theta));
 }
 
 template<class Scalar>
-double ModelEvaluatorPHASE_HEAT<Scalar>::theta(double &x,double &y) const
+double ModelEvaluatorPHASE_HEAT_Exp<Scalar>::theta(double &x,double &y) const
 {
   double small = 1e-9;
   double pi = 3.141592653589793;

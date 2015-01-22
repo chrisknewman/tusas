@@ -68,14 +68,14 @@ int main(int argc, char *argv[])
   //we want end dt = .14 here; dt=.001   for dendquad300.e and ModelEvaluatorPHASE_HEAT
   //                           dt=.0001  for dendquad600.e and ModelEvaluatorPHASE_HEAT
   //                           dt=.00001 for dendquad600.e and ModelEvaluatorPHASE_HEAT_Exp
-  double dt = .0001;
+  double dt = .00001;
   //int numSteps = 14000;
-  int numSteps = 14;
+  int numSteps = 140;
 
   // Create the model evaluator object
   //timestep<double> * model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
-  timestep<double> * model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
-  //timestep<double> * model = new ModelEvaluatorPHASE_HEAT_Exp<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
+  //timestep<double> * model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
+  timestep<double> * model = new ModelEvaluatorPHASE_HEAT_Exp<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
   
   double curTime = 0.0; 
   double endTime = (float)numSteps*dt;

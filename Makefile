@@ -10,7 +10,7 @@ include $(TRILINOS_INSTALL_DIR)/include/Makefile.export.Trilinos
 LDFLAGS = -L$(TRILINOS_INSTALL_DIR)/lib
 LDFLAGS += $(Trilinos_LIBRARIES) $(Trilinos_TPL_LIBRARIES)
 INCFLAGS = -I. -I$(TRILINOS_INSTALL_DIR)/include -I./mesh/include -I./basis/include \
-	-I./preconditioner/include -I./timestep/include
+	-I./preconditioner/include -I./timestep/include -I./input/include
 
 #INCFLAGS += -I$(TRILINOS_INSTALL_DIR)/packages/kokkos/classic/LinAlg
 #INCFLAGS += -I$(TRILINOS_INSTALL_DIR)/packages/kokkos/classic/NodeAPI

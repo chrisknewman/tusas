@@ -453,6 +453,7 @@ void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::evalModelImpl(
 	}//gp
       }//ne
 #if 0
+      //cn we should have a bc class that takes care of this
       if (nonnull(f_out)) {//cn double check the use of notnull throughout
 	for ( int j = 0; j < mesh_->get_node_set(1).size(); j++ ){
 	  
@@ -800,6 +801,10 @@ void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::advance()
 template<class Scalar>
 void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::initialize()
 {
+
+  //cn we need an ic class that takes care of this
+
+
   //double pi = 3.141592653589793;
   for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
     double x = mesh_->get_x(nn);

@@ -61,21 +61,23 @@ int main(int argc, char *argv[])
   //string   filename                = "meshes/quad256.e"    ;
   //string   filename                = "meshes/quad1024.e"    ;
   //string   filename                = "meshes/quad4096.e"    ;
-  string   filename                = "meshes/dendquad300.e"    ;
+  //string   filename                = "meshes/dendquad300.e"    ;
+  //string   filename                = "meshes/dendquad300_h.e"    ;
+  string   filename                = "meshes/dendquad300_q.e"    ;
   //string   filename                = "meshes/dendquad600.e"    ;
   in_mesh->read_exodus(&filename[0]);
 
   //we want end dt = .14 here; dt=.001   for dendquad300.e and ModelEvaluatorPHASE_HEAT
   //                           dt=.0001  for dendquad600.e and ModelEvaluatorPHASE_HEAT
-  //                           dt=.00001 for dendquad600.e and ModelEvaluatorPHASE_HEAT_Exp
-  double dt = .00001;
-  //int numSteps = 14000;
-  int numSteps = 140;
-
+  //                           dt=.00001 for dendquad300.e and ModelEvaluatorPHASE_HEAT_Exp
+  //                           dt=.000001 for dendquad600.e and ModelEvaluatorPHASE_HEAT_Exp
   // Create the model evaluator object
-  //timestep<double> * model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
-  //timestep<double> * model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
-  timestep<double> * model = new ModelEvaluatorPHASE_HEAT_Exp<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
+  double dt = .001;
+  int numSteps = 140;
+  timestep<double> * model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
+  //double dt = .000001;
+  //int numSteps = 140000;
+  //timestep<double> * model = new ModelEvaluatorPHASE_HEAT_Exp<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
   
   double curTime = 0.0; 
   double endTime = (float)numSteps*dt;

@@ -1,7 +1,8 @@
 #ifndef NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_DECL_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_DECL_HPP
 
-#include "Thyra_StateFuncModelEvaluatorBase.hpp"
+#include "Thyra_StateFuncModelEvaluatorBase.hpp"	
+#include "Teuchos_ParameterList.hpp"
 
 #include "Mesh.h"
 #include "preconditioner.hpp"
@@ -11,8 +12,9 @@ template<class Scalar> class ModelEvaluatorPHASE_HEAT;
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorPHASE_HEAT<Scalar> >
 modelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
-            Mesh &mesh,
-            const Scalar dt);
+			 Mesh &mesh,
+			 Teuchos::ParameterList plist 
+			 );
 
 template<class Scalar>
 class ModelEvaluatorPHASE_HEAT
@@ -21,8 +23,9 @@ class ModelEvaluatorPHASE_HEAT
 public:
 
   ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
-              Mesh *mesh,
-              const Scalar dt);
+			   Mesh *mesh,
+			   Teuchos::ParameterList plist 
+			   );
   ~ModelEvaluatorPHASE_HEAT();
 
   /** \name Initializers/Accessors */
@@ -87,7 +90,8 @@ private: // data members
 
   Mesh *mesh_;
 
-  const Scalar  dt_;
+  //const Scalar  dt_;
+  double dt_;
 
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > x_space_;
   Teuchos::RCP<const Epetra_Map>   x_owned_map_;
@@ -122,8 +126,7 @@ private: // data members
   const double R(const double &theta);
   double theta(double &x,double &y) const;
 
-
-
+  Teuchos::ParameterList paramList;
 };
 
 

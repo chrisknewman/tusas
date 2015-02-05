@@ -1,15 +1,15 @@
 include $(TRILINOS_INSTALL_DIR)/include/Makefile.export.Trilinos
 
 CXX=$(Trilinos_CXX_COMPILER)
-CXX_FLAGS=$(Trilinos_CXX_COMPILER_FLAGS) -O1
+CXX_FLAGS=$(Trilinos_CXX_COMPILER_FLAGS)
 INCFLAGS = -I$(TRILINOS_INSTALL_DIR)/include -I./include 
 
-Mesh.o:Mesh.C ./include/Mesh.h
-	$(CXX) $(CXX_FLAGS) $(INCFLAGS) -c Mesh.C -o Mesh.o $(LDFLAGS)
+ReadInput.o:ReadInput.cpp
+	$(CXX) $(CXX_FLAGS) $(INCFLAGS) -c ReadInput.cpp -o ReadInput.o $(LDFLAGS)
 
 .PHONY: clean distclean
 clean:
-	rm -f *.o  
+	rm -f *.o
 
 distclean:clean
 	rm -f *~ ./include/*~

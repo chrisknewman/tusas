@@ -15,10 +15,10 @@ INCFLAGS = -I. -I$(TRILINOS_INSTALL_DIR)/include -I./mesh/include -I./basis/incl
 #INCFLAGS += -I$(TRILINOS_INSTALL_DIR)/packages/kokkos/classic/LinAlg
 #INCFLAGS += -I$(TRILINOS_INSTALL_DIR)/packages/kokkos/classic/NodeAPI
 CXX=$(Trilinos_CXX_COMPILER)
-CXX_FLAGS=$(Trilinos_CXX_COMPILER_FLAGS)
+CXX_FLAGS=$(Trilinos_CXX_COMPILER_FLAGS) -O1
 
-all:	tusas.cpp basis/basis.o mesh/Mesh.o
-	$(CXX) $(CXX_FLAGS) $(INCFLAGS) tusas.cpp basis/basis.o mesh/Mesh.o -o tusas.x $(LDFLAGS)
+all:	tusas.cpp basis/basis.o mesh/Mesh.o input/ReadInput.o
+	$(CXX) $(CXX_FLAGS) $(INCFLAGS) tusas.cpp basis/basis.o mesh/Mesh.o input/ReadInput.o -o tusas.x $(LDFLAGS)
 
 timestep/timestep.o:
 	cd timestep && $(MAKE)
@@ -29,6 +29,9 @@ basis/basis.o:
 mesh/Mesh.o:
 	cd mesh && $(MAKE)
 
+input/ReadInput.o:
+	cd input && $(MAKE)
+
 .PHONY: clean distclean
 clean:
 	rm -rf *.o *.x *.dSYM
@@ -36,6 +39,7 @@ clean:
 	cd mesh && $(MAKE) clean
 	cd preconditioner && $(MAKE) clean
 	cd timestep && $(MAKE) clean
+	cd input && $(MAKE) clean
 
 distclean:clean
 	rm -rf *~
@@ -43,3 +47,4 @@ distclean:clean
 	cd mesh && $(MAKE) distclean
 	cd preconditioner && $(MAKE) distclean
 	cd timestep && $(MAKE) distclean
+	cd input && $(MAKE) distclean

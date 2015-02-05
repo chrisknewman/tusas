@@ -27,22 +27,25 @@
 #include "Epetra_CrsMatrix.h"
 
 //teuchos support
-#include <Teuchos_RCP.hpp>
+#include <Teuchos_RCP.hpp>	
+#include "Teuchos_ParameterList.hpp"
 
 // local support
 #include "preconditioner.hpp"
 #include "basis.hpp"
+#include "ParamNames.h"
 
 #include <iomanip>
 // Nonmember constuctors
 
 template<class Scalar>
-Teuchos::RCP<ModelEvaluatorHEAT<Scalar> >
+Teuchos::RCP<ModelEvaluatorPHASE_HEAT<Scalar> >
 modelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
-            Mesh *mesh,
-            const Scalar dt)
+			 Mesh *mesh,
+			 Teuchos::ParameterList plist
+			 )
 {
-  return Teuchos::rcp(new ModelEvaluatorPHASE_HEAT<Scalar>(comm,mesh,dt));
+  return Teuchos::rcp(new ModelEvaluatorPHASE_HEAT<Scalar>(comm,mesh,plist));
 }
 
 // Constructor
@@ -50,13 +53,16 @@ modelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
 template<class Scalar>
 ModelEvaluatorPHASE_HEAT<Scalar>::
 ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
-            Mesh *mesh,
-            const Scalar dt) :
+			 Mesh *mesh,
+			 Teuchos::ParameterList plist 
+			 ) :
   comm_(comm),
-  dt_(dt),
+  paramList(plist),
   mesh_(mesh),
   showGetInvalidArg_(false)
 {
+  dt_ = paramList.get<double> (TusasdtNameString);
+  //dt_= .001;
   numeqs_ = 2;
   using Teuchos::RCP;
   using Teuchos::rcp;

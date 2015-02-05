@@ -82,3 +82,8 @@ int preconditioner<Scalar>::ComputePreconditioner () const
   int err = MLPrec_->ComputePreconditioner();
   return err;
 };
+template<class Scalar>
+preconditioner<Scalar>::~preconditioner ()
+{
+  delete MLPrec_;
+};

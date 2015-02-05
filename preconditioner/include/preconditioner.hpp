@@ -33,6 +33,7 @@ public:
 
 
   preconditioner(const RCP<Epetra_CrsMatrix>& W,const Teuchos::RCP<const Epetra_Comm>&  comm );
+  ~preconditioner();
 
   RCP< const VectorSpaceBase<Scalar> > range() const{//cn could be ModelEvalaluator::get_f_space()
     //std::cout<<"range()"<<std::endl;

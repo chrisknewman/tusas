@@ -850,6 +850,7 @@ void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::finalize()
   //mesh_->add_nodal_data("dphidt", outputdphidt);
   mesh_->write_exodus(outfilename);
   //compute_error(&outputu[0]);
+
 }
 
 template<class Scalar>

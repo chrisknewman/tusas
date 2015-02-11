@@ -24,5 +24,6 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   //paramList.set(TusasmeshNameString,"meshes/dendquad300_h.e",TusasmeshDocString);
   paramList.set(TusasdtNameString,(double).001,TusasdtDocString);
   paramList.set(TusasntNameString,(int)140,TusasntDocString);
+  //paramList.set(TusasntNameString,(int)1,TusasntDocString);
   //std::cout<<paramList<<std::endl<<std::endl;
 };

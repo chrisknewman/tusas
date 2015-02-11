@@ -99,5 +99,6 @@ int main(int argc, char *argv[])
   model->finalize();
   
   delete in_mesh;
+  delete model;
   Teuchos::TimeMonitor::summarize();
 }

@@ -29,7 +29,7 @@ class Basis {
   double xi, eta, zta, wt, jac;
   double dxidx, dxidy,dxidz, detadx, detady, detadz, dztadx, dztady, dztadz;
   double uu, xx, yy, zz, dudx, dudy, dudz;
-  double uuold, duolddx, duolddy;
+  double uuold, duolddx, duolddy, duolddz;
   double * dphidx;
   double * dphidy;
 };

@@ -159,9 +159,11 @@ void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) 
   uu=0.0;
   dudx=0.0;
   dudy=0.0;
+  dudz=0.0;
   uuold = 0.;
   duolddx = 0.;
   duolddy = 0.;
+  duolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < N; i++) {
     xx += x[i] * phi[i];
@@ -339,8 +341,10 @@ void BasisLQuad::getBasis(int gp, double *x, double *y, double *u, double *uold)
   uuold=0.0;
   dudx=0.0;
   dudy=0.0;
+  dudz=0.0;
   duolddx = 0.;
   duolddy = 0.;
+  duolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < 4; i++) {
     xx += x[i] * phi[i];

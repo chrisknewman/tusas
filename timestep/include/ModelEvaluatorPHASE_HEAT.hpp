@@ -124,7 +124,7 @@ private: // data members
   double gs2(const double &theta) const;
   double dgs2_2dtheta(const double &theta) const;
   const double R(const double &theta);
-  double theta(double &x,double &y) const;
+  double theta(double &x,double &y,double &z) const;
 
   Teuchos::ParameterList paramList;
 };

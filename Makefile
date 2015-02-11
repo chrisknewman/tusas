@@ -15,7 +15,7 @@ INCFLAGS = -I. -I$(TRILINOS_INSTALL_DIR)/include -I./mesh/include -I./basis/incl
 #INCFLAGS += -I$(TRILINOS_INSTALL_DIR)/packages/kokkos/classic/LinAlg
 #INCFLAGS += -I$(TRILINOS_INSTALL_DIR)/packages/kokkos/classic/NodeAPI
 CXX=$(Trilinos_CXX_COMPILER)
-CXX_FLAGS=$(Trilinos_CXX_COMPILER_FLAGS) -O1
+CXX_FLAGS=$(Trilinos_CXX_COMPILER_FLAGS)
 
 all:	tusas.cpp basis/basis.o mesh/Mesh.o input/ReadInput.o
 	$(CXX) $(CXX_FLAGS) $(INCFLAGS) tusas.cpp basis/basis.o mesh/Mesh.o input/ReadInput.o -o tusas.x $(LDFLAGS)

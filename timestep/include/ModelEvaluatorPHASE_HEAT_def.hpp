@@ -117,7 +117,6 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   nominalValues_ = inArgs;
   nominalValues_.set_x(x0_);
-  init_nox();
   time_=0.;
 
   K_ = 4.;
@@ -126,6 +125,7 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
   alpha_ = 191.82;
   eps_ = .05;
   M_= 4.;
+  init_nox();
 #if 0
   double pi = 3.141592653589793;
   std::cout<<"1  0    "<<theta(1.,0.)<<"  "<<0<<std::endl;
@@ -405,8 +405,10 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 
 	      double dphiphidx = phibasis->dudx;
 	      double dphiphidy = phibasis->dudy;
-
-	      double theta_ = theta(dphiphidx,dphiphidy);
+	      double dphiphidz = phibasis->dudz;
+	      if(abs(dphiphidz) > .0000001) exit(0);
+	      dphiphidz=0.;
+	      double theta_ = theta(dphiphidx,dphiphidy,dphiphidz);
 	      double gs2_ = gs2(theta_);
 
 	      double divgradphi = gs2_*phibasis->dudx*dphidx + gs2_*phibasis->dudy*dphidy;//(grad u,grad phi)
@@ -444,8 +446,10 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 		int column1 = column+1;
 		double dphiphidx = phibasis->dudx;
 		double dphiphidy = phibasis->dudy;
-		
-		double theta_ = theta(dphiphidx,dphiphidy);
+		double dphiphidz = phibasis->dudz;
+		if(abs(dphiphidz) > .0000001) exit(0);
+		dphiphidz=0.;
+		double theta_ = theta(dphiphidx,dphiphidy,dphiphidz);
 		double gs2_ = gs2(theta_);
 		dtestdx = phibasis->dphidxi[j]*phibasis->dxidx+phibasis->dphideta[j]*phibasis->detadx;
 		dtestdy = phibasis->dphidxi[j]*phibasis->dxidy+phibasis->dphideta[j]*phibasis->detady;
@@ -622,7 +626,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 #endif
     }//blk
 
-    delete xx, yy, uu, phiphi, phiphi_old;
+    delete xx, yy, uu, uu_old, phiphi, phiphi_old;
     delete ubasis, phibasis;
     
     if (nonnull(f_out)){
@@ -784,7 +788,9 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
     std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
     exit(0);
   }
-  
+
+  //  nnewt += solver->getNumIterations();
+
   const Thyra::VectorBase<double> * sol = 
     &(dynamic_cast<const NOX::Thyra::Vector&>(
 					      solver_->getSolutionGroup().getX()
@@ -811,9 +817,12 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::initialize()
   for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);
-    double t = theta(x,y);
+    double z = mesh_->get_z(nn);
+    if(abs(z) > .0000001) exit(0);
+    z=0.;
+    double t = theta(x,y,z);
     double r = R(t);
-    if(x*x+y*y < r*r){
+    if(x*x+y*y+z*z < r*r){
       (*u_old_)[numeqs_*nn]=T_m_;
       (*u_old_)[numeqs_*nn+1]=1.;
     }
@@ -852,6 +861,31 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::finalize()
   //mesh_->add_nodal_data("dphidt", outputdphidt);
   mesh_->write_exodus(outfilename);
   //compute_error(&outputu[0]);
+
+#if 0
+  std::cout<<(solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")<<std::endl;
+
+  int ngmres = 0;
+  if ( (solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
+       .sublist("Output").getEntryPtr("Total Number of Linear Iterations") != NULL)
+//     ngmres = ((solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
+// 	      .sublist("Output").getEntry("Total Number of Linear Iterations")).getValue(&ngmres);
+
+  std::cout<<std::endl
+    //<<"Total number of Newton iterations:     "<<nnewt<<std::endl
+	   <<"Total number of GMRES iterations:      "<<ngmres<<std::endl;
+#endif
+  if(!x_space_.is_null()) x_space_=Teuchos::null;
+  if(!x_owned_map_.is_null()) x_owned_map_=Teuchos::null;
+  if(!f_owned_map_.is_null()) f_owned_map_=Teuchos::null;
+  if(!W_graph_.is_null()) W_graph_=Teuchos::null;
+  if(!W_factory_.is_null()) W_factory_=Teuchos::null;
+  if(!x0_.is_null()) x0_=Teuchos::null;
+  if(!P_.is_null())  P_=Teuchos::null;
+  if(!prec_.is_null()) prec_=Teuchos::null;
+  if(!solver_.is_null()) solver_=Teuchos::null;
+  if(!u_old_.is_null()) u_old_=Teuchos::null;
+  if(!dudt_.is_null()) dudt_=Teuchos::null;
 }
 
 template<class Scalar>
@@ -877,6 +911,10 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::compute_error( double *u)
       
     case 4 : // linear quad
       ubasis = new BasisLQuad;
+      break;
+
+    case 8 : // linear hex
+      ubasis = new BasisLHex;
       break;
       
     }
@@ -960,16 +998,18 @@ const double ModelEvaluatorPHASE_HEAT<Scalar>::R(const double &theta)
 }
 
 template<class Scalar>
-double ModelEvaluatorPHASE_HEAT<Scalar>::theta(double &x,double &y) const
+double ModelEvaluatorPHASE_HEAT<Scalar>::theta(double &x,double &y,double &z) const
 {
   double small = 1e-9;
   double pi = 3.141592653589793;
   double t = 0.;
+  double n = sqrt(y*y+z*z);
+  n = y;
   if(abs(x) < small && y > 0. ) t = pi/2.;
   if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
-  if(x > small && y >= 0.) t= atan(y/x);
-  if(x > small && y <0.) t= atan(y/x) + 2.*pi;
-  if(x < -small) t= atan(y/x)+ pi;
+  if(x > small && y >= 0.) t= atan(n/x);
+  if(x > small && y <0.) t= atan(n/x) + 2.*pi;
+  if(x < -small) t= atan(n/x)+ pi;
 
   return t;
 }

@@ -26,4 +26,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   paramList.set(TusasntNameString,(int)140,TusasntDocString);
   //paramList.set(TusasntNameString,(int)1,TusasntDocString);
   //std::cout<<paramList<<std::endl<<std::endl;
+  paramList.set(TusastestNameString,"cummins",TusastestDocString);
+  paramList.set(TusasthetaNameString,(double)1.,TusasthetaDocString);
+  paramList.set(TusaspreconNameString,(bool)true,TusaspreconDocString);
 };

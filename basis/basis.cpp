@@ -56,8 +56,10 @@ BasisLTri::BasisLTri(int n){
   phi = new double[3];
   dphidxi = new double[3];
   dphideta = new double[3];
+  dphidzta = new double[3];
   dphidx = new double[3];
   dphidy = new double[3];
+  dphidz = new double[3];
   abscissa = new double[ngp];//number guass pts
   weight = new double[ngp];
   if( ngp == 1 ){
@@ -81,8 +83,10 @@ BasisLTri::~BasisLTri() {
   delete [] phi;
   delete [] dphidxi;
   delete [] dphideta;
+  delete [] dphidzta;
   delete [] dphidx;
   delete [] dphidy;
+  delete [] dphidz;
   delete [] abscissa;
   delete [] weight;
 }
@@ -132,6 +136,9 @@ void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) 
   dphideta[0]=-1.0;
   dphideta[1]=0.0;
   dphideta[2]=1.0;
+  dphidzta[0]=0.0;
+  dphidzta[1]=0.0;
+  dphidzta[2]=0.0;
   
   // Caculate basis function and derivative at GP.
 
@@ -151,8 +158,13 @@ void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) 
 
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
+  dxidz = 0.;
   detadx = -dydxi / jac;
   detady = dxdxi / jac;
+  detadz = 0.;
+  dztadx = 0.;
+  dztady = 0.;
+  dztadz = 0.;
 
   xx=0.0;
   yy=0.0;
@@ -170,6 +182,7 @@ void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) 
     yy += y[i] * phi[i];
     dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx;
     dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady;
+    dphidz[i] = 0.;
     if( u ){
       uu += u[i] * phi[i];
       //      dudx += u[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx);
@@ -198,8 +211,10 @@ BasisLQuad::BasisLQuad(int n) :sngp(n){
   phi = new double[4];//number of nodes
   dphidxi = new double[4];
   dphideta = new double[4];
+  dphidzta = new double[4];
   dphidx = new double[4];
   dphidy = new double[4];
+  dphidz = new double[4];
   abscissa = new double[sngp];//number guass pts
   weight = new double[sngp];
   setN(sngp, abscissa, weight);
@@ -211,8 +226,10 @@ BasisLQuad::~BasisLQuad() {
   delete [] phi;
   delete [] dphidxi;
   delete [] dphideta;
+  delete [] dphidzta;
   delete [] dphidx;
   delete [] dphidy;
+  delete [] dphidz;
   delete [] abscissa;
   delete [] weight;
 }
@@ -332,8 +349,13 @@ void BasisLQuad::getBasis(int gp, double *x, double *y, double *u, double *uold)
 
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
+  dxidz = 0.;
   detadx = -dydxi / jac;
   detady = dxdxi / jac;
+  detadz =0.;
+  dztadx =0.;
+  dztady =0.;
+  dztadz =0.;
   // Caculate basis function and derivative at GP.
   xx=0.0;
   yy=0.0;
@@ -351,6 +373,8 @@ void BasisLQuad::getBasis(int gp, double *x, double *y, double *u, double *uold)
     yy += y[i] * phi[i];
     dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx;
     dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady;
+    dphidz[i] = 0.0;
+    dphidzta[i]= 0.0;
     if( u ){
       uu += u[i] * phi[i];
       dudx += u[i] * dphidx[i];

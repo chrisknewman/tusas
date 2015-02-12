@@ -63,6 +63,7 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
 {
   dt_ = paramList.get<double> (TusasdtNameString);
   //dt_= .001;
+  t_theta_ = paramList.get<double> (TusasthetaNameString);;
   numeqs_ = 2;
   using Teuchos::RCP;
   using Teuchos::rcp;
@@ -339,6 +340,12 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	phibasis = new BasisLQuad;
 	break;
 	
+      case 8 : // linear hex
+	ubasis = new BasisLHex;
+	phibasis = new BasisLHex;
+	break;
+	
+	
       }
 
       xx = new double[n_nodes_per_elem];
@@ -390,38 +397,60 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 
 	  for (int i=0; i< n_nodes_per_elem; i++) {
 	    int row = numeqs_*(mesh_->get_node_id(blk, ne, i));
-	    double dphidx = ubasis->dphidxi[i]*ubasis->dxidx+ubasis->dphideta[i]*ubasis->detadx;
-	    double dphidy = ubasis->dphidxi[i]*ubasis->dxidy+ubasis->dphideta[i]*ubasis->detady;
+
+	    double dphidx = ubasis->dphidxi[i]*ubasis->dxidx
+	      +ubasis->dphideta[i]*ubasis->detadx
+	      +ubasis->dphidzta[i]*ubasis->dztadx;
+	    double dphidy = ubasis->dphidxi[i]*ubasis->dxidy
+	      +ubasis->dphideta[i]*ubasis->detady
+	      +ubasis->dphidzta[i]*ubasis->dztady;
+	    double dphidz = ubasis->dphidxi[i]*ubasis->dxidz
+	      +ubasis->dphideta[i]*ubasis->detadz
+	      +ubasis->dphidzta[i]*ubasis->dztadz;
+
 	    if (nonnull(f_out)) {
 	      //double x = ubasis->xx;
 	      //double y = ubasis->yy;
 	      double delta = dx;	      
 
-	      double divgradu = K_*ubasis->dudx*dphidx + K_*ubasis->dudy*dphidy;//(grad u,grad phi)
 	      double ut = (ubasis->uu-ubasis->uuold)/dt_*ubasis->phi[i];
-	      double phitu = -(phibasis->uu-phibasis->uuold)/dt_*ubasis->phi[i];     
-	      double val = ubasis->jac * ubasis->wt * (ut + divgradu + phitu);
+	      double divgradu = K_*ubasis->dudx*dphidx + K_*ubasis->dudy*dphidy + K_*ubasis->dudz*dphidz;//(grad u,grad phi)
+	      double divgradu_old = K_*ubasis->duolddx*dphidx + K_*ubasis->duolddy*dphidy + K_*ubasis->duolddz*dphidz;//(grad u,grad phi)
+	      double phitu = -(phibasis->uu-phibasis->uuold)/dt_*ubasis->phi[i]; 
+    
+	      double val = ubasis->jac * ubasis->wt * (ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old + phitu);
 	      f->SumIntoGlobalValues ((int) 1, &val, &row);
 
 	      double dphiphidx = phibasis->dudx;
 	      double dphiphidy = phibasis->dudy;
 	      double dphiphidz = phibasis->dudz;
-	      if(abs(dphiphidz) > .0000001) exit(0);
-	      dphiphidz=0.;
 	      double theta_ = theta(dphiphidx,dphiphidy,dphiphidz);
 	      double gs2_ = gs2(theta_);
-
-	      double divgradphi = gs2_*phibasis->dudx*dphidx + gs2_*phibasis->dudy*dphidy;//(grad u,grad phi)
 	      double phit = gs2_*(phibasis->uu-phibasis->uuold)/dt_*phibasis->phi[i];
+	      double divgradphi = gs2_*phibasis->dudx*dphidx + gs2_*phibasis->dudy*dphidy + gs2_*phibasis->dudz*dphidz;//(grad u,grad phi)
 	      double dg2 = dgs2_2dtheta(theta_);
-	      double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);
-
+	      double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);//cn not sure about 3d yet
 	      double phidel2 = phibasis->uu*(1.-phibasis->uu)*(1.-2.*phibasis->uu)/delta/delta*phibasis->phi[i];
-
 	      double phidel = -5.*alpha_*(T_m_ - ubasis->uu)
 		*phibasis->uu*phibasis->uu*(1.-phibasis->uu)*(1.-phibasis->uu)/delta*phibasis->phi[i];
 
-	      val = phibasis->jac * phibasis->wt * (phit + divgradphi + curlgrad + phidel2 + phidel);
+	      double rhs = divgradphi + curlgrad + phidel2 + phidel;
+
+	      dphiphidx = phibasis->duolddx;
+	      dphiphidy = phibasis->duolddy;
+	      dphiphidz = phibasis->duolddz;
+	      theta_ = theta(dphiphidx,dphiphidy,dphiphidz);
+	      gs2_ = gs2(theta_);
+	      divgradphi = gs2_*phibasis->duolddx*dphidx + gs2_*phibasis->duolddy*dphidy + gs2_*phibasis->duolddz*dphidz;//(grad u,grad phi)
+	      dgs2_2dtheta(theta_);
+	      curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy);//cn not sure about 3d yet
+	      phidel2 = phibasis->uuold*(1.-phibasis->uuold)*(1.-2.*phibasis->uuold)/delta/delta*phibasis->phi[i];
+	      phidel = -5.*alpha_*(T_m_ - ubasis->uuold)
+		*phibasis->uuold*phibasis->uuold*(1.-phibasis->uuold)*(1.-phibasis->uuold)/delta*phibasis->phi[i];
+
+	      double rhs_old = divgradphi + curlgrad + phidel2 + phidel;
+
+	      val = phibasis->jac * phibasis->wt * (phit + t_theta_*rhs + (1.-t_theta_)*rhs_old);
 	      int row1 = row+1;
 	      f->SumIntoGlobalValues ((int) 1, &val, &row1);
 	    }
@@ -434,11 +463,18 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	    if (nonnull(W_prec_out)) {
 	      for(int j=0;j < n_nodes_per_elem; j++) {
 		int column = numeqs_*(mesh_->get_node_id(blk, ne, j));
-		double dtestdx = K_*ubasis->dphidxi[j]*ubasis->dxidx+K_*ubasis->dphideta[j]*ubasis->detadx;
-		double dtestdy = K_*ubasis->dphidxi[j]*ubasis->dxidy+K_*ubasis->dphideta[j]*ubasis->detady;
-		double divgrad = dtestdx * dphidx + dtestdy * dphidy;
+		double dtestdx = K_*ubasis->dphidxi[j]*ubasis->dxidx
+		  +K_*ubasis->dphideta[j]*ubasis->detadx
+		  +K_*ubasis->dphidzta[j]*ubasis->dztadx;
+		double dtestdy = K_*ubasis->dphidxi[j]*ubasis->dxidy
+		  +K_*ubasis->dphideta[j]*ubasis->detady
+		  +K_*ubasis->dphidzta[j]*ubasis->dztady;
+		double dtestdz = K_*ubasis->dphidxi[j]*ubasis->dxidz
+		  +K_*ubasis->dphideta[j]*ubasis->detadz
+		  +K_*ubasis->dphidzta[j]*ubasis->dztadz;
+		double divgrad = dtestdx * dphidx + dtestdy * dphidy + dtestdz * dphidz;
 		double phi_t = ubasis->phi[i] * ubasis->phi[j]/dt_;
-		double jac = ubasis->jac*ubasis->wt*(phi_t + divgrad);
+		double jac = ubasis->jac*ubasis->wt*(phi_t + t_theta_*divgrad);
 		//std::cout<<row<<" "<<column<<" "<<jac<<std::endl;
 		P_->SumIntoGlobalValues(row, 1, &jac, &column);
 
@@ -447,15 +483,21 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 		double dphiphidx = phibasis->dudx;
 		double dphiphidy = phibasis->dudy;
 		double dphiphidz = phibasis->dudz;
-		if(abs(dphiphidz) > .0000001) exit(0);
-		dphiphidz=0.;
+		
 		double theta_ = theta(dphiphidx,dphiphidy,dphiphidz);
 		double gs2_ = gs2(theta_);
-		dtestdx = phibasis->dphidxi[j]*phibasis->dxidx+phibasis->dphideta[j]*phibasis->detadx;
-		dtestdy = phibasis->dphidxi[j]*phibasis->dxidy+phibasis->dphideta[j]*phibasis->detady;
-		divgrad = gs2_*dtestdx * dphidx + gs2_*dtestdy * dphidy;
+		dtestdx = phibasis->dphidxi[j]*phibasis->dxidx
+		  +phibasis->dphideta[j]*phibasis->detadx
+		  +phibasis->dphidzta[j]*phibasis->dztadx;
+		dtestdy = phibasis->dphidxi[j]*phibasis->dxidy
+		  +phibasis->dphideta[j]*phibasis->detady
+		  +phibasis->dphidzta[j]*phibasis->dztady;
+		dtestdz = phibasis->dphidxi[j]*phibasis->dxidz
+		  +phibasis->dphideta[j]*phibasis->detadz
+		  +phibasis->dphidzta[j]*phibasis->dztadz;
+		divgrad = gs2_*dtestdx * dphidx + gs2_*dtestdy * dphidy + gs2_*dtestdz * dphidz;
 		phi_t = gs2_*phibasis->phi[i] * phibasis->phi[j]/dt_;
-		jac = phibasis->jac*phibasis->wt*(phi_t + divgrad);
+		jac = phibasis->jac*phibasis->wt*(phi_t + t_theta_*divgrad);
 		P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
 	      }//j
 	    }
@@ -712,10 +754,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
   // Create the NOX::Thyra::Group
 
 
-
-
-  bool precon = true;
-  //bool precon = false;
+  bool precon = paramList.get<bool> (TusaspreconNameString);
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
   if(precon){
     nox_group =
@@ -813,28 +852,8 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
 template<class Scalar>
 void ModelEvaluatorPHASE_HEAT<Scalar>::initialize()
 {
-  //double pi = 3.141592653589793;
-  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
-    double x = mesh_->get_x(nn);
-    double y = mesh_->get_y(nn);
-    double z = mesh_->get_z(nn);
-    if(abs(z) > .0000001) exit(0);
-    z=0.;
-    double t = theta(x,y,z);
-    double r = R(t);
-    if(x*x+y*y+z*z < r*r){
-      (*u_old_)[numeqs_*nn]=T_m_;
-      (*u_old_)[numeqs_*nn+1]=1.;
-    }
-    else {
-      (*u_old_)[numeqs_*nn]=T_inf_;
-      (*u_old_)[numeqs_*nn+1]=0.;
-    }
-    
-
-    //std::cout<<nn<<" "<<x<<" "<<y<<" "<<r<<"      "<<(*u_old_)[numeqs_*nn]<<"           "<<x*x+y*y<<" "<<r*r<<std::endl;
-  }
-  //exit(0);
+  if(paramList.get<std::string> (TusastestNameString)=="cummins")
+    init(u_old_);
 }
 
 template<class Scalar>
@@ -1003,8 +1022,8 @@ double ModelEvaluatorPHASE_HEAT<Scalar>::theta(double &x,double &y,double &z) co
   double small = 1e-9;
   double pi = 3.141592653589793;
   double t = 0.;
-  double n = sqrt(y*y+z*z);
-  n = y;
+  //double n = sqrt(y*y+z*z);//cn problem here is changing the sign of y !!!!!!
+  double n = y;
   if(abs(x) < small && y > 0. ) t = pi/2.;
   if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
   if(x > small && y >= 0.) t= atan(n/x);
@@ -1012,5 +1031,28 @@ double ModelEvaluatorPHASE_HEAT<Scalar>::theta(double &x,double &y,double &z) co
   if(x < -small) t= atan(n/x)+ pi;
 
   return t;
+}
+
+template<class Scalar>
+void ModelEvaluatorPHASE_HEAT<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
+{
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+    double x = mesh_->get_x(nn);
+    double y = mesh_->get_y(nn);
+    double z = mesh_->get_z(nn);
+    double t = theta(x,y,z);
+    double r = R(t);
+    if(x*x+y*y+z*z < r*r){
+      (*u)[numeqs_*nn]=T_m_;
+      (*u)[numeqs_*nn+1]=1.;
+    }
+    else {
+      (*u)[numeqs_*nn]=T_inf_;
+      (*u)[numeqs_*nn+1]=0.;
+    }
+    
+
+    //std::cout<<nn<<" "<<x<<" "<<y<<" "<<r<<"      "<<(*u_old_)[numeqs_*nn]<<"           "<<x*x+y*y<<" "<<r*r<<std::endl;
+  }
 }
 #endif

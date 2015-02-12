@@ -125,6 +125,9 @@ private: // data members
   double dgs2_2dtheta(const double &theta) const;
   const double R(const double &theta);
   double theta(double &x,double &y,double &z) const;
+  void init(Teuchos::RCP<Epetra_Vector> u);
+
+  double t_theta_;
 
   Teuchos::ParameterList paramList;
 };

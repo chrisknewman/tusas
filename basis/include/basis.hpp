@@ -32,6 +32,7 @@ class Basis {
   double uuold, duolddx, duolddy, duolddz;
   double * dphidx;
   double * dphidy;
+  double * dphidz;
 };
 
 class BasisLTri : public Basis {

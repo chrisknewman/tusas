@@ -1,0 +1,13 @@
+<ParameterList>
+	
+<!-- simulation parameters -->
+
+  <Parameter name="dt" type="double" value=".001"/>
+  <Parameter name="nt" type="int" value = "1"/>
+  <Parameter name="meshfile" type="string" value="meshes/hex64_3d.e"/>
+  <Parameter name="testcase" type="string" value="cummins"/>
+  <Parameter name="preconditioner" type="bool" value = "true"/>
+  <Parameter name="theta" type="double" value="1."/>
+  <Parameter name="method" type="string" value="heat"/>
+
+</ParameterList>

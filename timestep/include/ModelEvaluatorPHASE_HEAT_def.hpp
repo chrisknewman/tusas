@@ -318,11 +318,13 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
     //const Epetra_Vector &u = *(Thyra::get_Epetra_Vector(*x_owned_map_,inArgs.get_x()));
 
     double jac;
-    double *xx, *yy;
+    double *xx, *yy, *zz;
     double *uu, *uu_old, *phiphi, *phiphi_old;
     int n_nodes_per_elem;
 
     Basis *ubasis, *phibasis;
+
+    int dim = mesh_->get_num_dim();
 
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 
@@ -350,6 +352,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 
       xx = new double[n_nodes_per_elem];
       yy = new double[n_nodes_per_elem];
+      zz = new double[n_nodes_per_elem];
       uu = new double[n_nodes_per_elem];
       uu_old = new double[n_nodes_per_elem];
       phiphi = new double[n_nodes_per_elem];
@@ -363,6 +366,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	  
 	  xx[k] = mesh_->get_x(nodeid);
 	  yy[k] = mesh_->get_y(nodeid);
+	  zz[k] = mesh_->get_z(nodeid);
 	  uu[k] = (*u)[numeqs_*nodeid]; 
 	  uu_old[k] = (*u_old_)[numeqs_*nodeid];
 	  phiphi[k] = (*u)[numeqs_*nodeid+1]; 
@@ -372,10 +376,16 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 
 	double dx = 0.;
 	for(int gp=0; gp < ubasis->ngp; gp++) {
-	  ubasis->getBasis(gp, xx, yy);
+ 	  if(3 == dim) {
+ 	    ubasis->getBasis(gp, xx, yy, zz);
+ 	  }else{
+	    ubasis->getBasis(gp, xx, yy);
+ 	  }
+	  //std::cout<<ubasis->jac<<"   "<<ubasis->wt<<std::endl;
 	  dx += ubasis->jac*ubasis->wt;
 	}
 	if ( dx < 1e-6){
+	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
 	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<std::endl<<std::endl<<std::endl;
 	  exit(0);
 	}
@@ -390,8 +400,13 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 
 	  // Calculate the basis function at the gauss point
 
-	  ubasis->getBasis(gp, xx, yy, uu, uu_old);
-	  phibasis->getBasis(gp, xx, yy, phiphi, phiphi_old);
+ 	  if(3 == dim) {
+ 	    ubasis->getBasis(gp, xx, yy, zz, uu, uu_old);
+ 	    phibasis->getBasis(gp, xx, yy, zz, phiphi, phiphi_old);
+ 	  }else{
+	    ubasis->getBasis(gp, xx, yy, uu, uu_old);
+	    phibasis->getBasis(gp, xx, yy, phiphi, phiphi_old);
+ 	  }
 
 	  // Loop over Nodes in Element
 
@@ -668,7 +683,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 #endif
     }//blk
 
-    delete xx, yy, uu, uu_old, phiphi, phiphi_old;
+    delete xx, yy, zz, uu, uu_old, phiphi, phiphi_old;
     delete ubasis, phibasis;
     
     if (nonnull(f_out)){
@@ -812,6 +827,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
   nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Minimum Tolerance", 1.0e-5);//1.0e-6
   // Create the solver
   solver_ =  NOX::Solver::buildSolver(nox_group, combo, nl_params);
+  std::cout<<"init_nox() completed."<<std::endl<<std::endl;
 }
 
 

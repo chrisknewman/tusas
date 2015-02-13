@@ -278,11 +278,13 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
     //const Epetra_Vector &u = *(Thyra::get_Epetra_Vector(*x_owned_map_,inArgs.get_x()));
 
     double jac;
-    double *xx, *yy;
+    double *xx, *yy, *zz;
     double *uu, *uu_old;
     int n_nodes_per_elem;
 
     Basis *ubasis;
+
+    int dim = mesh_->get_num_dim();
 
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 
@@ -298,10 +300,15 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	ubasis = new BasisLQuad;
 	break;
 	
+      case 8 : // linear hex
+	ubasis = new BasisLHex;
+	break;
+	
       }
 
       xx = new double[n_nodes_per_elem];
       yy = new double[n_nodes_per_elem];
+      zz = new double[n_nodes_per_elem];
       uu = new double[n_nodes_per_elem];
       uu_old = new double[n_nodes_per_elem];
 
@@ -313,41 +320,49 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	  
 	  xx[k] = mesh_->get_x(nodeid);
 	  yy[k] = mesh_->get_y(nodeid);
+	  zz[k] = mesh_->get_z(nodeid);
 	  //uu[k] = u[nodeid]; 
 	  uu[k] = (*u)[nodeid];  // copy initial guess 
 	                      //or old solution into local temp
 	  uu_old[k] = (*u_old_)[nodeid];
 	  
 	}//k
-	
 	for(int gp=0; gp < ubasis->ngp; gp++) {// Loop Over Gauss Points 
 
 	  // Calculate the basis function at the gauss point
 
-	  ubasis->getBasis(gp, xx, yy, uu, uu_old);
-
+ 	  if(3 == dim) {
+ 	    ubasis->getBasis(gp, xx, yy, zz, uu, uu_old);
+	  }else{
+	    ubasis->getBasis(gp, xx, yy, uu, uu_old);
+	  }
 	  // Loop over Nodes in Element
 
 	  for (int i=0; i< n_nodes_per_elem; i++) {
 	    int row = mesh_->get_node_id(blk, ne, i);
-	    double dphidx = ubasis->dphidxi[i]*ubasis->dxidx+ubasis->dphideta[i]*ubasis->detadx;
-	    double dphidy = ubasis->dphidxi[i]*ubasis->dxidy+ubasis->dphideta[i]*ubasis->detady;
+
+	    double dphidx = ubasis->dphidxi[i]*ubasis->dxidx
+	      +ubasis->dphideta[i]*ubasis->detadx
+	      +ubasis->dphidzta[i]*ubasis->dztadx;
+	    double dphidy = ubasis->dphidxi[i]*ubasis->dxidy
+	      +ubasis->dphideta[i]*ubasis->detady
+	      +ubasis->dphidzta[i]*ubasis->dztady;
+	    double dphidz = ubasis->dphidxi[i]*ubasis->dxidz
+	      +ubasis->dphideta[i]*ubasis->detadz
+	      +ubasis->dphidzta[i]*ubasis->dztadz;
+
 	    if (nonnull(f_out)) {
 	      double x = ubasis->xx;
 	      double y = ubasis->yy;
 	      
-	      double divgradu = ubasis->dudx*dphidx + ubasis->dudy*dphidy;//(grad u,grad phi)
+	      double divgradu = ubasis->dudx*dphidx + ubasis->dudy*dphidy + ubasis->dudz*dphidz;//(grad u,grad phi)
 	      double ut = (ubasis->uu-ubasis->uuold)/dt_*ubasis->phi[i];
-	      //double pi = 3.141592653589793;
-	      //double ff = 2.*ubasis->phi[i];
+	      double pi = 3.141592653589793;
+	      double ff = 2.*ubasis->phi[i];
 	      //double ff = ((1. + 5.*dt_*pi*pi)*sin(pi*x)*sin(2.*pi*y)/dt_)*ubasis->phi[i];	      
-	      //double val = ubasis->jac * ubasis->wt * (ut + divgradu - ff);	      
-	      double val = ubasis->jac * ubasis->wt * (ut + divgradu);
-	      //(*f)[row]  += val;
-	      //std::cout<<"row = "<<row<<std::endl;
-	      //std::cout<<"gp = "<<gp<<std::endl;
+	      double val = ubasis->jac * ubasis->wt * (ut + divgradu - ff);	      
+	      //double val = ubasis->jac * ubasis->wt * (ut + divgradu);
 	      f->SumIntoGlobalValues ((int) 1, &val, &row);
-	      //(*f)[row]  += ubasis->jac * ubasis->wt * (divgradu - ff);
 	    }
 
 
@@ -355,9 +370,16 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	    if (nonnull(W_prec_out)) {
 	      for(int j=0;j < n_nodes_per_elem; j++) {
 		int column = mesh_->get_node_id(blk, ne, j);
-		double dtestdx = ubasis->dphidxi[j]*ubasis->dxidx+ubasis->dphideta[j]*ubasis->detadx;
-		double dtestdy = ubasis->dphidxi[j]*ubasis->dxidy+ubasis->dphideta[j]*ubasis->detady;
-		double divgrad = dtestdx * dphidx + dtestdy * dphidy;
+		double dtestdx = ubasis->dphidxi[j]*ubasis->dxidx
+		  +ubasis->dphideta[j]*ubasis->detadx
+		  +ubasis->dphidzta[j]*ubasis->dztadx;
+		double dtestdy = ubasis->dphidxi[j]*ubasis->dxidy
+		  +ubasis->dphideta[j]*ubasis->detady
+		  +ubasis->dphidzta[j]*ubasis->dztady;
+		double dtestdz = ubasis->dphidxi[j]*ubasis->dxidz
+		  +ubasis->dphideta[j]*ubasis->detadz
+		  +ubasis->dphidzta[j]*ubasis->dztadz;
+		double divgrad = dtestdx * dphidx + dtestdy * dphidy + dtestdz * dphidz;
 		double phi_t = ubasis->phi[i] * ubasis->phi[j]/dt_;
 		double jac = ubasis->jac*ubasis->wt*(phi_t + divgrad);
 		//std::cout<<row<<" "<<column<<" "<<jac<<std::endl;
@@ -404,7 +426,6 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	}
 	
       }
-
       if (nonnull(W_prec_out)) {
 	for ( int j = 0; j < mesh_->get_node_set(1).size(); j++ ){
 	  

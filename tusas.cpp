@@ -71,15 +71,21 @@ int main(int argc, char *argv[])
   //                           dt=.00001 for dendquad300.e and ModelEvaluatorPHASE_HEAT_Exp
   //                           dt=.000001 for dendquad600.e and ModelEvaluatorPHASE_HEAT_Exp
 
-  //cout<<paramList<<endl<<endl;
-
   double dt = paramList.get<double> (TusasdtNameString);
-
-  //int numSteps = 140;
-  int numSteps = paramList.get<int> (TusasntNameString);
-  timestep<double> * model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
+  timestep<double> * model;
+  if( paramList.get<std::string> (TusasmethodNameString)  == "phaseheat") {
+    model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
+  }
+  else if ( paramList.get<std::string> (TusasmethodNameString)  == "heat") {
+    model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
+  }
+  else {
+    std::cout<<"Invalid method."<<std::endl<<std::endl;
+    exit(0);
   //timestep<double> * model = new ModelEvaluatorPHASE_HEAT_Exp<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
-  
+  }
+
+  int numSteps = paramList.get<int> (TusasntNameString);
   double curTime = 0.0; 
   double endTime = (double)numSteps*dt;
   int elapsedSteps =0;

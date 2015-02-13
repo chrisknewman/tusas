@@ -934,6 +934,7 @@ void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u, do
   dudz=0.0;
   duolddx = 0.;
   duolddy = 0.;
+  duolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < 8; i++) {
     xx += x[i] * phi[i];
@@ -947,9 +948,10 @@ void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u, do
     }
     if( uold ){
       uuold += uold[i] * phi[i];
-      duolddx += -999999999.;
-      duolddy += -999999999.;
-      exit(0);
+      duolddx += uold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
+      duolddy += uold[i] * (dphidxi[i]*dxidy+dphideta[i]*detady+dphidzta[i]*dztady);
+      duolddz += uold[i] * (dphidxi[i]*dxidz+dphideta[i]*detadz+dphidzta[i]*dztadz);
+      //exit(0);
     }
   }
   return;

@@ -126,10 +126,15 @@ private: // data members
   const double R(const double &theta);
   double theta(double &x,double &y,double &z) const;
   void init(Teuchos::RCP<Epetra_Vector> u);
+  void multi(Teuchos::RCP<Epetra_Vector> u);
+  void pool(Teuchos::RCP<Epetra_Vector> u);
 
   double t_theta_;
 
   Teuchos::ParameterList paramList;
+
+  int nnewt_;
+
 };
 
 

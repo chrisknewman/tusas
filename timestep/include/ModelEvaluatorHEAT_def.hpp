@@ -507,18 +507,19 @@ void ModelEvaluatorHEAT<Scalar>::init_nox()
 
   Teuchos::RCP<Teuchos::ParameterList> lsparams =
     Teuchos::rcp(new Teuchos::ParameterList);
-  //   lsparams->set("Linear Solver Type", "Belos");
-//   lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
-//   lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
+#if 0
+  lsparams->set("Linear Solver Type", "Belos");
+  lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
+  lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
   //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
-
+#else
   lsparams->set("Linear Solver Type", "AztecOO");
   lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").set("Output Frequency",1);
   //lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").sublist("AztecOO Preconditioner", "None");
-
+#endif
   lsparams->set("Preconditioner Type", "None");
   builder.setParameterList(lsparams);
-  //lsparams->print(cout);
+  lsparams->print(std::cout);
   builder.getParameterList()->print(std::cout);
 
   Teuchos::RCP< ::Thyra::LinearOpWithSolveFactoryBase<double> >
@@ -564,7 +565,6 @@ void ModelEvaluatorHEAT<Scalar>::init_nox()
 
 
 
-  //bool precon = true;
   bool precon = false;
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
   if(precon){
@@ -639,6 +639,7 @@ void ModelEvaluatorHEAT<Scalar>::advance()
     exit(0);
   }
   
+  std::cout<<solver_->getList();
   const Thyra::VectorBase<double> * sol = 
     &(dynamic_cast<const NOX::Thyra::Vector&>(
 					      solver_->getSolutionGroup().getX()

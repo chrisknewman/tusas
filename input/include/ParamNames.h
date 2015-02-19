@@ -18,5 +18,5 @@ std::string const TusaspreconDocString = "preconditioner on off";
 std::string const TusasthetaNameString = "theta";
 std::string const TusasthetaDocString = "theta: 0 ee; 1 ie; .5 cn";
 std::string const TusasmethodNameString = "method";
-std::string const TusasmethodDocString = "method: heat; phaseheat";
+std::string const TusasmethodDocString = "method: heat; phaseheat; multi";
 #endif

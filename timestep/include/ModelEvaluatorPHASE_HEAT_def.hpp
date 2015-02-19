@@ -29,6 +29,7 @@
 //teuchos support
 #include <Teuchos_RCP.hpp>	
 #include "Teuchos_ParameterList.hpp"
+#include <Teuchos_TimeMonitor.hpp>
 
 // local support
 #include "preconditioner.hpp"
@@ -36,6 +37,7 @@
 #include "ParamNames.h"
 
 #include <iomanip>
+#include <iostream>
 // Nonmember constuctors
 
 template<class Scalar>
@@ -126,6 +128,7 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
   alpha_ = 191.82;
   eps_ = .05;
   M_= 4.;
+  nnewt_=0;
   init_nox();
 #if 0
   double pi = 3.141592653589793;
@@ -520,7 +523,22 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	  }//i
 	}//gp
       }//ne
+
 #if 0
+      if (nonnull(f_out)) {//cn double check the use of notnull throughout
+	if(paramList.get<std::string> (TusastestNameString)=="pool"){
+	  for ( int j = 0; j < mesh_->get_node_set(1).size(); j++ ){
+	    
+	    int row = numeqs_*(mesh_->get_node_set_entry(0, j));
+	    
+	    (*f)[row] =
+	      (*u)[row] - T_inf_; // Dirichlet BC of zero
+	    (*f)[row+1] =
+	      (*u)[row+1] - 0.0;
+	    
+	  }
+	}
+      }
       if (nonnull(f_out)) {//cn double check the use of notnull throughout
 	for ( int j = 0; j < mesh_->get_node_set(1).size(); j++ ){
 	  
@@ -714,15 +732,16 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
 
   Teuchos::RCP<Teuchos::ParameterList> lsparams =
     Teuchos::rcp(new Teuchos::ParameterList);
-  //   lsparams->set("Linear Solver Type", "Belos");
-//   lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
-//   lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
-  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
-
+#if 0
+  lsparams->set("Linear Solver Type", "Belos");
+  lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
+  lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
+  lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
+#else
   lsparams->set("Linear Solver Type", "AztecOO");
   lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").set("Output Frequency",1);
   //lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").sublist("AztecOO Preconditioner", "None");
-
+#endif
   lsparams->set("Preconditioner Type", "None");
   builder.setParameterList(lsparams);
   //lsparams->print(cout);
@@ -825,6 +844,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
   nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Initial Tolerance", 1.0e-1);
   nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Maximum Tolerance", 1.0e-2);
   nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Minimum Tolerance", 1.0e-5);//1.0e-6
+  //nl_params->sublist("Direction").sublist("Newton").sublist("Linear Solver").sublist("Output").set("Total Number of Linear Iterations",0);
   // Create the solver
   solver_ =  NOX::Solver::buildSolver(nox_group, combo, nl_params);
   std::cout<<"init_nox() completed."<<std::endl<<std::endl;
@@ -844,7 +864,11 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
     exit(0);
   }
 
-  //  nnewt += solver->getNumIterations();
+  nnewt_ += solver_->getNumIterations();
+
+  //std::cout<<solver_->getList();
+  //std::cout<<std::endl;
+  //std::cout<<*(W_factory_->getParameterList ());
 
   const Thyra::VectorBase<double> * sol = 
     &(dynamic_cast<const NOX::Thyra::Vector&>(
@@ -868,8 +892,16 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
 template<class Scalar>
 void ModelEvaluatorPHASE_HEAT<Scalar>::initialize()
 {
-  if(paramList.get<std::string> (TusastestNameString)=="cummins")
+  if(paramList.get<std::string> (TusastestNameString)=="cummins"){
     init(u_old_);
+  }else if(paramList.get<std::string> (TusastestNameString)=="multi"){
+    multi(u_old_);
+  }else if(paramList.get<std::string> (TusastestNameString)=="pool"){
+    pool(u_old_);
+  }else{
+    std::cout<<"Unknown initialization testcase."<<std::endl;
+    exit(0);
+  }
 }
 
 template<class Scalar>
@@ -897,19 +929,37 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::finalize()
   mesh_->write_exodus(outfilename);
   //compute_error(&outputu[0]);
 
-#if 0
   std::cout<<(solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")<<std::endl;
-
   int ngmres = 0;
+
   if ( (solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
-       .sublist("Output").getEntryPtr("Total Number of Linear Iterations") != NULL)
-//     ngmres = ((solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
-// 	      .sublist("Output").getEntry("Total Number of Linear Iterations")).getValue(&ngmres);
+       .getEntryPtr("Total Number of Linear Iterations") != NULL)
+    ngmres = ((solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
+	      .getEntry("Total Number of Linear Iterations")).getValue(&ngmres);
 
   std::cout<<std::endl
-    //<<"Total number of Newton iterations:     "<<nnewt<<std::endl
-	   <<"Total number of GMRES iterations:      "<<ngmres<<std::endl;
-#endif
+	   <<"Total number of Newton iterations:     "<<nnewt_<<std::endl
+	   <<"Total number of GMRES iterations:      "<<ngmres<<std::endl 
+	   <<"Total number of Timesteps:             "<<paramList.get<int> (TusasntNameString)<<std::endl
+	   <<"Average number of Newton per Timestep: "<<(float)nnewt_/(float)(paramList.get<int> (TusasntNameString))<<std::endl
+	   <<"Average number of GMRES per Newton:    "<<(float)ngmres/(float)nnewt_<<std::endl
+	   <<"Average number of GMRES per Timestep:  "<<(float)ngmres/(float)(paramList.get<int> (TusasntNameString))<<std::endl;
+  
+  std::ofstream outfile;
+  outfile.open("jfnk.dat");
+  outfile 
+	   <<"Total number of Newton iterations:     "<<nnewt_<<std::endl
+	   <<"Total number of GMRES iterations:      "<<ngmres<<std::endl 
+	   <<"Total number of Timesteps:             "<<paramList.get<int> (TusasntNameString)<<std::endl
+	   <<"Average number of Newton per Timestep: "<<(float)nnewt_/(float)(paramList.get<int> (TusasntNameString))<<std::endl
+	   <<"Average number of GMRES per Newton:    "<<(float)ngmres/(float)nnewt_<<std::endl
+	   <<"Average number of GMRES per Timestep:  "<<(float)ngmres/(float)(paramList.get<int> (TusasntNameString))<<std::endl; 	
+  outfile.close();
+
+  std::ofstream timefile;
+  timefile.open("time.dat");
+  Teuchos::TimeMonitor::summarize(timefile);
+
   if(!x_space_.is_null()) x_space_=Teuchos::null;
   if(!x_owned_map_.is_null()) x_owned_map_=Teuchos::null;
   if(!f_owned_map_.is_null()) f_owned_map_=Teuchos::null;
@@ -983,8 +1033,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::compute_error( double *u)
 	
 	// Loop over Nodes in Element
 	
-	//for (int i=0; i< n_nodes_per_elem; i++) {
-	  //nodeid = mesh_->get_node_id(blk, ne, i);
+	//for (int i=0; i< n_nodes_per_elem; i++) { = mesh_->get_node_id(blk, ne, i);
 	  //double dphidx = ubasis->dphidxi[i]*ubasis->dxidx+ubasis->dphideta[i]*ubasis->detadx;
 	  //double dphidy = ubasis->dphidxi[i]*ubasis->dxidy+ubasis->dphideta[i]*ubasis->detady;
 	  double x = ubasis->xx;
@@ -1059,6 +1108,74 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
     double t = theta(x,y,z);
     double r = R(t);
     if(x*x+y*y+z*z < r*r){
+      (*u)[numeqs_*nn]=T_m_;
+      (*u)[numeqs_*nn+1]=1.;
+    }
+    else {
+      (*u)[numeqs_*nn]=T_inf_;
+      (*u)[numeqs_*nn+1]=0.;
+    }
+    
+
+    //std::cout<<nn<<" "<<x<<" "<<y<<" "<<r<<"      "<<(*u_old_)[numeqs_*nn]<<"           "<<x*x+y*y<<" "<<r*r<<std::endl;
+  }
+}
+
+template<class Scalar>
+void ModelEvaluatorPHASE_HEAT<Scalar>::multi(Teuchos::RCP<Epetra_Vector> u)
+{
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+    double x = mesh_->get_x(nn);
+    double y = mesh_->get_y(nn);
+    double pi = 3.141592653589793;
+    //double z = mesh_->get_z(nn);
+    //double t = theta(x,y,z);
+    srand(123);
+    double r1 = rand()%15;
+    double r2 = rand()%9+1;
+    double r3 = rand()%15;
+    double r4 = rand()%9+1;
+    double r5 = rand()%15;
+    double r6 = rand()%9+1;
+
+    double r7 = .5*(sin(r1*y/r2)*cos(r3*y/r4+r2)*sin(r5*y/r6+r3)+1.);
+    double r = r7*.3*fabs(sin(15.* pi* y/9.));
+    if(x < r){
+      (*u)[numeqs_*nn]=T_m_;
+      (*u)[numeqs_*nn+1]=1.;
+    }
+    else {
+      (*u)[numeqs_*nn]=T_inf_;
+      (*u)[numeqs_*nn+1]=0.;
+    }
+    
+
+    //std::cout<<nn<<" "<<x<<" "<<y<<" "<<r<<"      "<<(*u_old_)[numeqs_*nn]<<"           "<<x*x+y*y<<" "<<r*r<<std::endl;
+  }
+}
+template<class Scalar>
+void ModelEvaluatorPHASE_HEAT<Scalar>::pool(Teuchos::RCP<Epetra_Vector> u)
+{
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+    double x = mesh_->get_x(nn);
+    double y = mesh_->get_y(nn);
+    double pi = 3.141592653589793;
+    //double z = mesh_->get_z(nn);
+    //double t = theta(x,y,z);
+    srand(123);
+    double r1 = rand()%15;
+    double r2 = rand()%9+1;
+    double r3 = rand()%15;
+    double r4 = rand()%9+1;
+    double r5 = rand()%15;
+    double r6 = rand()%9+1;
+
+    double r7 = .5*(sin(r1*y/r2)*cos(r3*y/r4+r2)*sin(r5*y/r6+r3)+1.);
+
+    double rr= 4.5;
+
+    double r = r7*.3*fabs(sin(24.* pi* y/14.)) - sqrt(rr*rr-y*y);
+    if(x < r){
       (*u)[numeqs_*nn]=T_m_;
       (*u)[numeqs_*nn+1]=1.;
     }

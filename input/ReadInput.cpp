@@ -71,6 +71,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     std::cout << "Default values:\n" << std::endl;
   }
   paramList.print(std::cout, 2, true, true );
+  std::cout<<std::endl<<"Initial parameter list completed."<<std::endl<<std::endl<<std::endl;
   //exit(0);
 
 };

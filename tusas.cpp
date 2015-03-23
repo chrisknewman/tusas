@@ -38,7 +38,6 @@
 #include "ParamNames.h"
 #include "readInput.h"
 
-
 using namespace std;
 
 int main(int argc, char *argv[])
@@ -104,7 +103,8 @@ int main(int argc, char *argv[])
 
   model->finalize();
   
-  delete in_mesh;
-  delete model;
   Teuchos::TimeMonitor::summarize();
+
+  delete model;
+  delete in_mesh;
 }

@@ -65,6 +65,7 @@ public:
   void finalize();
   void advance();
   void compute_error( double *u);
+  //static double gs2(const double &theta);
 
 private:
 
@@ -112,28 +113,43 @@ private: // data members
   Teuchos::RCP<preconditioner <Scalar> > prec_;
   Teuchos::RCP<NOX::Solver::Generic> solver_;
   Teuchos::RCP<Epetra_Vector> u_old_;
+  Teuchos::RCP<Epetra_Vector> u_old_old_;
   Teuchos::RCP<Epetra_Vector> dudt_;
 
   double time_;
 
   int numeqs_;
 
+  //cn these are parameters for cummins
   double K_, T_m_, T_inf_, alpha_, M_, eps_;
 
   const double gs(const double &theta);
   double gs2(const double &theta) const;
   double dgs2_2dtheta(const double &theta) const;
   const double R(const double &theta);
-  double theta(double &x,double &y,double &z) const;
+  double theta(double &x,double &y,double &z = 0) const;
+
   void init(Teuchos::RCP<Epetra_Vector> u);
   void multi(Teuchos::RCP<Epetra_Vector> u);
   void pool(Teuchos::RCP<Epetra_Vector> u);
 
   double t_theta_;
 
+  double theta_0_;
+
   Teuchos::ParameterList paramList;
 
   int nnewt_;
+
+  //cn function pointers
+  double (*hp1_)(const double &phi,const double &delta);
+  double (*w_)(const double &delta);
+  double (*m_)(const double &theta,const double &M,const double &eps);
+  double (*rand_phi_)(const double &phi);
+  double (*gp1_)(const double &phi);
+  double (*hp2_)(const double &phi);
+
+
 
 };
 
@@ -142,5 +158,6 @@ private: // data members
 //==================================================================
 #include "ModelEvaluatorPHASE_HEAT_def.hpp"
 //==================================================================
+
 
 #endif

@@ -46,6 +46,10 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasmethodNameString,"phaseheat",TusasmethodDocString);
 
+  paramList.set(TusasnoxrelresNameString,(double)1.e-6,TusasnoxrelresDocString);
+
+  paramList.set(TusasnoxmaxiterNameString,(int)200,TusasnoxmaxiterDocString);
+
   //read/overwrite here
 
   // read parameters from xml file

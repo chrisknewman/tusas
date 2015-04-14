@@ -125,36 +125,78 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
   nominalValues_.set_x(x0_);
   time_=0.;
 
-  K_ = 4.;
-  T_m_ = 1.55;
-  T_inf_ = 1.;
-  alpha_ = 191.82;
-  eps_ = .05;
-  M_= 4.;
-  theta_0_ =0.;
+  random_number_ =((double)rand()/(RAND_MAX)*2.-1.);
+  random_number_old_ = 0.;
 
-  //function pointers
-  hp1_ = &hp1_cummins_;
-  w_ = &w_cummins_;
-  m_ = &m_cummins_;
-  rand_phi_ = &rand_phi_cummins_;
-  gp1_ = &gp1_cummins_;
-  hp2_ = &hp2_cummins_;
+  if("furtado" == paramList.get<std::string> (TusastestNameString)){
 
-  nnewt_=0;
+    K_ = 1.55e-5;
+    T_m_ = 1728.;
+    T_inf_ = 300.;
+    alpha_ = 191.82;
+    eps_ = .025;
+    eps_0_ = 2.01e-4;
+    M_= 6.;
+    theta_0_ =-1.5707963267949/2.;
+    R_0_ =1.1e-6;
+    
+    //function pointers
+    hp1_ = &hp1_furtado_;
+    hpp1_ = &hpp1_furtado_;
+    w_ = &w_furtado_;
+    m_ = &m_furtado_;
+    rand_phi_ = &rand_phi_furtado_;
+    //rand_phi_ = &rand_phi_cummins_;
+    gp1_ = &gp1_furtado_;
+    gpp1_ = &gpp1_furtado_;
+    hp2_ = &hp2_furtado_;
+
+  }else if("karma" == paramList.get<std::string> (TusastestNameString)){
+    
+    K_ = 4.;
+    T_m_ = 1.55;
+    T_inf_ = 1.;
+    alpha_ = 191.82;
+    eps_ = .05;
+    eps_0_ = 1.;
+    M_= 4.;
+    theta_0_ =0.;
+    R_0_ =.3;
+    
+    //function pointers
+    hp1_ = &hp1_cummins_;
+    hpp1_ = &hpp1_cummins_;
+    w_ = &w_cummins_;
+    m_ = &m_cummins_;
+    rand_phi_ = &rand_phi_zero_;
+    gp1_ = &gp1_cummins_;
+    gpp1_ = &gpp1_cummins_;
+    hp2_ = &hp2_cummins_;
+
+  }else {
+
+    K_ = 4.;
+    T_m_ = 1.55;
+    T_inf_ = 1.;
+    alpha_ = 191.82;
+    eps_ = .05;
+    eps_0_ = 1.;
+    M_= 4.;
+    theta_0_ =0.;
+    R_0_ =.3;
+    
+    //function pointers
+    hp1_ = &hp1_cummins_;
+    hpp1_ = &hpp1_cummins_;
+    w_ = &w_cummins_;
+    m_ = &m_cummins_;
+    rand_phi_ = &rand_phi_zero_;
+    gp1_ = &gp1_cummins_;
+    gpp1_ = &gpp1_cummins_;
+    hp2_ = &hp2_cummins_;
+  }
+
   init_nox();
-#if 0
-  double pi = 3.141592653589793;
-  std::cout<<"1  0    "<<theta(1.,0.)<<"  "<<0<<std::endl;
-  std::cout<<"1  1    "<<theta(1.,1.)<<"  "<<pi/4.<<std::endl;
-  std::cout<<"0  1    "<<theta(0.,1.)<<"  "<<pi/2.<<std::endl;
-  std::cout<<"-1  1    "<<theta(-1.,1.)<<"  "<<3.*pi/4.<<std::endl;
-  std::cout<<"-1  0    "<<theta(-1.,0.)<<"  "<<pi<<std::endl;
-  std::cout<<"-1  -1    "<<theta(-1.,-1.)<<"  "<<5.*pi/4.<<std::endl;
-  std::cout<<"0  -1    "<<theta(0.,-1.)<<"  "<<3.*pi/2.<<std::endl;
-  std::cout<<"1  -1    "<<theta(1.,-1.)<<"  "<<7.*pi/4.<<std::endl;
-  exit(0);
-#endif
 }
 
 // Initializers/Accessors
@@ -405,14 +447,14 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	  //std::cout<<ubasis->jac<<"   "<<ubasis->wt<<std::endl;
 	  dx += ubasis->jac*ubasis->wt;
 	}
-	if ( dx < 1e-6){
+	if ( dx < 1e-16){
 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
 	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<std::endl<<std::endl<<std::endl;
 	  exit(0);
 	}
 	dx = sqrt(dx);	
 	double W_ = dx/.4;
-	if ( W_ < 1e-6){
+	if ( W_ < 1e-16){
 	  std::cout<<"W_ = "<<W_<<std::endl<<std::endl<<std::endl;
 	  exit(0);
 	}
@@ -448,22 +490,23 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	      +ubasis->dphideta[i]*ubasis->detadz
 	      +ubasis->dphidzta[i]*ubasis->dztadz;
 
+	    double delta = dx;	 
 	    if (nonnull(f_out)) {
 	      //double x = ubasis->xx;
-	      //double y = ubasis->yy;
-	      double delta = dx;	      
+	      //double y = ubasis->yy;     
 
 	      double ut = (ubasis->uu-ubasis->uuold)/dt_*ubasis->phi[i];
 	      double divgradu = K_*ubasis->dudx*dphidx + K_*ubasis->dudy*dphidy + K_*ubasis->dudz*dphidz;//(grad u,grad phi)
 	      double divgradu_old = K_*ubasis->duolddx*dphidx + K_*ubasis->duolddy*dphidy + K_*ubasis->duolddz*dphidz;//(grad u,grad phi)
 
-	      double hp2 = hp2_(1.);	
+	      double hp2 = hp2_(phibasis->uu);	
 
 	      double phitu = -hp2*(phibasis->uu-phibasis->uuold)/dt_*ubasis->phi[i]; 
-	      double phitu2 = -hp2*(phibasis->uuold-phibasis2->uu)/dt_*ubasis->phi[i]; 
+	      hp2 = hp2_(phibasis->uuold);	
+	      double phitu_old = -hp2*(phibasis->uuold-phibasis2->uu)/dt_*ubasis->phi[i]; 
     
 	      double val = ubasis->jac * ubasis->wt * (ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old + t_theta_*phitu 
-						       + (1.-t_theta_)*phitu2);
+						       + (1.-t_theta_)*phitu_old);
 	      f->SumIntoGlobalValues ((int) 1, &val, &row);
 
 	      double dphiphidx = phibasis->dudx;
@@ -498,7 +541,10 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 
 	      double phidel = hp1*(T_m_ - ubasis->uu)*phibasis->phi[i];
 	      
-	      double rhs = divgradphi + curlgrad + phidel2 + phidel;
+	      double rand_phi = -rand_phi_(phibasis->uu,random_number_);
+	      double r_phi = rand_phi*phibasis->phi[i];
+
+	      double rhs = divgradphi + curlgrad + phidel2 + phidel + r_phi;
 
 	      dphiphidx = phibasis->duolddx;
 	      dphiphidy = phibasis->duolddy;
@@ -522,12 +568,13 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 // 		*phibasis->uuold*phibasis->uuold*(1.-phibasis->uuold)*(1.-phibasis->uuold)/delta*phibasis->phi[i];
 	      phidel = hp1*(T_m_ - ubasis->uuold)*phibasis->phi[i];
 
-	      double rhs_old = divgradphi + curlgrad + phidel2 + phidel;
+	      //std::cout<<random_number_<<std::endl;
+	      rand_phi = -rand_phi_(phibasis->uuold,random_number_old_);
+	      r_phi = rand_phi*phibasis->phi[i];
 
-	      double rand_phi = rand_phi_(phibasis->uu);
-	      double r_phi = rand_phi*phibasis->phi[i];
+	      double rhs_old = divgradphi + curlgrad + phidel2 + phidel + r_phi;
 	
-	      val = phibasis->jac * phibasis->wt * (phit + t_theta_*rhs + (1.-t_theta_)*rhs_old + r_phi);
+	      val = 1.*phibasis->jac * phibasis->wt * (phit + t_theta_*rhs + (1.-t_theta_)*rhs_old + r_phi);
 	      int row1 = row+1;
 	      f->SumIntoGlobalValues ((int) 1, &val, &row1);
 	    }
@@ -574,10 +621,19 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 		  +phibasis->dphidzta[j]*phibasis->dztadz;
 		divgrad = gs2_*dtestdx * dphidx + gs2_*dtestdy * dphidy + gs2_*dtestdz * dphidz;
 
+		double dg2 = dgs2_2dtheta(theta_);
+		double curlgrad = -dg2*(dtestdy*dphidx -dtestdx*dphidy);
+
 		double m = m_(theta_,M_,eps_);
 
 		phi_t = m*phibasis->phi[i] * phibasis->phi[j]/dt_;
-		jac = phibasis->jac*phibasis->wt*(phi_t + t_theta_*divgrad);
+
+		double hpp1 =0.*phibasis->phi[i] * phibasis->phi[j]* hpp1_(phibasis->uu,5.*alpha_/delta)
+		  *(T_m_ - ubasis->uu);
+		double w = w_(delta);
+		double gpp1 = 0.*gpp1_(phibasis->uu)*w*phibasis->phi[i] * phibasis->phi[j];
+
+		jac = phibasis->jac*phibasis->wt*(phi_t + t_theta_*divgrad + t_theta_*curlgrad  + t_theta_*hpp1 + t_theta_*gpp1);
 		P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
 	      }//j
 	    }
@@ -790,15 +846,16 @@ ModelEvaluatorPHASE_HEAT<Scalar>::~ModelEvaluatorPHASE_HEAT()
 template<class Scalar>
 void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
 {
+  nnewt_=0;
   ::Stratimikos::DefaultLinearSolverBuilder builder;
 
   Teuchos::RCP<Teuchos::ParameterList> lsparams =
     Teuchos::rcp(new Teuchos::ParameterList);
 #if 0
   lsparams->set("Linear Solver Type", "Belos");
-  lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
-  lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
-  lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
+  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
+  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
+  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
 #else
   lsparams->set("Linear Solver Type", "AztecOO");
   lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").set("Output Frequency",1);
@@ -823,6 +880,10 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
   // Create the initial guess
   Teuchos::RCP< ::Thyra::VectorBase<double> >
     initial_guess = this->getNominalValues().get_x()->clone_v();
+  Teuchos::RCP<Epetra_Vector> e_weight = Teuchos::rcp(new Epetra_Vector(*f_owned_map_,1.));
+  Teuchos::RCP<Thyra::VectorBase<double> >
+      weight = Thyra::create_Vector( e_weight, x_space_ );
+  //weight = Teuchos::null;
 
   Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
 
@@ -853,13 +914,23 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
   bool precon = paramList.get<bool> (TusaspreconNameString);
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
   if(precon){
+#if 0
+    nox_group =
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null,weight));
+#else
     nox_group =
       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null));
+#endif
   }
   else {
+#if 0
+    nox_group =
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null,Teuchos::null, weight ));
+#else
     nox_group =
       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null));
-  }
+#endif
+   }
 
   nox_group->computeF();
 
@@ -871,8 +942,13 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
   // Create the convergence tests
   Teuchos::RCP<NOX::StatusTest::NormF> absresid =
     Teuchos::rcp(new NOX::StatusTest::NormF(1.0e-8));
+
+  double relrestol = 1.0e-6;
+  relrestol = paramList.get<double> (TusasnoxrelresNameString);
+
   Teuchos::RCP<NOX::StatusTest::NormF> relresid = 
-    Teuchos::rcp(new NOX::StatusTest::NormF(*nox_group.get(), 1.0e-6));//1.0e-6 for paper
+    Teuchos::rcp(new NOX::StatusTest::NormF(*nox_group.get(), relrestol));//1.0e-6 for paper
+
   Teuchos::RCP<NOX::StatusTest::NormWRMS> wrms =
     Teuchos::rcp(new NOX::StatusTest::NormWRMS(1.0e-2, 1.0e-8));
   Teuchos::RCP<NOX::StatusTest::Combo> converged =
@@ -880,8 +956,13 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init_nox()
   //converged->addStatusTest(absresid);
   converged->addStatusTest(relresid);
   //converged->addStatusTest(wrms);
+
+  int maxit = 200;
+  maxit = paramList.get<int> (TusasnoxmaxiterNameString);
+
   Teuchos::RCP<NOX::StatusTest::MaxIters> maxiters =
-    Teuchos::rcp(new NOX::StatusTest::MaxIters(200));
+    Teuchos::rcp(new NOX::StatusTest::MaxIters(maxit));//200
+
   Teuchos::RCP<NOX::StatusTest::FiniteValue> fv =
     Teuchos::rcp(new NOX::StatusTest::FiniteValue);
   Teuchos::RCP<NOX::StatusTest::Combo> combo =
@@ -935,10 +1016,12 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
   solver_->reset(thyraguess);
 
+  random_number_= ((double)rand()/(RAND_MAX)*2.-1.);
+
   NOX::StatusTest::StatusType solvStatus = solver_->solve();
   if( !(NOX::StatusTest::Converged == solvStatus)) {
     std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
-    exit(0);
+    if(200 == paramList.get<int> (TusasnoxmaxiterNameString)) exit(0);
   }
 
   nnewt_ += solver_->getNumIterations();
@@ -965,6 +1048,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
     (*u_old_)[numeqs_*nn+1]=x_vec[numeqs_*nn+1];
   }
   //u_old_->Print(std::cout);
+  random_number_old_=random_number_;
   time_ +=dt_;
 }
 
@@ -977,6 +1061,9 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::initialize()
     multi(u_old_);
   }else if(paramList.get<std::string> (TusastestNameString)=="pool"){
     pool(u_old_);
+  }else if(paramList.get<std::string> (TusastestNameString)=="furtado"){
+    //init(u_old_);
+    init_square(u_old_);
   }else{
     std::cout<<"Unknown initialization testcase."<<std::endl;
     exit(0);
@@ -1146,19 +1233,19 @@ template<class Scalar>
 double ModelEvaluatorPHASE_HEAT<Scalar>::gs2( const double &theta) const
 { 
   //double g = 1. + eps_ * (M_*cos(theta));
-  double g = 1. + eps_ * (cos(M_*(theta)));
+  double g = eps_0_*(1. + eps_ * (cos(M_*theta)));
   return g*g;
 }
 template<class Scalar>
 double ModelEvaluatorPHASE_HEAT<Scalar>::dgs2_2dtheta(const double &theta) const
 {
   //return -1.*(eps_*M_*(1. + eps_*M_*cos(theta))*sin(theta));
-  return -1.*(eps_*M_*(1. + eps_*cos(M_*(theta)))*sin(M_*(theta)));
+  return -1.*eps_0_*(eps_*M_*(1. + eps_*cos(M_*(theta)))*sin(M_*(theta)));
 }
 template<class Scalar>
 const double ModelEvaluatorPHASE_HEAT<Scalar>::R(const double &theta)
 {
-  return .3*(1. + eps_ * cos(M_*(theta)));
+  return R_0_*(1. + eps_ * cos(M_*(theta)));
 }
 
 template<class Scalar>
@@ -1195,6 +1282,29 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
     double r = R(t);
     if(x*x+y*y+z*z < r*r){
       (*u)[numeqs_*nn]=T_m_;
+      //(*u)[numeqs_*nn]=T_inf_;
+      (*u)[numeqs_*nn+1]=1.;
+    }
+    else {
+      (*u)[numeqs_*nn]=T_inf_;
+      (*u)[numeqs_*nn+1]=0.;
+    }
+    
+
+    //std::cout<<nn<<" "<<x<<" "<<y<<" "<<r<<"      "<<(*u_old_)[numeqs_*nn]<<"           "<<x*x+y*y<<" "<<r*r<<std::endl;
+  }
+}
+
+template<class Scalar>
+void ModelEvaluatorPHASE_HEAT<Scalar>::init_square(Teuchos::RCP<Epetra_Vector> u)
+{
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+    double x = mesh_->get_x(nn);
+    double y = mesh_->get_y(nn);
+    double z = mesh_->get_z(nn);
+    if((abs(x) < R_0_) && (abs(y) < R_0_) && (abs(z) < R_0_)){
+      //(*u)[numeqs_*nn]=T_m_;
+      (*u)[numeqs_*nn]=T_inf_;
       (*u)[numeqs_*nn+1]=1.;
     }
     else {

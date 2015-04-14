@@ -121,7 +121,7 @@ private: // data members
   int numeqs_;
 
   //cn these are parameters for cummins
-  double K_, T_m_, T_inf_, alpha_, M_, eps_;
+  double K_, T_m_, T_inf_, alpha_, M_, eps_,eps_0_, R_0_, random_number_, random_number_old_;
 
   const double gs(const double &theta);
   double gs2(const double &theta) const;
@@ -130,6 +130,7 @@ private: // data members
   double theta(double &x,double &y,double &z = 0) const;
 
   void init(Teuchos::RCP<Epetra_Vector> u);
+  void init_square(Teuchos::RCP<Epetra_Vector> u);
   void multi(Teuchos::RCP<Epetra_Vector> u);
   void pool(Teuchos::RCP<Epetra_Vector> u);
 
@@ -143,10 +144,12 @@ private: // data members
 
   //cn function pointers
   double (*hp1_)(const double &phi,const double &delta);
+  double (*hpp1_)(const double &phi,const double &delta);
   double (*w_)(const double &delta);
   double (*m_)(const double &theta,const double &M,const double &eps);
-  double (*rand_phi_)(const double &phi);
+  double (*rand_phi_)(const double &phi, const double &random_number);
   double (*gp1_)(const double &phi);
+  double (*gpp1_)(const double &phi);
   double (*hp2_)(const double &phi);
 
 

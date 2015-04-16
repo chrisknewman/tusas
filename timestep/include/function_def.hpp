@@ -33,6 +33,19 @@ double hp2_cummins_(const double &phi)
 {
   return 1.;
 }
+double gs2_cummins_( const double &theta, const double &M, const double &eps)
+{ 
+  //double g = 1. + eps_ * (M_*cos(theta));
+  double eps_0_ = 1.;
+  double g = eps_0_*(1. + eps * (cos(M*theta)));
+  return g*g;
+}
+double dgs2_2dtheta_cummins_(const double &theta, const double &M, const double &eps)
+{
+  double eps_0_ = 1.;
+  //return -1.*(eps_*M_*(1. + eps_*M_*cos(theta))*sin(theta));
+  return -1.*eps_0_*(eps*M*(1. + eps*cos(M*(theta)))*sin(M*(theta)));
+}
 
 
 
@@ -82,4 +95,65 @@ double rand_phi_furtado_(const double &phi, const double &random_number)
 //   return random_number*16.*a*phi*phi
 // 		*(1.-phi)*(1.-phi);
   return 0.;
+}
+
+//karma
+//karma has phi in [-1 +1]
+double hp2_karma_(const double &phi)
+{
+  return 15./8./2.*(1.-2*phi*phi+phi*phi*phi*phi);
+}
+double w_karma_(const double &delta)
+{
+  return 1.;
+}
+double gp1_karma_(const double &phi)
+{
+  return phi*(1.-phi*phi);
+}
+double hp1_karma_(const double &phi,const double &c)
+{
+  double lambda = 1.;
+  return -lambda* (1. -phi*phi) * (1. -phi*phi)  ;
+}
+double hpp1_karma_(const double &phi,const double &c)//precon term
+{
+  double dH = 2.35e9;
+  double Tm = 1728.;
+  //return -30.*dH/Tm* 2.* (1. -phi) *phi* (1. - 2. *phi)   ;
+  return 0.   ;
+}
+double gpp1_karma_(const double &phi)//precon term
+{
+  //return 2.*( 1. - 6.* phi + 6.* phi*phi);
+  return 0.;
+}
+double m_karma_(const double &theta,const double &M,const double &eps)
+{
+  double eps4 = eps;
+  double a_sbar = 1. - 3.* eps4;
+  double eps_prime = 4.*eps4/a_sbar;
+  double t0 = 1.;
+  double g = a_sbar*(1. + eps_prime * (pow(sin(theta),M)+pow(cos(theta),M)));
+  return t0*g*g;
+}
+double gs2_karma_( const double &theta, const double &M, const double &eps)
+{ 
+  //double g = 1. + eps_ * (M_*cos(theta));
+  double W_0 = 1.;
+  double eps4 = eps;
+  double a_sbar = 1. - 3.* eps4;
+  double eps_prime = 4.*eps4/a_sbar;
+  double g = W_0*a_sbar*(1. + eps_prime * (pow(sin(theta),M)+pow(cos(theta),M)));
+  return g*g;
+}
+double dgs2_2dtheta_karma_(const double &theta, const double &M, const double &eps)
+{
+  double W_0 = 1.;
+  double eps4 = eps;
+  double a_sbar = 1. - 3.* eps4;
+  double eps_prime = 4.*eps4/a_sbar;
+  double g = W_0*a_sbar*eps*(-4.*pow(cos(theta),3)*sin(theta) + 4.*cos(theta)*pow(sin(theta),3))*
+    (1. + eps*(pow(cos(theta),4) + pow(sin(theta),4)));
+  return g;
 }

@@ -128,6 +128,9 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
   random_number_ =((double)rand()/(RAND_MAX)*2.-1.);
   random_number_old_ = 0.;
 
+  phi_sol_ = 1.;
+  phi_liq_ = 0.;
+
   if("furtado" == paramList.get<std::string> (TusastestNameString)){
 
     K_ = 1.55e-5;
@@ -152,26 +155,32 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
     hp2_ = &hp2_furtado_;
 
   }else if("karma" == paramList.get<std::string> (TusastestNameString)){
+
+    phi_liq_ = -1.;
     
-    K_ = 4.;
-    T_m_ = 1.55;
-    T_inf_ = 1.;
+    K_ = 1.;
+    T_m_ = 1.-.55;
+    T_inf_ = -.55;
     alpha_ = 191.82;
-    eps_ = .05;
+    eps_ = .02;
     eps_0_ = 1.;
     M_= 4.;
     theta_0_ =0.;
     R_0_ =.3;
     
     //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
+    hp1_ = &hp1_karma_;
+    hpp1_ = &hpp1_karma_;
+    w_ = &w_karma_;
+    m_ = &m_karma_;
     rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
-    hp2_ = &hp2_cummins_;
+    gp1_ = &gp1_karma_;
+    gpp1_ = &gpp1_karma_;
+    hp2_ = &hp2_karma_;
+
+    gs2_ = &gs2_karma_;
+    dgs2_2dtheta_ = &dgs2_2dtheta_karma_;
+    //sort_nodeset();
 
   }else {
 
@@ -194,7 +203,13 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
     gp1_ = &gp1_cummins_;
     gpp1_ = &gpp1_cummins_;
     hp2_ = &hp2_cummins_;
+
+    gs2_ = &gs2_cummins_;
+    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
   }
+  init_vtip();
+
+
 
   init_nox();
 }
@@ -495,6 +510,9 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	      //double x = ubasis->xx;
 	      //double y = ubasis->yy;     
 
+	      //equation for u:
+	      // u_t - K (u_xx + u_yy) - hp2_ * phi_t = 0
+
 	      double ut = (ubasis->uu-ubasis->uuold)/dt_*ubasis->phi[i];
 	      double divgradu = K_*ubasis->dudx*dphidx + K_*ubasis->dudy*dphidy + K_*ubasis->dudz*dphidz;//(grad u,grad phi)
 	      double divgradu_old = K_*ubasis->duolddx*dphidx + K_*ubasis->duolddy*dphidy + K_*ubasis->duolddz*dphidz;//(grad u,grad phi)
@@ -509,20 +527,24 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 						       + (1.-t_theta_)*phitu_old);
 	      f->SumIntoGlobalValues ((int) 1, &val, &row);
 
+
+	      //equation for phi:
+	      // m_*phi_t - gs2_*(u_xx + u_yy) - dg2 curl phi + w_ * gp1_(phi) +hp1_ (T_m_ - phi) = 0
+
 	      double dphiphidx = phibasis->dudx;
 	      double dphiphidy = phibasis->dudy;
 	      double dphiphidz = phibasis->dudz;
 	      double theta_ = theta(dphiphidx,dphiphidy,dphiphidz)-theta_0_;
 
-	      double gs2_ = gs2(theta_);
+	      double gs2 = gs2_(theta_, M_, eps_);
 
 	      double m = m_(theta_, M_, eps_);
      
 	      double phit = m*(phibasis->uu-phibasis->uuold)/dt_*phibasis->phi[i];
 
-	      double divgradphi = gs2_*phibasis->dudx*dphidx + gs2_*phibasis->dudy*dphidy + gs2_*phibasis->dudz*dphidz;//(grad u,grad phi)
+	      double divgradphi = gs2*phibasis->dudx*dphidx + gs2*phibasis->dudy*dphidy + gs2*phibasis->dudz*dphidz;//(grad u,grad phi)
 
-	      double dg2 = dgs2_2dtheta(theta_);	
+	      double dg2 = dgs2_2dtheta_(theta_, M_, eps_);	
 
 	      double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);//cn not sure about 3d yet
 	      //curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy -phibasis->dudz*dphidz);
@@ -550,9 +572,9 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	      dphiphidy = phibasis->duolddy;
 	      dphiphidz = phibasis->duolddz;
 	      theta_ = theta(dphiphidx,dphiphidy,dphiphidz)-theta_0_;
-	      gs2_ = gs2(theta_);
-	      divgradphi = gs2_*phibasis->duolddx*dphidx + gs2_*phibasis->duolddy*dphidy + gs2_*phibasis->duolddz*dphidz;//(grad u,grad phi)
-	      dg2 = dgs2_2dtheta(theta_);
+	      gs2 = gs2_(theta_, M_, eps_);
+	      divgradphi = gs2*phibasis->duolddx*dphidx + gs2*phibasis->duolddy*dphidy + gs2*phibasis->duolddz*dphidz;//(grad u,grad phi)
+	      dg2 = dgs2_2dtheta_(theta_, M_, eps_);
 
 	      curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy);//cn not sure about 3d yet
 	      //curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy -phibasis->duolddz*dphidz);
@@ -609,7 +631,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 		double dphiphidz = phibasis->dudz;
 		
 		double theta_ = theta(dphiphidx,dphiphidy,dphiphidz) - theta_0_;
-		double gs2_ = gs2(theta_);
+		double gs2 = gs2_(theta_,  M_, eps_);
 		dtestdx = phibasis->dphidxi[j]*phibasis->dxidx
 		  +phibasis->dphideta[j]*phibasis->detadx
 		  +phibasis->dphidzta[j]*phibasis->dztadx;
@@ -619,9 +641,9 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 		dtestdz = phibasis->dphidxi[j]*phibasis->dxidz
 		  +phibasis->dphideta[j]*phibasis->detadz
 		  +phibasis->dphidzta[j]*phibasis->dztadz;
-		divgrad = gs2_*dtestdx * dphidx + gs2_*dtestdy * dphidy + gs2_*dtestdz * dphidz;
+		divgrad = gs2*dtestdx * dphidx + gs2*dtestdy * dphidy + gs2*dtestdz * dphidz;
 
-		double dg2 = dgs2_2dtheta(theta_);
+		double dg2 = dgs2_2dtheta_(theta_, M_, eps_);
 		double curlgrad = -dg2*(dtestdy*dphidx -dtestdx*dphidy);
 
 		double m = m_(theta_,M_,eps_);
@@ -1050,6 +1072,9 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
   //u_old_->Print(std::cout);
   random_number_old_=random_number_;
   time_ +=dt_;
+  //if(paramList.get<std::string> (TusastestNameString)=="karma"){
+    find_vtip();
+    //}
 }
 
 template<class Scalar>
@@ -1064,6 +1089,8 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::initialize()
   }else if(paramList.get<std::string> (TusastestNameString)=="furtado"){
     //init(u_old_);
     init_square(u_old_);
+  }else if(paramList.get<std::string> (TusastestNameString)=="karma"){
+    init_karma(u_old_);
   }else{
     std::cout<<"Unknown initialization testcase."<<std::endl;
     exit(0);
@@ -1126,6 +1153,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::finalize()
   std::ofstream timefile;
   timefile.open("time.dat");
   Teuchos::TimeMonitor::summarize(timefile);
+  finalize_vtip();
 
   if(!x_space_.is_null()) x_space_=Teuchos::null;
   if(!x_owned_map_.is_null()) x_owned_map_=Teuchos::null;
@@ -1229,19 +1257,13 @@ const double ModelEvaluatorPHASE_HEAT<Scalar>::gs( const double &theta)
 {
   return 1. + eps_ * (M_*cos(theta));
 }
-template<class Scalar>
-double ModelEvaluatorPHASE_HEAT<Scalar>::gs2( const double &theta) const
-{ 
-  //double g = 1. + eps_ * (M_*cos(theta));
-  double g = eps_0_*(1. + eps_ * (cos(M_*theta)));
-  return g*g;
-}
-template<class Scalar>
-double ModelEvaluatorPHASE_HEAT<Scalar>::dgs2_2dtheta(const double &theta) const
-{
-  //return -1.*(eps_*M_*(1. + eps_*M_*cos(theta))*sin(theta));
-  return -1.*eps_0_*(eps_*M_*(1. + eps_*cos(M_*(theta)))*sin(M_*(theta)));
-}
+// template<class Scalar>
+// double ModelEvaluatorPHASE_HEAT<Scalar>::gs2_( const double &theta, const double &eps) const
+// { 
+//   //double g = 1. + eps_ * (M_*cos(theta));
+//   double g = eps_0_*(1. + eps * (cos(M_*theta)));
+//   return g*g;
+// }
 template<class Scalar>
 const double ModelEvaluatorPHASE_HEAT<Scalar>::R(const double &theta)
 {
@@ -1288,6 +1310,30 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
     else {
       (*u)[numeqs_*nn]=T_inf_;
       (*u)[numeqs_*nn+1]=0.;
+    }
+    
+
+    //std::cout<<nn<<" "<<x<<" "<<y<<" "<<r<<"      "<<(*u_old_)[numeqs_*nn]<<"           "<<x*x+y*y<<" "<<r*r<<std::endl;
+  }
+}
+
+template<class Scalar>
+void ModelEvaluatorPHASE_HEAT<Scalar>::init_karma(Teuchos::RCP<Epetra_Vector> u)
+{
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+    double x = mesh_->get_x(nn);
+    double y = mesh_->get_y(nn);
+    double z = mesh_->get_z(nn);
+    double t = theta(x,y,z);
+    double r = R(t);
+    if(x*x+y*y+z*z < r*r){
+      (*u)[numeqs_*nn]= T_m_;
+      //(*u)[numeqs_*nn]=T_inf_;
+      (*u)[numeqs_*nn+1]=1.;
+    }
+    else {
+      (*u)[numeqs_*nn]=T_inf_;
+      (*u)[numeqs_*nn+1]=-1.;
     }
     
 
@@ -1383,5 +1429,62 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::pool(Teuchos::RCP<Epetra_Vector> u)
 
     //std::cout<<nn<<" "<<x<<" "<<y<<" "<<r<<"      "<<(*u_old_)[numeqs_*nn]<<"           "<<x*x+y*y<<" "<<r*r<<std::endl;
   }
+}
+template<class Scalar>
+void ModelEvaluatorPHASE_HEAT<Scalar>::init_vtip()
+{
+  for ( int j = 0; j < mesh_->get_node_set(0).size(); j++ ){
+    //int nodeid = mesh_->get_node_id(blk, ne, j);
+    int nodeid = mesh_->get_node_set_entry(0, j);
+    
+    //std::cout<<j<<" "<<nodeid<<" "<<mesh_->get_x(nodeid)<<" "<<mesh_->get_y(nodeid)<<std::endl;	    
+    x_node.insert(std::pair<double,int>(mesh_->get_x(nodeid),nodeid) ); 
+  }
+    
+//   std::map<double,int>::iterator it;
+//   for (it=x_node.begin(); it!=x_node.end(); ++it)
+//     std::cout << it->first << " => " << it->second << std::endl;
+  vtip_x_ = 0.;
+  vtip_x_old_ = 0.;  
+  std::ofstream outfile;
+  outfile.open("vtip.dat");
+  outfile.close();
+}
+template<class Scalar>
+void ModelEvaluatorPHASE_HEAT<Scalar>::find_vtip()
+{
+  vtip_x_old_ = vtip_x_;
+  double phi_avg = .5*(phi_sol_ + phi_liq_);
+  std::map<double,int>::iterator it;
+  for (it=x_node.begin(); it!=x_node.end(); ++it){
+    int nodeid = it->second;
+    double x2 = it->first;
+    double phi2 = (*u_old_)[numeqs_*nodeid+1];
+    //std::cout << it->first << " => " << it->second << " => " <<(*u_old_)[numeqs_*nodeid+1] << std::endl;
+    if (phi2 < phi_avg){
+//       std::cout<<x2<<" "<<nodeid<<" "<<phi2<<std::endl;
+      --it;
+      double x1 = it->first;
+      double phi1 = (*u_old_)[numeqs_*(it->second)+1];
+      double m = (phi2-phi1)/(x2-x1);
+      vtip_x_ = (m*x2-phi2+phi_avg)/m;
+//       std::cout<<x1<<" "<<it->second<<" "<<phi1<<" "<<m<<std::endl;
+//       std::cout<<x<<std::endl;
+      break;
+    }
+  }
+  std::cout<<"vtip_x_     = "<<vtip_x_<<std::endl;
+  std::cout<<"vtip_x_old_ = "<<vtip_x_old_<<std::endl;
+  std::cout<<"vtip        = "<<(vtip_x_-vtip_x_old_)/dt_<<std::endl<<std::endl;
+  std::ofstream outfile;
+  outfile.open("vtip.dat", std::ios::app );
+  outfile 
+    <<time_<<" "<<(vtip_x_-vtip_x_old_)/dt_<<std::endl;
+  outfile.close();
+  //exit(0);
+}
+template<class Scalar>
+void ModelEvaluatorPHASE_HEAT<Scalar>::finalize_vtip()
+{
 }
 #endif

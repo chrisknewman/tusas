@@ -122,15 +122,15 @@ private: // data members
 
   //cn these are parameters for cummins
   double K_, T_m_, T_inf_, alpha_, M_, eps_,eps_0_, R_0_, random_number_, random_number_old_;
+  double phi_sol_, phi_liq_;
 
   const double gs(const double &theta);
-  double gs2(const double &theta) const;
-  double dgs2_2dtheta(const double &theta) const;
   const double R(const double &theta);
   double theta(double &x,double &y,double &z = 0) const;
 
   void init(Teuchos::RCP<Epetra_Vector> u);
   void init_square(Teuchos::RCP<Epetra_Vector> u);
+  void init_karma(Teuchos::RCP<Epetra_Vector> u);
   void multi(Teuchos::RCP<Epetra_Vector> u);
   void pool(Teuchos::RCP<Epetra_Vector> u);
 
@@ -152,7 +152,14 @@ private: // data members
   double (*gpp1_)(const double &phi);
   double (*hp2_)(const double &phi);
 
+  double (*gs2_)(const double &theta,const double &M, const double &eps);
+  double (*dgs2_2dtheta_)(const double &theta,const double &M, const double &eps);
 
+  std::map<double,int> x_node;
+  void init_vtip();
+  void find_vtip();
+  void finalize_vtip();
+  double vtip_x_,vtip_x_old_;
 
 };
 

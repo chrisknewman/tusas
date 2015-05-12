@@ -89,19 +89,21 @@ double hp2_furtado_(const double &phi)
 }
 double rand_phi_furtado_(const double &phi, const double &random_number)
 {
-  double a = .025;
+  //  double a = .025;
+  double a = .25;
 //   return ((double)rand()/(RAND_MAX)*2.-1.)*16.*a*phi*phi
 // 		*(1.-phi)*(1.-phi);
-//   return random_number*16.*a*phi*phi
-// 		*(1.-phi)*(1.-phi);
-  return 0.;
+  return random_number*16.*a*phi*phi
+		*(1.-phi)*(1.-phi);
+  //return 0.;
 }
 
 //karma
 //karma has phi in [-1 +1]
 double hp2_karma_(const double &phi)
 {
-  return 15./8./2.*(1.-2*phi*phi+phi*phi*phi*phi);
+  //return 15./8./2.*(1.-2*phi*phi+phi*phi*phi*phi);//VF
+  return .5;//IVF
 }
 double w_karma_(const double &delta)
 {

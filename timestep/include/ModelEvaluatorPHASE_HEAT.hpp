@@ -121,7 +121,7 @@ private: // data members
   int numeqs_;
 
   //cn these are parameters for cummins
-  double K_, T_m_, T_inf_, alpha_, M_, eps_,eps_0_, R_0_, random_number_, random_number_old_;
+  double D_, T_m_, T_inf_, alpha_, M_, eps_,eps_0_, R_0_, random_number_, random_number_old_;
   double phi_sol_, phi_liq_;
 
   const double gs(const double &theta);
@@ -158,6 +158,7 @@ private: // data members
   std::map<double,int> x_node;
   void init_vtip();
   void find_vtip();
+  void find_vtip_x();
   void finalize_vtip();
   double vtip_x_,vtip_x_old_;
 

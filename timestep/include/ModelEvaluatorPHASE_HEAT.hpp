@@ -118,6 +118,8 @@ private: // data members
 
   double time_;
 
+  int ex_id_;
+
   int numeqs_;
 
   //cn these are parameters for cummins

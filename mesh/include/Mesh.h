@@ -27,6 +27,9 @@ class Mesh
 
   int read_exodus(const char * filename);
   int write_exodus(const char * filename);
+  int write_exodus(const int ex_id);
+  int write_exodus(const int ex_id, const int counter, const double time);
+  int create_exodus(const char * filename);
 
 // We need a set of convenient functions to retrieve data from this object, and write data to it
 
@@ -35,6 +38,8 @@ class Mesh
 
   int add_nodal_data(std::string name, std::vector<double> &data);
   int add_nodal_data(std::string name, double *data);
+  int add_nodal_field(std::string name);
+  int update_nodal_data(std::string name, double *data);
 
   void set_verbose(const bool v = true);
 
@@ -119,21 +124,21 @@ class Mesh
   std::vector<int> num_nodes_per_ns;
   std::vector<int> num_df_per_ns;
   std::vector<std::vector<int> > ns_node_list;
-  std::vector<std::vector<int> > ns_ctr_list;
+  //std::vector<std::vector<int> > ns_ctr_list;
 
   std::vector<std::vector<int> > nodal_adj; //cn we may only need this for epetra
-  std::vector<int> nodal_adj_idx;
-  std::vector<int> nodal_adj_array;
+  //std::vector<int> nodal_adj_idx;
+  //std::vector<int> nodal_adj_array;
 
   std::vector<std::string> nodal_field_names;      
   std::vector<std::vector<double> > nodal_fields;
 
   std::map<int,int> vertex_map;      
 
-  int create_exodus(const char * filename);
   int write_nodal_coordinates_exodus(int ex_id);
   int write_element_blocks_exodus(int ex_id);
   int write_nodal_data_exodus(int ex_id);
+  int write_nodal_data_exodus(int ex_id, int counter);
   int close_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
 

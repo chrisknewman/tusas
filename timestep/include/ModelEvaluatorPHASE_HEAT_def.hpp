@@ -1149,6 +1149,21 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::initialize()
     exit(0);
   }
   *u_old_old_ = *u_old_;
+
+  const char *outfilename = "results.e";
+  ex_id_ = mesh_->create_exodus(outfilename);
+  mesh_->add_nodal_field("u");
+  mesh_->add_nodal_field("phi");
+  double outputu[mesh_->get_num_nodes()];
+  double outputphi[mesh_->get_num_nodes()];
+  for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
+    outputu[nn]=(*u_old_)[numeqs_*nn];
+    outputphi[nn]=(*u_old_)[numeqs_*nn+1];
+  }
+
+  mesh_->update_nodal_data("u", outputu);
+  mesh_->update_nodal_data("phi", outputphi);
+  mesh_->write_exodus(ex_id_,1,time_);
   if(paramList.get<std::string> (TusastestNameString)=="cummins"){
     init_vtip();
   }
@@ -1159,22 +1174,19 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::finalize()
 {
   double outputu[mesh_->get_num_nodes()];
   double outputphi[mesh_->get_num_nodes()];
-  //double outputdudt[mesh_->get_num_nodes()];
-  //double outputdphidt[mesh_->get_num_nodes()];
   for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
     outputu[nn]=(*u_old_)[numeqs_*nn];
-    //outputdudt[nn]=(*dudt_)[numeqs_*nn];
     outputphi[nn]=(*u_old_)[numeqs_*nn+1];
-    //outputdphidt[nn]=(*dudt_)[numeqs_*nn+1];
-    //std::cout<<nn<<" "<<outputu[nn]<<" "<<outputphi[nn]<<std::endl;
+    std::cout<<outputu[nn]<<" "<<outputphi[nn]<<std::endl;
   }
 
-  const char *outfilename = "results.e";
-  mesh_->add_nodal_data("u", outputu);
-  mesh_->add_nodal_data("phi", outputphi);
-  //mesh_->add_nodal_data("dudt", outputdudt);
-  //mesh_->add_nodal_data("dphidt", outputdphidt);
-  mesh_->write_exodus(outfilename);
+  mesh_->update_nodal_data("u", outputu);
+  mesh_->update_nodal_data("phi", outputphi);
+//   mesh_->add_nodal_data("u", outputu);
+//   mesh_->add_nodal_data("phi", outputphi);
+  //mesh_->write_exodus(ex_id);
+  mesh_->write_exodus(ex_id_,2,time_);
+  //mesh_->write_exodus(outfilename);
   //compute_error(&outputu[0]);
 
   std::cout<<(solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")<<std::endl;

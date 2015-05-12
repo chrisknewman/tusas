@@ -3,7 +3,7 @@
 <!-- simulation parameters -->
 
   <Parameter name="dt" type="double" value=".001"/>
-  <Parameter name="nt" type="int" value = "140"/>
+  <Parameter name="nt" type="int" value = "1"/>
   <Parameter name="meshfile" type="string" value="meshes/dendquad300_q.e"/>
   <Parameter name="testcase" type="string" value="cummins"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>

@@ -473,6 +473,9 @@ note that we do not store the diagonal--maybe we should
 
 void Mesh::compute_nodal_adj(){
 
+  std::vector<int> nodal_adj_idx;
+  std::vector<int> nodal_adj_array;
+
   nodal_adj.resize(num_nodes, std::vector<int>(0));
   nodal_adj_idx.resize(num_nodes + 1);
   nodal_adj_idx[0] = 0;   //probably wont work in parallel, or need to start somewhere else
@@ -625,6 +628,29 @@ int Mesh::write_exodus(const char * filename){
    write_nodal_coordinates_exodus(ex_id);
    write_element_blocks_exodus(ex_id);
    write_nodal_data_exodus(ex_id);
+
+return 0;
+
+}
+
+int Mesh::write_exodus(const int ex_id){
+
+  //int ex_id = create_exodus(filename);
+
+   write_nodal_coordinates_exodus(ex_id);
+   write_element_blocks_exodus(ex_id);
+   write_nodal_data_exodus(ex_id);
+
+return 0;
+
+}
+
+int Mesh::write_exodus(const int ex_id, const int counter, const double time){
+
+   write_nodal_coordinates_exodus(ex_id);
+   write_element_blocks_exodus(ex_id);
+   write_nodal_data_exodus(ex_id,counter);
+   int error = ex_put_time(ex_id,counter,&time);
 
 return 0;
 
@@ -854,6 +880,47 @@ int Mesh::write_nodal_data_exodus(int ex_id){
 
 }
 
+int Mesh::write_nodal_data_exodus(int ex_id, int counter){
+
+  int ex_err;
+  char **var_names;
+
+
+  if(verbose)
+
+    std::cout<<"=== Write Nodal Data Exodus ==="<<std::endl
+	     <<" num_nodal_fields "<<num_nodal_fields<<std::endl;
+
+  if(num_nodal_fields == 0) return 0;
+
+  ex_err = ex_put_var_param (ex_id, "N", num_nodal_fields);
+
+  var_names = new char*[num_nodal_fields];
+
+  for(int i = 0; i < num_nodal_fields; i++){
+
+    var_names[i] = (char *)&nodal_field_names[i][0];
+
+    if(verbose)
+
+      std::cout<<" name  "<<var_names[i]<<std::endl<<std::endl;
+
+  }
+
+  ex_err = ex_put_var_names (ex_id, "N", num_nodal_fields, var_names);
+
+  for(int i = 0; i < num_nodal_fields; i++)
+
+    ex_err = ex_put_nodal_var (ex_id, counter, i + 1, num_nodes, &nodal_fields[i][0]);
+
+
+  delete [] var_names;
+
+  return ex_err;
+
+}
+
+
 /*
 int Mesh::add_nodal_data(std::string &name, std::vector<double> &data){
 
@@ -882,7 +949,7 @@ int Mesh::add_nodal_data(std::string name, std::vector<double> &data){
    nodal_field_names.push_back(name);
    nodal_fields.push_back(data);
 
-  if(verbose)
+   if(verbose)
 
     std::cout<<"=== Add nodal fields ==="<<std::endl
 	     <<" num_nodal_fields "<<num_nodal_fields<<std::endl
@@ -893,6 +960,46 @@ int Mesh::add_nodal_data(std::string name, std::vector<double> &data){
 
 }
 
+int Mesh::add_nodal_field(std::string name){
+
+   num_nodal_fields++;
+
+   nodal_field_names.push_back(name);
+   nodal_fields.resize(num_nodal_fields);
+   if(verbose)
+
+     std::cout<<"=== add nodal field ==="<<std::endl
+	      <<" num_nodal_fields "<<num_nodal_fields<<std::endl
+	      <<" sizeof nodal_field_names "<<nodal_field_names.size()<<std::endl;
+
+   return 1;
+
+}
+
+
+int Mesh::update_nodal_data(std::string name, double *data){
+
+  for (int i = 0; i < num_nodal_fields; i++){
+    if(name == nodal_field_names[i]){
+      std::cout<<"found"<<std::endl;
+      std::vector<double> a(data, data + num_nodes);
+      nodal_fields[i]=a;
+      return 1;
+    }
+  }
+
+   if(verbose)
+
+     std::cout<<"=== Update nodal data ==="<<std::endl
+	      <<" num_nodal_fields "<<num_nodal_fields<<std::endl
+	      <<" sizeof nodal_field_names "<<nodal_field_names.size()<<std::endl
+	      <<" sizeof nodal_fields "<<nodal_fields.size()<<std::endl<<std::endl;
+
+   std::cout<<name<<" not found"<<std::endl<<std::endl;
+   exit(0);
+   return 0;
+
+}
 int Mesh::add_nodal_data(std::string name, double *data){
 
 
@@ -903,7 +1010,7 @@ int Mesh::add_nodal_data(std::string name, double *data){
    nodal_field_names.push_back(name);
    nodal_fields.push_back(a);
 
-  if(verbose)
+   if(verbose)
 
     std::cout<<"=== Add nodal fields ==="<<std::endl
 	     <<" num_nodal_fields "<<num_nodal_fields<<std::endl

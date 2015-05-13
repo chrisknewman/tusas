@@ -93,7 +93,7 @@ double hp2_furtado_(const double &phi)
 double rand_phi_furtado_(const double &phi, const double &random_number)
 {
   //  double a = .025;
-  double a = 10.;
+  double a = .075;
 //   return ((double)rand()/(RAND_MAX)*2.-1.)*16.*a*phi*phi
 // 		*(1.-phi)*(1.-phi);
   return random_number*16.*a*phi*phi

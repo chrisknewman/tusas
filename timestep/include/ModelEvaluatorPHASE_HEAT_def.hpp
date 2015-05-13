@@ -104,6 +104,10 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
   u_old_old_ = rcp(new Epetra_Vector(*f_owned_map_));
   dudt_ = rcp(new Epetra_Vector(*f_owned_map_));
 
+  random_vector_ = rcp(new Epetra_Vector(*f_owned_map_));
+  random_vector_->Random();
+  random_vector_old_ = rcp(new Epetra_Vector(*f_owned_map_));
+
   MEB::InArgsSetup<Scalar> inArgs;
   inArgs.setModelEvalDescription(this->description());
   inArgs.setSupports(MEB::IN_ARG_x);
@@ -200,11 +204,13 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
     hpp1_ = &hpp1_cummins_;
     w_ = &w_cummins_;
     m_ = &m_cummins_;
+    //m_ = &m_furtado_;
     rand_phi_ = &rand_phi_furtado_;
     //rand_phi_ = &rand_phi_zero_;
     gp1_ = &gp1_cummins_;
     gpp1_ = &gpp1_cummins_;
-    hp2_ = &hp2_cummins_;
+    //hp2_ = &hp2_cummins_;
+    hp2_ = &hp2_furtado_;
 
     gs2_ = &gs2_cummins_;
     dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
@@ -613,10 +619,11 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	      double hp1 = hp1_(phibasis->uu,5.*alpha_/delta);
 
 	      double phidel = hp1*(T_m_ - ubasis->uu)*phibasis->phi[i];
-	      
-	      double rand_phi = -rand_phi_(phibasis->uu,random_number_);
+	      //std::cout<<(*random_vector_)[mesh_->get_node_id(blk, ne, i)]<<std::endl;
+	      double rand_phi = -rand_phi_(phibasis->uu,(*random_vector_)[mesh_->get_node_id(blk, ne, i)]);
+	      //double rand_phi = -rand_phi_(phibasis->uu,random_number_);
 	      double r_phi = rand_phi*phibasis->phi[i];
-
+	      //std::cout<<r_phi<<std::endl;
 	      double rhs = divgradphi + curlgrad + phidel2 + phidel + r_phi;
 
 	      dphiphidx = phibasis->duolddx;
@@ -642,7 +649,8 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	      phidel = hp1*(T_m_ - ubasis->uuold)*phibasis->phi[i];
 
 	      //std::cout<<random_number_<<std::endl;
-	      rand_phi = -rand_phi_(phibasis->uuold,random_number_old_);
+	      rand_phi = -rand_phi_(phibasis->uu,(*random_vector_old_)[mesh_->get_node_id(blk, ne, i)]);
+	      //rand_phi = -rand_phi_(phibasis->uuold,random_number_old_);
 	      r_phi = rand_phi*phibasis->phi[i];
 
 	      double rhs_old = divgradphi + curlgrad + phidel2 + phidel + r_phi;
@@ -1090,6 +1098,8 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
   solver_->reset(thyraguess);
 
   random_number_= ((double)rand()/(RAND_MAX)*2.-1.);
+  random_vector_->Random();
+  //random_vector_->Print(std::cout);
 
   NOX::StatusTest::StatusType solvStatus = solver_->solve();
   if( !(NOX::StatusTest::Converged == solvStatus)) {
@@ -1122,6 +1132,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
   }
   //u_old_->Print(std::cout);
   random_number_old_=random_number_;
+  random_vector_old_->Scale((double)1.,*random_vector_);
   time_ +=dt_;
   if(paramList.get<std::string> (TusastestNameString)=="cummins"){
     find_vtip();
@@ -1177,7 +1188,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::finalize()
   for (int nn=0; nn < mesh_->get_num_nodes(); nn++) {
     outputu[nn]=(*u_old_)[numeqs_*nn];
     outputphi[nn]=(*u_old_)[numeqs_*nn+1];
-    std::cout<<outputu[nn]<<" "<<outputphi[nn]<<std::endl;
+    //std::cout<<outputu[nn]<<" "<<outputphi[nn]<<std::endl;
   }
 
   mesh_->update_nodal_data("u", outputu);

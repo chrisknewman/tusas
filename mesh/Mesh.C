@@ -981,7 +981,7 @@ int Mesh::update_nodal_data(std::string name, double *data){
 
   for (int i = 0; i < num_nodal_fields; i++){
     if(name == nodal_field_names[i]){
-      std::cout<<"found"<<std::endl;
+      //std::cout<<"found"<<std::endl;
       std::vector<double> a(data, data + num_nodes);
       nodal_fields[i]=a;
       return 1;

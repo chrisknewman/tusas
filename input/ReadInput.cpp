@@ -50,6 +50,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasnoxmaxiterNameString,(int)200,TusasnoxmaxiterDocString);
 
+  paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
+
   //read/overwrite here
 
   // read parameters from xml file
@@ -74,6 +76,11 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     std::cout << "No input file specified, or not read successfully. Default values will be used.\n" << std::endl;
     std::cout << "Default values:\n" << std::endl;
   }
+
+  if((0 != paramList.get<int>(TusasntNameString))%(paramList.get<int>(TusasoutputfreqNameString)))
+    paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
+
+
   paramList.print(std::cout, 2, true, true );
   std::cout<<std::endl<<"Initial parameter list completed."<<std::endl<<std::endl<<std::endl;
   //exit(0);

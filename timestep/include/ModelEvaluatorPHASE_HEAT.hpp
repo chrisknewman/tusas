@@ -123,8 +123,12 @@ private: // data members
   int numeqs_;
 
   //cn these are parameters for cummins
-  double D_, T_m_, T_inf_, alpha_, M_, eps_,eps_0_, R_0_, random_number_, random_number_old_;
+  double D_, T_m_, T_inf_, alpha_, M_, eps_,eps_0_, R_0_;
   double phi_sol_, phi_liq_;
+
+  double random_number_, random_number_old_;
+  Teuchos::RCP<Epetra_Vector> random_vector_;
+  Teuchos::RCP<Epetra_Vector> random_vector_old_;
 
   const double gs(const double &theta);
   const double R(const double &theta);

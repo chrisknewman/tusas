@@ -191,7 +191,7 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
     T_m_ = 1.55;
     T_inf_ = 1.;
     alpha_ = 191.82;
-    eps_ = .05;
+    eps_ = .04;
     //eps_ = .2;
     eps_0_ = 1.;
     M_= 4.;
@@ -1100,6 +1100,8 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::advance()
   random_number_= ((double)rand()/(RAND_MAX)*2.-1.);
   random_vector_->Random();
   //random_vector_->Print(std::cout);
+
+  //std::cout<<"random_number_= "<<random_number_<<std::endl;
 
   NOX::StatusTest::StatusType solvStatus = solver_->solve();
   if( !(NOX::StatusTest::Converged == solvStatus)) {

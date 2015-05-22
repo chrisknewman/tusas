@@ -118,7 +118,6 @@ class BasisQQuad : public Basis {
 };
 
 
-// samet adds 3D stuff.
 class BasisLHex : public Basis {
 
  public:
@@ -129,6 +128,28 @@ class BasisLHex : public Basis {
 
   // Destructor
   virtual ~BasisLHex();
+
+  // Calculates the values of u and x at the specified gauss point
+  virtual void getBasis(int gp, double *x, double *y);
+  virtual void getBasis(int gp, double *x, double *y, double *z);
+  virtual void getBasis(int gp, double *x, double *y, double *z, double *u);
+  virtual void getBasis(int gp, double *x, double *y, double *z, double *u, double *uold);
+
+ public:
+  // Variables that are calculated at the gauss point
+  int sngp;
+};
+
+class BasisLTet : public Basis {
+
+ public:
+
+  // Constructor
+  BasisLTet();
+  BasisLTet(int sngp = 1);
+
+  // Destructor
+  virtual ~BasisLTet();
 
   // Calculates the values of u and x at the specified gauss point
   virtual void getBasis(int gp, double *x, double *y);

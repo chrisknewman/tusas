@@ -753,9 +753,6 @@ void BasisQQuad::getBasis(int gp,  double *x, double *y, double *z, double *u, d
   std::cout<<"BasisQQuad::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold)"<<std::endl;
 }
 
-
-///////////////////////////////////////////////////////////////////////////////////////////////`
-/////////////////////////////////////////////////// samet /////////////////////////////////////
 //  3D basis...
 
 // Constructor
@@ -907,6 +904,174 @@ void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u, do
 	+ (z[7]-z[4])*(1.- xi)*(1.+zta) + (z[6]-z[5])*(1.+ xi)*(1.+zta) );
   double dzdzta = 0.125*( (z[4]-z[0])*(1.- xi)*(1.-eta) + (z[5]-z[1])*(1.+ xi)*(1.-eta)
 	+ (z[6]-z[2])*(1.+ xi)*(1.+eta) + (z[7]-z[3])*(1.- xi)*(1.+eta) );
+
+  jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
+	                                      + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
+
+
+  dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
+  dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
+  dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;
+
+  detadx =  ( dydzta*dzdxi - dydxi*dzdzta) / jac;
+  detady =  (-dxdzta*dzdxi + dxdxi*dzdzta) / jac;
+  detadz =  ( dxdzta*dydxi - dxdxi*dydzta) / jac;
+
+  dztadx =  ( dydxi*dzdeta - dydeta*dzdxi) / jac;
+  dztady =  (-dxdxi*dzdeta + dxdeta*dzdxi) / jac;
+  dztadz =  ( dxdxi*dydeta - dxdeta*dydxi) / jac;
+  // Caculate basis function and derivative at GP.
+  xx=0.0;
+  yy=0.0;
+  zz=0.0;
+  uu=0.0;
+  uuold=0.0;
+  dudx=0.0;
+  dudy=0.0;
+  dudz=0.0;
+  duolddx = 0.;
+  duolddy = 0.;
+  duolddz = 0.;
+  // x[i] is a vector of node coords, x(j, k) 
+  for (int i=0; i < 8; i++) {
+    xx += x[i] * phi[i];
+    yy += y[i] * phi[i];
+    zz += z[i] * phi[i];
+    if( u ){
+      uu += u[i] * phi[i];
+      dudx += u[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
+      dudy += u[i] * (dphidxi[i]*dxidy+dphideta[i]*detady+dphidzta[i]*dztady);
+      dudz += u[i] * (dphidxi[i]*dxidz+dphideta[i]*detadz+dphidzta[i]*dztadz);
+    }
+    if( uold ){
+      uuold += uold[i] * phi[i];
+      duolddx += uold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
+      duolddy += uold[i] * (dphidxi[i]*dxidy+dphideta[i]*detady+dphidzta[i]*dztady);
+      duolddz += uold[i] * (dphidxi[i]*dxidz+dphideta[i]*detadz+dphidzta[i]*dztadz);
+      //exit(0);
+    }
+  }
+  return;
+}
+
+
+BasisLTet::BasisLTet(int n) : sngp(n){
+  ngp = 8;
+  phi = new double[ngp];
+  dphidxi = new double[ngp];
+  dphideta = new double[ngp];
+  dphidzta = new double[ngp];
+  abscissa = new double[sngp];
+  weight = new double[sngp];
+  setN(sngp, abscissa, weight);
+  exit(0);
+}
+
+BasisLTet::BasisLTet(){
+  //cn we can have 1 or 4 guass points; 4 will be default
+#if 0
+  sngp = 1;
+  ngp = 1;
+#endif
+  sngp = 2;
+  ngp = 4;
+  phi = new double[ngp];
+  dphidxi = new double[ngp];
+  dphideta = new double[ngp];
+  dphidzta = new double[ngp];
+  abscissa = new double[sngp];
+  weight = new double[sngp];
+  //setN(sngp, abscissa, weight);
+#if 0
+  abscissa[0] = 0.25000000;
+  weight[0] = 0.16666667;
+#endif
+  abscissa[0] = 0.13819660;
+  abscissa[1] = 0.58541020;
+  weight[0] = 0.041666666667;
+  weight[1] = 0.041666666667;
+}
+
+// Destructor
+BasisLTet::~BasisLTet() {
+  delete [] phi;
+  delete [] dphideta;
+  delete [] dphidxi;
+  delete [] dphidzta;
+  delete [] abscissa;
+  delete [] weight;
+}
+
+// Calculates a linear 3D basis
+void BasisLTet::getBasis(int gp, double *x, double *y) {
+  std::cout<<"BasisLTet::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
+}
+void BasisLTet::getBasis(int gp,  double *x, double *y, double *z) {
+  getBasis(gp, x, y, z, NULL);
+}
+void BasisLTet::getBasis(int gp,  double *x, double *y, double *z, double *u) {
+  getBasis(gp, x, y, z, u, NULL);
+}
+void BasisLTet::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold) {
+
+  if(0 == gp){
+    xi = abscissa[0];  // 0, 0, 0
+    eta = abscissa[0];
+    zta = abscissa[0];
+    wt = weight[0] * weight[0] * weight[0];
+  }else if (1 == gp){
+    xi = abscissa[1]; // 1, 0, 0
+    eta = abscissa[0];
+    zta = abscissa[0];
+    wt = weight[0] * weight[1] * weight[0];
+  }else if (2 == gp){
+    xi = abscissa[0]; // 1, 1, 0
+    eta = abscissa[1];
+    zta = abscissa[0];
+    wt = weight[1] * weight[1] * weight[0];
+  }else if (3 == gp){
+    xi = abscissa[0];  //0, 1, 0
+    eta = abscissa[0];
+    zta = abscissa[1];
+    wt = weight[0] * weight[1] * weight[0];
+  } 
+
+  // Calculate basis function and derivatives at nodal pts
+   phi[0]   =  1.0 - xi  - eta - zta;
+   phi[1]   =  xi;
+   phi[2]   =  eta;
+   phi[3]   =  zta;
+
+   // ksi-derivatives
+   dphidxi[0] = -1.;
+   dphidxi[1] =  1.;;
+   dphidxi[2] =  0.;
+   dphidxi[3] =  0.;
+
+   // eta-derivatives
+   dphideta[0] = -1.;
+   dphideta[1] =  0.;
+   dphideta[2] =  1.;
+   dphideta[3] =  0.;
+
+   // zeta-derivatives
+   dphidzta[0] = -1.;
+   dphidzta[1] =  0.;
+   dphidzta[2] =  0.;
+   dphidzta[3] =  1.;
+  
+  // Caculate basis function and derivative at GP.
+  double dxdxi  = (x[1]-x[0]);
+  double dxdeta = (x[2]-x[0]);
+  double dxdzta = (x[3]-x[0]);
+
+  double dydxi  = (y[1]-y[0]);
+  double dydeta = (y[2]-y[0]); 
+  double dydzta = (y[3]-y[0]);
+
+  double dzdxi  = (z[1]-z[0]);
+  double dzdeta = (z[2]-z[0]);
+  double dzdzta = (z[3]-z[0]);
 
   jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
 	                                      + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);

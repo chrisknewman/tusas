@@ -458,28 +458,31 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 
       n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+      std::string elem_type=mesh_->get_blk_elem_type(blk);
 
-      switch(n_nodes_per_elem){
-	
-      case 3 : // linear triangle
-	ubasis = new BasisLTri;
-	phibasis = new BasisLTri;
-	phibasis2 = new BasisLTri;
-	break;
-	
-      case 4 : // linear quad
+      if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) ){ // linear quad
 	ubasis = new BasisLQuad;
 	phibasis = new BasisLQuad;
 	phibasis2 = new BasisLQuad;
-	break;
-	
-      case 8 : // linear hex
+      }
+      else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) ){ // linear triangle
+	ubasis = new BasisLTri;
+	phibasis = new BasisLTri;
+	phibasis2 = new BasisLTri;
+      }
+      else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) ){ // linear hex
 	ubasis = new BasisLHex;
 	phibasis = new BasisLHex;
 	phibasis2 = new BasisLHex;
-	break;
-	
-	
+      } 
+      else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) ){ // linear tet
+ 	ubasis = new BasisLTet;
+ 	phibasis = new BasisLTet;
+ 	phibasis2 = new BasisLTet;
+      } 
+      else {
+	std::cout<<"Unsupported element type"<<std::endl<<std::endl;
+	exit(0);
       }
 
       xx = new double[n_nodes_per_elem];
@@ -534,6 +537,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 
 	  // Calculate the basis function at the gauss point
 
+	  //cn need to fix this hack
  	  if(3 == dim) {
  	    ubasis->getBasis(gp, xx, yy, zz, uu, uu_old);
  	    phibasis->getBasis(gp, xx, yy, zz, phiphi, phiphi_old);

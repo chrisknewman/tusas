@@ -146,7 +146,7 @@ class BasisLTet : public Basis {
 
   // Constructor
   BasisLTet();
-  BasisLTet(int sngp = 1);
+  BasisLTet(int sngp);
 
   // Destructor
   virtual ~BasisLTet();

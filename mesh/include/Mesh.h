@@ -86,6 +86,8 @@ class Mesh
   void set_vertex_map();
   int get_num_vertices(){return num_vertices;}
 
+  std::string get_blk_elem_type(const int i){return blk_elem_type[i];}
+
  private:
 
   bool verbose;

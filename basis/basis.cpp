@@ -1101,7 +1101,7 @@ void BasisLTet::getBasis(int gp,  double *x, double *y, double *z, double *u, do
   duolddy = 0.;
   duolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
-  for (int i=0; i < 8; i++) {
+  for (int i=0; i < ngp; i++) {
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
     zz += z[i] * phi[i];

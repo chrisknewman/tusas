@@ -615,7 +615,7 @@ void Mesh::check_exodus_error(const int ex_err, const std::string msg){
 
   if (ex_err < 0)
 
-    std::cout<<"ExodusII error:  "<<msg<<std::endl<<std::endl;
+    std::cout<<"ExodusII error:  "<<msg<<"  ex_err = "<<ex_err<<std::endl<<std::endl;
 
   return;
 

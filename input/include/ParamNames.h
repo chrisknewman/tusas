@@ -25,4 +25,6 @@ std::string const TusasnoxmaxiterNameString = "noxmaxiter";
 std::string const TusasnoxmaxiterDocString = "nox max number iterations (int): default 200";
 std::string const TusasoutputfreqNameString = "outputfreq";
 std::string const TusasoutputfreqDocString = "output frequency (int): default 1";
+std::string const TusasrestartstepNameString = "restartstep";
+std::string const TusasrestartstepDocString = "timestep to restart (int): default 0";
 #endif

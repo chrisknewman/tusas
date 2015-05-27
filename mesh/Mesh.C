@@ -652,8 +652,15 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
    write_nodal_data_exodus(ex_id,counter);
    int error = ex_put_time(ex_id,counter,&time);
 
-return 0;
+   return error;
 
+}
+
+int Mesh::read_time_exodus(const int ex_id, const int counter, double time){
+
+   int error = ex_get_time(ex_id,counter,&time);
+
+   return error;
 }
 
 int Mesh::write_nodal_coordinates_exodus(int ex_id)
@@ -918,6 +925,31 @@ int Mesh::write_nodal_data_exodus(int ex_id, int counter){
 
   return ex_err;
 
+}
+
+int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, const int index, double *data){
+  int ex_err = ex_get_nodal_var (ex_id, timestep, index, num_nodes, &data[0]);
+  return ex_err;
+}
+
+int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, std::string name, double *data){
+  int index = get_nodal_field_index(name) + 1;//exodus starts at 1
+  int ex_err = ex_get_nodal_var (ex_id, timestep, index, num_nodes, &data[0]);
+  return ex_err;
+}
+
+int Mesh::get_nodal_field_index(std::string name){
+  int index = -1;
+  for (int i = 0; i < num_nodal_fields; i++){
+    if(name == nodal_field_names[i]){
+      index = i;
+    }
+  }
+  if(0 > index){
+    std::cout<<name<<" not found"<<std::endl<<std::endl;
+    exit(0);
+  }
+  return index;
 }
 
 

@@ -57,12 +57,8 @@ int main(int argc, char *argv[])
   Teuchos::ParameterList paramList;
   readParametersFromFile(argc, argv, paramList );
 
-  //cn we should maybe control implicit/explicit via the old fashioned theta formulation;
-  //cn and only have the one phase heat class
-
   Mesh * in_mesh = new Mesh(0,false);
 
-  //in_mesh->read_exodus(&(paramList.get<std::string> (TusasmeshNameString) )[0]);
   in_mesh->read_exodus((paramList.get<std::string> (TusasmeshNameString) ).c_str());
 
   //we want end dt = .14 here; dt=.001   for dendquad300.e and ModelEvaluatorPHASE_HEAT
@@ -71,6 +67,11 @@ int main(int argc, char *argv[])
   //                           dt=.000001 for dendquad600.e and ModelEvaluatorPHASE_HEAT_Exp
 
   double dt = paramList.get<double> (TusasdtNameString);
+  int numSteps = paramList.get<int> (TusasntNameString);
+  double curTime = 0.0; 
+  double endTime = curTime + (double)numSteps*dt;
+  int elapsedSteps =0;
+
   timestep<double> * model;
   if( paramList.get<std::string> (TusasmethodNameString)  == "phaseheat") {
     model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
@@ -81,13 +82,7 @@ int main(int argc, char *argv[])
   else {
     std::cout<<"Invalid method."<<std::endl<<std::endl;
     exit(0);
-  //timestep<double> * model = new ModelEvaluatorPHASE_HEAT_Exp<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
   }
-
-  int numSteps = paramList.get<int> (TusasntNameString);
-  double curTime = 0.0; 
-  double endTime = (double)numSteps*dt;
-  int elapsedSteps =0;
 
   model->initialize();
 

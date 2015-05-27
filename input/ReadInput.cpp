@@ -52,6 +52,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
 
+  paramList.set(TusasrestartstepNameString,(int)0,TusasrestartstepDocString);
+
   //read/overwrite here
 
   // read parameters from xml file

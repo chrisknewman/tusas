@@ -30,6 +30,7 @@ class Mesh
   int write_exodus(const int ex_id);
   int write_exodus(const int ex_id, const int counter, const double time);
   int create_exodus(const char * filename);
+  int read_time_exodus(const int ex_id, const int counter, double time);
 
 // We need a set of convenient functions to retrieve data from this object, and write data to it
 
@@ -141,8 +142,11 @@ class Mesh
   int write_element_blocks_exodus(int ex_id);
   int write_nodal_data_exodus(int ex_id);
   int write_nodal_data_exodus(int ex_id, int counter);
+  int read_nodal_data_exodus(const int ex_id, const int timestep, const int index, double *data);
+  int read_nodal_data_exodus(const int ex_id, const int timestep, std::string name, double *data);
   int close_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
+  int get_nodal_field_index(std::string name);
 
   std::vector<int> node_num_map;
   std::vector<int> elem_num_map;

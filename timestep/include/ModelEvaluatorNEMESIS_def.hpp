@@ -1246,7 +1246,8 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
   }
   else{
     std::string decompPath="decomp/";
-    std::string pfile = decompPath+std::to_string(mypid+1)+"/results."+std::to_string(numproc)+"."+std::to_string(mypid)+".e";
+    //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
+    std::string pfile = decompPath+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
     ex_id_ = mesh_->create_exodus(pfile.c_str());
   }
   

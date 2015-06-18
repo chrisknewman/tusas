@@ -3,6 +3,6 @@
 	
 #include "Teuchos_ParameterList.hpp"
 
-void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &paramList );
+void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &paramList ,int mypid);
 
 #endif

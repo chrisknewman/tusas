@@ -2,7 +2,7 @@
 #define MESH_H
 extern "C" {
 
-#  include "exodusII.h"
+#include "exodusII.h"
 
 } 
 
@@ -14,12 +14,12 @@ class Mesh
 {
  public:
 
-#ifdef NEMESIS
+  //#ifdef NEMESIS
   Mesh(const int proc_id, const int nprocs, const bool v = false);
   Mesh(){fprintf(stderr, "Must specify processor ID and number of processors"); exit(-10);}
-#else
+  //#else
   Mesh(const int proc_id = 0, const bool v = false);
-#endif
+  //#endif
 
   ~Mesh();
 
@@ -44,13 +44,15 @@ class Mesh
 
   void set_verbose(const bool v = true);
 
-#ifdef NEMESIS
-  int get_num_global_nodes(){return ne_num_global_nodes;}
-#else
-  int get_num_global_nodes(){return num_nodes;}
-#endif
+  //#ifdef NEMESIS
+  //  int get_num_global_nodes(){return ne_num_global_nodes;}
+  //#else
+  //int get_num_global_nodes(){return num_nodes;}
+  //#endif
+  int get_num_global_nodes();
   int get_num_nodes(){return num_nodes;}
-  int get_num_my_nodes(){return my_node_num_map.size(); }
+  //int get_num_my_nodes(){return my_node_num_map.size(); }
+  int get_num_my_nodes(){return num_my_nodes; }
   int get_num_dim(){return num_dim;}
   int get_num_elem(){return num_elem;}
   int get_num_elem_blks(){return num_elem_blk;}
@@ -63,10 +65,13 @@ class Mesh
   int& get_node_id(int blk, int elem, int offset){return connect[blk][elem * num_node_per_elem_in_blk[blk] + offset]; }
   int get_boundary_status(int blk, int elem);
   int get_node_boundary_status(int nodeid);
+  int get_global_node_id(int i){ return node_num_map[i];}
 
-  std::vector<int> *get_node_num_map(){ return &node_num_map; }
+  std::vector<int> get_node_num_map(){ return node_num_map; }
   std::vector<int> *get_elem_num_map(){ return &elem_num_map; }
-  std::vector<int> *get_my_node_num_map(){ return &my_node_num_map; }
+  std::vector<int> get_my_node_num_map(){ return my_node_num_map; }
+  std::vector<int> get_my_node_num_mapi(){ return node_mapi; }
+  std::vector<int> get_my_node_num_mapb(){ return node_mapb; }
 
   double get_x(int i){return x[i];}
   double get_y(int i){return y[i];}
@@ -89,6 +94,8 @@ class Mesh
 
   std::string get_blk_elem_type(const int i){return blk_elem_type[i];}
 
+  void set_my_num_nodes(int n){num_my_nodes = n;}
+
  private:
 
   bool verbose;
@@ -103,7 +110,7 @@ class Mesh
   int num_side_sets;
   int num_nodal_fields;
   int num_vertices;
-
+  int num_my_nodes;
 
   std::vector<double> x;               // x locations of node points
   std::vector<double> y;               // y locations of node points
@@ -155,7 +162,7 @@ class Mesh
   std::vector<int> side_set_node_map;
   std::vector<int> my_node_num_map;
 
-#ifdef NEMESIS
+  //#ifdef NEMESIS
   int ne_num_global_nodes, ne_num_global_elems, ne_num_global_elem_blks,
 		  ne_num_global_node_sets, ne_num_global_side_sets;
 
@@ -177,7 +184,7 @@ class Mesh
 
   char filetype;
 
-#endif
+  //#endif
 
 };
 

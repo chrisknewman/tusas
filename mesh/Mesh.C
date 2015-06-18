@@ -3,21 +3,21 @@
 #include <algorithm>
 #include "string.h"
 
-#ifdef NEMESIS
+//#ifdef NEMESIS
 #include "ne_nemesisI.h"
-#endif
+//#endif
 
 /*
 Public interface to the Mesh class
 */
 
-#ifdef NEMESIS
+//#ifdef NEMESIS
 Mesh::Mesh( const int pid, const int np, const bool v ):
   proc_id(pid), nprocs(np), verbose(v) {}
-#else
+//#else
 Mesh::Mesh( const int pid, const bool v ):
   verbose(v) {}
-#endif
+//#endif
 
 Mesh::~Mesh(){};
 
@@ -79,60 +79,62 @@ int Mesh::read_exodus(const char * filename){
   y.resize(num_nodes);  
   z.resize(num_nodes);
 
-#ifdef NEMESIS
+  if( 1 < nprocs ){
+    //#ifdef NEMESIS
 
-  if ( num_dim == 2 ){
-
-   ne_get_n_coord(ex_id, 1, num_nodes,
-		  &x[0],
-		  &y[0],
-		  NULL);
-
-   std::fill(z.begin(), z.end(), 0);
+    if ( num_dim == 2 ){
+      
+      ne_get_n_coord(ex_id, 1, num_nodes,
+		     &x[0],
+		     &y[0],
+		     NULL);
+      
+      std::fill(z.begin(), z.end(), 0);
+    }
+    else {
+      
+      ne_get_n_coord(ex_id, 1, num_nodes,
+		     &x[0],
+		     &y[0],
+		     &z[0]);
+    }
+    
+    int num_proc;
+    
+    
+    ne_get_init_info(ex_id, &num_proc, &nprocs_infile, &filetype);
+    
+    if(num_proc != nprocs){
+      
+      fprintf(stderr, "ERROR in file read: number of processors does not match number of input files\n");
+      exit(-10);
+      
+    }
+    
   }
   else {
-
-     ne_get_n_coord(ex_id, 1, num_nodes,
-		  &x[0],
-		  &y[0],
-		  &z[0]);
+    //#else
+    
+    if ( num_dim == 2 ){
+      
+      ex_err = ex_get_coord(ex_id,
+			    &x[0],
+			    &y[0],
+			    0);
+      
+      std::fill(z.begin(), z.end(), 0);
+    }
+    else {
+      
+      ex_err = ex_get_coord(ex_id,
+			    &x[0],
+			    &y[0],
+			    &z[0]); 
+    }
+    
+    check_exodus_error(ex_err,"Mesh::read_exodus ex_get_coord");
   }
-
-  int num_proc;
-  
-
-  ne_get_init_info(ex_id, &num_proc, &nprocs_infile, &filetype);
-
-  if(num_proc != nprocs){
-
-	  fprintf(stderr, "ERROR in file read: number of processors does not match number of input files\n");
-	  exit(-10);
-
-  }
-  	
-
-#else
-
-  if ( num_dim == 2 ){
-
-    ex_err = ex_get_coord(ex_id,
-			  &x[0],
-			  &y[0],
-			  0);
-
-   std::fill(z.begin(), z.end(), 0);
-  }
-  else {
-
-    ex_err = ex_get_coord(ex_id,
-			  &x[0],
-			  &y[0],
-			  &z[0]); 
-  }
-
-  check_exodus_error(ex_err,"Mesh::read_exodus ex_get_coord");
-
-#endif
+  //#endif
 
   blk_ids.resize(num_elem_blk);
   num_elem_in_blk.resize(num_elem_blk);
@@ -174,19 +176,21 @@ int Mesh::read_exodus(const char * filename){
 
     connect[i].resize(num_elem_in_blk[i]*num_node_per_elem_in_blk[i]);
 
-#ifdef NEMESIS
+    if( 1 < nprocs ){
+      //#ifdef NEMESIS
+      
+      ne_get_n_elem_conn(ex_id, blk_ids[i], 1, num_elem_in_blk[i], &connect[i][0]);
 
-    ne_get_n_elem_conn(ex_id, blk_ids[i], 1, num_elem_in_blk[i], &connect[i][0]);
-
-#else
-
-    ex_err = ex_get_elem_conn(ex_id,
-			      blk_ids[i],
-			      &connect[i][0]);
-
-    check_exodus_error(ex_err,"Mesh::read_exodus ex_get_elem_conn");
-
-#endif
+      //#else
+    }
+    else {
+      ex_err = ex_get_elem_conn(ex_id,
+				blk_ids[i],
+				&connect[i][0]);
+      
+      check_exodus_error(ex_err,"Mesh::read_exodus ex_get_elem_conn");
+    }
+    //#endif
 
     for(a = connect[i].begin(); a != connect[i].end(); a++)  // fix FORTRAN indexing
 
@@ -318,106 +322,110 @@ int Mesh::read_exodus(const char * filename){
   node_num_map.resize(num_nodes);
   elem_num_map.resize(num_elem);
 
-#ifdef NEMESIS
+  if( 1 < nprocs ){
+    //#ifdef NEMESIS
+    
+    ne_get_init_global(ex_id, &ne_num_global_nodes, &ne_num_global_elems, &ne_num_global_elem_blks,
+		       &ne_num_global_node_sets, &ne_num_global_side_sets);
+    
+    ne_get_loadbal_param(ex_id, &num_internal_nodes, &num_border_nodes, &num_external_nodes,
+			 &num_internal_elems, &num_border_elems, &num_node_cmaps, &num_elem_cmaps, proc_id);
+    
+    ne_get_n_node_num_map(ex_id, 1, num_nodes, &node_num_map[0]);
+    for(a = node_num_map.begin(); a != node_num_map.end(); a++) (*a)--;
+    ne_get_n_elem_num_map(ex_id, 1, num_elem, &elem_num_map[0]);
+    for(a = elem_num_map.begin(); a != elem_num_map.end(); a++) (*a)--;
+    
+    elem_mapi.resize(num_internal_elems);
+    elem_mapb.resize(num_border_elems);
+    
+    ne_get_elem_map(ex_id, &elem_mapi[0], &elem_mapb[0], proc_id);
+    for(a = elem_mapi.begin(); a != elem_mapi.end(); a++) (*a)--;
+    for(a = elem_mapb.begin(); a != elem_mapb.end(); a++) (*a)--;
+    
+    node_mapi.resize(num_internal_nodes);
+    node_mapb.resize(num_border_nodes);
+    node_mape.resize(num_external_nodes);
+    
+    ne_get_node_map(ex_id, &node_mapi[0], &node_mapb[0], &node_mape[0], proc_id);
+    for(a = node_mapi.begin(); a != node_mapi.end(); a++) (*a)--;
+    for(a = node_mapb.begin(); a != node_mapb.end(); a++) (*a)--;
+    for(a = node_mape.begin(); a != node_mape.end(); a++) (*a)--;
 
-  ne_get_init_global(ex_id, &ne_num_global_nodes, &ne_num_global_elems, &ne_num_global_elem_blks,
-		  &ne_num_global_node_sets, &ne_num_global_side_sets);
+    my_node_num_map = node_mapi;  // nodes this proc is responsible for
 
-  ne_get_loadbal_param(ex_id, &num_internal_nodes, &num_border_nodes, &num_external_nodes,
-		  &num_internal_elems, &num_border_elems, &num_node_cmaps, &num_elem_cmaps, proc_id);
+    if(proc_id == 0){
+      my_node_num_map.insert(my_node_num_map.end(), node_mapb.begin(), node_mapb.end());
+    }
 
-  ne_get_n_node_num_map(ex_id, 1, num_nodes, &node_num_map[0]);
-  for(a = node_num_map.begin(); a != node_num_map.end(); a++) (*a)--;
-  ne_get_n_elem_num_map(ex_id, 1, num_elem, &elem_num_map[0]);
-  for(a = elem_num_map.begin(); a != elem_num_map.end(); a++) (*a)--;
+    if(ne_num_global_node_sets > 0){
+      
+      global_ns_ids.resize(ne_num_global_node_sets);
+      num_global_node_counts.resize(ne_num_global_node_sets);
+      num_global_node_df_counts.resize(ne_num_global_node_sets);
+      
+      ne_get_ns_param_global(ex_id, &global_ns_ids[0], &num_global_node_counts[0],
+			     &num_global_node_df_counts[0]);
+      
+    }
+    
+    if(ne_num_global_side_sets > 0){
+      
+      global_ss_ids.resize(ne_num_global_side_sets);
+      num_global_side_counts.resize(ne_num_global_side_sets);
+      num_global_side_df_counts.resize(ne_num_global_side_sets);
+      
+      ne_get_ss_param_global(ex_id, &global_ss_ids[0], &num_global_side_counts[0],
+			     &num_global_side_df_counts[0]);
+      
+    }
+    
+    global_elem_blk_ids.resize(ne_num_global_elem_blks);
+    global_elem_blk_cnts.resize(ne_num_global_elem_blks);
+    
+    ne_get_eb_info_global(ex_id, &global_elem_blk_ids[0], &global_elem_blk_cnts[0]);
+    
+    node_cmap_ids.resize(num_node_cmaps);
+    node_cmap_node_cnts.resize(num_node_cmaps);
+    
+    elem_cmap_ids.resize(num_elem_cmaps);
+    elem_cmap_elem_cnts.resize(num_elem_cmaps);
+    
+    ne_get_cmap_params(ex_id, &node_cmap_ids[0], &node_cmap_node_cnts[0],
+		       &elem_cmap_ids[0], &elem_cmap_elem_cnts[0],
+		       proc_id);
+    
+    node_ids_in_cmap.resize(num_node_cmaps);
+    n_proc_ids_in_cmap.resize(num_node_cmaps);
+    
+    for(int i = 0; i < num_node_cmaps; i++){
+      
+      node_ids_in_cmap[i].resize(node_cmap_node_cnts[i]);
+      n_proc_ids_in_cmap[i].resize(node_cmap_node_cnts[i]);
+      
+      ne_get_node_cmap(ex_id, node_cmap_ids[i], &node_ids_in_cmap[i][0], &n_proc_ids_in_cmap[i][0], proc_id);
 
-  elem_mapi.resize(num_internal_elems);
-  elem_mapb.resize(num_border_elems);
+    }
 
-  ne_get_elem_map(ex_id, &elem_mapi[0], &elem_mapb[0], proc_id);
-  for(a = elem_mapi.begin(); a != elem_mapi.end(); a++) (*a)--;
-  for(a = elem_mapb.begin(); a != elem_mapb.end(); a++) (*a)--;
-
-  node_mapi.resize(num_internal_nodes);
-  node_mapb.resize(num_border_nodes);
-  node_mape.resize(num_external_nodes);
-
-  ne_get_node_map(ex_id, &node_mapi[0], &node_mapb[0], &node_mape[0], proc_id);
-  for(a = node_mapi.begin(); a != node_mapi.end(); a++) (*a)--;
-  for(a = node_mapb.begin(); a != node_mapb.end(); a++) (*a)--;
-  for(a = node_mape.begin(); a != node_mape.end(); a++) (*a)--;
-
-  my_node_num_map = node_mapi;  // nodes this proc is responsible for
-  my_node_num_map.insert(my_node_num_map.end(), node_mapb.begin(), node_mapb.end());
-
-  if(ne_num_global_node_sets > 0){
-
-  	global_ns_ids.resize(ne_num_global_node_sets);
-  	num_global_node_counts.resize(ne_num_global_node_sets);
-  	num_global_node_df_counts.resize(ne_num_global_node_sets);
-
-  	ne_get_ns_param_global(ex_id, &global_ns_ids[0], &num_global_node_counts[0],
-		  &num_global_node_df_counts[0]);
-
-  }
-
-  if(ne_num_global_side_sets > 0){
-
-  	global_ss_ids.resize(ne_num_global_side_sets);
-  	num_global_side_counts.resize(ne_num_global_side_sets);
-  	num_global_side_df_counts.resize(ne_num_global_side_sets);
-
-  	ne_get_ss_param_global(ex_id, &global_ss_ids[0], &num_global_side_counts[0],
-		  &num_global_side_df_counts[0]);
-
-  }
-
-  global_elem_blk_ids.resize(ne_num_global_elem_blks);
-  global_elem_blk_cnts.resize(ne_num_global_elem_blks);
-
-  ne_get_eb_info_global(ex_id, &global_elem_blk_ids[0], &global_elem_blk_cnts[0]);
-
-  node_cmap_ids.resize(num_node_cmaps);
-  node_cmap_node_cnts.resize(num_node_cmaps);
-
-  elem_cmap_ids.resize(num_elem_cmaps);
-  elem_cmap_elem_cnts.resize(num_elem_cmaps);
-
-  ne_get_cmap_params(ex_id, &node_cmap_ids[0], &node_cmap_node_cnts[0],
-	      &elem_cmap_ids[0], &elem_cmap_elem_cnts[0],
-	      proc_id);
-
-  node_ids_in_cmap.resize(num_node_cmaps);
-  n_proc_ids_in_cmap.resize(num_node_cmaps);
-
-  for(int i = 0; i < num_node_cmaps; i++){
-
-          node_ids_in_cmap[i].resize(node_cmap_node_cnts[i]);
-          n_proc_ids_in_cmap[i].resize(node_cmap_node_cnts[i]);
-
-	  ne_get_node_cmap(ex_id, node_cmap_ids[i], &node_ids_in_cmap[i][0], &n_proc_ids_in_cmap[i][0], proc_id);
-
-  }
-
-  elem_ids_in_cmap.resize(num_elem_cmaps);
-  e_side_ids_in_cmap.resize(num_elem_cmaps);
-  e_proc_ids_in_cmap.resize(num_elem_cmaps);
-
-  for(int i = 0; i < num_elem_cmaps; i++){
-
-          elem_ids_in_cmap[i].resize(elem_cmap_elem_cnts[i]);
-          e_side_ids_in_cmap[i].resize(elem_cmap_elem_cnts[i]);
-          e_proc_ids_in_cmap[i].resize(elem_cmap_elem_cnts[i]);
-
-	  ne_get_elem_cmap(ex_id, elem_cmap_ids[i], &elem_ids_in_cmap[i][0], 
-			  &e_side_ids_in_cmap[i][0], &e_proc_ids_in_cmap[i][0], proc_id);
-
-  }
-
-#if 0
-
-  my_node_num_map = node_mapi;  // start with the nodes internal to this processor
-
+    elem_ids_in_cmap.resize(num_elem_cmaps);
+    e_side_ids_in_cmap.resize(num_elem_cmaps);
+    e_proc_ids_in_cmap.resize(num_elem_cmaps);
+    
+    for(int i = 0; i < num_elem_cmaps; i++){
+      
+      elem_ids_in_cmap[i].resize(elem_cmap_elem_cnts[i]);
+      e_side_ids_in_cmap[i].resize(elem_cmap_elem_cnts[i]);
+      e_proc_ids_in_cmap[i].resize(elem_cmap_elem_cnts[i]);
+      
+      ne_get_elem_cmap(ex_id, elem_cmap_ids[i], &elem_ids_in_cmap[i][0], 
+		       &e_side_ids_in_cmap[i][0], &e_proc_ids_in_cmap[i][0], proc_id);
+      
+    }
+    
+    #if 0
+    
+    my_node_num_map = node_mapi;  // start with the nodes internal to this processor
+    
   for(int i = 0; i < num_node_cmaps; i++){
 
 	std::vector<int> cmap_node_ids(node_cmap_node_cnts[i]);
@@ -432,38 +440,41 @@ int Mesh::read_exodus(const char * filename){
 	
 	for(int j = 0; j < node_cmap_node_cnts[i]; j++){
 
-		if(cmap_node_procids[j] < proc_id) // add the node to my_node_map
+		if(cmap_node_procids[j] > proc_id) // add the node to my_node_map
 
-			my_node_num_map.push_back(cmap_node_ids[j]);
+			my_node_num_map.push_back(cmap_node_ids[j]-1);
 	}
 
   }
-#endif
-
-
-#else
-
-  ex_err = ex_get_node_num_map(ex_id, &node_num_map[0]);
-  for(a = node_num_map.begin(); a != node_num_map.end(); a++) (*a)--;
-  ex_err = ex_get_map(ex_id, &elem_num_map[0]);
-  for(a = elem_num_map.begin(); a != elem_num_map.end(); a++) (*a)--;
-
-  my_node_num_map = node_num_map;  // same in serial
-
-#endif
-
-  ex_err = close_exodus(ex_id);//cn close file
-
-  if(verbose){
-
-    std::cout << "There are " << num_elem << " elements in this mesh." << std::endl;
-    std::cout<<"=== End ExodusII Read Info ==="<<std::endl<<std::endl;
+//    std::sort(my_node_num_map.begin(), my_node_num_map.end());
+//    my_node_num_map.erase(std::unique(my_node_num_map.begin(), my_node_num_map.end()), my_node_num_map.end());
+  #endif
 
   }
-
-
+  else {
+    //#else
+    
+    ex_err = ex_get_node_num_map(ex_id, &node_num_map[0]);
+    for(a = node_num_map.begin(); a != node_num_map.end(); a++) (*a)--;
+    ex_err = ex_get_map(ex_id, &elem_num_map[0]);
+    for(a = elem_num_map.begin(); a != elem_num_map.end(); a++) (*a)--;
+    
+    my_node_num_map = node_num_map;  // same in serial
+  }
+  //#endif
+    
+  ex_err = close_exodus(ex_id);//cn close file
+  
+  if(verbose){
+    
+    std::cout << "There are " << num_elem << " elements in this mesh." << std::endl;
+    std::cout<<"=== End ExodusII Read Info ==="<<std::endl<<std::endl;
+    
+  }
+  
+  
   return 0;
-
+  
 }
 
 /*
@@ -646,13 +657,17 @@ return 0;
 }
 
 int Mesh::write_exodus(const int ex_id, const int counter, const double time){
+  int error = 0;
+  error = write_nodal_coordinates_exodus(ex_id);
+  //std::cout<<error<<std::endl;
+  error = write_element_blocks_exodus(ex_id);
+  //std::cout<<error<<std::endl;
+  error = write_nodal_data_exodus(ex_id,counter);
+  //std::cout<<error<<std::endl;
+  error = ex_put_time(ex_id,counter,&time);
+  //std::cout<<error<<std::endl;
 
-   write_nodal_coordinates_exodus(ex_id);
-   write_element_blocks_exodus(ex_id);
-   write_nodal_data_exodus(ex_id,counter);
-   int error = ex_put_time(ex_id,counter,&time);
-
-   return error;
+  return error;
 
 }
 
@@ -671,76 +686,78 @@ int Mesh::write_nodal_coordinates_exodus(int ex_id)
   std::vector<int> tmpvec, tmpvec1, tmpvec2;
   std::vector<int>::iterator a;
 
-#ifdef NEMESIS
+  if( 1 < nprocs ){
+    //#ifdef NEMESIS
 
-  ne_put_init_global(ex_id, ne_num_global_nodes, ne_num_global_elems, ne_num_global_elem_blks,
-		  ne_num_global_node_sets, ne_num_global_side_sets);
-
-  ne_put_init_info(ex_id, nprocs, nprocs_infile, &filetype);
-
-  ne_put_loadbal_param(ex_id, num_internal_nodes, num_border_nodes, num_external_nodes,
-		  num_internal_elems, num_border_elems, num_node_cmaps, num_elem_cmaps, proc_id);
-
-  tmpvec = node_num_map;
-  for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
-  ne_put_n_node_num_map(ex_id, 1, num_nodes, &tmpvec[0]);
-
-  tmpvec = elem_num_map;
-  for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
-  ne_put_n_elem_num_map(ex_id, 1, num_elem, &tmpvec[0]);
-
-  tmpvec = elem_mapi;
-  for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
-  tmpvec1 = elem_mapb;
-  for(a = tmpvec1.begin(); a != tmpvec1.end(); a++) (*a)++;
-  ne_put_elem_map(ex_id, &tmpvec[0], &tmpvec1[0], proc_id);
-
-  tmpvec = node_mapi;
-  for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
-  tmpvec1 = node_mapb;
-  for(a = tmpvec1.begin(); a != tmpvec1.end(); a++) (*a)++;
-  tmpvec2 = node_mape;
-  for(a = tmpvec2.begin(); a != tmpvec2.end(); a++) (*a)++;
-  ne_put_node_map(ex_id, &tmpvec[0], &tmpvec1[0], &tmpvec2[0], proc_id);
-
-  ne_put_n_coord(ex_id, 1, num_nodes, &x[0], &y[0], &z[0]);
-
-  if(ne_num_global_node_sets > 0)
-
+    ne_put_init_global(ex_id, ne_num_global_nodes, ne_num_global_elems, ne_num_global_elem_blks,
+		       ne_num_global_node_sets, ne_num_global_side_sets);
+    
+    ne_put_init_info(ex_id, nprocs, nprocs_infile, &filetype);
+    
+    ne_put_loadbal_param(ex_id, num_internal_nodes, num_border_nodes, num_external_nodes,
+			 num_internal_elems, num_border_elems, num_node_cmaps, num_elem_cmaps, proc_id);
+    
+    tmpvec = node_num_map;
+    for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
+    ne_put_n_node_num_map(ex_id, 1, num_nodes, &tmpvec[0]);
+    
+    tmpvec = elem_num_map;
+    for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
+    ne_put_n_elem_num_map(ex_id, 1, num_elem, &tmpvec[0]);
+    
+    tmpvec = elem_mapi;
+    for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
+    tmpvec1 = elem_mapb;
+    for(a = tmpvec1.begin(); a != tmpvec1.end(); a++) (*a)++;
+    ne_put_elem_map(ex_id, &tmpvec[0], &tmpvec1[0], proc_id);
+    
+    tmpvec = node_mapi;
+    for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
+    tmpvec1 = node_mapb;
+    for(a = tmpvec1.begin(); a != tmpvec1.end(); a++) (*a)++;
+    tmpvec2 = node_mape;
+    for(a = tmpvec2.begin(); a != tmpvec2.end(); a++) (*a)++;
+    ne_put_node_map(ex_id, &tmpvec[0], &tmpvec1[0], &tmpvec2[0], proc_id);
+    
+    ne_put_n_coord(ex_id, 1, num_nodes, &x[0], &y[0], &z[0]);
+    
+    if(ne_num_global_node_sets > 0)
+      
       ne_put_ns_param_global(ex_id, &global_ns_ids[0], &num_global_node_counts[0],
-		  &num_global_node_df_counts[0]);
-
-  if(ne_num_global_side_sets > 0)
-
+			     &num_global_node_df_counts[0]);
+    
+    if(ne_num_global_side_sets > 0)
+      
       ne_put_ss_param_global(ex_id, &global_ss_ids[0], &num_global_side_counts[0],
-		  &num_global_side_df_counts[0]);
-
-  ne_put_eb_info_global(ex_id, &global_elem_blk_ids[0], &global_elem_blk_cnts[0]);
-
-  ne_put_cmap_params(ex_id, &node_cmap_ids[0], &node_cmap_node_cnts[0],
-	      &elem_cmap_ids[0], &elem_cmap_elem_cnts[0],
-	      proc_id);
-
-  for(int i = 0; i < num_node_cmaps; i++){
-
-	  ne_put_node_cmap(ex_id, node_cmap_ids[i], &node_ids_in_cmap[i][0], &n_proc_ids_in_cmap[i][0], proc_id);
-
+			     &num_global_side_df_counts[0]);
+    
+    ne_put_eb_info_global(ex_id, &global_elem_blk_ids[0], &global_elem_blk_cnts[0]);
+    
+    ne_put_cmap_params(ex_id, &node_cmap_ids[0], &node_cmap_node_cnts[0],
+		       &elem_cmap_ids[0], &elem_cmap_elem_cnts[0],
+		       proc_id);
+    
+    for(int i = 0; i < num_node_cmaps; i++){
+      
+      ne_put_node_cmap(ex_id, node_cmap_ids[i], &node_ids_in_cmap[i][0], &n_proc_ids_in_cmap[i][0], proc_id);
+      
+    }
+    
+    for(int i = 0; i < num_elem_cmaps; i++){
+      
+      ne_put_elem_cmap(ex_id, elem_cmap_ids[i], &elem_ids_in_cmap[i][0], 
+		       &e_side_ids_in_cmap[i][0], &e_proc_ids_in_cmap[i][0], proc_id);
+      
+    }
+    
   }
-
-  for(int i = 0; i < num_elem_cmaps; i++){
-
-	  ne_put_elem_cmap(ex_id, elem_cmap_ids[i], &elem_ids_in_cmap[i][0], 
-			  &e_side_ids_in_cmap[i][0], &e_proc_ids_in_cmap[i][0], proc_id);
-
+  else {
+    //#else
+    
+    ex_err = ex_put_coord(ex_id, &x[0], &y[0], &z[0]);
   }
-
-
-#else
-
-  ex_err = ex_put_coord(ex_id, &x[0], &y[0], &z[0]);
-
-#endif
-
+  //#endif
+    
   if(num_node_sets > 0){
 
 //    ex_err = ex_put_node_set_ids(ex_id,
@@ -756,15 +773,17 @@ int Mesh::write_nodal_coordinates_exodus(int ex_id)
 	tmpvec = ns_node_list[i];
         for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
 
-#ifdef NEMESIS
+	if( 1 < nprocs ){
+	  //#ifdef NEMESIS
 
         ex_err = ne_put_n_node_set(ex_id, ns_ids[i], 1, num_nodes_per_ns[i], &tmpvec[0]);
-
-#else
+	}
+	else {
+	  //#else
 
         ex_err = ex_put_node_set(ex_id, ns_ids[i], &tmpvec[0]);
-
-#endif
+	}
+	//#endif
 
         }
   
@@ -831,15 +850,17 @@ int Mesh::write_element_blocks_exodus(int ex_id){
       connect_tmp[j] = connect[i][j] + 1;
 
 
-#ifdef NEMESIS
+  if( 1 < nprocs ){
+    //#ifdef NEMESIS
 
     ne_put_n_elem_conn(ex_id, blk_ids[i], 1, num_elem_in_blk[i], &connect_tmp[0]);
-
-#else
+  }
+  else {
+    //#else
 
     ex_err = ex_put_elem_conn(ex_id, blk_ids[i], &connect_tmp[0]);
-
-#endif
+  }
+  //#endif
   }
 
 
@@ -916,10 +937,12 @@ int Mesh::write_nodal_data_exodus(int ex_id, int counter){
 
   ex_err = ex_put_var_names (ex_id, "N", num_nodal_fields, var_names);
 
-  for(int i = 0; i < num_nodal_fields; i++)
+  for(int i = 0; i < num_nodal_fields; i++){
 
     ex_err = ex_put_nodal_var (ex_id, counter, i + 1, num_nodes, &nodal_fields[i][0]);
-
+    //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<nodal_fields[i][j]<<std::endl;
+  
+  }
 
   delete [] var_names;
 
@@ -993,18 +1016,18 @@ int Mesh::add_nodal_data(std::string name, std::vector<double> &data){
 }
 
 int Mesh::add_nodal_field(std::string name){
-
-   num_nodal_fields++;
-
-   nodal_field_names.push_back(name);
-   nodal_fields.resize(num_nodal_fields);
-   if(verbose)
-
-     std::cout<<"=== add nodal field ==="<<std::endl
-	      <<" num_nodal_fields "<<num_nodal_fields<<std::endl
-	      <<" sizeof nodal_field_names "<<nodal_field_names.size()<<std::endl;
-
-   return 1;
+  //if( 0 == proc_id ){
+    num_nodal_fields++;
+    
+    nodal_field_names.push_back(name);
+    nodal_fields.resize(num_nodal_fields);
+    if(verbose)
+      
+      std::cout<<"=== add nodal field ==="<<std::endl
+	       <<" num_nodal_fields "<<num_nodal_fields<<std::endl
+	       <<" sizeof nodal_field_names "<<nodal_field_names.size()<<std::endl;
+    //}
+  return 1;
 
 }
 
@@ -1016,6 +1039,7 @@ int Mesh::update_nodal_data(std::string name, double *data){
       //std::cout<<"found"<<std::endl;
       std::vector<double> a(data, data + num_nodes);
       nodal_fields[i]=a;
+      //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<proc_id<<" "<<(nodal_fields[i]).size()<<" "<<num_nodes<<" "<<j<<" "<<nodal_fields[i][j]<<std::endl;
       return 1;
     }
   }
@@ -1028,7 +1052,7 @@ int Mesh::update_nodal_data(std::string name, double *data){
 	      <<" sizeof nodal_fields "<<nodal_fields.size()<<std::endl<<std::endl;
 
    std::cout<<name<<" not found"<<std::endl<<std::endl;
-   exit(0);
+   //exit(0);
    return 0;
 
 }
@@ -1131,4 +1155,12 @@ void Mesh::set_vertex_map(){
   return;
 
 }
+int  Mesh::get_num_global_nodes(){
+  if( 1 < nprocs ){
+    return ne_num_global_nodes;
+  }else{
+    return num_nodes;
+  }
+}
+
 

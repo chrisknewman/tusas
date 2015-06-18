@@ -8,7 +8,7 @@
 #include "ParamNames.h"
 
 
-void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &paramList )
+void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &paramList, int mypid )
 {
   //string   filename                = "meshes/tri24.e"    ;
   //string   filename                = "meshes/tri96.e"    ;
@@ -65,12 +65,14 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   if( parse_return != Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL ) {
     std::cout << "Default parameter values:\n" << std::endl;
-    paramList.print(std::cout, 2, true, true );
+    if( 0 == mypid )
+      paramList.print(std::cout, 2, true, true );
     exit(parse_return);
   }
 
   if(inputFileName.length()) {
-    std::cout << "\nReading a parameter list from the XML file \""<<inputFileName<<"\" ...\n";
+    if( 0 == mypid )
+      std::cout << "\nReading a parameter list from the XML file \""<<inputFileName<<"\" ...\n";
     using Teuchos::inOutArg;
     Teuchos::updateParametersFromXmlFile(inputFileName,inOutArg(paramList));
   } else {
@@ -83,8 +85,10 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
 
 
-  paramList.print(std::cout, 2, true, true );
-  std::cout<<std::endl<<"Initial parameter list completed."<<std::endl<<std::endl<<std::endl;
+  if( 0 == mypid ){
+    paramList.print(std::cout, 2, true, true );
+    std::cout<<std::endl<<"Initial parameter list completed."<<std::endl<<std::endl<<std::endl;
+  }
   //exit(0);
 
 };

@@ -1,3 +1,6 @@
+#ifndef FUNCTION_DEF_HPP
+#define FUNCTION_DEF_HPP
+
 //cummins
 double hp1_cummins_(const double &phi,const double &c)
 {
@@ -161,3 +164,5 @@ double dgs2_2dtheta_karma_(const double &theta, const double &M, const double &e
     (1. + eps*(pow(cos(theta),4) + pow(sin(theta),4)));
   return g;
 }
+
+#endif

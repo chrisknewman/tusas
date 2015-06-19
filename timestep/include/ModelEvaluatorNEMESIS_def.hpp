@@ -24,8 +24,8 @@
 #include "Epetra_Vector.h"
 #include "Epetra_FEVector.h"
 #include "Epetra_Import.h"
-#include "Epetra_CrsGraph.h"
-#include "Epetra_CrsMatrix.h"
+#include "Epetra_FECrsGraph.h"
+#include "Epetra_FECrsMatrix.h"
 
 //teuchos support
 #include <Teuchos_RCP.hpp>	
@@ -130,7 +130,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   // Initialize the graph for W CrsMatrix object
   W_graph_ = createGraph();
-  P_ = rcp(new Epetra_CrsMatrix(Copy,*W_graph_));
+  P_ = rcp(new Epetra_FECrsMatrix(Copy,*W_graph_));
   prec_ = Teuchos::rcp(new preconditioner<Scalar>(P_, comm_));
   u_old_ = rcp(new Epetra_Vector(*f_owned_map_));
   u_old_old_ = rcp(new Epetra_Vector(*f_owned_map_));
@@ -305,38 +305,36 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 // Initializers/Accessors
 
 template<class Scalar>
-Teuchos::RCP<Epetra_CrsGraph>
+Teuchos::RCP<Epetra_FECrsGraph>
 ModelEvaluatorNEMESIS<Scalar>::createGraph()
 {
-  Teuchos::RCP<Epetra_CrsGraph> W_graph;
+  Teuchos::RCP<Epetra_FECrsGraph> W_graph;
 
-  // Create the shell for the
-  W_graph = Teuchos::rcp(new Epetra_CrsGraph(Copy, *x_owned_map_, 5));
 
-  //nodes are numbered consecutively by nodeid
-  for (int i=0; i < mesh_->get_num_nodes(); i++) {
-    int num_nodes = (mesh_->get_nodal_adj(i)).size();
-    std::vector<int> column (num_nodes);
+  W_graph = Teuchos::rcp(new Epetra_FECrsGraph(Copy, *x_owned_map_, 0));
 
-    for (int j = 0; j < num_nodes; j++){
-      column[j] = numeqs_*(mesh_->get_nodal_adj(i))[j];
+  for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+    
+    int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+    for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
+      for (int i=0; i< n_nodes_per_elem; i++) {
+	int row = numeqs_*(
+			   mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
+			   ); 
+	for(int j=0;j < n_nodes_per_elem; j++) {
+	  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
+	  W_graph->InsertGlobalIndices((int)1,&row, (int)1, &column);
+	  int row1 = row + 1;
+	  int column1 = column + 1;
+	  W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
+	}
+      }
     }
-    column.push_back(numeqs_*i);//cn put the diagonal in
-    W_graph->InsertGlobalIndices(numeqs_*i, column.size(), &column[0]);
-
-    column.resize(num_nodes);
-    for (int j = 0; j < num_nodes; j++){
-      column[j] = numeqs_*(mesh_->get_nodal_adj(i))[j]+1;
-    }
-    column.push_back(numeqs_*i+1);//cn put the diagonal in
-    W_graph->InsertGlobalIndices(numeqs_*i+1, column.size(), &column[0]);
-
-
-  }//i
-
-  W_graph->FillComplete();
-  //W_graph->Print(std::cout);
-  //exit(0);
+  }
+  //W_graph->FillComplete();
+  W_graph->GlobalAssemble();
+//   W_graph->Print(std::cout);
+//   exit(0);
   return W_graph;
 }
 
@@ -731,7 +729,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    //cn add the phitu term here
 	    if (nonnull(W_prec_out)) {
 	      for(int j=0;j < n_nodes_per_elem; j++) {
-		int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, ne, j)));
+		//int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, ne, j)));
+		int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
 		double dtestdx = D_*ubasis->dphidxi[j]*ubasis->dxidx
 		  +D_*ubasis->dphideta[j]*ubasis->detadx
 		  +D_*ubasis->dphidzta[j]*ubasis->dztadx;
@@ -978,7 +977,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       //*f=*f_fe(0);
     }
     if (nonnull(W_prec_out)) {
-      P_->FillComplete();
+      //P_->FillComplete();
+      P_->GlobalAssemble();
       //P_->Print(std::cout);
       //exit(0);
       //std::cout<<" one norm P_ = "<<P_->NormOne()<<std::endl<<" inf norm P_ = "<<P_->NormInf()<<std::endl<<" fro norm P_ = "<<P_->NormFrobenius()<<std::endl;

@@ -41,7 +41,7 @@
 
 using namespace std;
 
-std::string TRILINOS_DIR="/Users/cnewman/src/trilinos-11.12.1-Source/GCC_4_9_1_MPI_OMP_DBG/";
+//std::string TRILINOS_DIR="/Users/cnewman/src/trilinos-11.12.1-Source/GCC_4_9_1_MPI_OMP_DBG/";
 
 int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile);
 int join(const int mypid, const int numproc);
@@ -156,7 +156,8 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
     }
 
     //std::string trilinosPath="/Users/cnewman/src/trilinos-11.12.1-Source/GCC_4_9_1_MPI_OMP_DBG/";
-    std::string trilinosPath=TRILINOS_DIR;
+    //std::string trilinosPath=TRILINOS_DIR;
+    std::string trilinosPath=getenv("TRILINOS_DIR");
     std::string nemFile =decompPath+nemStr+".nemI";
     std::string sliceStr = trilinosPath+"/bin/nem_slice -e -m mesh="+std::to_string(numproc)+" -l inertial -o "+
       nemFile+" "+infile;
@@ -197,12 +198,13 @@ int join(const int mypid, const int numproc)
   if( 0 == mypid ){
     std::cout<<"Entering join: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
     std::string decompPath="decomp/";
-    std::string trilinosPath=TRILINOS_DIR;
+    //std::string trilinosPath=TRILINOS_DIR;
+    std::string trilinosPath=getenv("TRILINOS_DIR");
     std::string comStr = trilinosPath+"/bin/epu -auto -add_processor_id "+decompPath+"results.e."+std::to_string(numproc)+".00";
     
     std::cout<<"Running epu command: "<<comStr <<std::endl;
     if(-1 == system(comStr.c_str()) ){
-      std::cout<<"Error epu nemspread: "<<comStr<<std::endl;
+      std::cout<<"Error running epu: "<<comStr<<std::endl;
       exit(0);
     }
   }

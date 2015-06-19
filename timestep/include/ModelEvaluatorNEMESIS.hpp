@@ -3,6 +3,7 @@
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"	
 #include "Teuchos_ParameterList.hpp"
+#include "Epetra_FECrsGraph.h"
 
 #include "Mesh.h"
 #include "preconditioner.hpp"
@@ -70,7 +71,7 @@ public:
 private:
 
   /** Allocates and returns the Jacobian matrix graph */
-  virtual Teuchos::RCP<Epetra_CrsGraph> createGraph();
+  virtual Teuchos::RCP<Epetra_FECrsGraph> createGraph();
 
   /** \name Private functions overridden from ModelEvaulatorDefaultBase. */
   //@{
@@ -103,7 +104,7 @@ private: // data members
 
   Teuchos::RCP<const Epetra_Import> importer_;
 
-  Teuchos::RCP<Epetra_CrsGraph>  W_graph_;
+  Teuchos::RCP<Epetra_FECrsGraph>  W_graph_;
 
   Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> > W_factory_;
 
@@ -112,7 +113,7 @@ private: // data members
   bool showGetInvalidArg_;
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> prototypeInArgs_;
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> prototypeOutArgs_;
-  Teuchos::RCP<Epetra_CrsMatrix> P_;
+  Teuchos::RCP<Epetra_FECrsMatrix> P_;
   Teuchos::RCP<preconditioner <Scalar> > prec_;
   Teuchos::RCP<NOX::Solver::Generic> solver_;
   Teuchos::RCP<Epetra_Vector> u_old_;

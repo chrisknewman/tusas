@@ -1,0 +1,150 @@
+###############################
+# Tusas Testing Instructions  #
+###############################
+
+
+	Running Tests
+#############################################################################################
+
+First, you must make sure that one directory up, you have the tusas* executable
+created. If it is not already done, you  can create it by going one directory
+up and entering 
+
+	     -------------------------------------------------
+	      $ cmake -DTRILINOS_DIR:string=/Path/to/Trilinos		
+	      $ make
+              ------------------------------------------------
+
+		Example 
+    	   -------------------------------------------------------------------
+	    $ cmake -DTRILINOS_DIR:string=/Users/ameliajo/Documents/Trilinos/
+			trilinos-11.12.1-Source/GCC_4_9_2_MPI_OMP_OPT/
+	    $ make
+            ------------------------------------------------------------------
+	    At which point, you should see tusas* in that directory.
+
+	    	  	 	*******NOTE********
+		If there is any mistake performed during this step, make sure to 
+		delete the following files/directories
+		       CMakeCache    CMakeFiles/ cmake_install.cmake	Makefile
+
+Creating the tusas* executable should have also created a file tusas.h in the 
+Test directory - check to make sure this is present.
+
+
+Now you should be able to run tests. Inside the Test directory, give the following commands
+
+1. -	$ cmake .
+2. - 	$ make 
+3. - 	$ ctest
+
+
+   If you want to only perform certain tests, go into the run_tusas.cpp file and comment
+   out any runs that you do not wish to perform. This will save you time if you're interested
+   in only a few select tests. And as long as those tests you comment out have been run before,
+   you should not run into any errors. 
+
+   optional 
+	 $ ctest --rerun-failed
+	   	 Will rerun only those tests that did not pass in the previous test
+ 	 $ ctest -R test_1
+	   	 Will run only the test entitled "test_1"
+   	 $ ctest -R test_
+	   	 Will run all tests that include "test_" in the test title
+
+
+	Creating New Tests 
+#############################################################################################
+
+Example, where we add test entitled "MyTest", which is the 20th test added to this
+test bank
+
+1.
+	Create a directory called "MyTest". Copy in a tusas.xml with desired configuration. 
+	Add a file entitled "Gold.e" that serves as the desired outcome.
+
+2.
+ 	Amend Directory.txt to reflect your choices for "MyTest"
+
+3.
+	Amend CMakeLists.txt, adding this to the bottom
+	
+	-----------------------------------------------------------------------------------
+	  add_test( MyTest ${CMAKE_CURRENT_SOURCE_DIR}/compare )
+	  set_tests_properties ( MyTest PROPERTIES PASS_REGULAR_EXPRESSION " MyTest: P" )
+	-----------------------------------------------------------------------------------
+4.
+	Amend run-tusas.cpp, adding this to the bottom
+	
+	-----------------------------------------------------------------------------------
+	system ("../tusas --input-file=MyTest/tusas.xml");
+	system ( "mv results.e MyTest/");
+	-----------------------------------------------------------------------------------
+
+5.	
+	Amend compare.cpp. The revisions will follow a rather clear pattern, but the following
+	steps are listed for clarity.
+
+	A)
+		Add  this to the top, where similar entries are
+
+			-----------------------------------------------------------------------------------
+			string exodiff_20_str = exodiff_location + " MyTest/results.e MyTest/Gold.e";
+			-----------------------------------------------------------------------------------
+
+
+	B)	
+		Scrolling down, copy an example block of code, and query-replace so that "_20"
+		exists in all places designated below.
+
+		Using this block as a template, we will query-replace to change _10 to be _20. 
+
+		  EXAMPLE
+		  ###################################################################################################
+ 
+			// PHASE HEAT QUAD IN PARALLEL //		< ----------------- Change to Describe MyTest
+	     		string PhaseHeatQuadPar = "F";			< ----------------- Change to MyTest
+change _10 -------->	char temp_10[512];
+change _10 -------->    if(!(in = popen(exodiff_10, "r"))){ return 1;  }
+	     		ofs.open ("temp.txt", std::ofstream::out | std::ofstream::trunc);
+	     		ofs.close();
+	     		while(fgets(temp, sizeof(temp), in)!=NULL){
+	     		ofs.open ("temp.txt", std::ofstream::out | std::ofstream::app);
+	     		ofs << temp;
+	     		ofs.close();}
+	     		pclose(in);
+
+			bool CheckWord(char* str);
+change _10 -------->	ifstream file_10("temp.txt");
+change _10 -------->    char aWord_10[50];
+change _10 --------> 	while (file_10.good()) {
+change _10 (twice)--->	file_10>>aWord_10;
+change _10 (twice)--->	if (file_10.good() && strcmp(aWord_10,"same" ) == 0) {
+	     		PhaseHeatQuadPar = "P";			       < ------------------ Change to MyTest
+	       		 }
+	     		  }
+		   ############################################################################################
+
+		In addition, change the string variable names as shown above
+
+
+	C)
+		At the end of compare.cpp, add in the following lines where similar lines exist
+		
+			-------------------------------------------------------
+			  << " MyTest: " << MyTest << endl
+                        -------------------------------------------------------
+
+
+	If Errors Occur
+###############################
+
+1 - Make sure that tusas.h exists inside Test directory. This should have 
+    been copied in while building Tusas one directory up.
+
+2 - Double check compare.cpp entry. Ensure that your entries match the 
+    pattern established by those already entered.
+
+3 - Delete CMakeCache, CMakeFiles/, Makefile, and cmake_install.cmake in case
+    infomation from a previous run is contaminating current run
+

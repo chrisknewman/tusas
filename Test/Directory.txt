@@ -1,0 +1,34 @@
+
+
+1  - HeatQuad			dt = 0.001		nt = 10		preconditioner = true
+    				method = heat		theta = 0.5	mesh = dendquad300_q.e
+
+2  - HeatHex		  	dt = 0.001		nt = 10		preconditioner = true
+ 			      	method = heat 		theta = 0.5	mesh = hex64_3d.e
+
+3  - HeatHexNoPrec              dt = 0.001      	nt = 10         preconditioner = false
+                              	method = heat   	theta = 0.5     mesh = hex64_3d.e
+
+4  - HeatTet	              	dt = 0.001      	nt = 10         preconditioner = true
+                              	method = heat   	theta = 0.5     mesh = tet_479.e
+
+5  - PhaseHeatQuadImp           dt = 0.001      	nt = 10         preconditioner = true
+                              	method = phaseheat   	theta = 1	mesh = dendquad300_q.e
+
+6  - PhaseHeatQuadExp           dt = 0.00001            nt = 10         preconditioner = false
+    			      	method = phaseheat      theta = 0       mesh = dendquad300_q.e
+
+7  - PhaseHeatQuad              dt = 0.001              nt = 10         preconditioner = true
+    			      	method = phaseheat      theta = 0.5     mesh = dendquad300_q.e
+
+8  - PhaseHeatQuadNoPrec        dt = 0.001              nt = 10         preconditioner = false
+    			      	method = phaseheat      theta = 1       mesh = dendquad300_q.e
+
+9  - PhaseHeatTris	      	dt = 0.001		nt = 10		preconditioner = true
+    			      	method = phaseheat	theta = 0.5	mesh = tri96.e
+
+10 - PhaseHeatQuadPar		dt = 0.001		nt = 10		preconditioner = true		parallel = yes
+     				method = nemesis	theta = 0.5	mesh = dendquad300_q.e
+
+11 - PhaseHeatQuadParNoPrec	dt = 0.001		nt = 10		preconditioner = false		parallel = yes
+     				method = nemesis	theta = 0.5	mesh = dendquad300_q.e

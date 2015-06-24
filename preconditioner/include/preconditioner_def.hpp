@@ -23,10 +23,12 @@ preconditioner<Scalar>::preconditioner(const RCP<Epetra_CrsMatrix>& W,const Teuc
 //     MLList.set("smoother: damping factor", 1.0);
 
 //    MLList.set("coarse: type","Chebyshev");
-//    MLList.set("coarse: type","Jacobi"); 
-//    MLList.set("coarse: sweeps",2);  
+//     MLList.set("coarse: type","Jacobi"); 
+//     MLList.set("coarse: sweeps",4);
+    
 //     MLList.set("coarse: damping factor", 1.0);
     
+    MLList.set("PDE equations",2);
 //     MLList.set("ML output",10);
 
      //W_->Print(std::cout);

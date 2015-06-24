@@ -237,8 +237,8 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
     w_ = &w_cummins_;
     m_ = &m_cummins_;
     //m_ = &m_furtado_;
-    rand_phi_ = &rand_phi_furtado_;
-    //rand_phi_ = &rand_phi_zero_;
+    //rand_phi_ = &rand_phi_furtado_;
+    rand_phi_ = &rand_phi_zero_;
     gp1_ = &gp1_cummins_;
     gpp1_ = &gpp1_cummins_;
     //hp2_ = &hp2_cummins_;
@@ -816,7 +816,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}//gp
       }//ne
 
-      //#if 0
+#if 0
       if (nonnull(f_out)) {//cn double check the use of notnull throughout
 	if(paramList.get<std::string> (TusastestNameString)=="pool"){
 	  f_fe.GlobalAssemble();
@@ -833,7 +833,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	    double rr = 9.;
 	    
-	    double val = (*u)[numeqs_*lid]  - (T_inf_*(rr - y)/(2*rr)+ 1.5*T_m_*(rr + y)/(2*rr));
+	    double val = (*u)[numeqs_*lid]  - (T_inf_*(rr - y)/(2*rr)+ 200.*T_m_*(rr + y)/(2*rr));
 	    f_fe.ReplaceGlobalValues ((int) 1, &row, &val);
 
 	    //cn only want a temperature bc here
@@ -844,6 +844,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  }
 	}
       }
+#endif
 #if 0
       if (nonnull(f_out)) {//cn double check the use of notnull throughout
 	for ( int j = 0; j < mesh_->get_node_set(1).size(); j++ ){
@@ -889,7 +890,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	
       }
 #endif
-
+#if 0
       if (nonnull(W_prec_out)) {
 	if(paramList.get<std::string> (TusastestNameString)=="pool"){
 	  P_->GlobalAssemble();
@@ -932,6 +933,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}
 	}
       }
+#endif
 #if 0
 	ns_id = 1;
 	for ( int j = 0; j < mesh_->get_node_set(2).size(); j++ ){

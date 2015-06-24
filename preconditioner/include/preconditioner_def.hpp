@@ -33,6 +33,11 @@ preconditioner<Scalar>::preconditioner(const RCP<Epetra_CrsMatrix>& W,const Teuc
 
      //W_->Print(std::cout);
     MLPrec_ =  new ML_Epetra::MultiLevelPreconditioner(*W_, MLList,false);
+    if( 0 == comm->MyPID() ){
+      std::cout<<"Creating ML preconditioner with:"<<std::endl;
+      std::cout<<MLList;
+    }
+    //exit(0);
   };
 
 template<class Scalar>

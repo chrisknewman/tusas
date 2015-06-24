@@ -184,8 +184,14 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
       exit(0);
     }
   }
-
-  outfile=decompPath+std::to_string(mypid+1)+"/"+nemStr+".par."+std::to_string(numproc)+"."+std::to_string(mypid);
+  std::string mypidstring;
+  if ( numproc > 9 && mypid < 10 ){
+    mypidstring = std::to_string(0)+std::to_string(mypid);
+  }
+  else{
+    mypidstring = std::to_string(mypid);
+  }
+  outfile=decompPath+std::to_string(mypid+1)+"/"+nemStr+".par."+std::to_string(numproc)+"."+mypidstring;
   //std::cout<<outfile<<std::endl;
 
   if( 0 == mypid ){

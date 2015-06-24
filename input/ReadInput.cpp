@@ -3,6 +3,7 @@
 #include "Teuchos_CommandLineProcessor.hpp"
 #include "Teuchos_XMLParameterListHelpers.hpp"
 //	#include "Teuchos_StandardParameterEntryValidators.hpp"
+#include <ml_MultiLevelPreconditioner.h>
 
 #include "ReadInput.h"
 #include "ParamNames.h"
@@ -53,6 +54,31 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
 
   paramList.set(TusasrestartstepNameString,(int)0,TusasrestartstepDocString);
+
+
+
+
+  Teuchos::ParameterList MLList;
+  MLList = paramList.sublist ( "ML", false );
+  ML_Epetra::SetDefaults("SA",paramList.sublist ( "ML"));
+    //MLList.set("coarse: max size",(int)128);
+    MLList.set("cycle applications",(int)2);
+//     MLList.set("prec type","full-MGV");
+//     MLList.set("smoother: type","Chebyshev");
+    MLList.set("smoother: type","Jacobi");
+    MLList.set("smoother: sweeps",(int)2); 
+//     MLList.set("smoother: damping factor", 1.0);
+
+//    MLList.set("coarse: type","Chebyshev");
+//     MLList.set("coarse: type","Jacobi"); 
+//     MLList.set("coarse: sweeps",4);
+    
+//     MLList.set("coarse: damping factor", 1.0);
+    
+    MLList.set("PDE equations",2);
+//     MLList.set("ML output",10);
+
+
 
   //read/overwrite here
 

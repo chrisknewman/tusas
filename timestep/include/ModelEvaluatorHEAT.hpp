@@ -12,7 +12,7 @@ template<class Scalar>
 Teuchos::RCP<ModelEvaluatorHEAT<Scalar> >
 modelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
             Mesh &mesh,
-            const Scalar dt);
+		   Teuchos::ParameterList plist);
 
 template<class Scalar>
 class ModelEvaluatorHEAT
@@ -22,7 +22,7 @@ public:
 
   ModelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
               Mesh *mesh,
-              const Scalar dt);
+		   Teuchos::ParameterList plist);
   ~ModelEvaluatorHEAT();
 
   /** \name Initializers/Accessors */
@@ -87,7 +87,8 @@ private: // data members
 
   Mesh *mesh_;
 
-  const Scalar  dt_;
+  Teuchos::ParameterList paramList;
+  double  dt_;
 
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > x_space_;
   Teuchos::RCP<const Epetra_Map>   x_owned_map_;

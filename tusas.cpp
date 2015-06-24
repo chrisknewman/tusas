@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
     model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
   }
   else if ( paramList.get<std::string> (TusasmethodNameString)  == "heat") {
-    model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,dt);
+    model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
   }
   else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
     model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);

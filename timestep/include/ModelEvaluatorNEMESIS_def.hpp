@@ -131,7 +131,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   // Initialize the graph for W CrsMatrix object
   W_graph_ = createGraph();
   P_ = rcp(new Epetra_FECrsMatrix(Copy,*W_graph_));
-  prec_ = Teuchos::rcp(new preconditioner<Scalar>(P_, comm_));
+  prec_ = Teuchos::rcp(new preconditioner<Scalar>(P_, comm_, paramList.sublist("ML")));
   u_old_ = rcp(new Epetra_Vector(*f_owned_map_));
   u_old_old_ = rcp(new Epetra_Vector(*f_owned_map_));
   dudt_ = rcp(new Epetra_Vector(*f_owned_map_));

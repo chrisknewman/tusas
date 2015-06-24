@@ -1,7 +1,8 @@
 
 
 template<class Scalar>
-preconditioner<Scalar>::preconditioner(const RCP<Epetra_CrsMatrix>& W,const Teuchos::RCP<const Epetra_Comm>&  comm ){
+preconditioner<Scalar>::preconditioner(const RCP<Epetra_CrsMatrix>& W,const Teuchos::RCP<const Epetra_Comm>&  comm,
+			 Teuchos::ParameterList MLList ){
     W_=W;
     comm_ = comm;
     const Teuchos::RCP<Thyra::LinearOpBase< Scalar > > W_op =
@@ -11,31 +12,10 @@ preconditioner<Scalar>::preconditioner(const RCP<Epetra_CrsMatrix>& W,const Teuc
     domain_ = W_op->domain(); 
     map_ =  Teuchos::rcp(new Epetra_Map(*get_Epetra_Map(*domain_, comm_)));
 
-
-    Teuchos::ParameterList MLList;
-    ML_Epetra::SetDefaults("SA",MLList);
-    //MLList.set("coarse: max size",(int)128);
-    MLList.set("cycle applications",(int)2);
-//     MLList.set("prec type","full-MGV");
-//     MLList.set("smoother: type","Chebyshev");
-    MLList.set("smoother: type","Jacobi");
-    MLList.set("smoother: sweeps",(int)2); 
-//     MLList.set("smoother: damping factor", 1.0);
-
-//    MLList.set("coarse: type","Chebyshev");
-//     MLList.set("coarse: type","Jacobi"); 
-//     MLList.set("coarse: sweeps",4);
-    
-//     MLList.set("coarse: damping factor", 1.0);
-    
-    MLList.set("PDE equations",2);
-//     MLList.set("ML output",10);
-
-     //W_->Print(std::cout);
     MLPrec_ =  new ML_Epetra::MultiLevelPreconditioner(*W_, MLList,false);
     if( 0 == comm->MyPID() ){
       std::cout<<"Creating ML preconditioner with:"<<std::endl;
-      std::cout<<MLList;
+      //std::cout<<MLList<<std::endl<<std::endl;
     }
     //exit(0);
   };

@@ -27,4 +27,6 @@ std::string const TusasoutputfreqNameString = "outputfreq";
 std::string const TusasoutputfreqDocString = "output frequency (int): default 1";
 std::string const TusasrestartstepNameString = "restartstep";
 std::string const TusasrestartstepDocString = "timestep to restart (int): default 0";
+std::string const TusasmlNameString = "ML";
+std::string const TusasmlDocString = "over ride ML parameters";
 #endif

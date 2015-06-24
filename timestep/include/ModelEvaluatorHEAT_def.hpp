@@ -32,15 +32,16 @@
 // local support
 #include "preconditioner.hpp"
 #include "basis.hpp"
+#include "ParamNames.h"
 // Nonmember constuctors
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorHEAT<Scalar> >
 modelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
             Mesh *mesh,
-            const Scalar dt)
+			 Teuchos::ParameterList plist)
 {
-  return Teuchos::rcp(new ModelEvaluatorHEAT<Scalar>(comm,mesh,dt));
+  return Teuchos::rcp(new ModelEvaluatorHEAT<Scalar>(comm,mesh,plist));
 }
 
 // Constructor
@@ -49,12 +50,13 @@ template<class Scalar>
 ModelEvaluatorHEAT<Scalar>::
 ModelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
             Mesh *mesh,
-            const Scalar dt) :
+			 Teuchos::ParameterList plist) :
   comm_(comm),
-  dt_(dt),
+  paramList(plist),
   mesh_(mesh),
   showGetInvalidArg_(false)
 {
+  dt_ = paramList.get<double> (TusasdtNameString);
   using Teuchos::RCP;
   using Teuchos::rcp;
   using ::Thyra::VectorBase;
@@ -85,7 +87,7 @@ ModelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
   // Initialize the graph for W CrsMatrix object
   W_graph_ = createGraph();
   P_ = rcp(new Epetra_CrsMatrix(Copy,*W_graph_));
-  prec_ = Teuchos::rcp(new preconditioner<Scalar>(P_, comm_));
+  prec_ = Teuchos::rcp(new preconditioner<Scalar>(P_, comm_, paramList.sublist("ML")));
   u_old_ = rcp(new Epetra_Vector(*f_owned_map_));
 
   MEB::InArgsSetup<Scalar> inArgs;

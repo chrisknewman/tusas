@@ -237,8 +237,8 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
     w_ = &w_cummins_;
     m_ = &m_cummins_;
     //m_ = &m_furtado_;
-    //rand_phi_ = &rand_phi_furtado_;
-    rand_phi_ = &rand_phi_zero_;
+    rand_phi_ = &rand_phi_furtado_;
+    //rand_phi_ = &rand_phi_zero_;
     gp1_ = &gp1_cummins_;
     gpp1_ = &gpp1_cummins_;
     //hp2_ = &hp2_cummins_;
@@ -816,11 +816,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}//gp
       }//ne
 
-#if 0
+
       if (nonnull(f_out)) {//cn double check the use of notnull throughout
 	if(paramList.get<std::string> (TusastestNameString)=="pool"){
 	  f_fe.GlobalAssemble();
-	  int ns_id = 1;
+	  int ns_id = 0;
 	  std::vector<int> node_num_map(mesh_->get_node_num_map());
 	  for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
 	    
@@ -829,11 +829,37 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    
 	    int row = numeqs_*gid;
 	    int mypid = comm_->MyPID();
-	    double y = mesh_->get_y(lid);
+// 	    double x = mesh_->get_x(lid);
+// 	    double y = mesh_->get_y(lid);
 
 	    double rr = 9.;
 	    
-	    double val = (*u)[numeqs_*lid]  - (T_inf_*(rr - y)/(2*rr)+ 200.*T_m_*(rr + y)/(2*rr));
+	    double val = (*u)[numeqs_*lid]  - T_m_;
+	    //std::cout<<mypid<<" "<<lid<<" "<<gid<<" "<<x<<" "<<y<<" "<<x*x+y*y<<std::endl;
+	    f_fe.ReplaceGlobalValues ((int) 1, &row, &val);
+
+
+	    int row1 = row + 1;
+ 	    val = (*u)[numeqs_*lid + 1] - phi_sol_;
+ 	    f_fe.ReplaceGlobalValues ((int) 1, &row1, &val);
+	    
+	  }
+	  //#if 0
+	  ns_id = 1;
+	  for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
+	    
+	    int lid = mesh_->get_node_set_entry(ns_id, j);
+	    int gid = node_num_map[lid];
+	    
+	    int row = numeqs_*gid;
+	    int mypid = comm_->MyPID();
+ 	    double x = mesh_->get_x(lid);
+	    double y = mesh_->get_y(lid);
+	    double rr = 9.;
+	    
+	    double bc = (T_inf_*(rr - y)/(2*rr)+ 1.*T_m_*(rr + y)/(2*rr));
+	    double val = (*u)[numeqs_*lid]  - bc;
+	    //std::cout<<x<<" "<<y<<" "<<val<<" "<<bc<<std::endl;
 	    f_fe.ReplaceGlobalValues ((int) 1, &row, &val);
 
 	    //cn only want a temperature bc here
@@ -842,60 +868,17 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 // 	    f_fe.ReplaceGlobalValues ((int) 1, &row1, &val);
 	    
 	  }
+	  //#endif
 	}
       }
-#endif
-#if 0
-      if (nonnull(f_out)) {//cn double check the use of notnull throughout
-	for ( int j = 0; j < mesh_->get_node_set(1).size(); j++ ){
-	  
-	  int row = numeqs_*(mesh_->get_node_set_entry(1, j));
-	  
-	  (*f)[row] =
-	    (*u)[row] - T_inf_; // Dirichlet BC of zero
-	  (*f)[row+1] =
-	    (*u)[row+1] - 0.0;
-	  
-	}
-	for ( int j = 0; j < mesh_->get_node_set(2).size(); j++ ){
-	  
-	  int row = numeqs_*mesh_->get_node_set_entry(2, j);
-	  
-	  (*f)[row] =
-	    (*u)[row] - T_inf_; // Dirichlet BC of zero
-	  (*f)[row+1] =
-	    (*u)[row+1] - 0.0;
-	  
-	}
-	for ( int j = 0; j < mesh_->get_node_set(3).size(); j++ ){
-	  
-	  int row = (numeqs_*mesh_->get_node_set_entry(3, j));
-	  
-	  (*f)[row] =
-	    (*u)[row] - T_inf_; // Dirichlet BC of zero
-	  (*f)[row+1] =
-	    (*u)[row+1] - 0.0;
-	  
-	}
-	for ( int j = 0; j < mesh_->get_node_set(0).size(); j++ ){
-	  
-	  int row = numeqs_*(mesh_->get_node_set_entry(0, j));
-	  
-	  (*f)[row] =
-	    (*u)[row] - T_inf_; // Dirichlet BC of zero
-	  (*f)[row+1] =
-	    (*u)[row+1] - 0.0;
-	  
-	}
-	
-      }
-#endif
-#if 0
+
+      //#if 0
       if (nonnull(W_prec_out)) {
 	if(paramList.get<std::string> (TusastestNameString)=="pool"){
 	  P_->GlobalAssemble();
 	  std::vector<int> node_num_map(mesh_->get_node_num_map());
-	  int ns_id = 1;
+	  int lenind = 27;//cn 27 in 3d
+	  int ns_id = 0;
 	  for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
 	    
 	    int lid = mesh_->get_node_set_entry(ns_id, j);
@@ -903,7 +886,56 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    int row = numeqs_*gid;
 	    int num_nodes;
 	    
-	    int lenind = 27;//cn 27 in 3d
+	    std::vector<int> column(lenind);
+	    
+	    int err = W_graph_->ExtractGlobalRowCopy 	( 	row,
+								lenind,
+								num_nodes,
+								&column[0]
+								) ;
+	    
+	    column.resize(num_nodes);
+	    double d = 1.;
+	    //ExtractGlobalRowCopy (int GlobalRow, int Length, int &NumEntries, double *Values, int *Indices) 
+// 	    int one = 1;
+// 	    P_->ExtractGlobalRowCopy (row,(int)1, one, &d, &lid);
+	    std::vector<double> vals (num_nodes,0.);
+	    P_->ReplaceGlobalValues (row, num_nodes, &vals[0],&column[0] );
+	    P_->ReplaceGlobalValues (row, (int)1, &d ,&row );
+
+	    int row1 = row + 1;
+	    column.resize(lenind);
+	    W_graph_->ExtractGlobalRowCopy 	( 	row1,
+								lenind,
+								num_nodes,
+								&column[0]
+								) ;
+	    column.resize(num_nodes);
+	    std::vector<double>vals1(num_nodes,0.);
+	    P_->ReplaceGlobalValues (row1, num_nodes, &vals1[0],&column[0] );
+	    P_->ReplaceGlobalValues (row1, (int)1, &d ,&row1 );
+	    
+	    //cn only want a temperature bc here
+	    // 	  column.resize(num_nodes);
+	    // 	  vals.resize(num_nodes,0.);
+	    // 	  int row1 = row +1;
+	    // 	  for (int k = 0; k < num_nodes; k++){
+	    // 	    column[k] = numeqs_*(mesh_->get_nodal_adj(lid))[k]+1;
+	    // 	  }
+	    // 	  column.push_back(row1);
+	    // 	  vals.push_back(1.);
+	    // 	  P_->ReplaceGlobalValues ((int)1, &row1, vals.size(), &column[0], &vals[0] );
+
+	  
+	  }
+	  ns_id = 1;
+	  for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
+	    
+	    int lid = mesh_->get_node_set_entry(ns_id, j);
+	    int gid = node_num_map[lid];
+	    int row = numeqs_*gid;
+	    int num_nodes;
+	    
 	    std::vector<int> column(lenind);
 	    
 	    int err = W_graph_->ExtractGlobalRowCopy 	( 	row,
@@ -930,10 +962,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    // 	  P_->ReplaceGlobalValues ((int)1, &row1, vals.size(), &column[0], &vals[0] );
 
 	  
-	}
+	  }
 	}
       }
-#endif
+      //#endif
 #if 0
 	ns_id = 1;
 	for ( int j = 0; j < mesh_->get_node_set(2).size(); j++ ){
@@ -1269,6 +1301,7 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   random_number_old_=random_number_;
   random_vector_old_->Scale((double)1.,*random_vector_);
   time_ +=dt_;
+  //update_mesh_data();
   if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1==comm_->NumProc()) ){
     find_vtip();
   }
@@ -1323,11 +1356,13 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
   mesh_->add_nodal_field("u");
   mesh_->add_nodal_field("phi");
 
-  update_mesh_data();
+  //update_mesh_data();
     
   
-  mesh_->write_exodus(ex_id_,1,time_);
-  
+  //mesh_->write_exodus(ex_id_,1,time_);
+  output_step_ = 1;
+  write_exodus();
+
   if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1==comm_->NumProc())){
     init_vtip();
   }
@@ -1341,10 +1376,11 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   int numproc = comm_->NumProc();
 
  
-  update_mesh_data();
+  //update_mesh_data();
   
  
-  mesh_->write_exodus(ex_id_,2,time_);
+  //mesh_->write_exodus(ex_id_,2,time_);
+  write_exodus();
 
 
 
@@ -1764,6 +1800,16 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
   delete temp;
   return err;
 
+}
+
+//cn this will eventually be called from tusas
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::write_exodus()
+//void ModelEvaluatorNEMESIS<Scalar>::write_exodus(const int output_step)
+{
+  update_mesh_data();
+  mesh_->write_exodus(ex_id_,output_step_,time_);
+  output_step_++;
 }
 
 #endif

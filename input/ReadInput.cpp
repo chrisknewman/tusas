@@ -51,7 +51,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasnoxmaxiterNameString,(int)200,TusasnoxmaxiterDocString);
 
-  paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
+  paramList.set(TusasoutputfreqNameString,(int)(1e10),TusasoutputfreqDocString);
 
   paramList.set(TusasrestartstepNameString,(int)0,TusasrestartstepDocString);
 
@@ -108,8 +108,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     std::cout << "Default values:\n" << std::endl;
   }
 
-  if((0 != paramList.get<int>(TusasntNameString))%(paramList.get<int>(TusasoutputfreqNameString)))
-    paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
+//   if((0 != paramList.get<int>(TusasntNameString))%(paramList.get<int>(TusasoutputfreqNameString)))
+//     paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
 
 
   if( 0 == mypid ){

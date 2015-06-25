@@ -66,7 +66,8 @@ public:
   void finalize();
   void advance();
   void compute_error( double *u);
-  //static double gs2(const double &theta);
+  //void write_exodus(const int output_step);
+  void write_exodus();
 
 private:
 
@@ -123,6 +124,11 @@ private: // data members
   double time_;
 
   int ex_id_;
+
+  int output_step_;
+  //cn here now to have output control in this class
+  //cn a version of this lives in tusas now
+  //int curr_step
 
   int numeqs_;
 

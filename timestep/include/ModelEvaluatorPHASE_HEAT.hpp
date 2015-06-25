@@ -66,6 +66,8 @@ public:
   void advance();
   void compute_error( double *u);
   //static double gs2(const double &theta);
+  void write_exodus(){};
+
 
 private:
 

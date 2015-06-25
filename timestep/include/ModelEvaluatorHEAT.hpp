@@ -62,6 +62,8 @@ public:
   void finalize();
   void advance();
   void compute_error( double *u);
+  void write_exodus(){};
+
 
 private:
 

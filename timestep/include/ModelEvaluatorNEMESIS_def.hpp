@@ -535,17 +535,17 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	phibasis = new BasisLQuad;
 	phibasis2 = new BasisLQuad;
       }
-      else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3")) ){ // linear triangle
+      else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
 	ubasis = new BasisLTri;
 	phibasis = new BasisLTri;
 	phibasis2 = new BasisLTri;
       }
-      else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) ){ // linear hex
+      else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){ // linear hex
 	ubasis = new BasisLHex;
 	phibasis = new BasisLHex;
 	phibasis2 = new BasisLHex;
       } 
-      else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) ){ // linear tet
+      else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra")) ){ // linear tet
  	ubasis = new BasisLTet;
  	phibasis = new BasisLTet;
  	phibasis2 = new BasisLTet;

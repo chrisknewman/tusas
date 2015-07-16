@@ -530,7 +530,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
       std::string elem_type=mesh_->get_blk_elem_type(blk);
 
-      if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) ){ // linear quad
+      if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
 	ubasis = new BasisLQuad;
 	phibasis = new BasisLQuad;
 	phibasis2 = new BasisLQuad;

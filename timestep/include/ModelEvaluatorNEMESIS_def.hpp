@@ -251,7 +251,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   }else if("branch" == paramList.get<std::string> (TusastestNameString)){
     D_ = 4.;
     T_m_ = 1.55;
-    T_inf_ = 1.;
+    T_inf_ = 1.25;
     alpha_ = 191.82;
     eps_ = .04;
     //eps_ = .2;
@@ -540,12 +540,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	phibasis = new BasisLTri;
 	phibasis2 = new BasisLTri;
       }
-      else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) ){ // linear hex
+      else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) ){ // linear hex
 	ubasis = new BasisLHex;
 	phibasis = new BasisLHex;
 	phibasis2 = new BasisLHex;
       } 
-      else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) ){ // linear tet
+      else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) ){ // linear tet
  	ubasis = new BasisLTet;
  	phibasis = new BasisLTet;
  	phibasis2 = new BasisLTet;
@@ -602,6 +602,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<std::endl<<std::endl<<std::endl;
 	  exit(0);
 	}
+	//cn should be cube root in 3d
 	dx = sqrt(dx);	
 	double W_ = dx/.4;
 	if ( W_ < 1e-16){
@@ -692,6 +693,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	      double dg2 = dgs2_2dtheta_(theta_, M_, eps_);	
 
+
+
+
+
+
 	      //cn also this term is very different in karma papers
 	      double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);//cn not sure about 3d yet
 	      //curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy -phibasis->dudz*dphidz);
@@ -708,9 +714,14 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	      double hp1 = hp1_(phibasis->uu,5.*alpha_/delta);
 
+
 	      double phidel = hp1*(T_m_ - ubasis->uu)*phibasis->phi[i];
+
 	      //std::cout<<(*random_vector_)[mesh_->get_node_id(blk, ne, i)]<<std::endl;
+
 	      double rand_phi = -rand_phi_(phibasis->uu,(*random_vector_)[mesh_->get_node_id(blk, ne, i)]);
+
+
 	      //double rand_phi = -rand_phi_(phibasis->uu,random_number_);
 	      double r_phi = rand_phi*phibasis->phi[i];
 	      //std::cout<<r_phi<<std::endl;
@@ -724,6 +735,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      divgradphi = gs2*phibasis->duolddx*dphidx + gs2*phibasis->duolddy*dphidy + gs2*phibasis->duolddz*dphidz;//(grad u,grad phi)
 	      dg2 = dgs2_2dtheta_(theta_, M_, eps_);
 
+
+
+
+
+
+
 	      curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy);//cn not sure about 3d yet
 	      //curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy -phibasis->duolddz*dphidz);
 
@@ -736,6 +753,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 // 	      phidel = -5.*alpha_*(T_m_ - ubasis->uuold)
 // 		*phibasis->uuold*phibasis->uuold*(1.-phibasis->uuold)*(1.-phibasis->uuold)/delta*phibasis->phi[i];
+
 	      phidel = hp1*(T_m_ - ubasis->uuold)*phibasis->phi[i];
 
 	      //std::cout<<random_number_<<std::endl;
@@ -857,7 +875,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    double y = mesh_->get_y(lid);
 	    double rr = 9.;
 	    
-	    double bc = (T_inf_*(rr - y)/(2*rr)+ 1.*T_m_*(rr + y)/(2*rr));
+	    //double bc = (T_inf_*(rr - y)/(2*rr)+ 1.*T_m_*(rr + y)/(2*rr));
+	    double bc = (T_m_*(rr - y)/(2*rr)+ 1.*T_inf_*(rr + y)/(2*rr));
 	    double val = (*u)[numeqs_*lid]  - bc;
 	    //std::cout<<x<<" "<<y<<" "<<val<<" "<<bc<<std::endl;
 	    f_fe.ReplaceGlobalValues ((int) 1, &row, &val);
@@ -1054,7 +1073,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       
       }
 #endif
-    }//blk
+  }//blk
 
     delete xx, yy, zz, uu, uu_old, phiphi, phiphi_old, phiphi_old_old;
     delete ubasis, phibasis, phibasis2;
@@ -1732,7 +1751,7 @@ void ModelEvaluatorNEMESIS<Scalar>::find_vtip()
   std::cout<<"vtip        = "<<(vtip_x_-vtip_x_old_)/dt_<<std::endl<<std::endl;
   std::ofstream outfile;
   outfile.open("vtip.dat", std::ios::app );
-  outfile 
+  outfile << std::setprecision(16)
     <<time_<<" "<<(vtip_x_-vtip_x_old_)/dt_<<" "<<vtip_x_<<std::endl;
   outfile.close();
   //exit(0);

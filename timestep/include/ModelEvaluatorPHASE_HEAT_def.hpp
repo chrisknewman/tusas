@@ -1549,7 +1549,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::find_vtip()
   std::cout<<"vtip        = "<<(vtip_x_-vtip_x_old_)/dt_<<std::endl<<std::endl;
   std::ofstream outfile;
   outfile.open("vtip.dat", std::ios::app );
-  outfile 
+  outfile << std::setprecision(16)
     <<time_<<" "<<(vtip_x_-vtip_x_old_)/dt_<<" "<<vtip_x_<<std::endl;
   outfile.close();
   //exit(0);

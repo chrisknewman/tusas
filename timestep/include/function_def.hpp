@@ -17,7 +17,9 @@ double w_cummins_(const double &delta)
 double m_cummins_(const double &theta,const double &M,const double &eps)
 {
 
-  double g = 1. + eps * (cos(M*(theta)));
+  //double g = 1. + eps * (cos(M*(theta)));
+  double g = (4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) ) -3.*eps +1.   );
   return g*g;
 }
 double rand_phi_zero_(const double &phi, const double &random_number)
@@ -38,16 +40,19 @@ double hp2_cummins_(const double &phi)
 }
 double gs2_cummins_( const double &theta, const double &M, const double &eps)
 { 
-  //double g = 1. + eps_ * (M_*cos(theta));
   double eps_0_ = 1.;
-  double g = eps_0_*(1. + eps * (cos(M*theta)));
+  //double g = eps_0_*(1. + eps * (cos(M*theta)));
+  double g = eps_0_*(4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) ) -3.*eps +1.   );
   return g*g;
 }
 double dgs2_2dtheta_cummins_(const double &theta, const double &M, const double &eps)
 {
   double eps_0_ = 1.;
-  //return -1.*(eps_*M_*(1. + eps_*M_*cos(theta))*sin(theta));
-  return -1.*eps_0_*(eps*M*(1. + eps*cos(M*(theta)))*sin(M*(theta)));
+  //return -1.*eps_0_*(eps*M*(1. + eps*cos(M*(theta)))*sin(M*(theta)));
+  return eps_0_*4.*eps*(-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 4.*cos(theta)*sin(theta)*sin(theta)*sin(theta))
+    *(1. - 3.*eps + 4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+			    + sin(theta)*sin(theta)*sin(theta)*sin(theta)));
 }
 
 
@@ -95,12 +100,15 @@ double hp2_furtado_(const double &phi)
 }
 double rand_phi_furtado_(const double &phi, const double &random_number)
 {
-    double a = .025;
-  //double a = .075;
-//   return ((double)rand()/(RAND_MAX)*2.-1.)*16.*a*phi*phi
-// 		*(1.-phi)*(1.-phi);
-  return random_number*16.*a*phi*phi
+  //double a = .025;
+  double a = 75.;
+  double r = 16.*a*phi*phi
     *(1.-phi)*(1.-phi);
+//   double r = 256.*a*phi*phi*phi*phi
+//     *(1.-phi)*(1.-phi)*(1.-phi)*(1.-phi);
+  if( phi > 1. || phi < 0. ) r = 0;
+  return ((double)rand()/(RAND_MAX)*2.-1.)*r;
+//   return random_number*16.*r;
 }
 
 //karma

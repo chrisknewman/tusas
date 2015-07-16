@@ -12,6 +12,18 @@ preconditioner<Scalar>::preconditioner(const RCP<Epetra_CrsMatrix>& W,const Teuc
     domain_ = W_op->domain(); 
     map_ =  Teuchos::rcp(new Epetra_Map(*get_Epetra_Map(*domain_, comm_)));
 
+
+    //cn
+    //cn  I could see block jacobi working in the following way:
+    //cn we would need to have an Teuchos::RCP< Epetra_MultiVector > that points
+    //cn thatpoints to previous iterate
+    //cn gets zeroed out in ReComputePreconditioner ()
+    //cn would also need to have access to evaluation on off diagonal blocks
+    //cn (in a vector way not neccessarily in)
+
+
+
+
     MLPrec_ =  new ML_Epetra::MultiLevelPreconditioner(*W_, MLList,false);
     if( 0 == comm->MyPID() ){
       std::cout<<"Creating ML preconditioner with:"<<std::endl;

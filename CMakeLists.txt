@@ -87,8 +87,3 @@ SET( CMAKE_CXX_FLAGS ${Trilinos_CXX_COMPILER_FLAGS} )
 
 FILE ( WRITE ${DIR_7}/Test/tusas.h "std::string TRILINOS_DIR=\"${TRILINOS_DIR}\"; ")
 
-#---------------------------------------------------------------------------------
-# Create a command to cleandirectory
-#---------------------------------------------------------------------------------
-
-#ADD_CUSTOM_TARGET ( distclean COMMAND ${CMAKE_COMMAND} -P ${DIR_7}/distclean.cmake )

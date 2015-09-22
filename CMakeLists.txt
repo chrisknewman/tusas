@@ -85,5 +85,5 @@ SET( CMAKE_CXX_FLAGS ${Trilinos_CXX_COMPILER_FLAGS} )
 # Write tusas.h for use with Testing 
 #---------------------------------------------------------------------------------
 
-FILE ( WRITE ${DIR_7}/Test/tusas.h "std::string TRILINOS_DIR=\"${TRILINOS_DIR}\"; ")
+FILE ( WRITE ${DIR_7}/tusas.h "std::string TRILINOS_DIR=\"${TRILINOS_DIR}\"; ")
 

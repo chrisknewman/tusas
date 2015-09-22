@@ -2,6 +2,16 @@
 #define FUNCTION_DEF_HPP
 
 //cummins
+double gs_cummins_(const double &theta, const double &M, const double &eps, const double &psi)
+{
+  double eps_0_ = 1.;
+  double g = eps_0_*(4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) 
+			     *(1.-2.*sin(psi)*sin(psi)*cos(psi)*cos(psi))
+			     ) -3.*eps +1.   );
+  return g;
+
+}
 double hp1_cummins_(const double &phi,const double &c)
 {
   return -c*phi*phi*(1.-phi)*(1.-phi);
@@ -38,23 +48,40 @@ double hp2_cummins_(const double &phi)
 {
   return 1.;
 }
-double gs2_cummins_( const double &theta, const double &M, const double &eps)
+double gs2_cummins_( const double &theta, const double &M, const double &eps, const double &psi)
 { 
   double eps_0_ = 1.;
   //double g = eps_0_*(1. + eps * (cos(M*theta)));
-  double g = eps_0_*(4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
-			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) ) -3.*eps +1.   );
+//   double g = eps_0_*(4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+// 			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) ) -3.*eps +1.   );
+  double g =  gs_cummins_(theta,M,eps,psi);
   return g*g;
 }
-double dgs2_2dtheta_cummins_(const double &theta, const double &M, const double &eps)
+double dgs2_2dtheta_cummins_(const double &theta, const double &M, const double &eps, const double &psi)
 {
   double eps_0_ = 1.;
   //return -1.*eps_0_*(eps*M*(1. + eps*cos(M*(theta)))*sin(M*(theta)));
-  return eps_0_*4.*eps*(-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 4.*cos(theta)*sin(theta)*sin(theta)*sin(theta))
-    *(1. - 3.*eps + 4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
-			    + sin(theta)*sin(theta)*sin(theta)*sin(theta)));
-}
 
+  double g = gs_cummins_(theta,M,eps,psi);
+
+  //double dg = 4.* eps* (-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 4.* cos(theta)*sin(theta)*sin(theta)*sin(theta));
+  double dg = 4.* eps* (-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 
+			4.* cos(theta)*sin(theta)*sin(theta)*sin(theta)*(1.-2.*cos(psi)*cos(psi)*sin(psi)*sin(psi)));
+
+  return g*dg;
+
+//   return eps_0_*4.*eps*(-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 4.*cos(theta)*sin(theta)*sin(theta)*sin(theta))
+//     *(1. - 3.*eps + 4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+// 			    + sin(theta)*sin(theta)*sin(theta)*sin(theta)));
+}
+double dgs2_2dpsi_cummins_(const double &theta, const double &M, const double &eps, const double &psi)
+{
+  //4 eps (-4 Cos[psi]^3 Sin[psi] + 4 Cos[psi] Sin[psi]^3) Sin[theta]^4
+  double g = gs_cummins_(theta,M,eps,psi);
+  double dg = 4.* eps* (-4.*cos(psi)*cos(psi)*cos(psi)*sin(psi) + 4.*cos(psi)*sin(psi)*sin(psi)*sin(psi))*sin(theta)*sin(theta)*sin(theta)*sin(theta);
+
+  return g*dg;
+}
 
 
 
@@ -152,7 +179,7 @@ double m_karma_(const double &theta,const double &M,const double &eps)
   double g = a_sbar*(1. + eps_prime * (pow(sin(theta),M)+pow(cos(theta),M)));
   return t0*g*g;
 }
-double gs2_karma_( const double &theta, const double &M, const double &eps)
+double gs2_karma_( const double &theta, const double &M, const double &eps, const double &psi)
 { 
   //double g = 1. + eps_ * (M_*cos(theta));
   double W_0 = 1.;
@@ -162,7 +189,7 @@ double gs2_karma_( const double &theta, const double &M, const double &eps)
   double g = W_0*a_sbar*(1. + eps_prime * (pow(sin(theta),M)+pow(cos(theta),M)));
   return g*g;
 }
-double dgs2_2dtheta_karma_(const double &theta, const double &M, const double &eps)
+double dgs2_2dtheta_karma_(const double &theta, const double &M, const double &eps, const double &psi)
 {
   double W_0 = 1.;
   double eps4 = eps;

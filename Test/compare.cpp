@@ -5,7 +5,7 @@
 #include <typeinfo>
 #include <string>
 #include <cstring>
-#include "tusas.h"
+#include "../tusas.h"
 using namespace std;
 
 int main() {

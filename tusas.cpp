@@ -38,13 +38,13 @@
 
 #include "ParamNames.h"
 #include "readInput.h"
-#include "Test/tusas.h"
+#include "tusas.h"
 
 using namespace std;
 
 //std::string TRILINOS_DIR="/Users/cnewman/src/trilinos-11.12.1-Source/GCC_4_9_1_MPI_OMP_DBG/";
 
-int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile);
+int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart);
 int join(const int mypid, const int numproc);
 
 int main(int argc, char *argv[])
@@ -77,8 +77,9 @@ int main(int argc, char *argv[])
       exit(0);
     }
     std::string pfile;
-    decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile);
+    decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString));
     Comm.Barrier();
+    
     in_mesh->read_exodus(pfile .c_str());
     //exit(0);
   }
@@ -90,9 +91,6 @@ int main(int argc, char *argv[])
 
   double dt = paramList.get<double> (TusasdtNameString);
   int numSteps = paramList.get<int> (TusasntNameString);
-  double curTime = 0.0; 
-  double endTime = curTime + (double)numSteps*dt;
-  int elapsedSteps =0;
 
   timestep<double> * model;
   if( paramList.get<std::string> (TusasmethodNameString)  == "phaseheat") {
@@ -110,6 +108,9 @@ int main(int argc, char *argv[])
   }
 
   model->initialize();
+  double curTime = model->get_start_time(); 
+  int elapsedSteps = model->get_start_step();
+  double endTime = curTime + ((double)numSteps-elapsedSteps)*dt;
 
   while ( ( curTime <= endTime ) && ( elapsedSteps < numSteps ) ) {
     model->advance();
@@ -138,10 +139,10 @@ int main(int argc, char *argv[])
   delete in_mesh;
 }
 
-int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile){
+int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart){
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
-  if( 0 == mypid ){
+  if( 0 == mypid && !restart){
     std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
 
     std::string comStr = "rm -r "+decompPath+";mkdir "+decompPath;
@@ -149,7 +150,7 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
       std::cout<<"Error creating directory: "<<decompPath<<std::endl;
       exit(0);
     }
-    std::cout<<"Creating decomp dir: "<<comStr<<std::endl;
+    std::cout<<"  Creating decomp dir: "<<comStr<<std::endl;
 
     for( int i = 0; i < numproc; i++){
       std::string numStr = std::to_string(i+1);
@@ -159,7 +160,7 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
 	std::cout<<"Error creating directory: "<<numStr<<std::endl;
 	exit(0);
       }
-      std::cout<<"Creating decomp dirs: "<<mkdirStr<<std::endl;
+      std::cout<<"  Creating decomp dirs: "<<mkdirStr<<std::endl;
     }
 
     //std::string trilinosPath="/Users/cnewman/src/trilinos-11.12.1-Source/GCC_4_9_1_MPI_OMP_DBG/";
@@ -168,7 +169,7 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
     std::string nemFile =decompPath+nemStr+".nemI";
     std::string sliceStr = trilinosPath+"/bin/nem_slice -e -m mesh="+std::to_string(numproc)+" -l inertial -o "+
       nemFile+" "+infile;
-    std::cout<<"Running nemslice command: "<<sliceStr <<std::endl;
+    std::cout<<"  Running nemslice command: "<<sliceStr <<std::endl;
     if(-1 == system(sliceStr.c_str()) ){
       std::cout<<"Error running nemslice: "<<sliceStr<<std::endl;
       exit(0);
@@ -184,7 +185,7 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
       <<"Parallel file location	= root=./"<<decompPath<<", subdir=.";
     spreadfile.close();
     std::string spreadStr = trilinosPath+"/bin/nem_spread "+spreadFile;
-    std::cout<<"Running nemspread command: "<<spreadStr <<std::endl;
+    std::cout<<"  Running nemspread command: "<<spreadStr <<std::endl;
     if(-1 == system(spreadStr.c_str()) ){
       std::cout<<"Error running nemspread: "<<spreadStr<<std::endl;
       exit(0);
@@ -200,7 +201,7 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
   outfile=decompPath+std::to_string(mypid+1)+"/"+nemStr+".par."+std::to_string(numproc)+"."+mypidstring;
   //std::cout<<outfile<<std::endl;
 
-  if( 0 == mypid ){
+  if( 0 == mypid  && !restart){
     std::cout<<std::endl<<"Exiting decomp"<<std::endl<<std::endl;
   }
   //exit(0);

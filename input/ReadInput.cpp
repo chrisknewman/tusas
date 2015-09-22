@@ -26,8 +26,6 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
 
   //set defaults here
-  //paramList.set(TusasmeshNameString,"meshes/hex64_3d.e",TusasmeshDocString);
-  //paramList.set(TusasmeshNameString,"meshes/dendquad300_q3d.e",TusasmeshDocString);
   paramList.set(TusasmeshNameString,"meshes/dendquad300_q.e",TusasmeshDocString);
 
   paramList.set(TusasdtNameString,(double).001,TusasdtDocString);
@@ -53,9 +51,9 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasoutputfreqNameString,(int)(1e10),TusasoutputfreqDocString);
 
-  paramList.set(TusasrestartstepNameString,(int)0,TusasrestartstepDocString);
+  //paramList.set(TusasrestartstepNameString,(int)0,TusasrestartstepDocString);
 
-
+  paramList.set(TusasrestartNameString,(bool)false,TusasrestartDocString);
 
 
   Teuchos::ParameterList MLList;
@@ -80,20 +78,22 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     MLList.set("PDE equations",2);
 
 
-
   //read/overwrite here
 
   // read parameters from xml file
   std::string inputFileName = "";
   Teuchos::CommandLineProcessor  clp(false); // Don't throw exceptions
   clp.setOption( "input-file", &inputFileName, "The XML file to read into a parameter list" );
+  bool restart = false;
+  clp.setOption( "restart","norestart", &restart );
   clp.setDocString( "Document string for this program. Right now, not much going on here." );
   Teuchos::CommandLineProcessor::EParseCommandLineReturn parse_return = clp.parse(argc,argv);
 
   if( parse_return != Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL ) {
-    std::cout << "Default parameter values:\n" << std::endl;
-    if( 0 == mypid )
+    if( 0 == mypid ){
+      std::cout << "Default parameter values:\n" << std::endl;
       paramList.print(std::cout, 2, true, true );
+    }
     exit(parse_return);
   }
 
@@ -111,11 +111,13 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 //   if((0 != paramList.get<int>(TusasntNameString))%(paramList.get<int>(TusasoutputfreqNameString)))
 //     paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
 
+  paramList.set(TusasrestartNameString,restart,TusasrestartDocString);
 
   if( 0 == mypid ){
     paramList.print(std::cout, 2, true, true );
     std::cout<<std::endl<<"Initial parameter list completed."<<std::endl<<std::endl<<std::endl;
   }
+
   //exit(0);
 
 };

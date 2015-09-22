@@ -652,7 +652,7 @@ int Mesh::write_exodus(const int ex_id){
    write_element_blocks_exodus(ex_id);
    write_nodal_data_exodus(ex_id);
 
-return 0;
+   return 0;
 
 }
 
@@ -670,8 +670,14 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
   return error;
 
 }
+int Mesh::read_last_step_exodus(const int ex_id, int &timestep){
+  float ret_float = 0.0;;
+  char *ret_char;
+  int error = ex_inquire (ex_id, EX_INQ_TIME, &timestep, &ret_float,ret_char);
+  return error;
+}
 
-int Mesh::read_time_exodus(const int ex_id, const int counter, double time){
+int Mesh::read_time_exodus(const int ex_id, const int counter, double &time){
 
    int error = ex_get_time(ex_id,counter,&time);
 
@@ -950,6 +956,13 @@ int Mesh::write_nodal_data_exodus(int ex_id, int counter){
 
 }
 
+int Mesh::read_num_proc_nemesis(int ex_id, int *nproc){
+  int num_proc_in_file;
+  char ftype;
+  int ex_err = ne_get_init_info(ex_id,nproc,&num_proc_in_file,&ftype);
+  return ex_err;
+}
+
 int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, const int index, double *data){
   int ex_err = ex_get_nodal_var (ex_id, timestep, index, num_nodes, &data[0]);
   return ex_err;
@@ -1075,6 +1088,14 @@ int Mesh::add_nodal_data(std::string name, double *data){
 
    return 1;
 
+}
+
+int Mesh::open_exodus(const char * filename){
+  int comp_ws = sizeof(double);// = 8
+  int io_ws = sizeof(double);// = 8
+  float version;
+
+  int ex_id = ex_open(filename, EX_WRITE, &comp_ws, &io_ws, &version);
 }
 
 int Mesh::create_exodus(const char * filename){

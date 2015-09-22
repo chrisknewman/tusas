@@ -30,10 +30,12 @@ int main ()
    system ("../tusas --input-file=PhaseHeatTris/tusas.xml");
    system ( "mv results.e PhaseHeatTris/");
 
-   system ("/usr/local/gcc/4.9.2/openmpi-1.8.4/bin/mpirun -np 4 ../tusas --input-file=PhaseHeatQuadPar/tusas.xml");
+   //system ("/usr/local/gcc/4.9.2/openmpi-1.8.4/bin/mpirun -np 4 ../tusas --input-file=PhaseHeatQuadPar/tusas.xml");
+   system ("mpirun -np 4 ../tusas --input-file=PhaseHeatQuadPar/tusas.xml");
    system ( "mv results.e PhaseHeatQuadPar/");
 
-   system ("/usr/local/gcc/4.9.2/openmpi-1.8.4/bin/mpirun -np 4 ../tusas --input-file=PhaseHeatQuadParNoPrec/tusas.xml");
+   //system ("/usr/local/gcc/4.9.2/openmpi-1.8.4/bin/mpirun -np 4 ../tusas --input-file=PhaseHeatQuadParNoPrec/tusas.xml");
+   system ("mpirun -np 4 ../tusas --input-file=PhaseHeatQuadParNoPrec/tusas.xml");
    system ( "mv results.e PhaseHeatQuadParNoPrec/");
 
    return 0;

@@ -69,6 +69,10 @@ public:
   //void write_exodus(const int output_step);
   void write_exodus();
 
+  void write_matlab();
+
+  void restart(Teuchos::RCP<Epetra_Vector> u,Teuchos::RCP<Epetra_Vector> u_old);
+
 private:
 
   /** Allocates and returns the Jacobian matrix graph */
@@ -145,7 +149,9 @@ private: // data members
 
   const double gs(const double &theta);
   const double R(const double &theta);
-  double theta(double &x,double &y,double &z = 0) const;
+  const double R(const double &theta,const double &psi);
+  double theta(double &x,double &y) const;
+  double psi(double &x,double &y,double &z) const;
 
   void init(Teuchos::RCP<Epetra_Vector> u);
   void init_square(Teuchos::RCP<Epetra_Vector> u);
@@ -173,8 +179,9 @@ private: // data members
   double (*gpp1_)(const double &phi);
   double (*hp2_)(const double &phi);
 
-  double (*gs2_)(const double &theta,const double &M, const double &eps);
-  double (*dgs2_2dtheta_)(const double &theta,const double &M, const double &eps);
+  double (*gs2_)(const double &theta,const double &M, const double &eps, const double &psi);
+  double (*dgs2_2dtheta_)(const double &theta,const double &M, const double &eps, const double &psi);
+  double (*dgs2_2dpsi_)(const double &theta,const double &M, const double &eps, const double &psi);
 
   std::map<double,int> x_node;
   void init_vtip();

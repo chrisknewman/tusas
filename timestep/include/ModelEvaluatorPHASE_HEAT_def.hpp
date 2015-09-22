@@ -596,7 +596,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	      double dphiphidz = phibasis->dudz;
 	      double theta_ = theta(dphiphidx,dphiphidy,dphiphidz)-theta_0_;
 
-	      double gs2 = gs2_(theta_, M_, eps_);
+	      double gs2 = gs2_(theta_, M_, eps_,0.);
 
 	      double m = m_(theta_, M_, eps_);
      
@@ -604,7 +604,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 
 	      double divgradphi = gs2*phibasis->dudx*dphidx + gs2*phibasis->dudy*dphidy + gs2*phibasis->dudz*dphidz;//(grad u,grad phi)
 
-	      double dg2 = dgs2_2dtheta_(theta_, M_, eps_);	
+	      double dg2 = dgs2_2dtheta_(theta_, M_, eps_,0.);	
 
 	      //cn also this term is very different in karma papers
 	      double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);//cn not sure about 3d yet
@@ -634,9 +634,9 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 	      dphiphidy = phibasis->duolddy;
 	      dphiphidz = phibasis->duolddz;
 	      theta_ = theta(dphiphidx,dphiphidy,dphiphidz)-theta_0_;
-	      gs2 = gs2_(theta_, M_, eps_);
+	      gs2 = gs2_(theta_, M_, eps_, 0.);
 	      divgradphi = gs2*phibasis->duolddx*dphidx + gs2*phibasis->duolddy*dphidy + gs2*phibasis->duolddz*dphidz;//(grad u,grad phi)
-	      dg2 = dgs2_2dtheta_(theta_, M_, eps_);
+	      dg2 = dgs2_2dtheta_(theta_, M_, eps_,0.);
 
 	      curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy);//cn not sure about 3d yet
 	      //curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy -phibasis->duolddz*dphidz);
@@ -694,7 +694,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 		double dphiphidz = phibasis->dudz;
 		
 		double theta_ = theta(dphiphidx,dphiphidy,dphiphidz) - theta_0_;
-		double gs2 = gs2_(theta_,  M_, eps_);
+		double gs2 = gs2_(theta_,  M_, eps_, 0.);
 		dtestdx = phibasis->dphidxi[j]*phibasis->dxidx
 		  +phibasis->dphideta[j]*phibasis->detadx
 		  +phibasis->dphidzta[j]*phibasis->dztadx;
@@ -706,7 +706,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 		  +phibasis->dphidzta[j]*phibasis->dztadz;
 		divgrad = gs2*dtestdx * dphidx + gs2*dtestdy * dphidy + gs2*dtestdz * dphidz;
 
-		double dg2 = dgs2_2dtheta_(theta_, M_, eps_);
+		double dg2 = dgs2_2dtheta_(theta_, M_, eps_,0.);
 		double curlgrad = -dg2*(dtestdy*dphidx -dtestdx*dphidy);
 
 		double m = m_(theta_,M_,eps_);

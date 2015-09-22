@@ -160,8 +160,8 @@ private: // data members
   double (*gpp1_)(const double &phi);
   double (*hp2_)(const double &phi);
 
-  double (*gs2_)(const double &theta,const double &M, const double &eps);
-  double (*dgs2_2dtheta_)(const double &theta,const double &M, const double &eps);
+  double (*gs2_)(const double &theta,const double &M, const double &eps, const double &psi);
+  double (*dgs2_2dtheta_)(const double &theta,const double &M, const double &eps, const double &psi);
 
   std::map<double,int> x_node;
   void init_vtip();

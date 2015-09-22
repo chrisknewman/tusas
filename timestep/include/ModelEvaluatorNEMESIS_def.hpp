@@ -26,6 +26,7 @@
 #include "Epetra_Import.h"
 #include "Epetra_FECrsGraph.h"
 #include "Epetra_FECrsMatrix.h"
+#include "EpetraExt_VectorOut.h"
 
 //teuchos support
 #include <Teuchos_RCP.hpp>	
@@ -166,6 +167,8 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   phi_sol_ = 1.;
   phi_liq_ = 0.;
+
+  dgs2_2dpsi_ = &dgs2_2dpsi_cummins_;
 
   if("furtado" == paramList.get<std::string> (TusastestNameString)){
 
@@ -681,9 +684,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      double dphiphidx = phibasis->dudx;
 	      double dphiphidy = phibasis->dudy;
 	      double dphiphidz = phibasis->dudz;
-	      double theta_ = theta(dphiphidx,dphiphidy,dphiphidz)-theta_0_;
+	      double theta_ = theta(dphiphidx,dphiphidy)-theta_0_;
 
-	      double gs2 = gs2_(theta_, M_, eps_);
+	      double psi_ = psi(dphiphidx,dphiphidy,dphiphidz);
+	      psi_ = 0.;
+	      double gs2 = gs2_(theta_, M_, eps_, psi_);
 
 	      double m = m_(theta_, M_, eps_);
      
@@ -691,16 +696,19 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	      double divgradphi = gs2*phibasis->dudx*dphidx + gs2*phibasis->dudy*dphidy + gs2*phibasis->dudz*dphidz;//(grad u,grad phi)
 
-	      double dg2 = dgs2_2dtheta_(theta_, M_, eps_);	
-
+	      double dgdtheta = dgs2_2dtheta_(theta_, M_, eps_, psi_);
+	      double dgdpsi = dgs2_2dpsi_(theta_, M_, eps_, psi_);	
+	      dgdpsi = 0.;
 
 
 
 
 
 	      //cn also this term is very different in karma papers
-	      double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);//cn not sure about 3d yet
-	      //curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy -phibasis->dudz*dphidz);
+	      //double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);//cn not sure about 3d yet
+	      //cn                   dtheta/dphix= phiy     dtheta/dphiy =  -phix
+	      double curlgrad = dgdtheta*(-phibasis->dudy*dphidx + phibasis->dudx*dphidy)
+		+dgdpsi*(-phibasis->dudz*dphidx + phibasis->dudx*dphidz);//cn not sure about 3d yet
 
 	      double w = w_(delta);
 	      //double gp1 = phibasis->uu*(1.-phibasis->uu)*(1.-2.*phibasis->uu);
@@ -730,19 +738,22 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      dphiphidx = phibasis->duolddx;
 	      dphiphidy = phibasis->duolddy;
 	      dphiphidz = phibasis->duolddz;
-	      theta_ = theta(dphiphidx,dphiphidy,dphiphidz)-theta_0_;
-	      gs2 = gs2_(theta_, M_, eps_);
+	      theta_ = theta(dphiphidx,dphiphidy)-theta_0_;
+	      psi_ = psi(dphiphidx,dphiphidy,dphiphidz);
+	      psi_ =0.;
+	      gs2 = gs2_(theta_, M_, eps_,0.);
 	      divgradphi = gs2*phibasis->duolddx*dphidx + gs2*phibasis->duolddy*dphidy + gs2*phibasis->duolddz*dphidz;//(grad u,grad phi)
-	      dg2 = dgs2_2dtheta_(theta_, M_, eps_);
+	      dgdtheta = dgs2_2dtheta_(theta_, M_, eps_, 0.);
+
+	      dgdpsi = dgs2_2dpsi_(theta_, M_, eps_, psi_);
+	      dgdpsi = 0.;
 
 
 
 
-
-
-
-	      curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy);//cn not sure about 3d yet
-	      //curlgrad = -dg2*(phibasis->duolddy*dphidx -phibasis->duolddx*dphidy -phibasis->duolddz*dphidz);
+	      //curlgrad = dgdtheta*(-phibasis->duolddy*dphidx +phibasis->duolddx*dphidy);//cn not sure about 3d yet
+	      curlgrad = dgdtheta*(-phibasis->duolddy*dphidx + phibasis->duolddx*dphidy)
+		+dgdpsi*(-phibasis->duolddz*dphidx + phibasis->duolddx*dphidz);
 
 	      gp1 = gp1_(phibasis->uuold);
 
@@ -800,8 +811,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		double dphiphidy = phibasis->dudy;
 		double dphiphidz = phibasis->dudz;
 		
-		double theta_ = theta(dphiphidx,dphiphidy,dphiphidz) - theta_0_;
-		double gs2 = gs2_(theta_,  M_, eps_);
+		double theta_ = theta(dphiphidx,dphiphidy) - theta_0_;
+		double psi_ = psi(dphiphidx,dphiphidy,dphiphidz);
+		psi_ =0.;
+		double gs2 = gs2_(theta_,  M_, eps_, 0.);
 		dtestdx = phibasis->dphidxi[j]*phibasis->dxidx
 		  +phibasis->dphideta[j]*phibasis->detadx
 		  +phibasis->dphidzta[j]*phibasis->dztadx;
@@ -813,8 +826,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  +phibasis->dphidzta[j]*phibasis->dztadz;
 		divgrad = gs2*dtestdx * dphidx + gs2*dtestdy * dphidy + gs2*dtestdz * dphidz;
 
-		double dg2 = dgs2_2dtheta_(theta_, M_, eps_);
-		double curlgrad = -dg2*(dtestdy*dphidx -dtestdx*dphidy);
+		double dgdtheta = dgs2_2dtheta_(theta_, M_, eps_,psi_);
+		double dgdpsi = dgs2_2dpsi_(theta_, M_, eps_, psi_);
+		dgdpsi = 0.;
+		double curlgrad = 0.*dgdtheta*(-dtestdy*dphidx +dtestdx*dphidy)
+		  +dgdpsi*(-dtestdz*dphidx + dtestdx*dphidz);
 
 		double m = m_(theta_,M_,eps_);
 
@@ -1329,61 +1345,73 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::initialize()
 {
-  if(paramList.get<std::string> (TusastestNameString)=="cummins"){
-    init(u_old_);
-  }else if(paramList.get<std::string> (TusastestNameString)=="multi"){
-    multi(u_old_);
-  }else if(paramList.get<std::string> (TusastestNameString)=="pool"){
-    pool(u_old_);
-  }else if(paramList.get<std::string> (TusastestNameString)=="furtado"){
-    //init(u_old_);
-    init_square(u_old_);
-  }else if(paramList.get<std::string> (TusastestNameString)=="karma"){
-    init_karma(u_old_);
-  }else if(paramList.get<std::string> (TusastestNameString)=="branch"){
-    init(u_old_);
-  }else{
-    std::cout<<"Unknown initialization testcase."<<std::endl;
-    exit(0);
-  }
-  *u_old_old_ = *u_old_;
 
-  int mypid = comm_->MyPID();
-  int numproc = comm_->NumProc();
-  if( 1 == numproc ){//cn for now
-    //if( 0 == mypid ){
-    const char *outfilename = "results.e";
-    ex_id_ = mesh_->create_exodus(outfilename);
-
-  }
-  else{
-    std::string decompPath="decomp/";
-    //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
+  bool dorestart = paramList.get<bool> (TusasrestartNameString);
+  if (!dorestart){
+    if(paramList.get<std::string> (TusastestNameString)=="cummins"){
+      init(u_old_);
+    }else if(paramList.get<std::string> (TusastestNameString)=="multi"){
+      multi(u_old_);
+    }else if(paramList.get<std::string> (TusastestNameString)=="pool"){
+      pool(u_old_);
+    }else if(paramList.get<std::string> (TusastestNameString)=="furtado"){
+      //init(u_old_);
+      init_square(u_old_);
+    }else if(paramList.get<std::string> (TusastestNameString)=="karma"){
+      init_karma(u_old_);
+    }else if(paramList.get<std::string> (TusastestNameString)=="branch"){
+      init(u_old_);
+    }else{
+      std::cout<<"Unknown initialization testcase."<<std::endl;
+      exit(0);
+    }
     
-    std::string mypidstring;
-    if ( numproc > 9 && mypid < 10 ){
-      mypidstring = std::to_string(0)+std::to_string(mypid);
+    *u_old_old_ = *u_old_;
+
+    int mypid = comm_->MyPID();
+    int numproc = comm_->NumProc();
+    
+    if( 1 == numproc ){//cn for now
+      //if( 0 == mypid ){
+      const char *outfilename = "results.e";
+      ex_id_ = mesh_->create_exodus(outfilename);
+      
     }
     else{
-      mypidstring = std::to_string(mypid);
-  }
-
-    std::string pfile = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
-    ex_id_ = mesh_->create_exodus(pfile.c_str());
-  }
-  
-  mesh_->add_nodal_field("u");
-  mesh_->add_nodal_field("phi");
-
-  //update_mesh_data();
+      std::string decompPath="decomp/";
+      //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
+      
+      std::string mypidstring;
+      if ( numproc > 9 && mypid < 10 ){
+	mypidstring = std::to_string(0)+std::to_string(mypid);
+      }
+      else{
+	mypidstring = std::to_string(mypid);
+      }
+      
+      std::string pfile = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
+      ex_id_ = mesh_->create_exodus(pfile.c_str());
+    }
     
-  
-  //mesh_->write_exodus(ex_id_,1,time_);
-  output_step_ = 1;
-  write_exodus();
-
-  if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1==comm_->NumProc())){
-    init_vtip();
+    mesh_->add_nodal_field("u");
+    mesh_->add_nodal_field("phi");
+    
+    //update_mesh_data();
+    
+    
+    //mesh_->write_exodus(ex_id_,1,time_);
+    output_step_ = 1;
+    write_exodus();
+    
+    if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1==comm_->NumProc())){
+      init_vtip();
+    }
+  }
+  else{
+    restart(u_old_,u_old_old_);
+    if(1==comm_->MyPID())
+      std::cout<<"Restart unavailable"<<std::endl<<std::endl;
+    exit(0);
   }
 }
 
@@ -1400,8 +1428,9 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
  
   //mesh_->write_exodus(ex_id_,2,time_);
   write_exodus();
-
-
+  
+  //cn we should trigger this in xml file
+  //write_matlab();
 
   std::cout<<(solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")<<std::endl;
   int ngmres = 0;
@@ -1554,16 +1583,24 @@ const double ModelEvaluatorNEMESIS<Scalar>::R(const double &theta)
 {
   return R_0_*(1. + eps_ * cos(M_*(theta)));
 }
+template<class Scalar>
+const double ModelEvaluatorNEMESIS<Scalar>::R(const double &theta,const double &psi)
+{
+
+  double g = gs_cummins_(theta,M_,eps_,psi);
+  return R_0_*g;
+}
+
 
 template<class Scalar>
-double ModelEvaluatorNEMESIS<Scalar>::theta(double &x,double &y,double &z) const
+double ModelEvaluatorNEMESIS<Scalar>::theta(double &x,double &y) const
 {
   double small = 1e-9;
   double pi = 3.141592653589793;
   double t = 0.;
   double sy = 1.;
   if(y < 0.) sy = -1.;
-  double n = sy*sqrt(y*y+z*z);
+  double n = sy*sqrt(y*y);
   //double n = y;
   //std::cout<<y<<"   "<<n<<std::endl;
 //   if(abs(x) < small && y > 0. ) t = pi/2.;
@@ -1579,13 +1616,39 @@ double ModelEvaluatorNEMESIS<Scalar>::theta(double &x,double &y,double &z) const
 }
 
 template<class Scalar>
+double ModelEvaluatorNEMESIS<Scalar>::psi(double &x,double &y,double &z) const
+{
+  //cn only first upper quadrant now
+  double small = 1e-9;
+  double pi = 3.141592653589793;
+  double t = 0.;
+  double sz = 1.;
+  if(z < 0.) sz = -1.;
+  double n = sz*sqrt(z*z);
+  //double n = y;
+  //std::cout<<y<<"   "<<n<<std::endl;
+//   if(abs(x) < small && y > 0. ) t = pi/2.;
+//   else if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
+//   else t= atan(n/x);
+  if(abs(x) < small && y > 0. ) t = pi/2.;
+  if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
+  if(x > small && y >= 0.) t= atan(n/x);
+  if(x > small && y <0.) t= atan(n/x) + 2.*pi;
+  if(x < -small) t= atan(n/x)+ pi;
+
+  return t;
+
+}
+
+template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
 {
   for (int nn=0; nn < num_my_nodes_; nn++) {
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);
     double z = mesh_->get_z(nn);
-    double t = theta(x,y,z) - theta_0_;
+    double t = theta(x,y) - theta_0_;
+    double p = psi(x,y,z);
     double r = R(t);
 
     if(x*x+y*y+z*z < r*r){
@@ -1597,11 +1660,6 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
       (*u)[numeqs_*nn]=T_inf_;
       (*u)[numeqs_*nn+1]=phi_liq_;
     }
-#if 0
-    double ep = .03;  
-    (*u)[numeqs_*nn] = (T_m_ - T_inf_) *.5 *(1. - tanh((x*x + y*y - r*r)/ep)) + T_inf_;
-    (*u)[numeqs_*nn+1] = (phi_sol_ - phi_liq_) *.5 *(1. - tanh((x*x + y*y - r*r)/ep)) + phi_liq_;
-#endif 
 
     //std::cout<<nn<<" "<<x<<" "<<y<<" "<<r<<"      "<<(*u)[numeqs_*nn]<<"           "<<x*x+y*y<<" "<<r*r<<std::endl;
   }
@@ -1616,7 +1674,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init_karma(Teuchos::RCP<Epetra_Vector> u)
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);
     double z = mesh_->get_z(nn);
-    double t = theta(x,y,z);
+    double t = theta(x,y);
     double r = R(t);
     if(x*x+y*y+z*z < r*r){
       (*u)[numeqs_*nn]= T_m_;
@@ -1695,7 +1753,7 @@ void ModelEvaluatorNEMESIS<Scalar>::pool(Teuchos::RCP<Epetra_Vector> u)
     double y = mesh_->get_y(nn);
     double pi = 3.141592653589793;
     //double z = mesh_->get_z(nn);
-    //double t = theta(x,y,z);
+    //double t = theta(x,y);
     srand(123);
     double r1 = rand()%15;
     double r2 = rand()%9+1;
@@ -1830,5 +1888,169 @@ void ModelEvaluatorNEMESIS<Scalar>::write_exodus()
   mesh_->write_exodus(ex_id_,output_step_,time_);
   output_step_++;
 }
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::write_matlab()
+{
+  Epetra_Vector *temp;
+  if( 1 == comm_->NumProc() ){
+    temp = new Epetra_Vector(*u_old_);
+  }
+  else{
+    temp = new Epetra_Vector(*x_overlap_map_);//cn might be better to have u_old_ live on overlap map
+    temp->Import(*u_old_, *importer_, Insert);
 
+  }
+
+  double theta=paramList.get<double> (TusasthetaNameString);
+  std::string method;
+  if( theta < .4 ) {
+    method = "ee";
+  }
+  else if ( theta > .6 ){
+    method = "ie";
+  }
+  else {
+    method = "cn";
+  }
+  int numstep = paramList.get<int> (TusasntNameString);
+  std::string filename="results-"+method+"-"+std::to_string(numstep)+"-"+std::to_string(dt_)+".dat";
+
+  std::cout<<filename<<std::endl;
+
+//   std::ofstream outfile;
+//   outfile.open(filename);
+//   outfile << std::setprecision(16);
+//   temp->Print(outfile);
+//   comm_->Barrier();
+
+  EpetraExt::VectorToMatlabFile (filename.c_str(), *temp);
+
+  //cn in matlab
+  /*
+  cn8=load(['/Users/cnewman/work/tusas/trunk/temporal/'...
+          'results-cn-128-0.000008.dat']);	
+  */
+}
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teuchos::RCP<Epetra_Vector> u_old)
+{
+  //cn we need to get u_old_ and u_old_old_
+  //and start_time and start_step and modify time_
+  int mypid = comm_->MyPID();
+  int numproc = comm_->NumProc();
+  if( 0 == mypid )
+    std::cout<<std::endl<<"Entering restart: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
+  
+  if( 1 == numproc ){//cn for now
+    //if( 0 == mypid ){
+    const char *outfilename = "results.e";
+    ex_id_ = mesh_->open_exodus(outfilename);
+
+    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
+    
+  }
+  else{
+    std::string decompPath="decomp/";
+    //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
+    
+    std::string mypidstring;
+    if ( numproc > 9 && mypid < 10 ){
+      mypidstring = std::to_string(0)+std::to_string(mypid);
+    }
+    else{
+      mypidstring = std::to_string(mypid);
+    }
+    
+    std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
+    ex_id_ = mesh_->open_exodus(pfile.c_str());
+    
+    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<pfile<<std::endl;
+
+    //cn we want to check the number of procs listed in the nem file as well    
+    int nem_proc = -99;
+    int error = mesh_->read_num_proc_nemesis(ex_id_, &nem_proc);
+    if( 0 > error ) {
+      std::cout<<"Error obtaining restart num procs in file"<<std::endl;
+      exit(0);
+    }
+    if( nem_proc != numproc ){
+      std::cout<<"Error restart nem_proc = "<<nem_proc<<" does not equal numproc = "<<numproc<<std::endl;
+      exit(0);
+    }
+  }
+  int step = -99;
+  int error = mesh_->read_last_step_exodus(ex_id_,step);
+  if( 0 > error ) {
+    std::cout<<"Error obtaining restart last step"<<std::endl;
+    exit(0);
+  }
+
+  double time = -99.99;
+  error = mesh_->read_time_exodus(ex_id_, step, time);
+  if( 0 > error ) {
+    std::cout<<"Error obtaining restart last time"<<std::endl;
+    exit(0);
+  }
+  int step_old = step - 1;
+  double time_old = -99.99;
+  error = mesh_->read_time_exodus(ex_id_, step_old, time_old);
+  if( 0 > error ) {
+    std::cout<<"Error obtaining restart previous time"<<std::endl;
+    exit(0);
+  }
+  if( 0 == mypid ){
+    std::cout<<std::endl<<"  Restart last step found = "<<step<<"  time = "<<time<<std::endl;
+    std::cout<<"      previous step found = "<<step_old<<"  time = "<<time_old<<std::endl<<std::endl;
+  }
+
+  if( dt_ != time - time_old ){
+    std::cout<<"Error dt_ = "<<dt_<<"; time - time_old = "<<time - time_old<<std::endl;
+    exit(0);
+  }
+
+  double inputu[num_nodes_];
+  double inputphi[num_nodes_];
+
+  error = mesh_->read_nodal_data_exodus(ex_id_,step,1,inputu);
+  if( 0 > error ) {
+    std::cout<<"Error reading u at step "<<step<<std::endl;
+    exit(0);
+  }
+  error = mesh_->read_nodal_data_exodus(ex_id_,step,2,inputphi);
+  if( 0 > error ) {
+    std::cout<<"Error reading phi at step "<<step<<std::endl;
+    exit(0);
+  }
+
+  for (int nn=0; nn < num_nodes_; nn++) {
+    (*u)[numeqs_*nn] = inputu[nn];
+    (*u)[numeqs_*nn+1] = inputphi[nn];
+  }
+
+  error = mesh_->read_nodal_data_exodus(ex_id_,step_old,1,inputu);
+  if( 0 > error ) {
+    std::cout<<"Error reading u at step "<<step_old<<std::endl;
+    exit(0);
+  }
+  error = mesh_->read_nodal_data_exodus(ex_id_,step_old,2,inputphi);
+  if( 0 > error ) {
+    std::cout<<"Error reading phi at step "<<step_old<<std::endl;
+    exit(0);
+  }
+
+  for (int nn=0; nn < num_nodes_; nn++) {
+    (*u_old)[numeqs_*nn] = inputu[nn];
+    (*u_old)[numeqs_*nn+1] = inputphi[nn];
+  }
+
+  this->start_time = time;
+  this->start_step = step;
+  time_=time;
+  output_step_ = step;
+  //u->Print(std::cout);
+
+  if( 0 == mypid ){
+    std::cout<<"Exiting restart"<<std::endl<<std::endl;
+  }
+}
 #endif

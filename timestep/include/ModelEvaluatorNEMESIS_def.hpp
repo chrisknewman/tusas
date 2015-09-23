@@ -1393,8 +1393,8 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
       ex_id_ = mesh_->create_exodus(pfile.c_str());
     }
     
-    mesh_->add_nodal_field("u");
-    mesh_->add_nodal_field("phi");
+    //mesh_->add_nodal_field("u");
+    //mesh_->add_nodal_field("phi");
     
     //update_mesh_data();
     
@@ -1409,10 +1409,12 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
   }
   else{
     restart(u_old_,u_old_old_);
-    if(1==comm_->MyPID())
-      std::cout<<"Restart unavailable"<<std::endl<<std::endl;
-    exit(0);
+//     if(1==comm_->MyPID())
+//       std::cout<<"Restart unavailable"<<std::endl<<std::endl;
+//     exit(0);
   }
+  mesh_->add_nodal_field("u");
+  mesh_->add_nodal_field("phi");
 }
 
 template<class Scalar>
@@ -2003,9 +2005,9 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
     std::cout<<"      previous step found = "<<step_old<<"  time = "<<time_old<<std::endl<<std::endl;
   }
 
-  if( dt_ != time - time_old ){
+  if( dt_ != (time - time_old) ){
     std::cout<<"Error dt_ = "<<dt_<<"; time - time_old = "<<time - time_old<<std::endl;
-    exit(0);
+    //exit(0);
   }
 
   double inputu[num_nodes_];
@@ -2044,9 +2046,9 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   }
 
   this->start_time = time;
-  this->start_step = step;
+  this->start_step = step-1;
   time_=time;
-  output_step_ = step;
+  output_step_ = step+1;
   //u->Print(std::cout);
 
   if( 0 == mypid ){

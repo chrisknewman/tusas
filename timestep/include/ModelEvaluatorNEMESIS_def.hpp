@@ -524,6 +524,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     double *uu, *uu_old, *phiphi, *phiphi_old, *phiphi_old_old;
     int n_nodes_per_elem;
 
+    //double delta_factor =1.;//amount to adjust delta by
+    double delta_factor =paramList.get<double> (TusasdeltafactorNameString);
     Basis *ubasis, *phibasis, *phibasis2;
 
     int dim = mesh_->get_num_dim();
@@ -542,6 +544,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	ubasis = new BasisLTri;
 	phibasis = new BasisLTri;
 	phibasis2 = new BasisLTri;
+	delta_factor = 2.*delta_factor;
       }
       else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){ // linear hex
 	ubasis = new BasisLHex;
@@ -552,6 +555,18 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
  	ubasis = new BasisLTet;
  	phibasis = new BasisLTet;
  	phibasis2 = new BasisLTet;
+      } 
+      else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
+ 	ubasis = new BasisQQuad;
+ 	phibasis = new BasisQQuad;
+ 	phibasis2 = new BasisQQuad;
+	delta_factor = .5*delta_factor;
+      }
+      else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){ // quadratic triangle
+	ubasis = new BasisQTri;
+	phibasis = new BasisQTri;
+	phibasis2 = new BasisQTri;
+	//delta_factor = .5*delta_factor;
       } 
       else {
 	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
@@ -602,7 +617,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}
 	if ( dx < 1e-16){
 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
-	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<std::endl<<std::endl<<std::endl;
+	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<" jac = "<<ubasis->jac<<" wt = "<<ubasis->wt<<std::endl<<std::endl<<std::endl;
 	  exit(0);
 	}
 	//cn should be cube root in 3d
@@ -652,7 +667,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      +ubasis->dphideta[i]*ubasis->detadz
 	      +ubasis->dphidzta[i]*ubasis->dztadz;
 
-	    double delta = dx;	 
+	    //cn and should be adjusted for quadratic elements
+	    double delta = dx*delta_factor;	 
+
 	    if (nonnull(f_out)) {
 	      //double x = ubasis->xx;
 	      //double y = ubasis->yy;     
@@ -1345,7 +1362,7 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::initialize()
 {
-
+  if( 0 == comm_->MyPID()) std::cout<<std::endl<<"inititialize started"<<std::endl<<std::endl;
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   if (!dorestart){
     if(paramList.get<std::string> (TusastestNameString)=="cummins"){
@@ -1393,13 +1410,9 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
       ex_id_ = mesh_->create_exodus(pfile.c_str());
     }
     
-    //mesh_->add_nodal_field("u");
-    //mesh_->add_nodal_field("phi");
+    mesh_->add_nodal_field("u");
+    mesh_->add_nodal_field("phi");
     
-    //update_mesh_data();
-    
-    
-    //mesh_->write_exodus(ex_id_,1,time_);
     output_step_ = 1;
     write_exodus();
     
@@ -1412,9 +1425,12 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
 //     if(1==comm_->MyPID())
 //       std::cout<<"Restart unavailable"<<std::endl<<std::endl;
 //     exit(0);
+    mesh_->add_nodal_field("u");
+    mesh_->add_nodal_field("phi");
   }
-  mesh_->add_nodal_field("u");
-  mesh_->add_nodal_field("phi");
+//   mesh_->add_nodal_field("u");
+//   mesh_->add_nodal_field("phi");
+  if( 0 == comm_->MyPID()) std::cout<<std::endl<<"inititialize finished"<<std::endl<<std::endl;
 }
 
 template<class Scalar>
@@ -1786,6 +1802,12 @@ void ModelEvaluatorNEMESIS<Scalar>::pool(Teuchos::RCP<Epetra_Vector> u)
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::init_vtip()
 {
+  //cn hack
+  std::cout<<"init_vtip() started"<<std::endl;
+  if(0 == mesh_->get_node_set(0).size() ){
+    std::cout<<"init_vtip() mesh_->get_node_set(0).size() == 0"<<std::endl;
+    exit(0);
+  }
   for ( int j = 0; j < mesh_->get_node_set(0).size(); j++ ){
     //int nodeid = mesh_->get_node_id(blk, ne, j);
     int nodeid = mesh_->get_node_set_entry(0, j);
@@ -1800,6 +1822,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init_vtip()
   std::ofstream outfile;
   outfile.open("vtip.dat");
   outfile.close();
+  std::cout<<"init_vtip() ended"<<std::endl;
 }
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::find_vtip()

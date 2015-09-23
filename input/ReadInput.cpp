@@ -55,6 +55,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasrestartNameString,(bool)false,TusasrestartDocString);
 
+  paramList.set(TusasdeltafactorNameString,(double) 1.,TusasdtDocString);
 
   Teuchos::ParameterList MLList;
   MLList = paramList.sublist ( TusasmlNameString, false );

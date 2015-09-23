@@ -399,9 +399,19 @@ BasisQTri::BasisQTri() {
   phi = new double[6];
   dphidxi = new double[6];
   dphideta = new double[6];
+  dphidzta = new double[6];
   dphidx = new double[6];
   dphidy = new double[6];
+  dphidz = new double[6];
   ngp = 3;
+  weight = new double[ngp];
+  abscissa = new double[ngp];
+  abscissa[0] = 1.0L / 2.0L;
+  abscissa[1] = 1.0L / 2.0L;
+  abscissa[2] = 0.;
+  weight[0] = 1.0L / 6.0L;
+  weight[1] = 1.0L / 6.0L;
+  weight[2] = 1.0L / 6.0L;
 }
 
 //Destructor
@@ -409,8 +419,12 @@ BasisQTri::~BasisQTri() {
   delete [] phi;
   delete [] dphidxi;
   delete [] dphideta;
+  delete [] dphidzta;
   delete [] dphidx;
   delete [] dphidy;
+  delete [] dphidz;
+  delete [] weight;
+  delete [] abscissa;
 }
 
 //Calculates a linear 1D basis
@@ -447,20 +461,55 @@ void BasisQTri::getBasis(int gp, double *x, double *y, double *u, double *uold) 
   dphideta[3]=-4.0 * xi;
   dphideta[4]= 4.0 * xi;
   dphideta[5]= 4.0 * (1.0 - xi - eta) - 4.0 * eta;
+  dphidzta[0]= 0.0;
+  dphidzta[1]= 0.0;
+  dphidzta[2]= 0.0;
+  dphidzta[3]= 0.0;
+  dphidzta[4]= 0.0;
+  dphidzta[5]= 0.0;
   
   // Caculate basis function and derivative at GP.
+  double dxdxi = 0;
+  double dxdeta = 0;
+  double dydxi = 0;
+  double dydeta = 0;
+
+  for (int i=0; i < N; i++) {
+    dxdxi += dphidxi[i] * x[i];
+    dxdeta += dphideta[i] * x[i];
+    dydxi += dphidxi[i] * y[i];
+    dydeta += dphideta[i] * y[i];
+  }
+
+  jac = dxdxi * dydeta - dxdeta * dydxi;
+
+  dxidx = dydeta / jac;
+  dxidy = -dxdeta / jac;
+  dxidz = 0.;
+  detadx = -dydxi / jac;
+  detady = dxdxi / jac;
+  detadz = 0.;
+  dztadx = 0.;
+  dztady = 0.;
+  dztadz = 0.;
   xx=0.0;
   yy=0.0;
   uu=0.0;
-  dudx=0.0;
   uuold = 0.;
+
+  dudx=0.0;
+  dudy=0.0;
+  dudz=0.0;
+
   duolddx = 0.;
   duolddy = 0.;
+  duolddz = 0.;
   for (int i=0; i < N; i++) {
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
     dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx;
     dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady;
+    dphidz[i] = 0.;
     if( u ){
       uu += u[i] * phi[i];
       dudx += u[i] * dphidx[i];
@@ -486,8 +535,10 @@ BasisQQuad::BasisQQuad() {
   phi = new double[9];
   dphidxi = new double[9];
   dphideta = new double[9];
+  dphidzta = new double[9];
   dphidx = new double[9];
   dphidy = new double[9];
+  dphidz = new double[9];
   abscissa = new double[sngp];
   weight = new double[sngp];
   setN(sngp, abscissa, weight);
@@ -498,26 +549,31 @@ BasisQQuad::~BasisQQuad() {
   delete [] phi;
   delete [] dphidxi;
   delete [] dphideta;
+  delete [] dphidzta;
   delete [] dphidx;
   delete [] dphidy;
+  delete [] dphidz;
   delete [] abscissa;
   delete [] weight;
 }
 
 // Calculates a linear 2D quad basis
 void BasisQQuad::getBasis(int gp, double *x, double *y) {
+  //std::cout<<"getBasis(int gp, double *x, double *y)"<<std::endl;
   getBasis(gp, x, y, NULL);
 }
 void BasisQQuad::getBasis(int gp, double *x, double *y, double *u) {
+  //std::cout<<"getBasis(int gp, double *x, double *y, double *u)"<<std::endl;
   getBasis(gp, x, y, u, NULL);
 }
 
 void BasisQQuad::getBasis(int gp, double *x, double *y, double *u, double *uold) {
-//printf("starting getBasis\n");
-/*abscissa[0] = -1.0/sqrt(3.0);
-  abscissa[1] =  1.0/sqrt(3.0);
-  weight[0] = 1.0;
-  weight[1] = 1.0;*/
+  //std::cout<<"getBasis(int gp, double *x, double *y, double *u, double *uold) "<<gp<<std::endl;
+  //printf("starting getBasis\n");
+//   abscissa[0] = -1.0/sqrt(3.0);
+//   abscissa[1] =  1.0/sqrt(3.0);
+//   weight[0] = 1.0;
+//   weight[1] = 1.0;
 
 //printf("x:::%f %f %f %f %f %f %f %f %f\n",x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],x[8]);
 //printf("y:::%f %f %f %f %f %f %f %f %f\n\n\n",y[0],y[1],y[2],y[3],y[4],y[5],y[6],y[7],y[8]);
@@ -717,8 +773,13 @@ void BasisQQuad::getBasis(int gp, double *x, double *y, double *u, double *uold)
 
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
+  dxidz = 0.;
   detadx = -dydxi / jac;
   detady = dxdxi / jac;
+  detadz =0.;
+  dztadx =0.;
+  dztady =0.;
+  dztadz =0.;
 
   xx=0.0;
   yy=0.0;
@@ -726,13 +787,17 @@ void BasisQQuad::getBasis(int gp, double *x, double *y, double *u, double *uold)
   uuold=0.0;
   dudx=0.0;
   dudy=0.0;
+  dudz=0.0;
   duolddx = 0.;
   duolddy = 0.;
+  duolddz = 0.;
   for (int i=0; i < 9; i++) {
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
     dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx;
     dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady;
+    dphidz[i] = 0.0;
+    dphidzta[i]= 0.0;
     if( u ){
       uu += u[i] * phi[i];
       dudx += u[i] * dphidx[i];

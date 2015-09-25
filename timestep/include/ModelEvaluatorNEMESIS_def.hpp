@@ -600,7 +600,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	  uu[k] = (*u)[numeqs_*lid]; 
 	  uu_old[k] = (*u_old)[numeqs_*lid];
-	  uu_old[k] = (*u_old_old)[numeqs_*lid];
+	  uu_old_old[k] = (*u_old_old)[numeqs_*lid];
 	  phiphi[k] = (*u)[numeqs_*lid+1]; 
 	  phiphi_old[k] = (*u_old)[numeqs_*lid+1];
 	  phiphi_old_old[k] = (*u_old_old)[numeqs_*lid+1];
@@ -641,7 +641,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
  	  }else{
 	    ubasis->getBasis(gp, xx, yy, uu, uu_old);
 	    phibasis->getBasis(gp, xx, yy, phiphi, phiphi_old);
-	    phibasis2->getBasis(gp, xx, yy, phiphi_old_old);
+	    //phibasis2->getBasis(gp, xx, yy, phiphi_old_old, phiphi_old);//cn phiphi_old not used here
+	    phibasis2->getBasis(gp, xx, yy, phiphi_old_old, phiphi_old);//cn phiphi_old not used here
  	  }
 
 	  // Loop over Nodes in Element

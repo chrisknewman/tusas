@@ -92,15 +92,22 @@ BasisLTri::~BasisLTri() {
 }
 
 void BasisLTri::getBasis(int gp, double *x, double *y){
-  getBasis(gp, x, y, NULL);
+  getBasis(gp, x, y, NULL, NULL, NULL, NULL);
 }
 
 void BasisLTri::getBasis(int gp, double *x, double *y, double *u) {
-  getBasis(gp, x, y, u, NULL);
+  getBasis(gp, x, y, NULL, u, NULL, NULL);
 }
+
+// void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) {
+//   getBasis(gp, x, y, u, NULL, NULL);
+// }
 
 // Calculates a linear 1D tri basis
 void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) {
+  getBasis(gp, x, y, NULL, u, uold, NULL);
+}
+void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
   int N = 3;  
   // gp irrelevent and unused
@@ -176,6 +183,9 @@ void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) 
   duolddx = 0.;
   duolddy = 0.;
   duolddz = 0.;
+  duoldolddx = 0.;
+  duoldolddy = 0.;
+  duoldolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < N; i++) {
     xx += x[i] * phi[i];
@@ -193,6 +203,11 @@ void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) 
       uuold += uold[i] * phi[i];
       duolddx += uold[i] * dphidx[i];
       duolddy += uold[i]* dphidy[i];
+    }
+    if( uoldold ){
+      uuoldold += uoldold[i] * phi[i];
+      duoldolddx += uoldold[i] * dphidx[i];
+      duoldolddy += uoldold[i]* dphidy[i];
     }
   }
 
@@ -236,12 +251,15 @@ BasisLQuad::~BasisLQuad() {
 
 // Calculates a linear 2D quad basis
 void BasisLQuad::getBasis(int gp, double *x, double *y) {
-  getBasis(gp, x, y, NULL);
+  getBasis(gp, x, y, NULL, NULL, NULL, NULL);
 }
 void BasisLQuad::getBasis(int gp, double *x, double *y, double *u) {
-  getBasis(gp, x, y, u, NULL);
+  getBasis(gp, x, y, NULL, u, NULL, NULL);
 }
 void BasisLQuad::getBasis(int gp, double *x, double *y, double *u, double *uold) {
+  getBasis(gp, x, y, NULL, u, uold, NULL);
+}
+void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
 
   if(4 == ngp){
     if(0 == gp){
@@ -367,6 +385,9 @@ void BasisLQuad::getBasis(int gp, double *x, double *y, double *u, double *uold)
   duolddx = 0.;
   duolddy = 0.;
   duolddz = 0.;
+  duoldolddx = 0.;
+  duoldolddy = 0.;
+  duoldolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < 4; i++) {
     xx += x[i] * phi[i];
@@ -384,6 +405,11 @@ void BasisLQuad::getBasis(int gp, double *x, double *y, double *u, double *uold)
       uuold += uold[i] * phi[i];
       duolddx += uold[i] * dphidx[i];
       duolddy += uold[i]* dphidy[i];
+    }
+    if( uoldold ){
+      uuoldold += uoldold[i] * phi[i];
+      duoldolddx += uoldold[i] * dphidx[i];
+      duoldolddy += uoldold[i]* dphidy[i];
     }
   }
 
@@ -429,13 +455,17 @@ BasisQTri::~BasisQTri() {
 
 //Calculates a linear 1D basis
 void BasisQTri::getBasis(int gp, double *x, double *y) {
-  getBasis(gp, x, y, NULL);
+  getBasis(gp, x, y, NULL, NULL, NULL, NULL);
 }
 
 void BasisQTri::getBasis(int gp, double *x, double *y, double *u) {
-  getBasis(gp, x, y, u, NULL);
+  getBasis(gp, x, y, NULL, u, NULL, NULL);
 }
 void BasisQTri::getBasis(int gp, double *x, double *y, double *u, double *uold) {
+  getBasis(gp, x, y, NULL, u, uold, NULL);
+}
+void BasisQTri::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
+
   int N = 6;
   wt = 1.0L / 6.0L;
   if (gp==0) {xi = 2.0L/3.0L; eta=1.0L/6.0L;}
@@ -504,6 +534,9 @@ void BasisQTri::getBasis(int gp, double *x, double *y, double *u, double *uold) 
   duolddx = 0.;
   duolddy = 0.;
   duolddz = 0.;
+  duoldolddx = 0.;
+  duoldolddy = 0.;
+  duoldolddz = 0.;
   for (int i=0; i < N; i++) {
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
@@ -519,6 +552,11 @@ void BasisQTri::getBasis(int gp, double *x, double *y, double *u, double *uold) 
       uuold += uold[i] * phi[i];
       duolddx += uold[i] * dphidx[i];
       duolddy += uold[i]* dphidy[i];
+    }
+    if( uoldold ){
+      uuoldold += uoldold[i] * phi[i];
+      duoldolddx += uoldold[i] * dphidx[i];
+      duoldolddy += uoldold[i]* dphidy[i];
     }
   }
 
@@ -560,14 +598,19 @@ BasisQQuad::~BasisQQuad() {
 // Calculates a linear 2D quad basis
 void BasisQQuad::getBasis(int gp, double *x, double *y) {
   //std::cout<<"getBasis(int gp, double *x, double *y)"<<std::endl;
-  getBasis(gp, x, y, NULL);
+  getBasis(gp, x, y, NULL, NULL, NULL, NULL);
 }
 void BasisQQuad::getBasis(int gp, double *x, double *y, double *u) {
   //std::cout<<"getBasis(int gp, double *x, double *y, double *u)"<<std::endl;
-  getBasis(gp, x, y, u, NULL);
+  getBasis(gp, x, y, NULL, u, NULL, NULL);
 }
 
 void BasisQQuad::getBasis(int gp, double *x, double *y, double *u, double *uold) {
+  getBasis(gp, x, y, NULL, u, uold, NULL);
+}
+void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
+
+
   //std::cout<<"getBasis(int gp, double *x, double *y, double *u, double *uold) "<<gp<<std::endl;
   //printf("starting getBasis\n");
 //   abscissa[0] = -1.0/sqrt(3.0);
@@ -791,6 +834,9 @@ void BasisQQuad::getBasis(int gp, double *x, double *y, double *u, double *uold)
   duolddx = 0.;
   duolddy = 0.;
   duolddz = 0.;
+  duoldolddx = 0.;
+  duoldolddy = 0.;
+  duoldolddz = 0.;
   for (int i=0; i < 9; i++) {
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
@@ -807,6 +853,11 @@ void BasisQQuad::getBasis(int gp, double *x, double *y, double *u, double *uold)
       uuold += uold[i] * phi[i];
       duolddx += uold[i] * dphidx[i];
       duolddy += uold[i]* dphidy[i];
+    }
+    if( uoldold ){
+      uuoldold += uoldold[i] * phi[i];
+      duoldolddx += uoldold[i] * dphidx[i];
+      duoldolddy += uoldold[i]* dphidy[i];
     }
   }
 
@@ -859,12 +910,17 @@ void BasisLHex::getBasis(int gp, double *x, double *y) {
   std::cout<<"BasisLHex::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
 }
 void BasisLHex::getBasis(int gp,  double *x, double *y, double *z) {
-  getBasis(gp, x, y, z, NULL);
+  getBasis(gp, x, y, z, NULL, NULL, NULL);
 }
 void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u) {
-  getBasis(gp, x, y, z, u, NULL);
+  getBasis(gp, x, y, z, u, NULL, NULL);
 }
 void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold) {
+  getBasis(gp, x, y, z, u, uold, NULL);
+}
+  void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
+
+
 
   if(0 == gp){//cn N = 2 gp for now
     xi = abscissa[0];  // 0, 0, 0
@@ -997,6 +1053,9 @@ void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u, do
   duolddx = 0.;
   duolddy = 0.;
   duolddz = 0.;
+  duoldolddx = 0.;
+  duoldolddy = 0.;
+  duoldolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < 8; i++) {
     xx += x[i] * phi[i];
@@ -1014,6 +1073,12 @@ void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u, do
       duolddy += uold[i] * (dphidxi[i]*dxidy+dphideta[i]*detady+dphidzta[i]*dztady);
       duolddz += uold[i] * (dphidxi[i]*dxidz+dphideta[i]*detadz+dphidzta[i]*dztadz);
       //exit(0);
+    }
+    if( uoldold ){
+      uuoldold += uoldold[i] * phi[i];
+      duoldolddx += uoldold[i] * dphidx[i];
+      duoldolddy += uoldold[i]* dphidy[i];
+      duoldolddz += uoldold[i]* dphidz[i];
     }
   }
   return;
@@ -1072,12 +1137,15 @@ void BasisLTet::getBasis(int gp, double *x, double *y) {
   std::cout<<"BasisLTet::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
 }
 void BasisLTet::getBasis(int gp,  double *x, double *y, double *z) {
-  getBasis(gp, x, y, z, NULL);
+  getBasis(gp, x, y, z, NULL, NULL, NULL);
 }
 void BasisLTet::getBasis(int gp,  double *x, double *y, double *z, double *u) {
-  getBasis(gp, x, y, z, u, NULL);
+  getBasis(gp, x, y, z, u, NULL, NULL);
 }
 void BasisLTet::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold) {
+  getBasis(gp, x, y, z, u, uold, NULL);
+}
+void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
   if(0 == gp){
     xi = abscissa[0];  // 0, 0, 0
@@ -1165,6 +1233,9 @@ void BasisLTet::getBasis(int gp,  double *x, double *y, double *z, double *u, do
   duolddx = 0.;
   duolddy = 0.;
   duolddz = 0.;
+  duoldolddx = 0.;
+  duoldolddy = 0.;
+  duoldolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < ngp; i++) {
     xx += x[i] * phi[i];
@@ -1182,6 +1253,12 @@ void BasisLTet::getBasis(int gp,  double *x, double *y, double *z, double *u, do
       duolddy += uold[i] * (dphidxi[i]*dxidy+dphideta[i]*detady+dphidzta[i]*dztady);
       duolddz += uold[i] * (dphidxi[i]*dxidz+dphideta[i]*detadz+dphidzta[i]*dztadz);
       //exit(0);
+    }
+    if( uoldold ){
+      uuoldold += uoldold[i] * phi[i];
+      duoldolddx += uoldold[i] * dphidx[i];
+      duoldolddy += uoldold[i]* dphidy[i];
+      duoldolddz += uoldold[i]* dphidz[i];
     }
   }
   return;

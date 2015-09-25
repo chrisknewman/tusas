@@ -43,7 +43,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   paramList.set(TusaspreconNameString,(bool)true,TusaspreconDocString);
   //paramList.set(TusaspreconNameString,(bool)false,TusaspreconDocString);
 
-  paramList.set(TusasmethodNameString,"phaseheat",TusasmethodDocString);
+  //paramList.set(TusasmethodNameString,"phaseheat",TusasmethodDocString);
+  paramList.set(TusasmethodNameString,"nemesis",TusasmethodDocString);
 
   paramList.set(TusasnoxrelresNameString,(double)1.e-6,TusasnoxrelresDocString);
 
@@ -55,7 +56,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasrestartNameString,(bool)false,TusasrestartDocString);
 
-  paramList.set(TusasdeltafactorNameString,(double) 1.,TusasdtDocString);
+  paramList.set(TusasdeltafactorNameString,(double) .5,TusasdtDocString);
 
   Teuchos::ParameterList MLList;
   MLList = paramList.sublist ( TusasmlNameString, false );

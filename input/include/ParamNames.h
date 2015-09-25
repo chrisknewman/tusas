@@ -19,7 +19,7 @@ std::string const TusaspreconDocString = "preconditioner (bool): true (default);
 std::string const TusasthetaNameString = "theta";
 std::string const TusasthetaDocString = "theta (double): 0 ee; 1 ie (default); .5 cn";
 std::string const TusasmethodNameString = "method";
-std::string const TusasmethodDocString = "method (string): heat; phaseheat (default); multi";
+std::string const TusasmethodDocString = "method (string): heat; phaseheat; nemesis (default)";
 std::string const TusasnoxrelresNameString = "noxrelres";
 std::string const TusasnoxrelresDocString = "nox relative residual tolerance (double): default 1e-6";
 std::string const TusasnoxmaxiterNameString = "noxmaxiter";
@@ -31,7 +31,7 @@ std::string const TusasoutputfreqDocString = "output frequency (int): default 1e
 std::string const TusasmlNameString = "ML";
 std::string const TusasmlDocString = "over ride ML parameters";
 std::string const TusasdeltafactorNameString = "deltafactor";
-std::string const TusasdeltafactorDocString = "multiplicaton factor for delta (double): default 1.0";
+std::string const TusasdeltafactorDocString = "multiplicaton factor for delta (double): default 0.5";
 
 //other parameters not in the input file
 std::string const TusasrestartNameString = "restart";

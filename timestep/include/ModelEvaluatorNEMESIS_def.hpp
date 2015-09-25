@@ -436,7 +436,6 @@ template<class Scalar>
 Teuchos::RCP< ::Thyra::PreconditionerBase<Scalar> >
 ModelEvaluatorNEMESIS<Scalar>::create_W_prec() const
 {
-
   const Teuchos::RCP<Thyra::LinearOpBase< Scalar > > P_op = prec_;
 
   Teuchos::RCP<Thyra::DefaultPreconditioner<Scalar> > prec =
@@ -521,7 +520,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     double jac;
     double *xx, *yy, *zz;
-    double *uu, *uu_old, *phiphi, *phiphi_old, *phiphi_old_old;
+    double *uu, *uu_old,  *uu_old_old, *phiphi, *phiphi_old, *phiphi_old_old;
     int n_nodes_per_elem;
 
     //double delta_factor =1.;//amount to adjust delta by
@@ -578,6 +577,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       zz = new double[n_nodes_per_elem];
       uu = new double[n_nodes_per_elem];
       uu_old = new double[n_nodes_per_elem];
+      uu_old_old = new double[n_nodes_per_elem];
       phiphi = new double[n_nodes_per_elem];
       phiphi_old = new double[n_nodes_per_elem];
       phiphi_old_old = new double[n_nodes_per_elem];
@@ -600,6 +600,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	  uu[k] = (*u)[numeqs_*lid]; 
 	  uu_old[k] = (*u_old)[numeqs_*lid];
+	  uu_old[k] = (*u_old_old)[numeqs_*lid];
 	  phiphi[k] = (*u)[numeqs_*lid+1]; 
 	  phiphi_old[k] = (*u_old)[numeqs_*lid+1];
 	  phiphi_old_old[k] = (*u_old_old)[numeqs_*lid+1];
@@ -657,17 +658,27 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 // 	      <<" "<<mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
 // 		     <<std::endl;
 
-	    double dphidx = ubasis->dphidxi[i]*ubasis->dxidx
+            //derivatives of the test function
+	    double dtestdx = ubasis->dphidxi[i]*ubasis->dxidx
 	      +ubasis->dphideta[i]*ubasis->detadx
 	      +ubasis->dphidzta[i]*ubasis->dztadx;
-	    double dphidy = ubasis->dphidxi[i]*ubasis->dxidy
+	    double dtestdy = ubasis->dphidxi[i]*ubasis->dxidy
 	      +ubasis->dphideta[i]*ubasis->detady
 	      +ubasis->dphidzta[i]*ubasis->dztady;
-	    double dphidz = ubasis->dphidxi[i]*ubasis->dxidz
+	    double dtestdz = ubasis->dphidxi[i]*ubasis->dxidz
 	      +ubasis->dphideta[i]*ubasis->detadz
 	      +ubasis->dphidzta[i]*ubasis->dztadz;
+	    //test function
+	    double test = ubasis->phi[i];
+	    //u, phi
+	    double u = ubasis->uu;
+	    double uold = ubasis->uuold;
+	    double phi = phibasis->uu;
+	    double phiold = phibasis->uuold;
 
-	    //cn and should be adjusted for quadratic elements
+	    double jacwt = ubasis->jac * ubasis->wt;
+
+	    //cn and should be adjusted for quadratic elements and tris
 	    double delta = dx*delta_factor;	 
 
 	    if (nonnull(f_out)) {
@@ -675,19 +686,20 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //double y = ubasis->yy;     
 
 	      //equation for u:
-	      // u_t - K (u_xx + u_yy) - hp2_ * phi_t = 0
+	      // u_t - D_ (u_xx + u_yy) - hp2_ * phi_t = 0
 
-	      double ut = (ubasis->uu-ubasis->uuold)/dt_*ubasis->phi[i];
-	      double divgradu = D_*ubasis->dudx*dphidx + D_*ubasis->dudy*dphidy + D_*ubasis->dudz*dphidz;//(grad u,grad phi)
-	      double divgradu_old = D_*ubasis->duolddx*dphidx + D_*ubasis->duolddy*dphidy + D_*ubasis->duolddz*dphidz;//(grad u,grad phi)
+	      double ut = (u-uold)/dt_*test;
+	      double divgradu = D_*(ubasis->dudx*dtestdx + ubasis->dudy*dtestdy + ubasis->dudz*dtestdz);//(grad u,grad phi)
+	      double divgradu_old = D_*(ubasis->duolddx*dtestdx + ubasis->duolddy*dtestdy + ubasis->duolddz*dtestdz);//(grad u,grad phi)
 
-	      double hp2 = hp2_(phibasis->uu);	
+	      double hp2 = hp2_(phi);	
 
-	      double phitu = -hp2*(phibasis->uu-phibasis->uuold)/dt_*ubasis->phi[i]; 
-	      hp2 = hp2_(phibasis->uuold);	
-	      double phitu_old = -hp2*(phibasis->uuold-phibasis2->uu)/dt_*ubasis->phi[i]; 
+	      double phitu = -hp2*(phi-phiold)/dt_*test; 
+	      hp2 = hp2_(phiold);	
+	      double phitu_old = -hp2*(phiold-phibasis2->uu)/dt_*test; 
+	      //double phitu_old = phitu; 
     
-	      double val = ubasis->jac * ubasis->wt * (ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old + t_theta_*phitu 
+	      double val = jacwt * (ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old + t_theta_*phitu 
 						       + (1.-t_theta_)*phitu_old);
 	      //f->SumIntoGlobalValues ((int) 1, &val, &row);
 	      if(0 != f_fe.SumIntoGlobalValues ((int) 1, &row, &val))
@@ -698,20 +710,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //equation for phi:
 	      // m_*phi_t - gs2_*(u_xx + u_yy) - dg2 curl phi + w_ * gp1_(phi) +hp1_ (T_m_ - phi) = 0
 
-	      double dphiphidx = phibasis->dudx;
-	      double dphiphidy = phibasis->dudy;
-	      double dphiphidz = phibasis->dudz;
-	      double theta_ = theta(dphiphidx,dphiphidy)-theta_0_;
+	      double dphidx = phibasis->dudx;
+	      double dphidy = phibasis->dudy;
+	      double dphidz = phibasis->dudz;
+	      double theta_ = theta(dphidx,dphidy)-theta_0_;
 
-	      double psi_ = psi(dphiphidx,dphiphidy,dphiphidz);
+	      double psi_ = psi(dphidx,dphidy,dphidz);
 	      psi_ = 0.;
 	      double gs2 = gs2_(theta_, M_, eps_, psi_);
 
 	      double m = m_(theta_, M_, eps_);
      
-	      double phit = m*(phibasis->uu-phibasis->uuold)/dt_*phibasis->phi[i];
+	      double phit = m*(phi-phiold)/dt_*test;
 
-	      double divgradphi = gs2*phibasis->dudx*dphidx + gs2*phibasis->dudy*dphidy + gs2*phibasis->dudz*dphidz;//(grad u,grad phi)
+	      //double divgradphi = gs2*phibasis->dudx*dtestdx + gs2*phibasis->dudy*dtestdy + gs2*phibasis->dudz*dtestdz;//(grad u,grad phi)
+	      double divgradphi = gs2*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);//(grad u,grad phi)
 
 	      double dgdtheta = dgs2_2dtheta_(theta_, M_, eps_, psi_);
 	      double dgdpsi = dgs2_2dpsi_(theta_, M_, eps_, psi_);	
@@ -724,42 +737,42 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //cn also this term is very different in karma papers
 	      //double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);//cn not sure about 3d yet
 	      //cn                   dtheta/dphix= phiy     dtheta/dphiy =  -phix
-	      double curlgrad = dgdtheta*(-phibasis->dudy*dphidx + phibasis->dudx*dphidy)
-		+dgdpsi*(-phibasis->dudz*dphidx + phibasis->dudx*dphidz);//cn not sure about 3d yet
+	      double curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy)
+		+dgdpsi*(-dphidz*dtestdx + dphidx*dtestdz);//cn not sure about 3d yet
 
 	      double w = w_(delta);
 	      //double gp1 = phibasis->uu*(1.-phibasis->uu)*(1.-2.*phibasis->uu);
-	      double gp1 = gp1_(phibasis->uu);
+	      double gp1 = gp1_(phi);
 
 	      //double phidel2 = phibasis->uu*(1.-phibasis->uu)*(1.-2.*phibasis->uu)/delta/delta*phibasis->phi[i];
-	      double phidel2 = gp1*w*phibasis->phi[i];
+	      double phidel2 = gp1*w*test;
 
 // 	      double phidel = -5.*alpha_*(T_m_ - ubasis->uu)
 // 		*phibasis->uu*phibasis->uu*(1.-phibasis->uu)*(1.-phibasis->uu)/delta*phibasis->phi[i];
 
-	      double hp1 = hp1_(phibasis->uu,5.*alpha_/delta);
+	      double hp1 = hp1_(phi,5.*alpha_/delta);
 
 
-	      double phidel = hp1*(T_m_ - ubasis->uu)*phibasis->phi[i];
+	      double phidel = hp1*(T_m_ - u)*test;
 
 	      //std::cout<<(*random_vector_)[mesh_->get_node_id(blk, ne, i)]<<std::endl;
 
-	      double rand_phi = -rand_phi_(phibasis->uu,(*random_vector_)[mesh_->get_node_id(blk, ne, i)]);
+	      double rand_phi = -rand_phi_(phi,(*random_vector_)[mesh_->get_node_id(blk, ne, i)]);
 
 
 	      //double rand_phi = -rand_phi_(phibasis->uu,random_number_);
-	      double r_phi = rand_phi*phibasis->phi[i];
+	      double r_phi = rand_phi*test;
 	      //std::cout<<r_phi<<std::endl;
 	      double rhs = divgradphi + curlgrad + phidel2 + phidel + r_phi;
 
-	      dphiphidx = phibasis->duolddx;
-	      dphiphidy = phibasis->duolddy;
-	      dphiphidz = phibasis->duolddz;
-	      theta_ = theta(dphiphidx,dphiphidy)-theta_0_;
-	      psi_ = psi(dphiphidx,dphiphidy,dphiphidz);
+	      dphidx = phibasis->duolddx;
+	      dphidy = phibasis->duolddy;
+	      dphidz = phibasis->duolddz;
+	      theta_ = theta(dphidx,dphidy)-theta_0_;
+	      psi_ = psi(dphidx,dphidy,dphidz);
 	      psi_ =0.;
 	      gs2 = gs2_(theta_, M_, eps_,0.);
-	      divgradphi = gs2*phibasis->duolddx*dphidx + gs2*phibasis->duolddy*dphidy + gs2*phibasis->duolddz*dphidz;//(grad u,grad phi)
+	      divgradphi = gs2*dphidx*dtestdx + gs2*dphidy*dtestdy + gs2*dphidz*dtestdz;//(grad u,grad phi)
 	      dgdtheta = dgs2_2dtheta_(theta_, M_, eps_, 0.);
 
 	      dgdpsi = dgs2_2dpsi_(theta_, M_, eps_, psi_);
@@ -769,29 +782,29 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 
 	      //curlgrad = dgdtheta*(-phibasis->duolddy*dphidx +phibasis->duolddx*dphidy);//cn not sure about 3d yet
-	      curlgrad = dgdtheta*(-phibasis->duolddy*dphidx + phibasis->duolddx*dphidy)
-		+dgdpsi*(-phibasis->duolddz*dphidx + phibasis->duolddx*dphidz);
+	      curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy)
+		+dgdpsi*(-dphidz*dtestdx + dphidx*dtestdz);
 
-	      gp1 = gp1_(phibasis->uuold);
+	      gp1 = gp1_(phiold);
 
 	      //phidel2 = phibasis->uuold*(1.-phibasis->uuold)*(1.-2.*phibasis->uuold)/delta/delta*phibasis->phi[i];
 	      phidel2 = gp1*w*phibasis->phi[i];
 
-	      hp1 = hp1_(phibasis->uuold,5.*alpha_/delta);
+	      hp1 = hp1_(phiold,5.*alpha_/delta);
 
 // 	      phidel = -5.*alpha_*(T_m_ - ubasis->uuold)
 // 		*phibasis->uuold*phibasis->uuold*(1.-phibasis->uuold)*(1.-phibasis->uuold)/delta*phibasis->phi[i];
 
-	      phidel = hp1*(T_m_ - ubasis->uuold)*phibasis->phi[i];
+	      phidel = hp1*(T_m_ - uold)*test;
 
 	      //std::cout<<random_number_<<std::endl;
-	      rand_phi = -rand_phi_(phibasis->uu,(*random_vector_old_)[mesh_->get_node_id(blk, ne, i)]);
+	      rand_phi = -rand_phi_(phi,(*random_vector_old_)[mesh_->get_node_id(blk, ne, i)]);
 	      //rand_phi = -rand_phi_(phibasis->uuold,random_number_old_);
-	      r_phi = rand_phi*phibasis->phi[i];
+	      r_phi = rand_phi*test;
 
 	      double rhs_old = divgradphi + curlgrad + phidel2 + phidel + r_phi;
 	
-	      val = 1.*phibasis->jac * phibasis->wt * (phit + t_theta_*rhs + (1.-t_theta_)*rhs_old + r_phi);
+	      val = 1.*jacwt * (phit + t_theta_*rhs + (1.-t_theta_)*rhs_old + r_phi);
 	      int row1 = row+1;
 	      //f->SumIntoGlobalValues ((int) 1, &val, &row1);
 	      if(0 != f_fe.SumIntoGlobalValues ((int) 1, &row1, &val))
@@ -799,7 +812,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    }
 
 
-	    // Loop over Trial Functions
+	    // Loop over Trial (basis) Functions
 
 
 	    //cn add the phitu term here
@@ -807,58 +820,50 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      for(int j=0;j < n_nodes_per_elem; j++) {
 		//int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, ne, j)));
 		int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
-		double dtestdx = D_*ubasis->dphidxi[j]*ubasis->dxidx
-		  +D_*ubasis->dphideta[j]*ubasis->detadx
-		  +D_*ubasis->dphidzta[j]*ubasis->dztadx;
-		double dtestdy = D_*ubasis->dphidxi[j]*ubasis->dxidy
-		  +D_*ubasis->dphideta[j]*ubasis->detady
-		  +D_*ubasis->dphidzta[j]*ubasis->dztady;
-		double dtestdz = D_*ubasis->dphidxi[j]*ubasis->dxidz
-		  +D_*ubasis->dphideta[j]*ubasis->detadz
-		  +D_*ubasis->dphidzta[j]*ubasis->dztadz;
-		double divgrad = dtestdx * dphidx + dtestdy * dphidy + dtestdz * dphidz;
-		double phi_t = ubasis->phi[i] * ubasis->phi[j]/dt_;
-		double jac = ubasis->jac*ubasis->wt*(phi_t + t_theta_*divgrad);
+		double dbasisdx = ubasis->dphidxi[j]*ubasis->dxidx
+		  +ubasis->dphideta[j]*ubasis->detadx
+		  +ubasis->dphidzta[j]*ubasis->dztadx;
+		double dbasisdy = ubasis->dphidxi[j]*ubasis->dxidy
+		  +ubasis->dphideta[j]*ubasis->detady
+		  +ubasis->dphidzta[j]*ubasis->dztady;
+		double dbasisdz = ubasis->dphidxi[j]*ubasis->dxidz
+		  +ubasis->dphideta[j]*ubasis->detadz
+		  +ubasis->dphidzta[j]*ubasis->dztadz;
+		double divgrad = D_*dbasisdx * dtestdx + D_*dbasisdy * dtestdy + D_*dbasisdz * dtestdz;
+		double phi_t =test * ubasis->phi[j]/dt_;
+		double jac = jacwt*(phi_t + t_theta_*divgrad);
 		//std::cout<<row<<" "<<column<<" "<<jac<<std::endl;
 		P_->SumIntoGlobalValues(row, 1, &jac, &column);
 
 		int row1 = row+1;
 		int column1 = column+1;
-		double dphiphidx = phibasis->dudx;
-		double dphiphidy = phibasis->dudy;
-		double dphiphidz = phibasis->dudz;
+		double dphidx = phibasis->dudx;
+		double dphidy = phibasis->dudy;
+		double dphidz = phibasis->dudz;
 		
-		double theta_ = theta(dphiphidx,dphiphidy) - theta_0_;
-		double psi_ = psi(dphiphidx,dphiphidy,dphiphidz);
+		double theta_ = theta(dphidx,dphidy) - theta_0_;
+		double psi_ = psi(dphidx,dphidy,dphidz);
 		psi_ =0.;
 		double gs2 = gs2_(theta_,  M_, eps_, 0.);
-		dtestdx = phibasis->dphidxi[j]*phibasis->dxidx
-		  +phibasis->dphideta[j]*phibasis->detadx
-		  +phibasis->dphidzta[j]*phibasis->dztadx;
-		dtestdy = phibasis->dphidxi[j]*phibasis->dxidy
-		  +phibasis->dphideta[j]*phibasis->detady
-		  +phibasis->dphidzta[j]*phibasis->dztady;
-		dtestdz = phibasis->dphidxi[j]*phibasis->dxidz
-		  +phibasis->dphideta[j]*phibasis->detadz
-		  +phibasis->dphidzta[j]*phibasis->dztadz;
-		divgrad = gs2*dtestdx * dphidx + gs2*dtestdy * dphidy + gs2*dtestdz * dphidz;
+ 
+		divgrad = gs2*dbasisdx * dtestdx + gs2*dbasisdy * dtestdy + gs2*dbasisdz * dtestdz;
 
 		double dgdtheta = dgs2_2dtheta_(theta_, M_, eps_,psi_);
 		double dgdpsi = dgs2_2dpsi_(theta_, M_, eps_, psi_);
 		dgdpsi = 0.;
-		double curlgrad = 0.*dgdtheta*(-dtestdy*dphidx +dtestdx*dphidy)
-		  +dgdpsi*(-dtestdz*dphidx + dtestdx*dphidz);
+		double curlgrad = 0.*dgdtheta*(-dbasisdy*dtestdx +dbasisdx*dtestdy)
+		  +dgdpsi*(-dbasisdz*dtestdx + dbasisdx*dtestdz);
 
 		double m = m_(theta_,M_,eps_);
 
-		phi_t = m*phibasis->phi[i] * phibasis->phi[j]/dt_;
+		phi_t = m*test * phibasis->phi[j]/dt_;
 
-		double hpp1 =0.*phibasis->phi[i] * phibasis->phi[j]* hpp1_(phibasis->uu,5.*alpha_/delta)
+		double hpp1 =0.*phibasis->phi[i] * phibasis->phi[j]* hpp1_(phi,5.*alpha_/delta)
 		  *(T_m_ - ubasis->uu);
 		double w = w_(delta);
-		double gpp1 = 0.*gpp1_(phibasis->uu)*w*phibasis->phi[i] * phibasis->phi[j];
+		double gpp1 = 0.*gpp1_(phi)*w*phibasis->phi[i] * phibasis->phi[j];
 
-		jac = phibasis->jac*phibasis->wt*(phi_t + t_theta_*divgrad + t_theta_*curlgrad  + t_theta_*hpp1 + t_theta_*gpp1);
+		jac = jacwt*(phi_t + t_theta_*divgrad + t_theta_*curlgrad  + t_theta_*hpp1 + t_theta_*gpp1);
 		P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
 	      }//j
 	    }
@@ -1108,7 +1113,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #endif
   }//blk
 
-    delete xx, yy, zz, uu, uu_old, phiphi, phiphi_old, phiphi_old_old;
+    delete xx, yy, zz, uu, uu_old, uu_old_old, phiphi, phiphi_old, phiphi_old_old;
     delete ubasis, phibasis, phibasis2;
     
     if (nonnull(f_out)){

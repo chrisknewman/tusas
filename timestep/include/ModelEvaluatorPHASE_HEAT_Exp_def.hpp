@@ -377,8 +377,8 @@ void ModelEvaluatorPHASE_HEAT_Exp<Scalar>::evalModelImpl(
 
 	  // Calculate the basis function at the gauss point
 
-	  ubasis->getBasis(gp, xx, yy, uu, uu_old);
-	  phibasis->getBasis(gp, xx, yy, phiphi, phiphi_old);
+	  ubasis->getBasis(gp, xx, yy, NULL, uu, uu_old, NULL);
+	  phibasis->getBasis(gp, xx, yy, NULL, phiphi, phiphi_old, NULL);
 
 	  // Loop over Nodes in Element
 

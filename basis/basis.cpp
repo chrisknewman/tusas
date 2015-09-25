@@ -3,9 +3,6 @@
 
 #include "basis.hpp"
 
-// template <typename T, size_t size>
-// void setN(int N, T (&abscissa)[size], T (&weight)[size]){
-// template <typename T, size_t size>
 void Basis::setN(int N, double *abscissa, double *weight){
 
  if ( N == 2 ) {
@@ -91,22 +88,7 @@ BasisLTri::~BasisLTri() {
   delete [] weight;
 }
 
-void BasisLTri::getBasis(int gp, double *x, double *y){
-  getBasis(gp, x, y, NULL, NULL, NULL, NULL);
-}
 
-void BasisLTri::getBasis(int gp, double *x, double *y, double *u) {
-  getBasis(gp, x, y, NULL, u, NULL, NULL);
-}
-
-// void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) {
-//   getBasis(gp, x, y, u, NULL, NULL);
-// }
-
-// Calculates a linear 1D tri basis
-void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold) {
-  getBasis(gp, x, y, NULL, u, uold, NULL);
-}
 void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
   int N = 3;  
@@ -175,11 +157,13 @@ void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  con
 
   xx=0.0;
   yy=0.0;
+  zz=0.;
   uu=0.0;
   dudx=0.0;
   dudy=0.0;
   dudz=0.0;
   uuold = 0.;
+  uuoldold = 0.;
   duolddx = 0.;
   duolddy = 0.;
   duolddz = 0.;
@@ -214,10 +198,6 @@ void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  con
   return;
 }
 
-void BasisLTri::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold) {
-  std::cout<<"BasisLTri::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold)"<<std::endl;
-}
-
 
 // Constructor
 BasisLQuad::BasisLQuad(int n) :sngp(n){
@@ -249,16 +229,6 @@ BasisLQuad::~BasisLQuad() {
   delete [] weight;
 }
 
-// Calculates a linear 2D quad basis
-void BasisLQuad::getBasis(int gp, double *x, double *y) {
-  getBasis(gp, x, y, NULL, NULL, NULL, NULL);
-}
-void BasisLQuad::getBasis(int gp, double *x, double *y, double *u) {
-  getBasis(gp, x, y, NULL, u, NULL, NULL);
-}
-void BasisLQuad::getBasis(int gp, double *x, double *y, double *u, double *uold) {
-  getBasis(gp, x, y, NULL, u, uold, NULL);
-}
 void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
 
   if(4 == ngp){
@@ -377,8 +347,10 @@ void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  cons
   // Caculate basis function and derivative at GP.
   xx=0.0;
   yy=0.0;
+  zz=0.0;
   uu=0.0;
   uuold=0.0;
+  uuoldold=0.0;
   dudx=0.0;
   dudy=0.0;
   dudz=0.0;
@@ -416,9 +388,6 @@ void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  cons
   return;
 }
 
-void BasisLQuad::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold) {
-  std::cout<<"BasisLQuad::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold)"<<std::endl;
-}
 
 //Constructor
 BasisQTri::BasisQTri() {
@@ -453,17 +422,6 @@ BasisQTri::~BasisQTri() {
   delete [] abscissa;
 }
 
-//Calculates a linear 1D basis
-void BasisQTri::getBasis(int gp, double *x, double *y) {
-  getBasis(gp, x, y, NULL, NULL, NULL, NULL);
-}
-
-void BasisQTri::getBasis(int gp, double *x, double *y, double *u) {
-  getBasis(gp, x, y, NULL, u, NULL, NULL);
-}
-void BasisQTri::getBasis(int gp, double *x, double *y, double *u, double *uold) {
-  getBasis(gp, x, y, NULL, u, uold, NULL);
-}
 void BasisQTri::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
   int N = 6;
@@ -524,8 +482,10 @@ void BasisQTri::getBasis( const int gp,  const double *x,  const double *y,  con
   dztadz = 0.;
   xx=0.0;
   yy=0.0;
+  zz=0.0;
   uu=0.0;
   uuold = 0.;
+  uuoldold = 0.;
 
   dudx=0.0;
   dudy=0.0;
@@ -562,9 +522,6 @@ void BasisQTri::getBasis( const int gp,  const double *x,  const double *y,  con
 
   return;
 }
-void BasisQTri::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold) {
-  std::cout<<"BasisQTri::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold)"<<std::endl;
-}
 
 // Constructor
 BasisQQuad::BasisQQuad() {
@@ -595,19 +552,6 @@ BasisQQuad::~BasisQQuad() {
   delete [] weight;
 }
 
-// Calculates a linear 2D quad basis
-void BasisQQuad::getBasis(int gp, double *x, double *y) {
-  //std::cout<<"getBasis(int gp, double *x, double *y)"<<std::endl;
-  getBasis(gp, x, y, NULL, NULL, NULL, NULL);
-}
-void BasisQQuad::getBasis(int gp, double *x, double *y, double *u) {
-  //std::cout<<"getBasis(int gp, double *x, double *y, double *u)"<<std::endl;
-  getBasis(gp, x, y, NULL, u, NULL, NULL);
-}
-
-void BasisQQuad::getBasis(int gp, double *x, double *y, double *u, double *uold) {
-  getBasis(gp, x, y, NULL, u, uold, NULL);
-}
 void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
 
@@ -826,8 +770,10 @@ void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  co
 
   xx=0.0;
   yy=0.0;
+  zz=0.0;
   uu=0.0;
   uuold=0.0;
+  uuoldold=0.0;
   dudx=0.0;
   dudy=0.0;
   dudz=0.0;
@@ -863,10 +809,6 @@ void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  co
 
   //printf("getBasis done\n");
   return;
-}
-
-void BasisQQuad::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold) {
-  std::cout<<"BasisQQuad::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold)"<<std::endl;
 }
 
 //  3D basis...
@@ -906,21 +848,12 @@ BasisLHex::~BasisLHex() {
 }
 
 // Calculates a linear 3D basis
-void BasisLHex::getBasis(int gp, double *x, double *y) {
+void BasisLHex::getBasis(const int gp, const double *x, const double *y) {
   std::cout<<"BasisLHex::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
+  exit(0);
 }
-void BasisLHex::getBasis(int gp,  double *x, double *y, double *z) {
-  getBasis(gp, x, y, z, NULL, NULL, NULL);
-}
-void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u) {
-  getBasis(gp, x, y, z, u, NULL, NULL);
-}
-void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold) {
-  getBasis(gp, x, y, z, u, uold, NULL);
-}
-  void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
-
+void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
   if(0 == gp){//cn N = 2 gp for now
     xi = abscissa[0];  // 0, 0, 0
@@ -1047,6 +980,7 @@ void BasisLHex::getBasis(int gp,  double *x, double *y, double *z, double *u, do
   zz=0.0;
   uu=0.0;
   uuold=0.0;
+  uuoldold=0.0;
   dudx=0.0;
   dudy=0.0;
   dudz=0.0;
@@ -1133,18 +1067,11 @@ BasisLTet::~BasisLTet() {
 }
 
 // Calculates a linear 3D basis
-void BasisLTet::getBasis(int gp, double *x, double *y) {
+void BasisLTet::getBasis(const int gp, const double *x, const double *y) {
   std::cout<<"BasisLTet::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
+  exit(0);
 }
-void BasisLTet::getBasis(int gp,  double *x, double *y, double *z) {
-  getBasis(gp, x, y, z, NULL, NULL, NULL);
-}
-void BasisLTet::getBasis(int gp,  double *x, double *y, double *z, double *u) {
-  getBasis(gp, x, y, z, u, NULL, NULL);
-}
-void BasisLTet::getBasis(int gp,  double *x, double *y, double *z, double *u, double *uold) {
-  getBasis(gp, x, y, z, u, uold, NULL);
-}
+
 void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
   if(0 == gp){
@@ -1227,6 +1154,7 @@ void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  con
   zz=0.0;
   uu=0.0;
   uuold=0.0;
+  uuoldold=0.0;
   dudx=0.0;
   dudy=0.0;
   dudz=0.0;

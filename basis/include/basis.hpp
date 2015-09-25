@@ -13,22 +13,14 @@ class Basis {
   // Destructor
   virtual ~Basis(){}
 
-  //cn we want the following:
-  //virtual void getBasis(const int gp, const double *x, const double *y, const double *z){};
-  //virtual void getBasis(const int gp, const double *x, const double *y, const double *z, const  double *u){};
-  //virtual void getBasis(int gp, double *x, double *y, double *z, double *u, double *uold)=0;
-  virtual void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){};
-
-
-
-
   // Calculates the values of u and x at the specified gauss point
-  virtual void getBasis(int gp, double *x, double *y) = 0;
-  virtual void getBasis(int gp, double *x, double *y, double *u) = 0;
-  virtual void getBasis(int gp, double *x, double *y, double *u, double *uold)=0;
-  virtual void getBasis(int gp, double *x, double *y, double *z, double *u, double *uold)=0;
-  //template <typename T, size_t size>
-    //void setN(int N, T (&abscissa)[size], T (&weight)[size]);
+  virtual void getBasis(const int gp, const double *x, const double *y){getBasis(gp, x, y, NULL, NULL, NULL, NULL);};
+  virtual void getBasis(const int gp, const double *x, const double *y, const double *z){getBasis(gp, x, y, z, NULL, NULL, NULL);};
+
+  virtual void getBasis(const int gp, const double *x, const double *y, const double *z, const double *u){getBasis(gp, x, y, z, u, NULL, NULL);};
+  virtual void getBasis(const int gp, const double *x, const double *y, const double *z, const double *u, const double *uold){getBasis(gp, x, y, z, u, uold, NULL);};
+  virtual void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold) = 0;
+
   void setN(int N, double *abscissa, double *weight);
 
  public:
@@ -55,12 +47,6 @@ class BasisLTri : public Basis {
   // Destructor
   virtual ~BasisLTri();
 
-  // Calculates the values of u and x at the specified gauss point
-  virtual void getBasis(int gp, double *x, double *y);
-  void getBasis(int gp, double *x, double *y, double *u);
-  virtual void getBasis(int gp, double *x, double *y, double *u, double *uold);
-  virtual void getBasis(int gp, double *x, double *y, double *z, double *u, double *uold);
-
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
 
@@ -77,12 +63,6 @@ class BasisLQuad : public Basis {
 
   // Destructor
   virtual ~BasisLQuad();
-
-  // Calculates the values of u and x at the specified gauss point
-  virtual void getBasis(int gp, double *x, double *y);
-  void getBasis(int gp, double *x, double *y, double *u);
-  virtual void getBasis(int gp, double *x, double *y, double *u, double *uold);
-  virtual void getBasis(int gp, double *x, double *y, double *z, double *u, double *uold);
 
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
@@ -103,11 +83,6 @@ class BasisQTri : public Basis {
   // Destructor
   virtual ~BasisQTri();
 
-  // Calculates the values of u and x at the specified gauss point
-  virtual void getBasis(int gp, double *x, double *y, double *u);
-  virtual void getBasis(int gp, double *x, double *y);
-  virtual void getBasis(int gp, double *x, double *y, double *u, double *uold);
-  virtual void getBasis(int gp, double *x, double *y, double *z, double *u, double *uold);
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
 
@@ -125,11 +100,6 @@ class BasisQQuad : public Basis {
   // Destructor
   virtual ~BasisQQuad();
 
-  // Calculates the values of u and x at the specified gauss point
-  virtual void getBasis(int gp, double *x, double *y);
-  virtual void getBasis(int gp, double *x, double *y, double *u);
-  virtual void getBasis(int gp, double *x, double *y, double *u, double *uold);
-  virtual void getBasis(int gp, double *x, double *y, double *z, double *u, double *uold);
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
 
@@ -152,10 +122,7 @@ class BasisLHex : public Basis {
   virtual ~BasisLHex();
 
   // Calculates the values of u and x at the specified gauss point
-  virtual void getBasis(int gp, double *x, double *y);
-  virtual void getBasis(int gp, double *x, double *y, double *z);
-  virtual void getBasis(int gp, double *x, double *y, double *z, double *u);
-  virtual void getBasis(int gp, double *x, double *y, double *z, double *u, double *uold);
+  void getBasis(const int gp, const double *x, const double *y);
 
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
@@ -178,10 +145,7 @@ class BasisLTet : public Basis {
   virtual ~BasisLTet();
 
   // Calculates the values of u and x at the specified gauss point
-  virtual void getBasis(int gp, double *x, double *y);
-  virtual void getBasis(int gp, double *x, double *y, double *z);
-  virtual void getBasis(int gp, double *x, double *y, double *z, double *u);
-  virtual void getBasis(int gp, double *x, double *y, double *z, double *u, double *uold);
+  void getBasis(const int gp, const double *x, const double *y);
 
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 

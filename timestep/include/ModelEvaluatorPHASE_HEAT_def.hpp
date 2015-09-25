@@ -543,9 +543,9 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
  	    phibasis->getBasis(gp, xx, yy, zz, phiphi, phiphi_old);
  	    phibasis2->getBasis(gp, xx, yy, zz, phiphi_old_old);
  	  }else{
-	    ubasis->getBasis(gp, xx, yy, uu, uu_old);
-	    phibasis->getBasis(gp, xx, yy, phiphi, phiphi_old);
-	    phibasis2->getBasis(gp, xx, yy, phiphi_old_old);
+	    ubasis->getBasis(gp, xx, yy, zz, uu, uu_old, NULL);
+	    phibasis->getBasis(gp, xx, yy, zz, phiphi, phiphi_old, NULL);
+	    phibasis2->getBasis(gp, xx, yy, zz, phiphi_old_old,NULL,NULL);
  	  }
 
 	  // Loop over Nodes in Element

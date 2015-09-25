@@ -338,7 +338,7 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
  	  if(3 == dim) {
  	    ubasis->getBasis(gp, xx, yy, zz, uu, uu_old);
 	  }else{
-	    ubasis->getBasis(gp, xx, yy, uu, uu_old);
+	    ubasis->getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
 	  }
 	  // Loop over Nodes in Element
 

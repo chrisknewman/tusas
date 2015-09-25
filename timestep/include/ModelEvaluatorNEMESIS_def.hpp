@@ -525,7 +525,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     //double delta_factor =1.;//amount to adjust delta by
     double delta_factor =paramList.get<double> (TusasdeltafactorNameString);
-    Basis *ubasis, *phibasis, *phibasis2;
+    Basis *ubasis, *phibasis;
 
     int dim = mesh_->get_num_dim();
 
@@ -537,34 +537,28 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
 	ubasis = new BasisLQuad;
 	phibasis = new BasisLQuad;
-	phibasis2 = new BasisLQuad;
       }
       else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
 	ubasis = new BasisLTri;
 	phibasis = new BasisLTri;
-	phibasis2 = new BasisLTri;
 	delta_factor = 2.*delta_factor;
       }
       else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){ // linear hex
 	ubasis = new BasisLHex;
 	phibasis = new BasisLHex;
-	phibasis2 = new BasisLHex;
       } 
       else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra")) ){ // linear tet
  	ubasis = new BasisLTet;
  	phibasis = new BasisLTet;
- 	phibasis2 = new BasisLTet;
       } 
       else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
  	ubasis = new BasisQQuad;
  	phibasis = new BasisQQuad;
- 	phibasis2 = new BasisQQuad;
 	delta_factor = .5*delta_factor;
       }
       else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){ // quadratic triangle
 	ubasis = new BasisQTri;
 	phibasis = new BasisQTri;
-	phibasis2 = new BasisQTri;
 	//delta_factor = .5*delta_factor;
       } 
       else {
@@ -608,11 +602,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	double dx = 0.;
 	for(int gp=0; gp < ubasis->ngp; gp++) {
- 	  if(3 == dim) {
- 	    ubasis->getBasis(gp, xx, yy, zz);
- 	  }else{
-	    ubasis->getBasis(gp, xx, yy);
- 	  }
+
+	  ubasis->getBasis(gp, xx, yy, zz);
+
 	  //std::cout<<ubasis->jac<<"   "<<ubasis->wt<<std::endl;
 	  dx += ubasis->jac*ubasis->wt;
 	}
@@ -633,17 +625,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	  // Calculate the basis function at the gauss point
 
-	  //cn need to fix this hack
- 	  if(3 == dim) {
- 	    ubasis->getBasis(gp, xx, yy, zz, uu, uu_old);
- 	    phibasis->getBasis(gp, xx, yy, zz, phiphi, phiphi_old);
- 	    phibasis2->getBasis(gp, xx, yy, zz, phiphi_old_old);
- 	  }else{
-	    ubasis->getBasis(gp, xx, yy, uu, uu_old);
-	    phibasis->getBasis(gp, xx, yy, phiphi, phiphi_old);
-	    //phibasis2->getBasis(gp, xx, yy, phiphi_old_old, phiphi_old);//cn phiphi_old not used here
-	    phibasis2->getBasis(gp, xx, yy, phiphi_old_old, phiphi_old);//cn phiphi_old not used here
- 	  }
+	  ubasis->getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
+	  phibasis->getBasis(gp, xx, yy, zz, phiphi, phiphi_old, phiphi_old_old);
 
 	  // Loop over Nodes in Element
 
@@ -697,7 +680,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	      double phitu = -hp2*(phi-phiold)/dt_*test; 
 	      hp2 = hp2_(phiold);	
-	      double phitu_old = -hp2*(phiold-phibasis2->uu)/dt_*test; 
+	      double phitu_old = -hp2*(phiold-phibasis->uuoldold)/dt_*test; 
 	      //double phitu_old = phitu; 
     
 	      double val = jacwt * (ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old + t_theta_*phitu 
@@ -1115,7 +1098,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
   }//blk
 
     delete xx, yy, zz, uu, uu_old, uu_old_old, phiphi, phiphi_old, phiphi_old_old;
-    delete ubasis, phibasis, phibasis2;
+    delete ubasis, phibasis;
     
     if (nonnull(f_out)){
       //f->Print(std::cout);

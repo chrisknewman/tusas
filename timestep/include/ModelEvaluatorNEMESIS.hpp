@@ -210,7 +210,7 @@ private: // data members
 
   std::vector<std::map<int,double (*)(const double &x,
 				      const double &y,
-				      const double &z)>> *dirichletfuc;
+				      const double &z)>> *dirichletfunc_;
 
   std::map<double,int> x_node;
   void init_vtip();

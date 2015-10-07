@@ -370,8 +370,8 @@ double prec_heat_(const boost::ptr_vector<Basis> &basis,
   double test = basis[0].phi[i];
   double D_ = 4.;
   double divgrad = D_*dbasisdx * dtestdx + D_*dbasisdy * dtestdy + D_*dbasisdz * dtestdz;
-  double phi_t =test * basis[0].phi[j]/dt_;
-  return phi_t + t_theta_*divgrad;
+  double u_t =test * basis[0].phi[j]/dt_;
+  return u_t + t_theta_*divgrad;
 }
 double prec_phase_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -472,6 +472,78 @@ double init_phase_(const double &x,
     val=phi_liq_;
   }
   return val;
+}
+double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  double u = basis[0].uu;
+  double uold = basis[0].uuold;
+
+  double ut = (u-uold)/dt_*test;
+  double divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+  double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
+ 
+ 
+  return ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old;
+}
+double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  double divgrad = dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz;
+  double u_t =test * basis[0].phi[j]/dt_;
+  return u_t + t_theta_*divgrad;
+}
+double init_heat_test_(const double &x,
+			 const double &y,
+			 const double &z)
+{
+
+  double pi = 3.141592653589793;
+
+  return sin(pi*x)*sin(pi*y);
+}
+double dirichlet_zero_(const double &x,
+			 const double &y,
+			 const double &z)
+{
+
+
+  return 0.;
 }
 
 #endif

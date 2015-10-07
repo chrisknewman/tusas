@@ -102,8 +102,9 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   
   for(int i = 0; i < node_num_map.size(); i++){
     
-    my_global_nodes[numeqs_*i] = numeqs_*node_num_map[i];
-    my_global_nodes[numeqs_*i+1] = numeqs_*node_num_map[i]+1;
+    for( int k = 0; k < numeqs_; k++ ){
+      my_global_nodes[numeqs_*i+k] = numeqs_*node_num_map[i]+k;
+    }
   }
   x_overlap_map_ = rcp(new Epetra_Map(-1,
 				      my_global_nodes.size(),
@@ -195,10 +196,17 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
 			   ); 
 	for(int j=0;j < n_nodes_per_elem; j++) {
 	  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
-	  W_graph->InsertGlobalIndices((int)1,&row, (int)1, &column);
-	  int row1 = row + 1;
-	  int column1 = column + 1;
-	  W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
+
+	  for( int k = 0; k < numeqs_; k++ ){
+	    int row1 = row + k;
+	    int column1 = column + k;
+	    W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
+
+	  }
+// 	  W_graph->InsertGlobalIndices((int)1,&row, (int)1, &column);
+// 	  int row1 = row + 1;
+// 	  int column1 = column + 1;
+// 	  W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
 	}
       }
     }
@@ -359,7 +367,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     double jac;
     double *xx, *yy, *zz;
-    double *uu, *uu_old,  *uu_old_old, *phiphi, *phiphi_old, *phiphi_old_old;
     int n_nodes_per_elem;
 
     //double delta_factor =1.;//amount to adjust delta by
@@ -373,7 +380,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
       std::string elem_type=mesh_->get_blk_elem_type(blk);
 
-      //std::vector<Basis*> basis(numeqs_);
       boost::ptr_vector<Basis> basis;
 
       if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
@@ -428,12 +434,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       xx = new double[n_nodes_per_elem];
       yy = new double[n_nodes_per_elem];
       zz = new double[n_nodes_per_elem];
-      uu = new double[n_nodes_per_elem];
-      uu_old = new double[n_nodes_per_elem];
-      uu_old_old = new double[n_nodes_per_elem];
-      phiphi = new double[n_nodes_per_elem];
-      phiphi_old = new double[n_nodes_per_elem];
-      phiphi_old_old = new double[n_nodes_per_elem];
+
+      std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
+      std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
+      std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
 
       for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
 
@@ -451,12 +455,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  //int lid = x_overlap_map_->LID(nodeid);
 	  int lid = nodeid;	  
 
-	  uu[k] = (*u)[numeqs_*lid]; 
-	  uu_old[k] = (*u_old)[numeqs_*lid];
-	  uu_old_old[k] = (*u_old_old)[numeqs_*lid];
-	  phiphi[k] = (*u)[numeqs_*lid+1]; 
-	  phiphi_old[k] = (*u_old)[numeqs_*lid+1];
-	  phiphi_old_old[k] = (*u_old_old)[numeqs_*lid+1];
+	  for( int neq = 0; neq < numeqs_; neq++ ){
+	    uu[neq][k] = (*u)[numeqs_*lid+neq]; 
+	    uu_old[neq][k] = (*u_old)[numeqs_*lid+neq];
+	    uu_old_old[neq][k] = (*u_old_old)[numeqs_*lid+neq];
+	  }
 	}//k
 
 	double dx = 0.;
@@ -470,7 +473,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}
 	if ( dx < 1e-16){
 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
-	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<" jac = "<<ubasis->jac<<" wt = "<<ubasis->wt<<std::endl<<std::endl<<std::endl;
+	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<" jac = "<<basis[0].jac<<" wt = "<<ubasis->wt<<std::endl<<std::endl<<std::endl;
 	  exit(0);
 	}
 	//cn should be cube root in 3d
@@ -481,12 +484,13 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  exit(0);
 	}
 
-	for(int gp=0; gp < ubasis->ngp; gp++) {// Loop Over Gauss Points 
+	for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
 
 	  // Calculate the basis function at the gauss point
 
-	  basis[0].getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
-	  basis[1].getBasis(gp, xx, yy, zz, phiphi, phiphi_old, phiphi_old_old);
+	  for( int neq = 0; neq < numeqs_; neq++ ){
+	    basis[neq].getBasis(gp, xx, yy, zz, &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
+	  }
 
 	  double jacwt = basis[0].jac * basis[0].wt;
 	  //cn and should be adjusted for quadratic elements and tris
@@ -542,63 +546,84 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       }//ne
 
 
-      if (nonnull(f_out)) {//cn double check the use of notnull throughout
-	if(paramList.get<std::string> (TusastestNameString)=="pool"){
-	  f_fe.GlobalAssemble();
-	  int ns_id = 0;
-	  std::vector<int> node_num_map(mesh_->get_node_num_map());
-	  for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
-	    
-	    int lid = mesh_->get_node_set_entry(ns_id, j);
-	    int gid = node_num_map[lid];
-	    
-	    int row = numeqs_*gid;
-	    int mypid = comm_->MyPID();
-// 	    double x = mesh_->get_x(lid);
-// 	    double y = mesh_->get_y(lid);
+      //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
+      typedef double (*DBCFUNC)(const double &x,
+				const double &y,
+				const double &z);
 
-	    double rr = 9.;
+      if (nonnull(f_out) && NULL != dirichletfunc_) {
+	f_fe.GlobalAssemble();
+	
+	std::vector<int> node_num_map(mesh_->get_node_num_map());
+	std::map<int,DBCFUNC>::iterator it;
+      
+        for( int k = 0; k < numeqs_; k++ ){
+	  for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
+	    int ns_id = it->first;
+	    //std::cout<<it->first<<std::endl;
 	    
-	    double val = (*u)[numeqs_*lid]  - T_m_;
-	    //std::cout<<mypid<<" "<<lid<<" "<<gid<<" "<<x<<" "<<y<<" "<<x*x+y*y<<std::endl;
-	    f_fe.ReplaceGlobalValues ((int) 1, &row, &val);
+	    for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
+	      
+	      int lid = mesh_->get_node_set_entry(ns_id, j);
+	      int gid = node_num_map[lid];
+	      
+	      int row = numeqs_*gid;
+	      double x = mesh_->get_x(lid);
+	      double y = mesh_->get_y(lid);
+	      double z = mesh_->get_z(lid);
+	      
+	      int row1 = row + k;
+	      double val1 = (it->second)(x,y,z);//the function pointer eval
+	      double val = (*u)[numeqs_*lid + k]  - val1;
+	      f_fe.ReplaceGlobalValues ((int) 1, &row1, &val);
+	      
+	    }//j
+	  }//it
+	}//k
+      }//if
 
 
-	    int row1 = row + 1;
- 	    val = (*u)[numeqs_*lid + 1] - phi_sol_;
- 	    f_fe.ReplaceGlobalValues ((int) 1, &row1, &val);
-	    
-	  }
-	  //#if 0
-	  ns_id = 1;
-	  for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
-	    
-	    int lid = mesh_->get_node_set_entry(ns_id, j);
-	    int gid = node_num_map[lid];
-	    
-	    int row = numeqs_*gid;
-	    int mypid = comm_->MyPID();
- 	    double x = mesh_->get_x(lid);
-	    double y = mesh_->get_y(lid);
-	    double rr = 9.;
-	    
-	    //double bc = (T_inf_*(rr - y)/(2*rr)+ 1.*T_m_*(rr + y)/(2*rr));
-	    double bc = (T_m_*(rr - y)/(2*rr)+ 1.*T_inf_*(rr + y)/(2*rr));
-	    double val = (*u)[numeqs_*lid]  - bc;
-	    //std::cout<<x<<" "<<y<<" "<<val<<" "<<bc<<std::endl;
-	    f_fe.ReplaceGlobalValues ((int) 1, &row, &val);
 
-	    //cn only want a temperature bc here
-	    // 	    int row1 = row + 1;
-// 	    val = (*u)[numeqs_*lid + 1];
-// 	    f_fe.ReplaceGlobalValues ((int) 1, &row1, &val);
+      //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
+      if (nonnull(W_prec_out) && NULL != dirichletfunc_) {
+	P_->GlobalAssemble();
+	std::vector<int> node_num_map(mesh_->get_node_num_map());
+	int lenind = 27;//cn 27 in 3d
+	std::map<int,DBCFUNC>::iterator it;
+        for( int k = 0; k < numeqs_; k++ ){
+	  for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
+	    int ns_id = it->first;
+	    for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
+	      int lid = mesh_->get_node_set_entry(ns_id, j);
+	      int gid = node_num_map[lid];
+	      int row = numeqs_*gid + k;
+	      int num_nodes;
 	    
-	  }
-	  //#endif
-	}
-      }
+	      std::vector<int> column(lenind);
+	    
+	      int err = W_graph_->ExtractGlobalRowCopy 	( 	row,
+								lenind,
+								num_nodes,
+								&column[0]
+								) ;
+	    
+	      column.resize(num_nodes);
+	      double d = 1.;
+	      std::vector<double> vals (num_nodes,0.);
+	      P_->ReplaceGlobalValues (row, num_nodes, &vals[0],&column[0] );
+	      P_->ReplaceGlobalValues (row, (int)1, &d ,&row );
 
-      //#if 0
+	    }//j
+
+	  }//it
+	}//k
+
+
+      }//if
+
+
+
+#if 0
       if (nonnull(W_prec_out)) {
 	if(paramList.get<std::string> (TusastestNameString)=="pool"){
 	  P_->GlobalAssemble();
@@ -691,7 +716,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  }
 	}
       }
-      //#endif
+#endif
 #if 0
 	ns_id = 1;
 	for ( int j = 0; j < mesh_->get_node_set(2).size(); j++ ){
@@ -782,7 +807,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #endif
   }//blk
 
-    delete xx, yy, zz, uu, uu_old, uu_old_old, phiphi, phiphi_old, phiphi_old_old;
+    delete xx, yy, zz;
     delete ubasis, phibasis;
     
     if (nonnull(f_out)){
@@ -816,9 +841,11 @@ ModelEvaluatorNEMESIS<Scalar>::~ModelEvaluatorNEMESIS()
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 {
+  int mypid = comm_->MyPID();
+  if( 0 == mypid )
+    std::cout<<std::endl<<"init_nox() started."<<std::endl<<std::endl;
   nnewt_=0;
 
-  int mypid = comm_->MyPID();
   ::Stratimikos::DefaultLinearSolverBuilder builder;
 
   Teuchos::RCP<Teuchos::ParameterList> lsparams =
@@ -1039,6 +1066,7 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
   if( 0 == comm_->MyPID()) std::cout<<std::endl<<"inititialize started"<<std::endl<<std::endl;
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   if (!dorestart){
+#if 0
     if(paramList.get<std::string> (TusastestNameString)=="cummins"){
       init(u_old_);
     }else if(paramList.get<std::string> (TusastestNameString)=="multi"){
@@ -1056,7 +1084,8 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
       std::cout<<"Unknown initialization testcase."<<std::endl;
       exit(0);
     }
-    
+#endif    
+    init(u_old_);
     *u_old_old_ = *u_old_;
 
     int mypid = comm_->MyPID();
@@ -1934,6 +1963,52 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
     (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+  }else if("heat" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					   const int &i, 
+					   const double &dt_, 
+					   const double &t_theta_, 
+					   const double &delta)>(numeqs_);
+    (*residualfunc_)[0] = &residual_heat_test_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					 const int &i,  
+					 const int &j,
+					 const double &dt_, 
+					 const double &t_theta_, 
+					 const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &prec_heat_test_;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    (*initfunc_)[0] = &init_heat_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    int n_dirichlet = 4;
+
+    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							      const double &y,
+							      const double &z)>>(numeqs_);
+
+//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+// 							      const double &y,
+// 							      const double &z)>>(numeqs_,
+// 										 std::map<int,double (*)(const double &x,
+// 													 const double &y,
+// 													 const double &z)>(n_dirichlet));
+    (*dirichletfunc_)[0][0] = &dirichlet_zero_;							 
+    (*dirichletfunc_)[0][1] = &dirichlet_zero_;						 
+    (*dirichletfunc_)[0][2] = &dirichlet_zero_;						 
+    (*dirichletfunc_)[0][3] = &dirichlet_zero_;
 
   }else {
 

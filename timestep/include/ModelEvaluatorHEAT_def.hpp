@@ -294,16 +294,22 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
       std::string elem_type=mesh_->get_blk_elem_type(blk);
 
       if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) ){ // linear quad
-	ubasis = new BasisLQuad;
+	ubasis = new BasisLQuad();
+      }
+      else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
+ 	ubasis = new BasisQQuad;
       }
       else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) ){ // linear triangle
-	ubasis = new BasisLTri;
+	ubasis = new BasisLTri();
+      }
+      else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){ // quadratic triangle
+	ubasis = new BasisQTri;
       }
       else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) ){ // linear hex
-	ubasis = new BasisLHex;
+	ubasis = new BasisLHex();
       } 
       else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) ){ // linear tet
- 	ubasis = new BasisLTet;
+ 	ubasis = new BasisLTet();
       } 
       else {
 	std::cout<<"Unsupported element type"<<std::endl<<std::endl;
@@ -362,10 +368,10 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 	      double divgradu = ubasis->dudx*dphidx + ubasis->dudy*dphidy + ubasis->dudz*dphidz;//(grad u,grad phi)
 	      double ut = (ubasis->uu-ubasis->uuold)/dt_*ubasis->phi[i];
 	      double pi = 3.141592653589793;
-	      double ff = 2.*ubasis->phi[i];
+	      //double ff = 2.*ubasis->phi[i];
 	      //double ff = ((1. + 5.*dt_*pi*pi)*sin(pi*x)*sin(2.*pi*y)/dt_)*ubasis->phi[i];	      
-	      double val = ubasis->jac * ubasis->wt * (ut + divgradu - ff);	      
-	      //double val = ubasis->jac * ubasis->wt * (ut + divgradu);
+	      //double val = ubasis->jac * ubasis->wt * (ut + divgradu - ff);	      
+	      double val = ubasis->jac * ubasis->wt * (ut + divgradu);
 	      f->SumIntoGlobalValues ((int) 1, &val, &row);
 	    }
 
@@ -685,9 +691,10 @@ void ModelEvaluatorHEAT<Scalar>::finalize()
 
   //cout<<"norm = "<<sqrt(norm)<<endl;
   const char *outfilename = "results.e";
-  mesh_->add_nodal_data("u", outputdata);
+  mesh_->add_nodal_data("u", &outputdata[0]);
   mesh_->write_exodus(outfilename);
   compute_error(&outputdata[0]);
+  std::cout<<"finalize() completed"<<std::endl;
 }
 
 template<class Scalar>
@@ -718,6 +725,12 @@ void ModelEvaluatorHEAT<Scalar>::compute_error( double *u)
     else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) ){ // linear tet
       ubasis = new BasisLTet;
     } 
+    else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
+      ubasis = new BasisQQuad;
+    }
+    else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){ // quadratic triangle
+      ubasis = new BasisQTri;
+    }
     else {
       std::cout<<"Unsupported element type"<<std::endl<<std::endl;
       exit(0);
@@ -741,7 +754,7 @@ void ModelEvaluatorHEAT<Scalar>::compute_error( double *u)
 	yy[k] = mesh_->get_y(nodeid);
 	uu[k] = u[nodeid];  // copy initial guess or old solution into local temp
 	
-	//std::cout<<"u  "<<u[k]<<std::endl;
+	//std::cout<<"u  "<<uu[k]<<std::endl;
 
       }//k
       
@@ -750,14 +763,10 @@ void ModelEvaluatorHEAT<Scalar>::compute_error( double *u)
 	
 	// Calculate the basis function at the gauss point
 	
-	ubasis->getBasis(gp, xx, yy, uu);
+	ubasis->getBasis(gp, xx, yy, NULL, uu);
 	
 	// Loop over Nodes in Element
 	
-	//for (int i=0; i< n_nodes_per_elem; i++) {
-	  //nodeid = mesh_->get_node_id(blk, ne, i);
-	  //double dphidx = ubasis->dphidxi[i]*ubasis->dxidx+ubasis->dphideta[i]*ubasis->detadx;
-	  //double dphidy = ubasis->dphidxi[i]*ubasis->dxidy+ubasis->dphideta[i]*ubasis->detady;
 	  double x = ubasis->xx;
 	  double y = ubasis->yy;
 	  
@@ -772,7 +781,6 @@ void ModelEvaluatorHEAT<Scalar>::compute_error( double *u)
 	  //std::cout<<(ubasis->uu)<<" "<<u_ex<<" "<<(ubasis->uu)- u_ex<<std::endl;
 	  
 	  
-	  //}//i
       }//gp
     }//ne
   }//blk

@@ -4,11 +4,12 @@
 
   <Parameter name="dt" type="double" value=".001"/>
   <Parameter name="nt" type="int" value = "10"/>
-  <Parameter name="meshfile" type="string" value="../meshes/dendquad300_q.e"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/dendquad300_q.e"/>
   <Parameter name="testcase" type="string" value="cummins"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="1"/>
-  <Parameter name="method" type="string" value="phaseheat"/>
+  <Parameter name="method" type="string" value="nemesis"/>
+  <Parameter name="deltafactor" type="double" value="1.0"/> 
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
 
 </ParameterList>

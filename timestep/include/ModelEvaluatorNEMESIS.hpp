@@ -8,6 +8,8 @@
 #include "Mesh.h"
 #include "preconditioner.hpp"
 #include "timestep.hpp"
+
+#include <boost/ptr_container/ptr_vector.hpp>
 template<class Scalar> class ModelEvaluatorNEMESIS;
 
 template<class Scalar>
@@ -125,6 +127,8 @@ private: // data members
   Teuchos::RCP<Epetra_Vector> u_old_old_;
   Teuchos::RCP<Epetra_Vector> dudt_;
 
+  void set_test_case();
+
   double time_;
 
   int ex_id_;
@@ -182,6 +186,31 @@ private: // data members
   double (*gs2_)(const double &theta,const double &M, const double &eps, const double &psi);
   double (*dgs2_2dtheta_)(const double &theta,const double &M, const double &eps, const double &psi);
   double (*dgs2_2dpsi_)(const double &theta,const double &M, const double &eps, const double &psi);
+
+
+  std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, 
+			 const double &dt_, 
+			 const double &t_theta_, 
+			 const double &delta)> *residualfunc_;
+
+
+  std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+			 const int &i,  
+			 const int &j,
+			 const double &dt_, 
+			 const double &t_theta_, 
+			 const double &delta)> *preconfunc_;
+
+  std::vector<double (*)(const double &x,
+			 const double &y,
+			 const double &z)> *initfunc_;
+
+  std::vector<std::string> *varnames_;
+
+  std::vector<std::map<int,double (*)(const double &x,
+				      const double &y,
+				      const double &z)>> *dirichletfuc;
 
   std::map<double,int> x_node;
   void init_vtip();

@@ -4,7 +4,7 @@
 
   <Parameter name="dt" type="double" value=".001"/>
   <Parameter name="nt" type="int" value = "10"/>
-  <Parameter name="meshfile" type="string" value="../meshes/tet_479.e"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/tet_384.e"/>
   <Parameter name="testcase" type="string" value="cummins"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value=".5"/>

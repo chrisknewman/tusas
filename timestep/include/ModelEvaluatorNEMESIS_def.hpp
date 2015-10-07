@@ -35,15 +35,23 @@
 
 // local support
 #include "preconditioner.hpp"
-#include "basis.hpp"
+//#include "basis.hpp"
 #include "ParamNames.h"
+#include "function_def.hpp"
 
 #include <iomanip>
 #include <iostream>
+#include <string>
+
+#include <boost/ptr_container/ptr_vector.hpp>
 
 //#include "function_def.hpp"
 
 // Nonmember constuctors
+Basis* new_clone(Basis const& other){
+  return other.clone();
+}
+
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorNEMESIS<Scalar> >
@@ -70,7 +78,8 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 {
   dt_ = paramList.get<double> (TusasdtNameString);
   t_theta_ = paramList.get<double> (TusasthetaNameString);
-  numeqs_ = 2;
+  set_test_case();
+
   using Teuchos::RCP;
   using Teuchos::rcp;
   using ::Thyra::VectorBase;
@@ -161,176 +170,6 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   nominalValues_ = inArgs;
   nominalValues_.set_x(x0_);
   time_=0.;
-
-  random_number_ =((double)rand()/(RAND_MAX)*2.-1.);
-  random_number_old_ = 0.;
-
-  phi_sol_ = 1.;
-  phi_liq_ = 0.;
-
-  dgs2_2dpsi_ = &dgs2_2dpsi_cummins_;
-
-  if("furtado" == paramList.get<std::string> (TusastestNameString)){
-
-    D_ = 1.55e-5;
-    T_m_ = 1728.;
-    T_inf_ = 300.;
-    alpha_ = 191.82;
-    eps_ = .025;
-    eps_0_ = 2.01e-4;
-    M_= 6.;
-    theta_0_ =-1.5707963267949/2.;
-    R_0_ =1.1e-6;
-    
-    //function pointers
-    hp1_ = &hp1_furtado_;
-    hpp1_ = &hpp1_furtado_;
-    w_ = &w_furtado_;
-    m_ = &m_furtado_;
-    rand_phi_ = &rand_phi_furtado_;
-    //rand_phi_ = &rand_phi_cummins_;
-    gp1_ = &gp1_furtado_;
-    gpp1_ = &gpp1_furtado_;
-    hp2_ = &hp2_furtado_;
-
-  }else if("karma" == paramList.get<std::string> (TusastestNameString)){
-
-    phi_liq_ = -1.;
-    
-    D_ = 1.;
-    T_m_ = 1.-.55;
-    T_inf_ = -.55;
-    alpha_ = 191.82;
-    eps_ = .02;
-    eps_0_ = 1.;
-    M_= 4.;
-    theta_0_ =0.;
-    R_0_ =.30;
-    
-    //function pointers
-    hp1_ = &hp1_karma_;
-    hpp1_ = &hpp1_karma_;
-    w_ = &w_karma_;
-    m_ = &m_karma_;
-    rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_karma_;
-    gpp1_ = &gpp1_karma_;
-    hp2_ = &hp2_karma_;
-
-    gs2_ = &gs2_karma_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_karma_;
-    //sort_nodeset();
-
-  }else if("pool" == paramList.get<std::string> (TusastestNameString)){
-    D_ = 4.;
-    T_m_ = 1.55;
-    T_inf_ = 1.;
-    alpha_ = 191.82;
-    eps_ = .04;
-    //eps_ = .2;
-    eps_0_ = 1.;
-    M_= 4.;
-    theta_0_ =0.;
-    R_0_ =.3;
-    //R_0_ =.1;
-    
-    //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
-    //m_ = &m_furtado_;
-    rand_phi_ = &rand_phi_furtado_;
-    //rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
-    //hp2_ = &hp2_cummins_;
-    hp2_ = &hp2_furtado_;
-
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
-  
-
-  }else if("branch" == paramList.get<std::string> (TusastestNameString)){
-    D_ = 4.;
-    T_m_ = 1.55;
-    T_inf_ = 1.25;
-    alpha_ = 191.82;
-    eps_ = .04;
-    //eps_ = .2;
-    eps_0_ = 1.;
-    M_= 4.;
-    theta_0_ =3.14159/4.;
-    R_0_ =.3;
-    //R_0_ =.1;
-    
-    //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
-    //m_ = &m_furtado_;
-    rand_phi_ = &rand_phi_furtado_;
-    //rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
-    //hp2_ = &hp2_cummins_;
-    hp2_ = &hp2_furtado_;
-
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
-  
-
-  }else if("cummins" == paramList.get<std::string> (TusastestNameString)){
-    D_ = 4.;
-    T_m_ = 1.55;
-    T_inf_ = 1.;
-    alpha_ = 191.82;
-    eps_ = .05;
-    eps_0_ = 1.;
-    M_= 4.;
-    theta_0_ =0.;
-    R_0_ =.3;
-    
-    //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
-    rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
-    hp2_ = &hp2_cummins_;
-
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
-  }else {
-
-    D_ = 4.;
-    T_m_ = 1.55;
-    T_inf_ = 1.;
-    alpha_ = 191.82;
-    eps_ = .05;
-    eps_0_ = 1.;
-    M_= 4.;
-    theta_0_ =0.;
-    R_0_ =.3;
-    
-    //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
-    rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
-    hp2_ = &hp2_cummins_;
-
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
-  }
-
-
 
   init_nox();
 }
@@ -534,37 +373,57 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
       std::string elem_type=mesh_->get_blk_elem_type(blk);
 
+      //std::vector<Basis*> basis(numeqs_);
+      boost::ptr_vector<Basis> basis;
+
       if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
 	ubasis = new BasisLQuad;
 	phibasis = new BasisLQuad;
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisLQuad());
       }
       else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
 	ubasis = new BasisLTri;
 	phibasis = new BasisLTri;
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisLTri());
 	delta_factor = 2.*delta_factor;
       }
       else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){ // linear hex
 	ubasis = new BasisLHex;
 	phibasis = new BasisLHex;
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisLHex());
       } 
       else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra")) ){ // linear tet
  	ubasis = new BasisLTet;
  	phibasis = new BasisLTet;
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisLTet());
       } 
       else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
  	ubasis = new BasisQQuad;
  	phibasis = new BasisQQuad;
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisQQuad());
 	delta_factor = .5*delta_factor;
       }
       else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){ // quadratic triangle
 	ubasis = new BasisQTri;
 	phibasis = new BasisQTri;
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisQTri());
 	//delta_factor = .5*delta_factor;
       } 
       else {
 	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
 	exit(0);
       }
+      if( basis.size() != numeqs_ ){
+	std::cout<<" basis.size() != numeqs_ "<<std::endl;
+	exit(0);
+      }
+
 
       xx = new double[n_nodes_per_elem];
       yy = new double[n_nodes_per_elem];
@@ -601,12 +460,13 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}//k
 
 	double dx = 0.;
-	for(int gp=0; gp < ubasis->ngp; gp++) {
+	for(int gp=0; gp < basis[0].ngp; gp++) {
 
-	  ubasis->getBasis(gp, xx, yy, zz);
+	  //ubasis->getBasis(gp, xx, yy, zz);
+	  basis[0].getBasis(gp, xx, yy, zz);
 
-	  //std::cout<<ubasis->jac<<"   "<<ubasis->wt<<std::endl;
-	  dx += ubasis->jac*ubasis->wt;
+	  //dx += ubasis->jac*ubasis->wt;
+	  dx += basis[0].jac*basis[0].wt;
 	}
 	if ( dx < 1e-16){
 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
@@ -625,8 +485,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	  // Calculate the basis function at the gauss point
 
-	  ubasis->getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
-	  phibasis->getBasis(gp, xx, yy, zz, phiphi, phiphi_old, phiphi_old_old);
+	  basis[0].getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
+	  basis[1].getBasis(gp, xx, yy, zz, phiphi, phiphi_old, phiphi_old_old);
+
+	  double jacwt = basis[0].jac * basis[0].wt;
+	  //cn and should be adjusted for quadratic elements and tris
+	  double delta = dx*delta_factor;
 
 	  // Loop over Nodes in Element
 
@@ -637,218 +501,39 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    int row = numeqs_*(
 			       mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
 			       );
-// 	    std::cout<<" row : "<<row<<"  get_node_id : "<<mesh_->get_node_id(blk, ne, i)<<" pid : "<<comm_->MyPID()
-// 		     <<"  gid : "<<x_overlap_map_->GID(mesh_->get_node_id(blk, ne, i))<<" "<<ne<<" "<<i
-// 	      <<" "<<mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
-// 		     <<std::endl;
-
-            //derivatives of the test function
-	    double dtestdx = ubasis->dphidxi[i]*ubasis->dxidx
-	      +ubasis->dphideta[i]*ubasis->detadx
-	      +ubasis->dphidzta[i]*ubasis->dztadx;
-	    double dtestdy = ubasis->dphidxi[i]*ubasis->dxidy
-	      +ubasis->dphideta[i]*ubasis->detady
-	      +ubasis->dphidzta[i]*ubasis->dztady;
-	    double dtestdz = ubasis->dphidxi[i]*ubasis->dxidz
-	      +ubasis->dphideta[i]*ubasis->detadz
-	      +ubasis->dphidzta[i]*ubasis->dztadz;
-	    //test function
-	    double test = ubasis->phi[i];
-	    //u, phi
-	    double u = ubasis->uu;
-	    double uold = ubasis->uuold;
-	    double phi = phibasis->uu;
-	    double phiold = phibasis->uuold;
-
-	    double jacwt = ubasis->jac * ubasis->wt;
-
-	    //cn and should be adjusted for quadratic elements and tris
-	    double delta = dx*delta_factor;	 
+	 
 
 	    if (nonnull(f_out)) {
 	      //double x = ubasis->xx;
 	      //double y = ubasis->yy;     
+   
+	      for( int k = 0; k < numeqs_; k++ ){
+		int row1 = row + k;
+		double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta);
+		//f->SumIntoGlobalValues ((int) 1, &val, &row);
+		if(0 != f_fe.SumIntoGlobalValues ((int) 1, &row1, &val))
+		  exit(0);
+	      }
 
-	      //equation for u:
-	      // u_t - D_ (u_xx + u_yy) - hp2_ * phi_t = 0
-
-	      double ut = (u-uold)/dt_*test;
-	      double divgradu = D_*(ubasis->dudx*dtestdx + ubasis->dudy*dtestdy + ubasis->dudz*dtestdz);//(grad u,grad phi)
-	      double divgradu_old = D_*(ubasis->duolddx*dtestdx + ubasis->duolddy*dtestdy + ubasis->duolddz*dtestdz);//(grad u,grad phi)
-
-	      double hp2 = hp2_(phi);	
-
-	      double phitu = -hp2*(phi-phiold)/dt_*test; 
-	      hp2 = hp2_(phiold);	
-	      double phitu_old = -hp2*(phiold-phibasis->uuoldold)/dt_*test; 
-	      //double phitu_old = phitu; 
-    
-	      double val = jacwt * (ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old + t_theta_*phitu 
-						       + (1.-t_theta_)*phitu_old);
-	      //f->SumIntoGlobalValues ((int) 1, &val, &row);
-	      if(0 != f_fe.SumIntoGlobalValues ((int) 1, &row, &val))
-		exit(0);
-
-
-
-	      //equation for phi:
-	      // m_*phi_t - gs2_*(u_xx + u_yy) - dg2 curl phi + w_ * gp1_(phi) +hp1_ (T_m_ - phi) = 0
-
-	      double dphidx = phibasis->dudx;
-	      double dphidy = phibasis->dudy;
-	      double dphidz = phibasis->dudz;
-	      double theta_ = theta(dphidx,dphidy)-theta_0_;
-
-	      double psi_ = psi(dphidx,dphidy,dphidz);
-	      psi_ = 0.;
-	      double gs2 = gs2_(theta_, M_, eps_, psi_);
-
-	      double m = m_(theta_, M_, eps_);
-     
-	      double phit = m*(phi-phiold)/dt_*test;
-
-	      //double divgradphi = gs2*phibasis->dudx*dtestdx + gs2*phibasis->dudy*dtestdy + gs2*phibasis->dudz*dtestdz;//(grad u,grad phi)
-	      double divgradphi = gs2*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);//(grad u,grad phi)
-
-	      double dgdtheta = dgs2_2dtheta_(theta_, M_, eps_, psi_);
-	      double dgdpsi = dgs2_2dpsi_(theta_, M_, eps_, psi_);	
-	      dgdpsi = 0.;
-
-
-
-
-
-	      //cn also this term is very different in karma papers
-	      //double curlgrad = -dg2*(phibasis->dudy*dphidx -phibasis->dudx*dphidy);//cn not sure about 3d yet
-	      //cn                   dtheta/dphix= phiy     dtheta/dphiy =  -phix
-	      double curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy)
-		+dgdpsi*(-dphidz*dtestdx + dphidx*dtestdz);//cn not sure about 3d yet
-
-	      double w = w_(delta);
-	      //double gp1 = phibasis->uu*(1.-phibasis->uu)*(1.-2.*phibasis->uu);
-	      double gp1 = gp1_(phi);
-
-	      //double phidel2 = phibasis->uu*(1.-phibasis->uu)*(1.-2.*phibasis->uu)/delta/delta*phibasis->phi[i];
-	      double phidel2 = gp1*w*test;
-
-// 	      double phidel = -5.*alpha_*(T_m_ - ubasis->uu)
-// 		*phibasis->uu*phibasis->uu*(1.-phibasis->uu)*(1.-phibasis->uu)/delta*phibasis->phi[i];
-
-	      double hp1 = hp1_(phi,5.*alpha_/delta);
-
-
-	      double phidel = hp1*(T_m_ - u)*test;
-
-	      //std::cout<<(*random_vector_)[mesh_->get_node_id(blk, ne, i)]<<std::endl;
-
-	      double rand_phi = -rand_phi_(phi,(*random_vector_)[mesh_->get_node_id(blk, ne, i)]);
-
-
-	      //double rand_phi = -rand_phi_(phibasis->uu,random_number_);
-	      double r_phi = rand_phi*test;
-	      //std::cout<<r_phi<<std::endl;
-	      double rhs = divgradphi + curlgrad + phidel2 + phidel + r_phi;
-
-	      dphidx = phibasis->duolddx;
-	      dphidy = phibasis->duolddy;
-	      dphidz = phibasis->duolddz;
-	      theta_ = theta(dphidx,dphidy)-theta_0_;
-	      psi_ = psi(dphidx,dphidy,dphidz);
-	      psi_ =0.;
-	      gs2 = gs2_(theta_, M_, eps_,0.);
-	      divgradphi = gs2*dphidx*dtestdx + gs2*dphidy*dtestdy + gs2*dphidz*dtestdz;//(grad u,grad phi)
-	      dgdtheta = dgs2_2dtheta_(theta_, M_, eps_, 0.);
-
-	      dgdpsi = dgs2_2dpsi_(theta_, M_, eps_, psi_);
-	      dgdpsi = 0.;
-
-
-
-
-	      //curlgrad = dgdtheta*(-phibasis->duolddy*dphidx +phibasis->duolddx*dphidy);//cn not sure about 3d yet
-	      curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy)
-		+dgdpsi*(-dphidz*dtestdx + dphidx*dtestdz);
-
-	      gp1 = gp1_(phiold);
-
-	      //phidel2 = phibasis->uuold*(1.-phibasis->uuold)*(1.-2.*phibasis->uuold)/delta/delta*phibasis->phi[i];
-	      phidel2 = gp1*w*phibasis->phi[i];
-
-	      hp1 = hp1_(phiold,5.*alpha_/delta);
-
-// 	      phidel = -5.*alpha_*(T_m_ - ubasis->uuold)
-// 		*phibasis->uuold*phibasis->uuold*(1.-phibasis->uuold)*(1.-phibasis->uuold)/delta*phibasis->phi[i];
-
-	      phidel = hp1*(T_m_ - uold)*test;
-
-	      //std::cout<<random_number_<<std::endl;
-	      rand_phi = -rand_phi_(phi,(*random_vector_old_)[mesh_->get_node_id(blk, ne, i)]);
-	      //rand_phi = -rand_phi_(phibasis->uuold,random_number_old_);
-	      r_phi = rand_phi*test;
-
-	      double rhs_old = divgradphi + curlgrad + phidel2 + phidel + r_phi;
-	
-	      val = 1.*jacwt * (phit + t_theta_*rhs + (1.-t_theta_)*rhs_old + r_phi);
-	      int row1 = row+1;
-	      //f->SumIntoGlobalValues ((int) 1, &val, &row1);
-	      if(0 != f_fe.SumIntoGlobalValues ((int) 1, &row1, &val))
-		exit(0);
 	    }
 
 
 	    // Loop over Trial (basis) Functions
 
 
-	    //cn add the phitu term here
 	    if (nonnull(W_prec_out)) {
 	      for(int j=0;j < n_nodes_per_elem; j++) {
 		//int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, ne, j)));
 		int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
-		double dbasisdx = ubasis->dphidxi[j]*ubasis->dxidx
-		  +ubasis->dphideta[j]*ubasis->detadx
-		  +ubasis->dphidzta[j]*ubasis->dztadx;
-		double dbasisdy = ubasis->dphidxi[j]*ubasis->dxidy
-		  +ubasis->dphideta[j]*ubasis->detady
-		  +ubasis->dphidzta[j]*ubasis->dztady;
-		double dbasisdz = ubasis->dphidxi[j]*ubasis->dxidz
-		  +ubasis->dphideta[j]*ubasis->detadz
-		  +ubasis->dphidzta[j]*ubasis->dztadz;
-		double divgrad = D_*dbasisdx * dtestdx + D_*dbasisdy * dtestdy + D_*dbasisdz * dtestdz;
-		double phi_t =test * ubasis->phi[j]/dt_;
-		double jac = jacwt*(phi_t + t_theta_*divgrad);
-		//std::cout<<row<<" "<<column<<" "<<jac<<std::endl;
-		P_->SumIntoGlobalValues(row, 1, &jac, &column);
 
-		int row1 = row+1;
-		int column1 = column+1;
-		double dphidx = phibasis->dudx;
-		double dphidy = phibasis->dudy;
-		double dphidz = phibasis->dudz;
+		for( int k = 0; k < numeqs_; k++ ){
+		  int row1 = row + k;
+		  int column1 = column + k;
+		  double jac = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,delta);
+		  //std::cout<<row<<" "<<column<<" "<<jac<<std::endl;
+		  P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
+		}//k
 		
-		double theta_ = theta(dphidx,dphidy) - theta_0_;
-		double psi_ = psi(dphidx,dphidy,dphidz);
-		psi_ =0.;
-		double gs2 = gs2_(theta_,  M_, eps_, 0.);
- 
-		divgrad = gs2*dbasisdx * dtestdx + gs2*dbasisdy * dtestdy + gs2*dbasisdz * dtestdz;
-
-		double dgdtheta = dgs2_2dtheta_(theta_, M_, eps_,psi_);
-		double dgdpsi = dgs2_2dpsi_(theta_, M_, eps_, psi_);
-		dgdpsi = 0.;
-		double curlgrad = 0.*dgdtheta*(-dbasisdy*dtestdx +dbasisdx*dtestdy)
-		  +dgdpsi*(-dbasisdz*dtestdx + dbasisdx*dtestdz);
-
-		double m = m_(theta_,M_,eps_);
-
-		phi_t = m*test * phibasis->phi[j]/dt_;
-
-		double hpp1 =0.*phibasis->phi[i] * phibasis->phi[j]* hpp1_(phi,5.*alpha_/delta)
-		  *(T_m_ - ubasis->uu);
-		double w = w_(delta);
-		double gpp1 = 0.*gpp1_(phi)*w*phibasis->phi[i] * phibasis->phi[j];
-
-		jac = jacwt*(phi_t + t_theta_*divgrad + t_theta_*curlgrad  + t_theta_*hpp1 + t_theta_*gpp1);
-		P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
 	      }//j
 	    }
 
@@ -1399,8 +1084,9 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
       ex_id_ = mesh_->create_exodus(pfile.c_str());
     }
     
-    mesh_->add_nodal_field("u");
-    mesh_->add_nodal_field("phi");
+    for( int k = 0; k < numeqs_; k++ ){
+      mesh_->add_nodal_field((*varnames_)[k]);
+    }
     
     output_step_ = 1;
     write_exodus();
@@ -1414,8 +1100,9 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
 //     if(1==comm_->MyPID())
 //       std::cout<<"Restart unavailable"<<std::endl<<std::endl;
 //     exit(0);
-    mesh_->add_nodal_field("u");
-    mesh_->add_nodal_field("phi");
+    for( int k = 0; k < numeqs_; k++ ){
+      mesh_->add_nodal_field((*varnames_)[k]);
+    }
   }
 //   mesh_->add_nodal_field("u");
 //   mesh_->add_nodal_field("phi");
@@ -1487,6 +1174,11 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   //if(!solver_.is_null()) solver_=Teuchos::null;
   if(!u_old_.is_null()) u_old_=Teuchos::null;
   if(!dudt_.is_null()) dudt_=Teuchos::null;
+
+  delete residualfunc_;
+  delete preconfunc_;
+  delete initfunc_;
+  delete varnames_;
 }
 
 template<class Scalar>
@@ -1654,18 +1346,9 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);
     double z = mesh_->get_z(nn);
-    double t = theta(x,y) - theta_0_;
-    double p = psi(x,y,z);
-    double r = R(t);
 
-    if(x*x+y*y+z*z < r*r){
-      (*u)[numeqs_*nn]=T_m_;
-      //(*u)[numeqs_*nn]=T_inf_;
-      (*u)[numeqs_*nn+1]=phi_sol_;
-    }
-    else {
-      (*u)[numeqs_*nn]=T_inf_;
-      (*u)[numeqs_*nn+1]=phi_liq_;
+    for( int k = 0; k < numeqs_; k++ ){
+      (*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z);
     }
 
     //std::cout<<nn<<" "<<x<<" "<<y<<" "<<r<<"      "<<(*u)[numeqs_*nn]<<"           "<<x*x+y*y<<" "<<r*r<<std::endl;
@@ -1875,18 +1558,20 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
 
   //int num_nodes = mesh_->get_node_num_map().size();
 
-  double outputu[num_nodes_];
-  double outputphi[num_nodes_];
+  std::vector<std::vector<double>> output(numeqs_, std::vector<double>(num_nodes_));
+
   for (int nn=0; nn < num_nodes_; nn++) {
-    outputu[nn]=(*temp)[numeqs_*nn];
-    outputphi[nn]=(*temp)[numeqs_*nn+1];
+    for( int k = 0; k < numeqs_; k++ ){
+      output[k][nn]=(*temp)[numeqs_*nn+k];
+    }
 //     outputu[nn]=(*u_old_)[numeqs_*nn];
 //     outputphi[nn]=(*u_old_)[numeqs_*nn+1];
     //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<outputu[nn]<<" "<<outputphi[nn]<<std::endl;
   }
   int err = 0;
-  mesh_->update_nodal_data("u", outputu);
-  mesh_->update_nodal_data("phi", outputphi);
+  for( int k = 0; k < numeqs_; k++ ){
+    mesh_->update_nodal_data((*varnames_)[k], &output[k][0]);
+  }
 
   delete temp;
   return err;
@@ -2066,5 +1751,215 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   if( 0 == mypid ){
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
+}
+
+
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
+{
+  numeqs_ = 2;
+  random_number_ =((double)rand()/(RAND_MAX)*2.-1.);
+  random_number_old_ = 0.;
+
+  phi_sol_ = 1.;
+  phi_liq_ = 0.;
+
+  dgs2_2dpsi_ = &dgs2_2dpsi_cummins_;
+
+  if("furtado" == paramList.get<std::string> (TusastestNameString)){
+    exit(0);
+    D_ = 1.55e-5;
+    T_m_ = 1728.;
+    T_inf_ = 300.;
+    alpha_ = 191.82;
+    eps_ = .025;
+    eps_0_ = 2.01e-4;
+    M_= 6.;
+    theta_0_ =-1.5707963267949/2.;
+    R_0_ =1.1e-6;
+    
+    //function pointers
+    hp1_ = &hp1_furtado_;
+    hpp1_ = &hpp1_furtado_;
+    w_ = &w_furtado_;
+    m_ = &m_furtado_;
+    rand_phi_ = &rand_phi_furtado_;
+    //rand_phi_ = &rand_phi_cummins_;
+    gp1_ = &gp1_furtado_;
+    gpp1_ = &gpp1_furtado_;
+    hp2_ = &hp2_furtado_;
+
+  }else if("karma" == paramList.get<std::string> (TusastestNameString)){
+    exit(0);
+
+    phi_liq_ = -1.;
+    
+    D_ = 1.;
+    T_m_ = 1.-.55;
+    T_inf_ = -.55;
+    alpha_ = 191.82;
+    eps_ = .02;
+    eps_0_ = 1.;
+    M_= 4.;
+    theta_0_ =0.;
+    R_0_ =.30;
+    
+    //function pointers
+    hp1_ = &hp1_karma_;
+    hpp1_ = &hpp1_karma_;
+    w_ = &w_karma_;
+    m_ = &m_karma_;
+    rand_phi_ = &rand_phi_zero_;
+    gp1_ = &gp1_karma_;
+    gpp1_ = &gpp1_karma_;
+    hp2_ = &hp2_karma_;
+
+    gs2_ = &gs2_karma_;
+    dgs2_2dtheta_ = &dgs2_2dtheta_karma_;
+    //sort_nodeset();
+
+  }else if("pool" == paramList.get<std::string> (TusastestNameString)){
+    exit(0);
+    D_ = 4.;
+    T_m_ = 1.55;
+    T_inf_ = 1.;
+    alpha_ = 191.82;
+    eps_ = .04;
+    //eps_ = .2;
+    eps_0_ = 1.;
+    M_= 4.;
+    theta_0_ =0.;
+    R_0_ =.3;
+    //R_0_ =.1;
+    
+    //function pointers
+    hp1_ = &hp1_cummins_;
+    hpp1_ = &hpp1_cummins_;
+    w_ = &w_cummins_;
+    m_ = &m_cummins_;
+    //m_ = &m_furtado_;
+    rand_phi_ = &rand_phi_furtado_;
+    //rand_phi_ = &rand_phi_zero_;
+    gp1_ = &gp1_cummins_;
+    gpp1_ = &gpp1_cummins_;
+    //hp2_ = &hp2_cummins_;
+    hp2_ = &hp2_furtado_;
+
+    gs2_ = &gs2_cummins_;
+    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+  
+
+  }else if("branch" == paramList.get<std::string> (TusastestNameString)){
+    exit(0);
+    D_ = 4.;
+    T_m_ = 1.55;
+    T_inf_ = 1.25;
+    alpha_ = 191.82;
+    eps_ = .04;
+    //eps_ = .2;
+    eps_0_ = 1.;
+    M_= 4.;
+    theta_0_ =3.14159/4.;
+    R_0_ =.3;
+    //R_0_ =.1;
+    
+    //function pointers
+    hp1_ = &hp1_cummins_;
+    hpp1_ = &hpp1_cummins_;
+    w_ = &w_cummins_;
+    m_ = &m_cummins_;
+    //m_ = &m_furtado_;
+    rand_phi_ = &rand_phi_furtado_;
+    //rand_phi_ = &rand_phi_zero_;
+    gp1_ = &gp1_cummins_;
+    gpp1_ = &gpp1_cummins_;
+    //hp2_ = &hp2_cummins_;
+    hp2_ = &hp2_furtado_;
+
+    gs2_ = &gs2_cummins_;
+    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+  
+
+  }else if("cummins" == paramList.get<std::string> (TusastestNameString)){
+    
+    numeqs_ = 2;
+#if 0
+    D_ = 4.;
+    T_m_ = 1.55;
+    T_inf_ = 1.;
+    alpha_ = 191.82;
+    eps_ = .05;
+    eps_0_ = 1.;
+    M_= 4.;
+    theta_0_ =0.;
+    R_0_ =.3;
+    
+    //function pointers
+    hp1_ = &hp1_cummins_;
+    hpp1_ = &hpp1_cummins_;
+    w_ = &w_cummins_;
+    m_ = &m_cummins_;
+    rand_phi_ = &rand_phi_zero_;
+    gp1_ = &gp1_cummins_;
+    gpp1_ = &gpp1_cummins_;
+    hp2_ = &hp2_cummins_;
+
+    gs2_ = &gs2_cummins_;
+    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+#endif
+    
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					   const int &i, 
+					   const double &dt_, 
+					   const double &t_theta_, 
+					   const double &delta)>(numeqs_);
+    (*residualfunc_)[0] = &residual_heat_;
+    (*residualfunc_)[1] = &residual_phase_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					 const int &i,  
+					 const int &j,
+					 const double &dt_, 
+					 const double &t_theta_, 
+					 const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &prec_heat_;
+    (*preconfunc_)[1] = &prec_phase_;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    (*initfunc_)[0] = &init_heat_;
+    (*initfunc_)[1] = &init_phase_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+  }else {
+
+    D_ = 4.;
+    T_m_ = 1.55;
+    T_inf_ = 1.;
+    alpha_ = 191.82;
+    eps_ = .05;
+    eps_0_ = 1.;
+    M_= 4.;
+    theta_0_ =0.;
+    R_0_ =.3;
+    
+    //function pointers
+    hp1_ = &hp1_cummins_;
+    hpp1_ = &hpp1_cummins_;
+    w_ = &w_cummins_;
+    m_ = &m_cummins_;
+    rand_phi_ = &rand_phi_zero_;
+    gp1_ = &gp1_cummins_;
+    gpp1_ = &gpp1_cummins_;
+    hp2_ = &hp2_cummins_;
+
+    gs2_ = &gs2_cummins_;
+    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+  }
+
 }
 #endif

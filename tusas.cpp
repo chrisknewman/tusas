@@ -32,7 +32,6 @@
 #include "ModelEvaluatorHEAT.hpp"
 #include "ModelEvaluatorPHASE_HEAT.hpp"
 #include "ModelEvaluatorNEMESIS.hpp"
-#include "ModelEvaluatorPHASE_HEAT_Exp.hpp"
 
 #include "Mesh.h"
 

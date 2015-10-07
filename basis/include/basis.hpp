@@ -8,7 +8,7 @@ class Basis {
  public:
 
   // Constructor
-  Basis(){}
+  Basis(){};
 
   // Destructor
   virtual ~Basis(){}
@@ -19,9 +19,12 @@ class Basis {
 
   virtual void getBasis(const int gp, const double *x, const double *y, const double *z, const double *u){getBasis(gp, x, y, z, u, NULL, NULL);};
   virtual void getBasis(const int gp, const double *x, const double *y, const double *z, const double *u, const double *uold){getBasis(gp, x, y, z, u, uold, NULL);};
-  virtual void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold) = 0;
+  virtual void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){exit(0);};
 
-  void setN(int N, double *abscissa, double *weight);
+  void setN(int N, double *abscissa, double *weight);    
+
+  virtual Basis* clone() const {exit(0);};
+  virtual char type() {exit(0);};
 
  public:
   // Variables that are calculated at the gauss point
@@ -49,6 +52,8 @@ class BasisLTri : public Basis {
 
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
+  BasisLTri* clone() const{ return new BasisLTri(*this); }
+  char type() { return 1; }
 
  public:
   // Variables that are calculated at the gauss point
@@ -62,7 +67,11 @@ class BasisLQuad : public Basis {
   BasisLQuad(int sngp = 2);
 
   // Destructor
-  virtual ~BasisLQuad();
+  ~BasisLQuad();
+
+  BasisLQuad* clone() const{ return new BasisLQuad(*this); }
+  char type() { return 1; }
+
 
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
@@ -81,7 +90,10 @@ class BasisQTri : public Basis {
   BasisQTri();
 
   // Destructor
-  virtual ~BasisQTri();
+  ~BasisQTri();
+
+  BasisQTri* clone() const{ return new BasisQTri(*this); }
+  char type() { return 1; }
 
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
@@ -98,7 +110,10 @@ class BasisQQuad : public Basis {
   BasisQQuad();
 
   // Destructor
-  virtual ~BasisQQuad();
+  ~BasisQQuad();    
+
+  BasisQQuad* clone() const{ return new BasisQQuad(*this); }
+  char type() { return 1; }
 
   void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
@@ -119,7 +134,10 @@ class BasisLHex : public Basis {
   BasisLHex(int sngp);
 
   // Destructor
-  virtual ~BasisLHex();
+  ~BasisLHex();
+
+  BasisLHex* clone() const{ return new BasisLHex(*this); }
+  char type() { return 1; }
 
   // Calculates the values of u and x at the specified gauss point
   void getBasis(const int gp, const double *x, const double *y);
@@ -142,7 +160,10 @@ class BasisLTet : public Basis {
   BasisLTet(int sngp);
 
   // Destructor
-  virtual ~BasisLTet();
+  ~BasisLTet();
+
+  BasisLTet* clone() const{ return new BasisLTet(*this); }
+  char type() { return 1; }
 
   // Calculates the values of u and x at the specified gauss point
   void getBasis(const int gp, const double *x, const double *y);

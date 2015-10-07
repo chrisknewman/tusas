@@ -77,7 +77,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     
 //     MLList.set("ML output",10);
 
-    MLList.set("PDE equations",2);
+    MLList.set("PDE equations",1);
 
 
   //read/overwrite here

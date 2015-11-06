@@ -206,7 +206,11 @@ double dgs2_2dtheta_karma_(const double &theta, const double &M, const double &e
 
 //double diffusivity_heat_(const double &theta, const double &M, const double &eps, const double &psi)
 double residual_heat_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta)
+		      const int &i, 
+		      const double &dt_, 
+		      const double &t_theta_, 
+		      const double &delta, 
+		      const double &time)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -262,7 +266,8 @@ double theta(const double &x,const double &y)
   return t;
 }
 double residual_phase_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta)
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -474,7 +479,8 @@ double init_phase_(const double &x,
   return val;
 }
 double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta)
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx

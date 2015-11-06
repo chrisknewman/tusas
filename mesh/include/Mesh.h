@@ -1,10 +1,5 @@
 #ifndef MESH_H
 #define MESH_H
-extern "C" {
-
-#include "exodusII.h"
-
-} 
 
 #include <vector>
 #include <string>

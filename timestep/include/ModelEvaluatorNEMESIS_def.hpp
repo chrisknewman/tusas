@@ -2,7 +2,7 @@
 #define NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP
 
 // Thyra support
-#include "Thyra_DefaultSpmdVectorSpace.hpp"
+//#include "Thyra_DefaultSpmdVectorSpace.hpp"
 #include "Thyra_DefaultSerialDenseLinearOpWithSolveFactory.hpp"
 #include "Thyra_DetachedMultiVectorView.hpp"
 #include "Thyra_DetachedVectorView.hpp"
@@ -506,14 +506,13 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 			       mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
 			       );
 	 
-
 	    if (nonnull(f_out)) {
 	      //double x = ubasis->xx;
 	      //double y = ubasis->yy;     
    
 	      for( int k = 0; k < numeqs_; k++ ){
 		int row1 = row + k;
-		double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta);
+		double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta,time_);
 		//f->SumIntoGlobalValues ((int) 1, &val, &row);
 		if(0 != f_fe.SumIntoGlobalValues ((int) 1, &row1, &val))
 		  exit(0);
@@ -1004,6 +1003,8 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
   nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Initial Tolerance", 1.0e-1);
   nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Maximum Tolerance", 1.0e-2);
   nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Minimum Tolerance", 1.0e-5);//1.0e-6
+  nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Alpha", 1.5);
+  nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Gamma", .9);
   //nl_params->sublist("Direction").sublist("Newton").sublist("Linear Solver").sublist("Output").set("Total Number of Linear Iterations",0);
   // Create the solver
   solver_ =  NOX::Solver::buildSolver(nox_group, combo, nl_params);
@@ -1030,7 +1031,6 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
     std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
     if(200 == paramList.get<int> (TusasnoxmaxiterNameString)) exit(0);
   }
-
   nnewt_ += solver_->getNumIterations();
 
   const Thyra::VectorBase<double> * sol = 
@@ -1055,7 +1055,7 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   random_vector_old_->Scale((double)1.,*random_vector_);
   time_ +=dt_;
   //update_mesh_data();
-  if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1==comm_->NumProc()) ){
+  if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
     find_vtip();
   }
 }
@@ -1120,7 +1120,7 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
     output_step_ = 1;
     write_exodus();
     
-    if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1==comm_->NumProc())){
+    if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
       init_vtip();
     }
   }
@@ -1135,7 +1135,7 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
   }
 //   mesh_->add_nodal_field("u");
 //   mesh_->add_nodal_field("phi");
-  if( 0 == comm_->MyPID()) std::cout<<std::endl<<"inititialize finished"<<std::endl<<std::endl;
+  if( 0 == comm_->MyPID()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
 }
 
 template<class Scalar>
@@ -1153,7 +1153,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   write_exodus();
   
   //cn we should trigger this in xml file
-  //write_matlab();
+  write_matlab();
 
   std::cout<<(solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")<<std::endl;
   int ngmres = 0;
@@ -1188,7 +1188,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   timefile.open("time.dat");
   Teuchos::TimeMonitor::summarize(timefile);
   
-  if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1 == numproc)){
+  if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
     finalize_vtip();
   }
 
@@ -1208,6 +1208,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   delete preconfunc_;
   delete initfunc_;
   delete varnames_;
+  if( NULL != dirichletfunc_) delete dirichletfunc_;
 }
 
 template<class Scalar>
@@ -1682,12 +1683,52 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
     //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
     
     std::string mypidstring;
+#if 0
     if ( numproc > 9 && mypid < 10 ){
       mypidstring = std::to_string(0)+std::to_string(mypid);
     }
     else{
       mypidstring = std::to_string(mypid);
     }
+#endif
+
+    if( numproc < 10 ){
+      mypidstring = std::to_string(mypid);
+    }
+    if( numproc > 9 && numproc < 100 ){
+      if ( mypid < 10 ){
+	mypidstring = std::to_string(0)+std::to_string(mypid);
+      }
+      else{
+	mypidstring = std::to_string(mypid);
+      }
+    }
+    if( numproc > 99 && numproc < 1000 ){
+      if ( mypid < 10 ){
+	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+      }
+      else if ( mypid > 9 && mypid < 100 ){
+	mypidstring = std::to_string(0)+std::to_string(mypid);
+      }
+      else{
+	mypidstring = std::to_string(mypid);
+      }
+      if( numproc > 999 && numproc < 10000 ){
+	if ( mypid < 10 ){
+	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+	}
+	else if ( mypid > 9 && mypid < 100 ){
+	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+	}
+	else if ( mypid > 99 && mypid < 1000 ){
+      mypidstring = std::to_string(0)+std::to_string(mypid);
+	}
+	else{
+	  mypidstring = std::to_string(mypid);
+	}
+      }
+    }
+    
     
     std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
     ex_id_ = mesh_->open_exodus(pfile.c_str());
@@ -1941,7 +1982,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					   const int &i, 
 					   const double &dt_, 
 					   const double &t_theta_, 
-					   const double &delta)>(numeqs_);
+					   const double &delta, 
+					   const double &time_)>(numeqs_);
     (*residualfunc_)[0] = &residual_heat_;
     (*residualfunc_)[1] = &residual_phase_;
 
@@ -1974,7 +2016,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					   const int &i, 
 					   const double &dt_, 
 					   const double &t_theta_, 
-					   const double &delta)>(numeqs_);
+					   const double &delta, 
+					   const double &time_)>(numeqs_);
     (*residualfunc_)[0] = &residual_heat_test_;
 
     preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
@@ -2034,6 +2077,59 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     gs2_ = &gs2_cummins_;
     dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+  }
+
+  int mypid = comm_->MyPID();
+  if(0 == mypid) {
+    std::cout<<"set_test_case started"<<std::endl;
+    if(0 <  numeqs_){
+      std::cout<<"  numeqs_ = "<<numeqs_<<std::endl;
+    }else{
+      std::cout<<"  numeqs < 0. Exiting."<<std::endl;
+      exit(0);
+    }
+
+    if(NULL != residualfunc_){
+      std::cout<<"  residualfunc_ with size "<<residualfunc_->size()<<" found."<<std::endl;
+    }else{
+      std::cout<<"  residualfunc_ not found. Exiting."<<std::endl;
+      exit(0);
+    }
+
+    if(NULL != preconfunc_){
+      std::cout<<"  preconfunc_ with size "<<preconfunc_->size()<<" found."<<std::endl;
+    }
+
+    if(NULL != initfunc_){
+      std::cout<<"  initfunc_ with size "<<initfunc_->size()<<" found."<<std::endl;
+    }else{
+      std::cout<<"  initfunc_ not found. Exiting."<<std::endl;
+      exit(0);
+    }
+
+    if(NULL != varnames_){
+      std::cout<<"  varnames_ with size "<<varnames_->size()<<" found."<<std::endl;
+    }else{
+      std::cout<<"  varnames_ not found. Exiting."<<std::endl;
+      exit(0);
+    }
+
+    if(NULL != dirichletfunc_){
+      std::cout<<"  dirichletfunc_ with size "<<dirichletfunc_->size()<<" found."<<std::endl;
+      typedef double (*DBCFUNC)(const double &x,
+				const double &y,
+				const double &z);
+      std::map<int,DBCFUNC>::iterator it;
+      
+      for( int k = 0; k < numeqs_; k++ ){
+	for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
+	  int ns_id = it->first;
+	  std::cout<<"    Equation: "<<k<<" nodeset: "<<ns_id<<std::endl;
+	}
+      }
+    }
+
+    std::cout<<"set_test_case ended"<<std::endl;
   }
 
 }

@@ -192,7 +192,8 @@ private: // data members
 			 const int &i, 
 			 const double &dt_, 
 			 const double &t_theta_, 
-			 const double &delta)> *residualfunc_;
+			 const double &delta, 
+			 const double &time)> *residualfunc_;
 
 
   std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 

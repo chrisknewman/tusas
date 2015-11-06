@@ -8,7 +8,8 @@
   <Parameter name="testcase" type="string" value="cummins"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="0.5"/>
-  <Parameter name="method" type="string" value="phaseheat"/>
+  <Parameter name="outputfreq" type="int" value = "5"/>
+<!--    <Parameter name="method" type="string" value="phaseheat"/>> -->
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
 
 </ParameterList>

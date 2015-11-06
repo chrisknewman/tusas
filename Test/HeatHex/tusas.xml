@@ -5,10 +5,10 @@
   <Parameter name="dt" type="double" value=".001"/>
   <Parameter name="nt" type="int" value = "10"/>
   <Parameter name="meshfile" type="string" value="../../meshes/hex64_3d.e"/>
-  <Parameter name="testcase" type="string" value="cummins"/>
+  <Parameter name="testcase" type="string" value="heat"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value=".5"/>
-  <Parameter name="method" type="string" value="heat"/>
+<!--   <Parameter name="method" type="string" value="heat"/> -->
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
 
 </ParameterList>

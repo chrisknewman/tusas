@@ -8,7 +8,7 @@
   <Parameter name="testcase" type="string" value="cummins"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="1"/>
-  <Parameter name="method" type="string" value="nemesis"/>
+<!--     <Parameter name="method" type="string" value="nemesis"/> -->
   <Parameter name="deltafactor" type="double" value="1.0"/> 
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
 

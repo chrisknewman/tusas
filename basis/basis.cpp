@@ -1010,9 +1010,9 @@ void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  con
     }
     if( uoldold ){
       uuoldold += uoldold[i] * phi[i];
-      duoldolddx += uoldold[i] * dphidx[i];
-      duoldolddy += uoldold[i]* dphidy[i];
-      duoldolddz += uoldold[i]* dphidz[i];
+      duoldolddx += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
+      duoldolddy += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
+      duoldolddz += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
     }
   }
   return;
@@ -1184,9 +1184,9 @@ void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  con
     }
     if( uoldold ){
       uuoldold += uoldold[i] * phi[i];
-      duoldolddx += uoldold[i] * dphidx[i];
-      duoldolddy += uoldold[i]* dphidy[i];
-      duoldolddz += uoldold[i]* dphidz[i];
+      duoldolddx += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
+      duoldolddy += uoldold[i] * (dphidxi[i]*dxidy+dphideta[i]*detady+dphidzta[i]*dztady);
+      duoldolddz += uoldold[i] * (dphidxi[i]*dxidz+dphideta[i]*detadz+dphidzta[i]*dztadz);
     }
   }
   return;

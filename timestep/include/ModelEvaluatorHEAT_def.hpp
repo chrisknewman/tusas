@@ -2,7 +2,7 @@
 #define NOX_THYRA_MODEL_EVALUATOR_HEAT_DEF_HPP
 
 // Thyra support
-#include "Thyra_DefaultSpmdVectorSpace.hpp"
+//#include "Thyra_DefaultSpmdVectorSpace.hpp"
 #include "Thyra_DefaultSerialDenseLinearOpWithSolveFactory.hpp"
 #include "Thyra_DetachedMultiVectorView.hpp"
 #include "Thyra_DetachedVectorView.hpp"

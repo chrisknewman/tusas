@@ -3,6 +3,8 @@
 #include <algorithm>
 #include "string.h"
 
+#include "exodusII.h"
+
 //#ifdef NEMESIS
 #include "ne_nemesisI.h"
 //#endif
@@ -671,8 +673,8 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
 
 }
 int Mesh::read_last_step_exodus(const int ex_id, int &timestep){
-  float ret_float = 0.0;;
-  char *ret_char;
+  float ret_float = 0.0;
+  char *ret_char = '\0';
   int error = ex_inquire (ex_id, EX_INQ_TIME, &timestep, &ret_float,ret_char);
   return error;
 }

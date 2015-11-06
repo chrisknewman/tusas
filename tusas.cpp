@@ -36,7 +36,7 @@
 #include "Mesh.h"
 
 #include "ParamNames.h"
-#include "readInput.h"
+#include "ReadInput.h"
 #include "tusas.h"
 
 using namespace std;
@@ -191,12 +191,54 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
     }
   }
   std::string mypidstring;
+#if 0
   if ( numproc > 9 && mypid < 10 ){
     mypidstring = std::to_string(0)+std::to_string(mypid);
   }
   else{
     mypidstring = std::to_string(mypid);
   }
+#endif
+
+  if( numproc < 10 ){
+    mypidstring = std::to_string(mypid);
+  }
+  if( numproc > 9 && numproc < 100 ){
+    if ( mypid < 10 ){
+      mypidstring = std::to_string(0)+std::to_string(mypid);
+    }
+    else{
+      mypidstring = std::to_string(mypid);
+    }
+  }
+  if( numproc > 99 && numproc < 1000 ){
+    if ( mypid < 10 ){
+      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+    }
+    else if ( mypid > 9 && mypid < 100 ){
+      mypidstring = std::to_string(0)+std::to_string(mypid);
+    }
+    else{
+      mypidstring = std::to_string(mypid);
+    }
+  }
+  if( numproc > 999 && numproc < 10000 ){
+    if ( mypid < 10 ){
+      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+    }
+    else if ( mypid > 9 && mypid < 100 ){
+      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+    }
+    else if ( mypid > 99 && mypid < 1000 ){
+      mypidstring = std::to_string(0)+std::to_string(mypid);
+    }
+    else{
+      mypidstring = std::to_string(mypid);
+    }
+  }
+
+
+
   outfile=decompPath+std::to_string(mypid+1)+"/"+nemStr+".par."+std::to_string(numproc)+"."+mypidstring;
   //std::cout<<outfile<<std::endl;
 
@@ -213,7 +255,7 @@ int join(const int mypid, const int numproc)
     std::string decompPath="decomp/";
     std::string trilinosPath=TRILINOS_DIR;
     //std::string trilinosPath=getenv("TRILINOS_DIR");
-    std::string comStr = trilinosPath+"/bin/epu -auto -add_processor_id "+decompPath+"results.e."+std::to_string(numproc)+".00";
+    std::string comStr = trilinosPath+"/bin/epu -auto -add_processor_id "+decompPath+"results.e."+std::to_string(numproc)+".000";
     
     std::cout<<"Running epu command: "<<comStr <<std::endl;
     if(-1 == system(comStr.c_str()) ){

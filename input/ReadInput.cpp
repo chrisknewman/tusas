@@ -58,15 +58,15 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasdeltafactorNameString,(double) .5,TusasdtDocString);
 
-  Teuchos::ParameterList MLList;
-  MLList = paramList.sublist ( TusasmlNameString, false );
+  Teuchos::ParameterList *MLList;
+  MLList = &paramList.sublist ( TusasmlNameString, false );
   ML_Epetra::SetDefaults("SA",paramList.sublist (TusasmlNameString ));
     //MLList.set("coarse: max size",(int)128);
-    MLList.set("cycle applications",(int)2);
+  //    MLList->set("cycle applications",(int)2);
 //     MLList.set("prec type","full-MGV");
 //     MLList.set("smoother: type","Chebyshev");
-    MLList.set("smoother: type","Jacobi");
-    MLList.set("smoother: sweeps",(int)2); 
+    MLList->set("smoother: type","Jacobi");
+    MLList->set("smoother: sweeps",(int)2); 
 //     MLList.set("smoother: damping factor", 1.0);
 
 //    MLList.set("coarse: type","Chebyshev");
@@ -77,7 +77,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     
 //     MLList.set("ML output",10);
 
-    MLList.set("PDE equations",1);
+//    MLList->set("PDE equations",1);
 
 
   //read/overwrite here

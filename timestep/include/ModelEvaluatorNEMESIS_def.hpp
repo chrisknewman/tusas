@@ -847,19 +847,29 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 
   ::Stratimikos::DefaultLinearSolverBuilder builder;
 
-  Teuchos::RCP<Teuchos::ParameterList> lsparams =
-    Teuchos::rcp(new Teuchos::ParameterList);
+
+
+
+  //cn working on #236
+  Teuchos::ParameterList *LSList;
+  LSList = &paramList.sublist("Linear Solver",false);
+
 #if 0
-  lsparams->set("Linear Solver Type", "Belos");
+  LSList->set("Linear Solver Type", "Belos");
   //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
   //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
   //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
 #else
-  lsparams->set("Linear Solver Type", "AztecOO");
-  lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").set("Output Frequency",1);
+  LSList->set("Linear Solver Type", "AztecOO");
+  LSList->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").set("Output Frequency",1);
   //lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").sublist("AztecOO Preconditioner", "None");
 #endif
-  lsparams->set("Preconditioner Type", "None");
+  LSList->set("Preconditioner Type", "None");
+
+  Teuchos::RCP<Teuchos::ParameterList> lsparams =
+    Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist("Linear Solver")));
+  //Teuchos::rcp(new Teuchos::ParameterList(LSList1));
+
   builder.setParameterList(lsparams);
   //lsparams->print(cout);
   if( 0 == mypid )

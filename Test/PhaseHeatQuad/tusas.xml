@@ -11,5 +11,8 @@
   <Parameter name="outputfreq" type="int" value = "5"/>
 <!--    <Parameter name="method" type="string" value="phaseheat"/>> -->
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+   <ParameterList name="ML">
+     <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/>
+   </ParameterList>
 
 </ParameterList>

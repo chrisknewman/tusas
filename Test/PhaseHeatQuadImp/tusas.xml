@@ -11,5 +11,8 @@
 <!--     <Parameter name="method" type="string" value="nemesis"/> -->
   <Parameter name="deltafactor" type="double" value="1.0"/> 
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+   <ParameterList name="ML">
+     <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/>
+   </ParameterList>
 
 </ParameterList>

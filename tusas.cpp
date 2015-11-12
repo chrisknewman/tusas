@@ -43,7 +43,7 @@ using namespace std;
 
 //std::string TRILINOS_DIR="/Users/cnewman/src/trilinos-11.12.1-Source/GCC_4_9_1_MPI_OMP_DBG/";
 
-int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart);
+int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const Epetra_Comm * comm);
 int join(const int mypid, const int numproc);
 
 int main(int argc, char *argv[])
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
       exit(0);
     }
     std::string pfile;
-    decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString));
+    decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString),&Comm);
     Comm.Barrier();
     
     in_mesh->read_exodus(pfile .c_str());
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
   delete in_mesh;
 }
 
-int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart){
+int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const Epetra_Comm * comm){
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
   if( 0 == mypid && !restart){
@@ -190,6 +190,7 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
       exit(0);
     }
   }
+  comm->Barrier();
   std::string mypidstring;
 #if 0
   if ( numproc > 9 && mypid < 10 ){

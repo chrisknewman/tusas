@@ -1535,6 +1535,7 @@ void ModelEvaluatorNEMESIS<Scalar>::find_vtip()
   std::cout<<"vtip_x_old_ = "<<vtip_x_old_<<std::endl;
   std::cout<<"vtip        = "<<(vtip_x_-vtip_x_old_)/dt_<<std::endl<<std::endl;
   std::ofstream outfile;
+  
   outfile.open("vtip.dat", std::ios::app );
   outfile << std::setprecision(16)
     <<time_<<" "<<(vtip_x_-vtip_x_old_)/dt_<<" "<<vtip_x_<<std::endl;
@@ -1564,7 +1565,7 @@ void ModelEvaluatorNEMESIS<Scalar>::find_vtip_x()
       vtip_x_ = (m*x2-phi2+phi_avg)/m;
       std::cout<<"x1: "<<x1<<" "<<phi1<<" "<<std::endl;
       std::cout<<"x2: "<<x2<<" "<<phi2<<" "<<std::endl;
-      std::cout<<"x:  "<<vtip_x_<<" "<<phi_avg<<" "<<m<<std::endl;
+      std::cout<<"x:  "<<vtip_x_<<" "<<phi_avg<<" "<<m<<" proc: "<<comm_->MyPID()<<std::endl;
       std::cout<<"nodeid:  "<<nodeid<<std::endl;
       break;
     }

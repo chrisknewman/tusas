@@ -1,5 +1,11 @@
 cmake_minimum_required (VERSION 2.6)
 
+SET( DIR_6 ${TRILINOS_DIR}lib )
+INCLUDE( ${DIR_6}/cmake/Trilinos/TrilinosConfig.cmake )
+
+SET( CMAKE_C_COMPILER ${Trilinos_C_COMPILER} )
+SET( CMAKE_CXX_COMPILER ${Trilinos_CXX_COMPILER} )
+
 project ( TusasTest )
 
 #add_executable ( run_tusas run_tusas.cpp )

@@ -847,28 +847,8 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 
   ::Stratimikos::DefaultLinearSolverBuilder builder;
 
-
-
-
-  //cn working on #236
-  Teuchos::ParameterList *LSList;
-  LSList = &paramList.sublist("Linear Solver",false);
-
-#if 0
-  LSList->set("Linear Solver Type", "Belos");
-  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
-  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
-  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
-#else
-  LSList->set("Linear Solver Type", "AztecOO");
-  LSList->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").set("Output Frequency",1);
-  //lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").sublist("AztecOO Preconditioner", "None");
-#endif
-  LSList->set("Preconditioner Type", "None");
-
   Teuchos::RCP<Teuchos::ParameterList> lsparams =
-    Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist("Linear Solver")));
-  //Teuchos::rcp(new Teuchos::ParameterList(LSList1));
+    Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusaslsNameString)));
 
   builder.setParameterList(lsparams);
   //lsparams->print(cout);
@@ -897,13 +877,11 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
   Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
 
   // Create the JFNK operator
-  Teuchos::ParameterList printParams;
-  Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::parameterList();
-  jfnkParams->set("Difference Type","Forward");
-  //jfnkParams->set("Perturbation Algorithm","KSP NOX 2001");
-  jfnkParams->set("lambda",1.0e-4);
+  Teuchos::ParameterList printParams;//cn this is empty??? for now
   Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
     Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
+
+  Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
   jfnkOp->setParameterList(jfnkParams);
   if( 0 == mypid )
     jfnkParams->print(std::cout);
@@ -981,26 +959,8 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
   combo->addStatusTest(converged);
   combo->addStatusTest(maxiters);
 
-  // Create nox parameter list
   Teuchos::RCP<Teuchos::ParameterList> nl_params =
-    Teuchos::rcp(new Teuchos::ParameterList);
-  nl_params->set("Nonlinear Solver", "Line Search Based");
-  Teuchos::ParameterList& searchParams = nl_params->sublist("Line Search");
-  //searchParams.set("Method", "Full Step");
-  //searchParams.set("Method", "Interval Halving");
-  //searchParams.set("Method", "Polynomial");
-  //searchParams.set("Method", "Backtrack");
-  //searchParams.set("Method", "NonlinearCG");
-  //searchParams.set("Method", "Quadratic");
-  //searchParams.set("Method", "More'-Thuente");
-  
-  Teuchos::ParameterList& btParams = nl_params->sublist("Backtrack");
-  btParams.set("Default Step",1.0);
-  btParams.set("Max Iters",20);
-  btParams.set("Minimum Step",1e-6);
-  btParams.set("Recovery Step",1e-3);
-	    
-  //nl_params->sublist("Direction").sublist("Newton").sublist("Linear Solver").set("Tolerance", 1.0e-10);
+    Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasnlsNameString)));
   Teuchos::ParameterList& nlPrintParams = nl_params->sublist("Printing");
   nlPrintParams.set("Output Information",
 		  NOX::Utils::OuterIteration  +
@@ -1009,15 +969,9 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 		    NOX::Utils::Details //+
 		    //NOX::Utils::LinearSolverDetails
 		    );
-  nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Method", "Type 2");
-  nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Initial Tolerance", 1.0e-1);
-  nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Maximum Tolerance", 1.0e-2);
-  nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Minimum Tolerance", 1.0e-5);//1.0e-6
-  nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Alpha", 1.5);
-  nl_params->sublist("Direction").sublist("Newton").set("Forcing Term Gamma", .9);
-  //nl_params->sublist("Direction").sublist("Newton").sublist("Linear Solver").sublist("Output").set("Total Number of Linear Iterations",0);
   // Create the solver
   solver_ =  NOX::Solver::buildSolver(nox_group, combo, nl_params);
+
   if( 0 == mypid )
     std::cout<<std::endl<<"init_nox() completed."<<std::endl<<std::endl;
 }

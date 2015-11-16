@@ -11,20 +11,6 @@
 
 void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &paramList, int mypid )
 {
-  //string   filename                = "meshes/tri24.e"    ;
-  //string   filename                = "meshes/tri96.e"    ;
-  //string   filename                = "meshes/tri384.e"    ;
-  //string   filename                = "meshes/quad16.e"    ;
-  //string   filename                = "meshes/quad64.e"    ;
-  //string   filename                = "meshes/quad256.e"    ;
-  //string   filename                = "meshes/quad1024.e"    ;
-  //string   filename                = "meshes/quad4096.e"    ;
-  //string   filename                = "meshes/dendquad300.e"    ;
-  //string   filename                = "meshes/dendquad300_h.e"    ;
-  //string   filename                = "meshes/dendquad300_q.e"    ;
-  //string   filename                = "meshes/dendquad600.e"    ;
-
-
   //set defaults here
   paramList.set(TusasmeshNameString,"meshes/dendquad300_q.e",TusasmeshDocString);
 
@@ -58,6 +44,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasdeltafactorNameString,(double) .5,TusasdtDocString);
 
+  //ML parameters
   Teuchos::ParameterList *MLList;
   MLList = &paramList.sublist ( TusasmlNameString, false );
   ML_Epetra::SetDefaults("SA",paramList.sublist (TusasmlNameString ));
@@ -78,6 +65,53 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 //     MLList.set("ML output",10);
 
 //    MLList->set("PDE equations",1);
+
+  //Linear solver parameters
+  Teuchos::ParameterList *LSList;
+  LSList = &paramList.sublist(TusaslsNameString,false);
+#if 0
+  LSList->set("Linear Solver Type", "Belos");
+  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
+  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
+  //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
+#else
+  LSList->set("Linear Solver Type", "AztecOO");
+  LSList->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").set("Output Frequency",1);
+  //lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").sublist("AztecOO Preconditioner", "None");
+#endif
+  LSList->set("Preconditioner Type", "None");
+
+  //jfnk params
+  Teuchos::ParameterList *JFNKList;
+  JFNKList = &paramList.sublist(TusasjfnkNameString,false);
+  JFNKList->set("Difference Type","Forward");
+  JFNKList->set("lambda",1.0e-4);
+
+  //nonlinear solver parameters
+  Teuchos::ParameterList *NLSList;
+  NLSList = &paramList.sublist(TusasnlsNameString,false);
+  NLSList->set("Nonlinear Solver", "Line Search Based");
+  Teuchos::ParameterList& searchParams = NLSList->sublist("Line Search");
+  //searchParams.set("Method", "Full Step");
+  //searchParams.set("Method", "Interval Halving");
+  //searchParams.set("Method", "Polynomial");
+  //searchParams.set("Method", "Backtrack");
+  //searchParams.set("Method", "NonlinearCG");
+  //searchParams.set("Method", "Quadratic");
+  //searchParams.set("Method", "More'-Thuente");
+
+  Teuchos::ParameterList& btParams = NLSList->sublist("Backtrack");
+  btParams.set("Default Step",1.0);
+  btParams.set("Max Iters",20);
+  btParams.set("Minimum Step",1e-6);
+  btParams.set("Recovery Step",1e-3);
+
+  NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Method", "Type 2");
+  NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Initial Tolerance", 1.0e-1);
+  NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Maximum Tolerance", 1.0e-2);
+  NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Minimum Tolerance", 1.0e-5);//1.0e-6
+  NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Alpha", 1.5);
+  NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Gamma", .9);
 
 
   //read/overwrite here

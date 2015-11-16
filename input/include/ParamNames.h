@@ -26,10 +26,16 @@ std::string const TusasnoxmaxiterNameString = "noxmaxiter";
 std::string const TusasnoxmaxiterDocString = "nox max number iterations (int): default 200";
 std::string const TusasoutputfreqNameString = "outputfreq";
 std::string const TusasoutputfreqDocString = "output frequency (int): default 1e10";
-//std::string const TusasrestartstepNameString = "restartstep";
-//std::string const TusasrestartstepDocString = "timestep to restart (int): default 0";
+
 std::string const TusasmlNameString = "ML";
 std::string const TusasmlDocString = "over ride ML parameters";
+std::string const TusaslsNameString = "Linear Solver";
+std::string const TusaslsDocString = "over ride linear solver parameters";
+std::string const TusasjfnkNameString = "JFNK Solver";
+std::string const TusasjfnkDocString = "over ride JFNK solver; probably should not be changed";
+std::string const TusasnlsNameString = "Nonlinear Solver";
+std::string const TusasnlsDocString = "over ride nonlinear solver parameters";
+
 std::string const TusasdeltafactorNameString = "deltafactor";
 std::string const TusasdeltafactorDocString = "multiplicaton factor for delta (double): default 0.5";
 

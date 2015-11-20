@@ -212,6 +212,9 @@ private: // data members
   std::vector<std::map<int,double (*)(const double &x,
 				      const double &y,
 				      const double &z)>> *dirichletfunc_;
+  
+  //cn need this to be a function of all variables eventually
+  //std::vector<double (*)(const double &u)> *postprocfunc_;
 
   std::map<double,int> x_node;
   void init_vtip();

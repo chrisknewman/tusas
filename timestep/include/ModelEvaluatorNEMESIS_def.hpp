@@ -1009,10 +1009,10 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   *u_old_old_ = *u_old_;
 
   for (int nn=0; nn < num_my_nodes_; nn++) {//cn figure out a better way here...
-    //(*dudt_)[numeqs_*nn]=(x_vec[numeqs_*nn] - (*u_old_)[numeqs_*nn])/dt_;
-    //(*dudt_)[numeqs_*nn+1]=(x_vec[numeqs_*nn+1] - (*u_old_)[numeqs_*nn+1])/dt_;
-    (*u_old_)[numeqs_*nn]=x_vec[numeqs_*nn];
-    (*u_old_)[numeqs_*nn+1]=x_vec[numeqs_*nn+1];
+
+    for( int k = 0; k < numeqs_; k++ ){
+      (*u_old_)[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
+    }
   }
   //u_old_->Print(std::cout);
   random_number_old_=random_number_;
@@ -1117,7 +1117,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   write_exodus();
   
   //cn we should trigger this in xml file
-  write_matlab();
+  //write_matlab();
 
   std::cout<<(solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")<<std::endl;
   int ngmres = 0;
@@ -1173,6 +1173,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   delete initfunc_;
   delete varnames_;
   if( NULL != dirichletfunc_) delete dirichletfunc_;
+  //if( NULL != postprocfunc_) delete postprocfunc_;
 }
 
 template<class Scalar>
@@ -2001,8 +2002,6 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
 
-    int n_dirichlet = 4;
-
     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
 							      const double &y,
 							      const double &z)>>(numeqs_);
@@ -2011,13 +2010,65 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 // 							      const double &y,
 // 							      const double &z)>>(numeqs_,
 // 										 std::map<int,double (*)(const double &x,
-// 													 const double &y,
-// 													 const double &z)>(n_dirichlet));
+// 													 const double &y, 
+//               													 const double &z)>(n_dirichlet));
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
     (*dirichletfunc_)[0][0] = &dirichlet_zero_;							 
     (*dirichletfunc_)[0][1] = &dirichlet_zero_;						 
     (*dirichletfunc_)[0][2] = &dirichlet_zero_;						 
     (*dirichletfunc_)[0][3] = &dirichlet_zero_;
 
+  }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
+    //farzadi test
+
+    //numeqs_ = 2;
+    numeqs_ = 3;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    (*initfunc_)[0] = &init_conc_farzadi_;
+    (*initfunc_)[1] = &init_phase_farzadi_;
+    (*initfunc_)[2] = &init_conc_farzadi_;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					   const int &i, 
+					   const double &dt_, 
+					   const double &t_theta_, 
+					   const double &delta, 
+					   const double &time_)>(numeqs_);
+    (*residualfunc_)[0] = &residual_conc_farzadi_;
+    (*residualfunc_)[1] = &residual_phase_farzadi_;
+    (*residualfunc_)[2] = &residual_c_farzadi_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					 const int &i,  
+					 const int &j,
+					 const double &dt_, 
+					 const double &t_theta_, 
+					 const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &prec_conc_farzadi_;
+    (*preconfunc_)[1] = &prec_phase_farzadi_;
+    (*preconfunc_)[2] = &prec_c_farzadi_;
+
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+    (*varnames_)[2] = "c";
+
+    //dirichletfunc_ = NULL;
+
+    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							      const double &y,
+							      const double &z)>>(numeqs_);
+    (*dirichletfunc_)[0][1] = &dirichlet_mone_;	
+    //(*dirichletfunc_)[0][3] = &dirichlet_zero_;												 
+    (*dirichletfunc_)[1][1] = &dirichlet_mone_;												 
+    //(*dirichletfunc_)[1][3] = &dirichlet_one_;						 
+
+    //exit(0);
   }else {
 
     D_ = 4.;

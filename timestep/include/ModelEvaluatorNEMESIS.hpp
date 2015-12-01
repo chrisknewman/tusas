@@ -3,6 +3,7 @@
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"	
 #include "Teuchos_ParameterList.hpp"
+#include <Teuchos_TimeMonitor.hpp>
 #include "Epetra_FECrsGraph.h"
 
 #include "Mesh.h"
@@ -222,6 +223,8 @@ private: // data members
   void find_vtip_x();
   void finalize_vtip();
   double vtip_x_,vtip_x_old_;
+
+  RCP<Teuchos::Time> ts_time_import;
 
 };
 

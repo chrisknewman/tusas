@@ -596,15 +596,16 @@ double init_phase_farzadi_(const double &x,
 			 const double &y,
 			 const double &z)
 {
+  //cn something wierd with greater than 8 procs here....
   double pi = 3.141592653589793;
   double theta_0_ = 0.;
 
   double phi_sol_ = 1.;
   double phi_liq_ = -1.;
 
-  double val = 0.;  
+  double val = phi_liq_;  
 
-  double r = .001+.001*abs(sin(y*13.*pi/.000036));//cn this will be a perturbation
+  double r = 10.+ 10.*abs(sin(y*7.*pi/636.408));//cn this will be a perturbation
 
   if(x < r){
     val=phi_sol_;
@@ -680,7 +681,7 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
   double hp1 = lambda*(1. - phi*phi)*(1. - phi*phi)*(u+t_scale);
   double phidel = hp1*test;
   //phidel = 0.;
-  double rhs = divgradphi + curlgrad*(-1.) + phidel2 + phidel;
+  double rhs = divgradphi + curlgrad + phidel2 + phidel;
   rhs = divgradphi + phidel;
   dphidx = basis[1].duolddx;
   dphidy = basis[1].duolddy;
@@ -702,7 +703,7 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
 	      
   double rhs_old = divgradphi + curlgrad + phidel2 + phidel;
 
-  return phit + t_theta_*rhs;// + (1.-t_theta_)*rhs_old*0.;
+  return dt_*phit + dt_*t_theta_*rhs;// + (1.-t_theta_)*rhs_old*0.;
 
 }
 
@@ -729,7 +730,7 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   double k =0.14;
   //double D_ = .6267/.8839*10.*10.;
-  double D_ = .6267*10.;
+  double D_ = .6267*10.;//a_2*lambda
 
   double ut = (1.+k)/2.*(u-uold)/dt_*test;
   //ut = (u-uold)/dt_*test;
@@ -775,7 +776,7 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
  
   //return ut*0.  + t_theta_*(divgradu + divj*0.) + (1.-t_theta_)*(divgradu_old + divj_old)*0. + t_theta_*phitu*0. + (1.-t_theta_)*phitu_old*0.;
 
-  return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
+  return dt_*ut + dt_*t_theta_*divgradu  + 0.*dt_*t_theta_*divj + dt_*t_theta_*phitu;
 }
 double residual_c_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
@@ -788,7 +789,7 @@ double residual_c_farzadi_(const boost::ptr_vector<Basis> &basis,
   double k = 0.14;
   double c_inf = 3.;
 
-  return (2.*k*c+c_inf*(1.+k-phi+k*phi)*(-1-u+k*u))*test;
+  return dt_*(2.*k*c+c_inf*(1.+k-phi+k*phi)*(-1-u+k*u))*test;
 }
 double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -841,7 +842,7 @@ double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   //return phit + t_theta_*divgrad + t_theta_*curlgrad;
 
-  return phit + t_theta_*divgrad;
+  return dt_*phit + dt_*t_theta_*divgrad;
 }
 double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -874,7 +875,7 @@ double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
   double divgrad = D_*(1.-basis[1].phi[j])/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
   //double divgrad = D_/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
   double u_t =(1.+k)/2.*test * basis[0].phi[j]/dt_;
-  return u_t + t_theta_*divgrad;
+  return dt_*u_t + dt_*t_theta_*divgrad;
 }
 double prec_c_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)

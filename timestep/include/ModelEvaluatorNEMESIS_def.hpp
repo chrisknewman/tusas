@@ -172,7 +172,10 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   nominalValues_.set_x(x0_);
   time_=0.;
 
+  ts_time_import= Teuchos::TimeMonitor::getNewTimer("Total Import Time");
+
   init_nox();
+
 }
 
 // Initializers/Accessors
@@ -357,21 +360,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     RCP<const Epetra_Vector> u_in = (Thyra::get_Epetra_Vector(*x_owned_map_,inArgs.get_x()));
     RCP< Epetra_Vector> u = rcp(new Epetra_Vector(*x_overlap_map_));
-    u->Import(*u_in, *importer_, Insert);
-
     //cn could probably just make u_old_(*x_overlap_map_) (and u_old_old_) instead of communicating here
     RCP< Epetra_Vector> u_old = rcp(new Epetra_Vector(*x_overlap_map_));
-    u_old->Import(*u_old_, *importer_, Insert);
     RCP< Epetra_Vector> u_old_old = rcp(new Epetra_Vector(*x_overlap_map_));
-    u_old_old->Import(*u_old_old_, *importer_, Insert);
-
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+      u->Import(*u_in, *importer_, Insert);
+      u_old->Import(*u_old_, *importer_, Insert);
+      u_old_old->Import(*u_old_old_, *importer_, Insert);
+    }
     double jac;
     double *xx, *yy, *zz;
     int n_nodes_per_elem;
 
     //double delta_factor =1.;//amount to adjust delta by
     double delta_factor =paramList.get<double> (TusasdeltafactorNameString);
-    Basis *ubasis, *phibasis;
 
     int dim = mesh_->get_num_dim();
 
@@ -383,40 +386,28 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       boost::ptr_vector<Basis> basis;
 
       if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
-	ubasis = new BasisLQuad;
-	phibasis = new BasisLQuad;
 	for ( int nb = 0; nb < numeqs_; nb++ )
 	  basis.push_back(new BasisLQuad());
       }
       else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
-	ubasis = new BasisLTri;
-	phibasis = new BasisLTri;
 	for ( int nb = 0; nb < numeqs_; nb++ )
 	  basis.push_back(new BasisLTri());
 	delta_factor = 2.*delta_factor;
       }
       else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){ // linear hex
-	ubasis = new BasisLHex;
-	phibasis = new BasisLHex;
 	for ( int nb = 0; nb < numeqs_; nb++ )
 	  basis.push_back(new BasisLHex());
       } 
       else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra")) ){ // linear tet
- 	ubasis = new BasisLTet;
- 	phibasis = new BasisLTet;
 	for ( int nb = 0; nb < numeqs_; nb++ )
 	  basis.push_back(new BasisLTet());
       } 
       else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
- 	ubasis = new BasisQQuad;
- 	phibasis = new BasisQQuad;
 	for ( int nb = 0; nb < numeqs_; nb++ )
 	  basis.push_back(new BasisQQuad());
 	delta_factor = .5*delta_factor;
       }
       else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){ // quadratic triangle
-	ubasis = new BasisQTri;
-	phibasis = new BasisQTri;
 	for ( int nb = 0; nb < numeqs_; nb++ )
 	  basis.push_back(new BasisQTri());
 	//delta_factor = .5*delta_factor;
@@ -473,7 +464,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}
 	if ( dx < 1e-16){
 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
-	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<" jac = "<<basis[0].jac<<" wt = "<<ubasis->wt<<std::endl<<std::endl<<std::endl;
+	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
 	  exit(0);
 	}
 	//cn should be cube root in 3d
@@ -807,7 +798,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
   }//blk
 
     delete xx, yy, zz;
-    delete ubasis, phibasis;
     
     if (nonnull(f_out)){
       //f->Print(std::cout);
@@ -961,6 +951,8 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 
   Teuchos::RCP<Teuchos::ParameterList> nl_params =
     Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasnlsNameString)));
+  if( 0 == mypid )
+    nl_params->print(std::cout);
   Teuchos::ParameterList& nlPrintParams = nl_params->sublist("Printing");
   nlPrintParams.set("Output Information",
 		  NOX::Utils::OuterIteration  +
@@ -2022,15 +2014,15 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
 
-    //numeqs_ = 2;
-    numeqs_ = 3;
+    numeqs_ = 2;
+    //numeqs_ = 3;
 
     initfunc_ = new  std::vector<double (*)(const double &x,
 					    const double &y,
 					    const double &z)>(numeqs_);
     (*initfunc_)[0] = &init_conc_farzadi_;
     (*initfunc_)[1] = &init_phase_farzadi_;
-    (*initfunc_)[2] = &init_conc_farzadi_;
+    //(*initfunc_)[2] = &init_conc_farzadi_;
 
     residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
 					   const int &i, 
@@ -2040,7 +2032,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					   const double &time_)>(numeqs_);
     (*residualfunc_)[0] = &residual_conc_farzadi_;
     (*residualfunc_)[1] = &residual_phase_farzadi_;
-    (*residualfunc_)[2] = &residual_c_farzadi_;
+    //(*residualfunc_)[2] = &residual_c_farzadi_;
 
     preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
 					 const int &i,  
@@ -2050,13 +2042,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 const double &delta)>(numeqs_);
     (*preconfunc_)[0] = &prec_conc_farzadi_;
     (*preconfunc_)[1] = &prec_phase_farzadi_;
-    (*preconfunc_)[2] = &prec_c_farzadi_;
+    //(*preconfunc_)[2] = &prec_c_farzadi_;
 
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
     (*varnames_)[1] = "phi";
-    (*varnames_)[2] = "c";
+    //(*varnames_)[2] = "c";
 
     //dirichletfunc_ = NULL;
 

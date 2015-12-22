@@ -231,6 +231,7 @@ BasisLQuad::~BasisLQuad() {
 
 void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
 
+  //cn this is horrible, need a better way than having if statements in here
   if(4 == ngp){
     if(0 == gp){
       xi = abscissa[0];

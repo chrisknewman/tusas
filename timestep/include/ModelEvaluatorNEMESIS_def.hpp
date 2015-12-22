@@ -369,7 +369,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       u_old->Import(*u_old_, *importer_, Insert);
       u_old_old->Import(*u_old_old_, *importer_, Insert);
     }
-    double jac;
     double *xx, *yy, *zz;
     int n_nodes_per_elem;
 
@@ -378,6 +377,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     int dim = mesh_->get_num_dim();
 
+    //#pragma omp parallel for
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 
       n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
@@ -429,7 +429,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
       std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
       std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
-
+      //#pragma omp parallel for default(shared) private(xx,yy,zz,jac)
       for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
 
 	for(int k = 0; k < n_nodes_per_elem; k++){
@@ -607,194 +607,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	  }//it
 	}//k
-
-
       }//if
-
-
-
-#if 0
-      if (nonnull(W_prec_out)) {
-	if(paramList.get<std::string> (TusastestNameString)=="pool"){
-	  P_->GlobalAssemble();
-	  std::vector<int> node_num_map(mesh_->get_node_num_map());
-	  int lenind = 27;//cn 27 in 3d
-	  int ns_id = 0;
-	  for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
-	    
-	    int lid = mesh_->get_node_set_entry(ns_id, j);
-	    int gid = node_num_map[lid];
-	    int row = numeqs_*gid;
-	    int num_nodes;
-	    
-	    std::vector<int> column(lenind);
-	    
-	    int err = W_graph_->ExtractGlobalRowCopy 	( 	row,
-								lenind,
-								num_nodes,
-								&column[0]
-								) ;
-	    
-	    column.resize(num_nodes);
-	    double d = 1.;
-	    //ExtractGlobalRowCopy (int GlobalRow, int Length, int &NumEntries, double *Values, int *Indices) 
-// 	    int one = 1;
-// 	    P_->ExtractGlobalRowCopy (row,(int)1, one, &d, &lid);
-	    std::vector<double> vals (num_nodes,0.);
-	    P_->ReplaceGlobalValues (row, num_nodes, &vals[0],&column[0] );
-	    P_->ReplaceGlobalValues (row, (int)1, &d ,&row );
-
-	    int row1 = row + 1;
-	    column.resize(lenind);
-	    W_graph_->ExtractGlobalRowCopy 	( 	row1,
-								lenind,
-								num_nodes,
-								&column[0]
-								) ;
-	    column.resize(num_nodes);
-	    std::vector<double>vals1(num_nodes,0.);
-	    P_->ReplaceGlobalValues (row1, num_nodes, &vals1[0],&column[0] );
-	    P_->ReplaceGlobalValues (row1, (int)1, &d ,&row1 );
-	    
-	    //cn only want a temperature bc here
-	    // 	  column.resize(num_nodes);
-	    // 	  vals.resize(num_nodes,0.);
-	    // 	  int row1 = row +1;
-	    // 	  for (int k = 0; k < num_nodes; k++){
-	    // 	    column[k] = numeqs_*(mesh_->get_nodal_adj(lid))[k]+1;
-	    // 	  }
-	    // 	  column.push_back(row1);
-	    // 	  vals.push_back(1.);
-	    // 	  P_->ReplaceGlobalValues ((int)1, &row1, vals.size(), &column[0], &vals[0] );
-
-	  
-	  }
-	  ns_id = 1;
-	  for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
-	    
-	    int lid = mesh_->get_node_set_entry(ns_id, j);
-	    int gid = node_num_map[lid];
-	    int row = numeqs_*gid;
-	    int num_nodes;
-	    
-	    std::vector<int> column(lenind);
-	    
-	    int err = W_graph_->ExtractGlobalRowCopy 	( 	row,
-								lenind,
-								num_nodes,
-								&column[0]
-								) ;
-	    
-	    column.resize(num_nodes);
-	    std::vector<double> vals (num_nodes,0.);
-	    P_->ReplaceGlobalValues (row, num_nodes, &vals[0],&column[0] );
-	    double d = 1.;
-	    P_->ReplaceGlobalValues (row, (int)1, &d ,&row );
-	    
-	    //cn only want a temperature bc here
-	    // 	  column.resize(num_nodes);
-	    // 	  vals.resize(num_nodes,0.);
-	    // 	  int row1 = row +1;
-	    // 	  for (int k = 0; k < num_nodes; k++){
-	    // 	    column[k] = numeqs_*(mesh_->get_nodal_adj(lid))[k]+1;
-	    // 	  }
-	    // 	  column.push_back(row1);
-	    // 	  vals.push_back(1.);
-	    // 	  P_->ReplaceGlobalValues ((int)1, &row1, vals.size(), &column[0], &vals[0] );
-
-	  
-	  }
-	}
-      }
-#endif
-#if 0
-	ns_id = 1;
-	for ( int j = 0; j < mesh_->get_node_set(2).size(); j++ ){
-	  	  
-	  int node = mesh_->get_node_set_entry(ns_id, j);
-	  int row = numeqs_*node;
-	  int num_nodes = (mesh_->get_nodal_adj(node)).size();
-
-	  std::vector<int> column (num_nodes);
-	  for (int k = 0; k < num_nodes; k++){
-	    column[k] = numeqs_*(mesh_->get_nodal_adj(node))[k];
-	  }
-	  std::vector<double> vals (column.size(),0.);
-	  column.push_back(row);
-	  vals.push_back(1.);
-	  P_->ReplaceGlobalValues (row, vals.size(), &vals[0],&column[0] );
-
-	  column.resize(num_nodes);
-	  vals.resize(num_nodes,0.);
-	  int row1 = row +1;
-	  for (int k = 0; k < num_nodes; k++){
-	    column[k] = numeqs_*(mesh_->get_nodal_adj(node))[k]+1;
-	  }
-	  column.push_back(row1);
-	  vals.push_back(1.);
-	  P_->ReplaceGlobalValues (row1, vals.size(), &vals[0],&column[0] );
-
-	}
-
-	ns_id = 2;
-	for ( int j = 0; j < mesh_->get_node_set(3).size(); j++ ){
-	 
- 
-	  int node = mesh_->get_node_set_entry(ns_id, j);
-	  int row = numeqs_*node;
-	  int num_nodes = (mesh_->get_nodal_adj(node)).size();
-
-	  std::vector<int> column (num_nodes);
-	  for (int k = 0; k < num_nodes; k++){
-	    column[k] = numeqs_*(mesh_->get_nodal_adj(node))[k];
-	  }
-	  std::vector<double> vals (column.size(),0.);
-	  column.push_back(row);
-	  vals.push_back(1.);
-	  P_->ReplaceGlobalValues (row, vals.size(), &vals[0],&column[0] );
-
-	  column.resize(num_nodes);
-	  vals.resize(num_nodes,0.);
-	  int row1 = row +1;
-	  for (int k = 0; k < num_nodes; k++){
-	    column[k] = numeqs_*(mesh_->get_nodal_adj(node))[k]+1;
-	  }
-	  column.push_back(row1);
-	  vals.push_back(1.);
-	  P_->ReplaceGlobalValues (row1, vals.size(), &vals[0],&column[0] );
-	  
-	}
-	ns_id = 3;
-	for ( int j = 0; j < mesh_->get_node_set(0).size(); j++ ){
-
-
-	  int node = mesh_->get_node_set_entry(ns_id, j);
-	  int row = numeqs_*node;
-	  int num_nodes = (mesh_->get_nodal_adj(node)).size();
-
-	  std::vector<int> column (num_nodes);
-	  for (int k = 0; k < num_nodes; k++){
-	    column[k] = numeqs_*(mesh_->get_nodal_adj(node))[k];
-	  }
-	  std::vector<double> vals (column.size(),0.);
-	  column.push_back(row);
-	  vals.push_back(1.);
-	  P_->ReplaceGlobalValues (row, vals.size(), &vals[0],&column[0] );
-
-	  column.resize(num_nodes);
-	  vals.resize(num_nodes,0.);
-	  int row1 = row +1;
-	  for (int k = 0; k < num_nodes; k++){
-	    column[k] = numeqs_*(mesh_->get_nodal_adj(node))[k]+1;
-	  }
-	  column.push_back(row1);
-	  vals.push_back(1.);
-	  P_->ReplaceGlobalValues (row1, vals.size(), &vals[0],&column[0] );
-	  
-	}
-      
-      }
-#endif
   }//blk
 
     delete xx, yy, zz;
@@ -1548,6 +1361,7 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
 
   std::vector<std::vector<double>> output(numeqs_, std::vector<double>(num_nodes_));
 
+  //#pragma omp parallel for
   for (int nn=0; nn < num_nodes_; nn++) {
     for( int k = 0; k < numeqs_; k++ ){
       output[k][nn]=(*temp)[numeqs_*nn+k];
@@ -1994,6 +1808,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
 
+    // numeqs_ number of variables(equations) 
     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
 							      const double &y,
 							      const double &z)>>(numeqs_);
@@ -2006,6 +1821,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 //               													 const double &z)>(n_dirichlet));
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
+//  [variable index][nodeset index]
     (*dirichletfunc_)[0][0] = &dirichlet_zero_;							 
     (*dirichletfunc_)[0][1] = &dirichlet_zero_;						 
     (*dirichletfunc_)[0][2] = &dirichlet_zero_;						 

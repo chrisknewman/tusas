@@ -824,7 +824,8 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   random_vector_old_->Scale((double)1.,*random_vector_);
   time_ +=dt_;
   //update_mesh_data();
-  if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
+  //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
+  if((paramList.get<std::string> (TusastestNameString)=="cummins")){
     find_vtip();
   }
 }
@@ -889,7 +890,8 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
     output_step_ = 1;
     write_exodus();
     
-    if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
+    //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
+    if((paramList.get<std::string> (TusastestNameString)=="cummins") ){
       init_vtip();
     }
   }
@@ -957,7 +959,8 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   timefile.open("time.dat");
   Teuchos::TimeMonitor::summarize(timefile);
   
-  if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
+  //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
+  if((paramList.get<std::string> (TusastestNameString)=="cummins") ){
     finalize_vtip();
   }
 
@@ -1276,40 +1279,45 @@ void ModelEvaluatorNEMESIS<Scalar>::init_vtip()
 {
   //cn hack
   std::cout<<"init_vtip() started"<<std::endl;
-  if(0 == mesh_->get_node_set(0).size() ){
-    std::cout<<"init_vtip() mesh_->get_node_set(0).size() == 0"<<std::endl;
-    exit(0);
-  }
-  for ( int j = 0; j < mesh_->get_node_set(0).size(); j++ ){
-    //int nodeid = mesh_->get_node_id(blk, ne, j);
-    int nodeid = mesh_->get_node_set_entry(0, j);
+  if(0 != mesh_->get_node_set(0).size() ){
+    // std::cout<<"init_vtip() mesh_->get_node_set(0).size() == 0"<<std::endl;
+    //exit(0);
+  
+    for ( int j = 0; j < mesh_->get_node_set(0).size(); j++ ){
+      //int nodeid = mesh_->get_node_id(blk, ne, j);
+      int nodeid = mesh_->get_node_set_entry(0, j);
+      
+      //std::cout<<j<<" "<<nodeid<<" "<<mesh_->get_x(nodeid)<<" "<<mesh_->get_y(nodeid)<<std::endl;	    
+      x_node.insert(std::pair<double,int>(mesh_->get_x(nodeid),nodeid) ); 
+    }
     
-    //std::cout<<j<<" "<<nodeid<<" "<<mesh_->get_x(nodeid)<<" "<<mesh_->get_y(nodeid)<<std::endl;	    
-    x_node.insert(std::pair<double,int>(mesh_->get_x(nodeid),nodeid) ); 
+    vtip_x_ = 0.;
+    find_vtip_x();
+    vtip_x_old_ = vtip_x_;  
+    std::ofstream outfile;
+    outfile.open("vtip.dat");
+    outfile.close();
+    std::cout<<"init_vtip() ended"<<std::endl;
   }
-    
-  vtip_x_ = 0.;
-  find_vtip_x();
-  vtip_x_old_ = vtip_x_;  
-  std::ofstream outfile;
-  outfile.open("vtip.dat");
-  outfile.close();
-  std::cout<<"init_vtip() ended"<<std::endl;
 }
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::find_vtip()
 {
   vtip_x_old_ = vtip_x_;
   find_vtip_x();
-  std::cout<<"vtip_x_     = "<<vtip_x_<<std::endl;
-  std::cout<<"vtip_x_old_ = "<<vtip_x_old_<<std::endl;
-  std::cout<<"vtip        = "<<(vtip_x_-vtip_x_old_)/dt_<<std::endl<<std::endl;
-  std::ofstream outfile;
-  
-  outfile.open("vtip.dat", std::ios::app );
-  outfile << std::setprecision(16)
-    <<time_<<" "<<(vtip_x_-vtip_x_old_)/dt_<<" "<<vtip_x_<<std::endl;
-  outfile.close();
+  if( vtip_x_ > 0. && vtip_x_ < 4.5 ){
+    std::cout<<"vtip_x_     = "<<vtip_x_<<std::endl;
+    std::cout<<"vtip_x_old_ = "<<vtip_x_old_<<std::endl;
+    std::cout<<"vtip        = "<<(vtip_x_-vtip_x_old_)/dt_<<std::endl<<std::endl;
+    std::ofstream outfile;
+    
+    std::cout<<"Writing vtip data start proc: "<<comm_->MyPID()<<std::endl;
+    outfile.open("vtip.dat", std::ios::app );
+    outfile << std::setprecision(16)
+	    <<time_<<" "<<(vtip_x_-vtip_x_old_)/dt_<<" "<<vtip_x_<<std::endl;
+    outfile.close();
+    std::cout<<"Writing vtip data end proc: "<<comm_->MyPID()<<std::endl;
+  }
   //exit(0);
 }
 template<class Scalar>
@@ -1319,6 +1327,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize_vtip()
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::find_vtip_x()
 {
+  vtip_x_ = -9999.;
   double phi_avg = .5*(phi_sol_ + phi_liq_);
   std::map<double,int>::iterator it;
   for (it=x_node.begin(); it!=x_node.end(); ++it){
@@ -1326,7 +1335,7 @@ void ModelEvaluatorNEMESIS<Scalar>::find_vtip_x()
     double x2 = it->first;
     double phi2 = (*u_old_)[numeqs_*nodeid+1];
     //std::cout << it->first << " => " << it->second << " => " <<(*u_old_)[numeqs_*nodeid+1] << std::endl;
-    if (phi2 < phi_avg){
+    if ((phi2 < phi_avg) && (phi2 > phi_liq_+1e-6)){
 //       std::cout<<x2<<" "<<nodeid<<" "<<phi2<<std::endl;
       --it;
       double x1 = it->first;
@@ -1772,6 +1781,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					    const double &y,
 					    const double &z)>(numeqs_);
     (*initfunc_)[0] = &init_heat_;
+    //(*initfunc_)[0] = &init_heat_const_;
     (*initfunc_)[1] = &init_phase_;
 
     varnames_ = new std::vector<std::string>(numeqs_);

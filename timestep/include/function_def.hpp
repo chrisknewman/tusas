@@ -449,13 +449,20 @@ double init_heat_(const double &x,
 
   if(x*x+y*y+z*z < r*r){
     val=T_m_;
-    //(*u)[numeqs_*nn+1]=phi_sol_;
   }
   else {
     val=T_inf_;
-    //(*u)[numeqs_*nn+1]=phi_liq_;
   }
   return val;
+}
+double init_heat_const_(const double &x,
+			 const double &y,
+			 const double &z)
+{
+
+  double T_inf_ = 1.;
+
+  return T_inf_;
 }
 double init_phase_(const double &x,
 			 const double &y,

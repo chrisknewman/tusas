@@ -30,6 +30,7 @@ int Mesh::read_exodus(const char * filename){
   std::vector<int>::iterator a;
 
   num_nodal_fields = 0;
+  num_elem_fields = 0;
 
   int ex_id = ex_open(filename,//cn open file
 		      EX_READ,
@@ -665,6 +666,7 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
   error = write_element_blocks_exodus(ex_id);
   //std::cout<<error<<std::endl;
   error = write_nodal_data_exodus(ex_id,counter);
+  error = write_elem_data_exodus(ex_id,counter);
   //std::cout<<error<<std::endl;
   error = ex_put_time(ex_id,counter,&time);
   //std::cout<<error<<std::endl;
@@ -958,6 +960,51 @@ int Mesh::write_nodal_data_exodus(int ex_id, int counter){
 
 }
 
+int Mesh::write_elem_data_exodus(int ex_id, int counter){
+  int ex_err;
+  char **var_names;
+
+
+  if(verbose)
+
+    std::cout<<"=== Write Nodal Data Exodus ==="<<std::endl
+	     <<" num_nodal_fields "<<num_nodal_fields<<std::endl;
+
+  if(num_elem_fields == 0) return 0;
+
+  ex_err = ex_put_var_param (ex_id, "E", num_elem_fields);
+
+  var_names = new char*[num_elem_fields];
+
+  for(int i = 0; i < num_elem_fields; i++){
+
+    var_names[i] = (char *)&elem_field_names[i][0];
+
+    if(verbose)
+
+      std::cout<<" name  "<<var_names[i]<<std::endl<<std::endl;
+
+  }
+
+  int blk = 1; //hack
+  ex_err = ex_put_var_names (ex_id, "E", num_elem_fields, var_names);
+
+  for(int i = 0; i < num_elem_fields; i++){
+
+    ex_err = ex_put_elem_var (ex_id, counter, i + 1, blk,num_elem, &elem_fields[i][0]);
+
+    //(exoid,time_step,elem_var_index,elem_blk_id,num_elem_this_blk,elem_var_vals)
+    //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<nodal_fields[i][j]<<std::endl;
+  
+  }
+
+  delete [] var_names;
+
+  return ex_err;
+
+}
+
+
 int Mesh::read_num_proc_nemesis(int ex_id, int *nproc){
   int num_proc_in_file;
   char ftype;
@@ -1046,6 +1093,20 @@ int Mesh::add_nodal_field(std::string name){
 
 }
 
+int Mesh::add_elem_field(std::string name){
+    num_elem_fields++;
+   
+    elem_field_names.push_back(name);
+    elem_fields.resize(num_elem_fields);
+    if(verbose)
+      
+      std::cout<<"=== add elem field ==="<<std::endl
+	       <<" num_elem_fields "<<num_elem_fields<<std::endl
+	       <<" sizeof elem_field_names "<<elem_field_names.size()<<std::endl;
+  return 1;
+
+}
+
 
 int Mesh::update_nodal_data(std::string name, double *data){
 
@@ -1068,6 +1129,32 @@ int Mesh::update_nodal_data(std::string name, double *data){
 
    std::cout<<name<<" not found"<<std::endl<<std::endl;
    //exit(0);
+   return 0;
+
+}
+
+int Mesh::update_elem_data(std::string name, double *data){
+
+  for (int i = 0; i < num_elem_fields; i++){
+    if(name == elem_field_names[i]){
+      //std::cout<<"found"<<std::endl;
+      std::vector<double> a(data, data + num_nodes);
+      elem_fields[i]=a;
+      //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<proc_id<<" "<<(nodal_fields[i]).size()<<" "<<num_nodes<<" "<<j<<" "<<nodal_fields[i][j]<<std::endl;
+      return 1;
+    }
+  }
+
+   if(verbose)
+
+     std::cout<<"=== Update elem data ==="<<std::endl
+	      <<" num_elem_fields "<<num_elem_fields<<std::endl
+	      <<" sizeof elem_field_names "<<elem_field_names.size()<<std::endl
+	      <<" sizeof elem_fields "<<elem_fields.size()<<std::endl<<std::endl;
+
+   std::cout<<name<<" not found"<<std::endl<<std::endl;
+   //exit(0);
+
    return 0;
 
 }
@@ -1186,4 +1273,38 @@ int  Mesh::get_num_global_nodes(){
   }
 }
 
+
+void Mesh::compute_nodal_patch(){
+
+
+  //cn not confirmed in parallel yet, there may be some issues
+
+  //std::cout<<"compute_nodal_patch()"<<std::endl<<std::endl;
+
+  nodal_patch.resize(num_nodes);
+
+
+  //std::cout<<"compute_nodal_patch() "<<nodal_patch.size()<<" "<<num_nodes<<std::endl<<std::endl;
+  for(int blk = 0; blk < get_num_elem_blks(); blk++){
+    int n_nodes_per_elem = get_num_nodes_per_elem_in_blk(blk);
+    for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+      for(int k = 0; k < n_nodes_per_elem; k++){
+	
+	int nodeid = get_node_id(blk, ne, k);
+	nodal_patch[nodeid].push_back(ne);
+      }
+
+    }
+  }
+
+//   for(int i=0; i<num_nodes; i++){
+//     std::cout<<i<<":: ";
+//     for(int j=0; j< nodal_patch[i].size(); j++){
+//       std::cout<<nodal_patch[i][j]<<" ";
+//     }
+//     std::cout<<std::endl;
+//   }
+//   exit(0);
+
+}
 

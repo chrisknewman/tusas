@@ -36,11 +36,18 @@ class Mesh
 
   void compute_nodal_adj();
 
+  void compute_nodal_patch();
+
+  std::vector<int> get_nodal_patch(int i){return nodal_patch[i];}
+
 
   int add_nodal_data(std::string name, std::vector<double> &data);
   int add_nodal_data(std::string name, double *data);
   int add_nodal_field(std::string name);
   int update_nodal_data(std::string name, double *data);
+
+  int add_elem_field(std::string name);
+  int update_elem_data(std::string name, double *data);
 
   void set_verbose(const bool v = true);
 
@@ -109,6 +116,7 @@ class Mesh
   int num_node_sets;
   int num_side_sets;
   int num_nodal_fields;
+  int num_elem_fields;
   int num_vertices;
   int num_my_nodes;
 
@@ -143,12 +151,16 @@ class Mesh
   std::vector<std::string> nodal_field_names;      
   std::vector<std::vector<double> > nodal_fields;
 
+  std::vector<std::string> elem_field_names;      
+  std::vector<std::vector<double> > elem_fields;
+
   std::map<int,int> vertex_map;      
 
   int write_nodal_coordinates_exodus(int ex_id);
   int write_element_blocks_exodus(int ex_id);
   int write_nodal_data_exodus(int ex_id);
   int write_nodal_data_exodus(int ex_id, int counter);
+  int write_elem_data_exodus(int ex_id, int counter);
   int close_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
   int get_nodal_field_index(std::string name);
@@ -176,6 +188,8 @@ class Mesh
 
   std::vector<std::vector<int> > node_ids_in_cmap, n_proc_ids_in_cmap;
   std::vector<std::vector<int> > elem_ids_in_cmap, e_side_ids_in_cmap, e_proc_ids_in_cmap;
+
+  std::vector<std::vector<int> > nodal_patch;//[nodeid][elemnt ids in patch
 
   int proc_id, nprocs, nprocs_infile;
 

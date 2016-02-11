@@ -44,6 +44,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasdeltafactorNameString,(double) .5,TusasdtDocString);
 
+  paramList.set(TusaserrorestimatorNameString,(int) -1,TusaserrorestimatorDocString);
+
   //ML parameters
   Teuchos::ParameterList *MLList;
   MLList = &paramList.sublist ( TusasmlNameString, false );

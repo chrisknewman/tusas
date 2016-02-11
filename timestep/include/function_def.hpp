@@ -489,6 +489,8 @@ double residual_heat_test_(const boost::ptr_vector<Basis> &basis,
 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
 		      const double &time)
 {
+
+  //u[x,y,t]=exp(-2 pi^2 t)sin(pi x)sin(pi y)
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
     +basis[0].dphideta[i]*basis[0].detadx

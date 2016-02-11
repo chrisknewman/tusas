@@ -39,6 +39,9 @@ std::string const TusasnlsDocString = "over ride nonlinear solver parameters";
 std::string const TusasdeltafactorNameString = "deltafactor";
 std::string const TusasdeltafactorDocString = "multiplicaton factor for delta (double): default 0.5";
 
+std::string const TusaserrorestimatorNameString = "errorestimator";
+std::string const TusaserrorestimatorDocString = "variable to estimate error for, -i corrsponds to none (int): default -1";
+
 //other parameters not in the input file
 std::string const TusasrestartNameString = "restart";
 std::string const TusasrestartDocString = "restart (bool): false (default); true";

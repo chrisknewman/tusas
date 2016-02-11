@@ -9,6 +9,7 @@
 #include "Mesh.h"
 #include "preconditioner.hpp"
 #include "timestep.hpp"
+#include "error_estimator.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 template<class Scalar> class ModelEvaluatorNEMESIS;
@@ -225,6 +226,7 @@ private: // data members
   double vtip_x_,vtip_x_old_;
 
   RCP<Teuchos::Time> ts_time_import;
+  error_estimator * Error_est;
 
 };
 

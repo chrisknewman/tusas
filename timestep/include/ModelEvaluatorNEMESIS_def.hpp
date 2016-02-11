@@ -27,6 +27,7 @@
 #include "Epetra_FECrsGraph.h"
 #include "Epetra_FECrsMatrix.h"
 #include "EpetraExt_VectorOut.h"
+#include "Epetra_FEVector.h"
 
 //teuchos support
 #include <Teuchos_RCP.hpp>	
@@ -46,6 +47,8 @@
 #include <boost/ptr_container/ptr_vector.hpp>
 
 //#include "function_def.hpp"
+
+//#define TUSAS_OMP
 
 // Nonmember constuctors
 Basis* new_clone(Basis const& other){
@@ -175,6 +178,14 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_import= Teuchos::TimeMonitor::getNewTimer("Total Import Time");
 
   init_nox();
+
+  int error_index = paramList.get<int> (TusaserrorestimatorNameString);
+  if( -1 < error_index && numeqs_ > error_index ){
+    Error_est = new error_estimator(comm_,mesh_,numeqs_,error_index);
+  }
+  else{
+    Error_est = NULL;
+  }
 
 }
 
@@ -369,20 +380,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       u_old->Import(*u_old_, *importer_, Insert);
       u_old_old->Import(*u_old_old_, *importer_, Insert);
     }
-    double *xx, *yy, *zz;
     int n_nodes_per_elem;
 
     //double delta_factor =1.;//amount to adjust delta by
     double delta_factor =paramList.get<double> (TusasdeltafactorNameString);
 
-    int dim = mesh_->get_num_dim();
-
-    //#pragma omp parallel for
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+
+#ifdef TUSAS_OMP
+#pragma omp parallel for
+      for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
+#endif
 
       n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
       std::string elem_type=mesh_->get_blk_elem_type(blk);
-
+ 
       boost::ptr_vector<Basis> basis;
 
       if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
@@ -422,15 +434,17 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       }
 
 
+      double *xx, *yy, *zz;
       xx = new double[n_nodes_per_elem];
       yy = new double[n_nodes_per_elem];
       zz = new double[n_nodes_per_elem];
-
       std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
       std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
       std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
-      //#pragma omp parallel for default(shared) private(xx,yy,zz,jac)
-      for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
+
+#ifndef TUSAS_OMP
+      for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor 
+#endif
 
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
@@ -440,26 +454,18 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  yy[k] = mesh_->get_y(nodeid);
 	  zz[k] = mesh_->get_z(nodeid);
 
-	  //int mypid = comm_->MyPID();
-	  //std::cout<<ne<<" "<<n_nodes_per_elem<<" "<<nodeid<<" "<<mypid<<" "<<xx[k]<<" "<<yy[k]<<std::endl;
-
-	  //int lid = x_overlap_map_->LID(nodeid);
-	  int lid = nodeid;	  
-
 	  for( int neq = 0; neq < numeqs_; neq++ ){
-	    uu[neq][k] = (*u)[numeqs_*lid+neq]; 
-	    uu_old[neq][k] = (*u_old)[numeqs_*lid+neq];
-	    uu_old_old[neq][k] = (*u_old_old)[numeqs_*lid+neq];
-	  }
+	    uu[neq][k] = (*u)[numeqs_*nodeid+neq]; 
+	    uu_old[neq][k] = (*u_old)[numeqs_*nodeid+neq];
+	    uu_old_old[neq][k] = (*u_old_old)[numeqs_*nodeid+neq];
+	  }//neq
 	}//k
-
+	
 	double dx = 0.;
 	for(int gp=0; gp < basis[0].ngp; gp++) {
 
-	  //ubasis->getBasis(gp, xx, yy, zz);
 	  basis[0].getBasis(gp, xx, yy, zz);
 
-	  //dx += ubasis->jac*ubasis->wt;
 	  dx += basis[0].jac*basis[0].wt;
 	}
 	if ( dx < 1e-16){
@@ -469,21 +475,15 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}
 	//cn should be cube root in 3d
 	dx = sqrt(dx);	
-	double W_ = dx/.4;
-	if ( W_ < 1e-16){
-	  std::cout<<"W_ = "<<W_<<std::endl<<std::endl<<std::endl;
-	  exit(0);
-	}
-
+	
 	for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
 
 	  // Calculate the basis function at the gauss point
-
 	  for( int neq = 0; neq < numeqs_; neq++ ){
 	    basis[neq].getBasis(gp, xx, yy, zz, &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
 	  }
 
-	  double jacwt = basis[0].jac * basis[0].wt;
+	  //double jacwt = basis[0].jac * basis[0].wt;
 	  //cn and should be adjusted for quadratic elements and tris
 	  double delta = dx*delta_factor;
 
@@ -492,28 +492,27 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  //srand(123);
 
 	  for (int i=0; i< n_nodes_per_elem; i++) {
-	    //int row = numeqs_*(mesh_->get_node_id(blk, ne, i));//cn get_node_id is local id
 	    int row = numeqs_*(
 			       mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
 			       );
-	 
-	    if (nonnull(f_out)) {
-	      //double x = ubasis->xx;
-	      //double y = ubasis->yy;     
+	    if (nonnull(f_out)) {    
    
 	      for( int k = 0; k < numeqs_; k++ ){
 		int row1 = row + k;
+		double jacwt = basis[0].jac * basis[0].wt;
 		double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta,time_);
-		//f->SumIntoGlobalValues ((int) 1, &val, &row);
-		if(0 != f_fe.SumIntoGlobalValues ((int) 1, &row1, &val))
-		  exit(0);
-	      }
+#ifdef TUSAS_OMP
+#pragma omp critical
+#endif
+		f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
+// 		if(0 != f_fe.SumIntoGlobalValues ((int) 1, &row1, &val))
+// 		  exit(0);
+	      }//k
 
-	    }
+	    }//if
 
 
 	    // Loop over Trial (basis) Functions
-
 
 	    if (nonnull(W_prec_out)) {
 	      for(int j=0;j < n_nodes_per_elem; j++) {
@@ -523,18 +522,24 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		for( int k = 0; k < numeqs_; k++ ){
 		  int row1 = row + k;
 		  int column1 = column + k;
+		  double jacwt = basis[0].jac * basis[0].wt;
 		  double jac = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,delta);
-		  //std::cout<<row<<" "<<column<<" "<<jac<<std::endl;
+
 		  P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
 		}//k
 		
 	      }//j
-	    }
-
+	    }//if
 	  }//i
 	}//gp
+#ifdef TUSAS_OMP
+   	delete xx, yy, zz;
+#endif
       }//ne
 
+#ifndef TUSAS_OMP
+      delete xx, yy, zz;
+#endif
 
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
       typedef double (*DBCFUNC)(const double &x,
@@ -552,6 +557,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    int ns_id = it->first;
 	    //std::cout<<it->first<<std::endl;
 	    
+#pragma omp parallel for
 	    for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
 	      
 	      int lid = mesh_->get_node_set_entry(ns_id, j);
@@ -583,6 +589,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
         for( int k = 0; k < numeqs_; k++ ){
 	  for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	    int ns_id = it->first;
+#pragma omp parallel for
 	    for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
 	      int lid = mesh_->get_node_set_entry(ns_id, j);
 	      int gid = node_num_map[lid];
@@ -610,7 +617,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       }//if
   }//blk
 
-    delete xx, yy, zz;
     
     if (nonnull(f_out)){
       //f->Print(std::cout);
@@ -654,7 +660,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
     Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusaslsNameString)));
 
   builder.setParameterList(lsparams);
-  //lsparams->print(cout);
+
   if( 0 == mypid )
     builder.getParameterList()->print(std::cout);
 
@@ -828,6 +834,13 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   if((paramList.get<std::string> (TusastestNameString)=="cummins")){
     find_vtip();
   }
+
+
+  if( NULL != Error_est){
+    //Error_est->test_lapack();
+    Error_est->estimate_gradient(u_old_);
+    Error_est->estimate_error(u_old_);
+  }
 }
 
 template<class Scalar>
@@ -918,8 +931,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
 
  
   //update_mesh_data();
-  
- 
+   
   //mesh_->write_exodus(ex_id_,2,time_);
   write_exodus();
   
@@ -981,6 +993,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   delete initfunc_;
   delete varnames_;
   if( NULL != dirichletfunc_) delete dirichletfunc_;
+  if( NULL != Error_est) delete Error_est;
   //if( NULL != postprocfunc_) delete postprocfunc_;
 }
 
@@ -1382,6 +1395,10 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
   int err = 0;
   for( int k = 0; k < numeqs_; k++ ){
     mesh_->update_nodal_data((*varnames_)[k], &output[k][0]);
+  }
+
+  if( NULL != Error_est){
+    Error_est->update_mesh_data();
   }
 
   delete temp;

@@ -9,6 +9,7 @@ SET( DIR_2 "preconditioner/include" )
 SET( DIR_3 "mesh/include" )
 SET( DIR_4 "input/include" )
 SET( DIR_5 "timestep/include" )
+SET( DIR_8 "error_estimator/include" )
 SET( DIR_6 ${TRILINOS_DIR}lib )
 SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 
@@ -16,7 +17,7 @@ SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 # Give access to all subdirectories ( basis, basis/include, etc. )
 #---------------------------------------------------------------------------------
 
-INCLUDE_DIRECTORIES( ${DIR_1} ${DIR_2} ${DIR_3} ${DIR_4} ${DIR_5} ${DIR_1}/.. ${DIR_2}/.. ${DIR_3}/.. ${DIR_4}/.. ${DIR_5}/..)
+INCLUDE_DIRECTORIES( ${DIR_1} ${DIR_2} ${DIR_3} ${DIR_4} ${DIR_5} ${DIR_8} ${DIR_1}/.. ${DIR_2}/.. ${DIR_3}/.. ${DIR_4}/.. ${DIR_5}/.. ${DIR_8}/..)
 
 
 #---------------------------------------------------------------------------------
@@ -49,6 +50,7 @@ ${DIR_7}/basis/basis.cpp
 ${DIR_7}/basis/include/basis.hpp 
 ${DIR_7}/input/ReadInput.cpp 
 ${DIR_7}/input/include/ReadInput.h 
+${DIR_7}/error_estimator/error_estimator.cpp 
 ${DIR_7}/timestep/include/ModelEvaluatorNEMESIS.hpp
 )
 
@@ -66,7 +68,7 @@ ADD_EXECUTABLE( tusas ${SOURCES} )
 
 INCLUDE_DIRECTORIES( ${Trilinos_INCLUDE_DIRS} )
 
-TARGET_LINK_LIBRARIES( tusas ${Trilinos_LIBRARIES} )
+TARGET_LINK_LIBRARIES( tusas ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} )
 
 
   # Include Trilinos_INCLUDE_DIRS because many header files    #
@@ -78,7 +80,7 @@ TARGET_LINK_LIBRARIES( tusas ${Trilinos_LIBRARIES} )
 #---------------------------------------------------------------------------------
 
 SET( CMAKE_C_FLAGS ${Trilinos_C_COMPILER_FLAGS} )
-SET( CMAKE_CXX_FLAGS ${Trilinos_CXX_COMPILER_FLAGS} )
+SET( CMAKE_CXX_FLAGS ${Trilinos_CXX_COMPILER_FLAGS})
 
 
 #---------------------------------------------------------------------------------

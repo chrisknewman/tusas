@@ -202,6 +202,10 @@ void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  con
 // Constructor
 BasisLQuad::BasisLQuad(int n) :sngp(n){
   //sngp = 2;// number of Gauss points
+  if ( 2 != sngp ){
+    std::cout<<"BasisLQuad only supported for n = 2 at this time"<<std::endl<<std::endl<<std::endl;
+    exit(0);
+  }
   ngp = sngp*sngp;
   phi = new double[4];//number of nodes
   dphidxi = new double[4];

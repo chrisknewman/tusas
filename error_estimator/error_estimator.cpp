@@ -66,7 +66,9 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
 
   int nrhs = 2;//num right hand size or dim of gradient = 2 for 2d
 
-  Basis * basis = new BasisLQuad();;
+  int qpt_for_basis = sqrt(num_q_pts);
+
+  Basis * basis = new BasisLQuad(qpt_for_basis);
 
   for(int nn = 0; nn < mesh_->get_num_nodes(); nn++ ){
 
@@ -113,10 +115,10 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
 	double x = basis->xx;
 	double y = basis->yy;
 	//double z = ubasis->zz;
-	p[row][0] = x*y;
+	p[row][0] = 1.;
 	p[row][1] = x;
 	p[row][2] = y;
-	p[row][3] = 1.;
+	p[row][3] = x*y;
 	b[row] = basis->dudx;// du/dx
 	b[row+q]  = basis->dudy;// du/dy
 // 	std::cout<<row<<" "<<row+q<<" "<<p[row][0]<<" "<<p[row][1]<<" "<<p[row][2]<<" "<<p[row][3]
@@ -127,7 +129,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
     }
     
     int m = q;
-    int n = 4;
+    int n = dimp;
     int lda = m;
     int ldb = m;
     int info, lwork;
@@ -165,10 +167,10 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
     
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);
-    p[0][0] = x*y;
+    p[0][0] = 1.;
     p[0][1] = x;
     p[0][2] = y;
-    p[0][3] = 1.;
+    p[0][3] = x*y;
     double gradx = 0.;
     double grady = 0.;
     for(int i = 0; i < n; i++){

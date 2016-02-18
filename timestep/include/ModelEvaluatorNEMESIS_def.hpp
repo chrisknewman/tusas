@@ -1158,12 +1158,13 @@ double ModelEvaluatorNEMESIS<Scalar>::psi(double &x,double &y,double &z) const
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
 {
-  for (int nn=0; nn < num_my_nodes_; nn++) {
-    double x = mesh_->get_x(nn);
-    double y = mesh_->get_y(nn);
-    double z = mesh_->get_z(nn);
-
-    for( int k = 0; k < numeqs_; k++ ){
+  for( int k = 0; k < numeqs_; k++ ){
+#pragma omp parallel for
+    for (int nn=0; nn < num_my_nodes_; nn++) {
+      double x = mesh_->get_x(nn);
+      double y = mesh_->get_y(nn);
+      double z = mesh_->get_z(nn);
+      
       (*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z);
     }
 
@@ -1383,9 +1384,9 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
 
   std::vector<std::vector<double>> output(numeqs_, std::vector<double>(num_nodes_));
 
-  //#pragma omp parallel for
-  for (int nn=0; nn < num_nodes_; nn++) {
-    for( int k = 0; k < numeqs_; k++ ){
+  for( int k = 0; k < numeqs_; k++ ){
+#pragma omp parallel for
+    for (int nn=0; nn < num_nodes_; nn++) {
       output[k][nn]=(*temp)[numeqs_*nn+k];
     }
 //     outputu[nn]=(*u_old_)[numeqs_*nn];

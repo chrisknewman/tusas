@@ -131,7 +131,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
     int m = q;
     int n = dimp;
     int lda = m;
-    int ldb = m;
+    int ldb = m;//b needs to hold the solution on return
     int info, lwork;
     
     double wkopt;
@@ -208,7 +208,9 @@ void error_estimator::test_lapack(){
   // 4.3
   // 2.72
 
-  //using dgelsx_
+  //using dgels_
+  //there is an example on how to call dgels_ at
+  //https://software.intel.com/sites/products/documentation/doclib/mkl_sa/11/mkl_lapack_examples/dgels_ex.c.htm
 
   int m = 3;
   int n = 2;
@@ -273,6 +275,7 @@ void error_estimator::update_mesh_data(){
   int num_nodes = mesh_->get_node_num_map().size();
   std::vector<double> gradx(num_nodes);
   std::vector<double> grady(num_nodes);
+#pragma omp parallel for
   for (int nn=0; nn < num_nodes; nn++) {
       gradx[nn]=(*gradx_)[nn];
       grady[nn]=(*grady_)[nn];
@@ -282,6 +285,7 @@ void error_estimator::update_mesh_data(){
 
   int num_elem = mesh_->get_elem_num_map()->size();
   std::vector<double> error(num_elem);
+#pragma omp parallel for
   for (int nn=0; nn < num_elem; nn++) {
       error[nn]=(*elem_error_)[nn];
   }

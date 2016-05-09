@@ -16,7 +16,16 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   numeqs_(numeqs),
   index_(index)
 {
-  mesh->compute_nodal_patch();
+  int blk = 0;
+  std::string elem_type=mesh_->get_blk_elem_type(blk);
+  bool quad_type = (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad"));
+  if( !quad_type ){ // linear quad
+    std::cout<<"Error estimator only supports bilinear quad element types at this time."<<std::endl;
+    std::cout<<elem_type<<" not supported."<<std::endl;
+    exit(0);
+  }
+
+  mesh_->compute_nodal_patch();
 
   std::vector<int> node_num_map(mesh_->get_node_num_map());
   node_map_ = Teuchos::rcp(new Epetra_Map(-1,
@@ -38,6 +47,8 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   elem_error_ = Teuchos::rcp(new Epetra_Vector(*elem_map_));
   mesh_->add_elem_field("error");
   global_error_ = 0.;
+  std::cout<<"Error estimator created for variable "<<index_<<std::endl;
+  //exit(0);
 };
 
 

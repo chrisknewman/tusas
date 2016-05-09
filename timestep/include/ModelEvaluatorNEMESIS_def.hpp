@@ -544,7 +544,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
       typedef double (*DBCFUNC)(const double &x,
 				const double &y,
-				const double &z);
+				const double &z,
+				const double &t);
 
       if (nonnull(f_out) && NULL != dirichletfunc_) {
 	f_fe.GlobalAssemble();
@@ -569,7 +570,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      double z = mesh_->get_z(lid);
 	      
 	      int row1 = row + k;
-	      double val1 = (it->second)(x,y,z);//the function pointer eval
+	      double val1 = (it->second)(x,y,z,time_);//the function pointer eval
 	      double val = (*u)[numeqs_*lid + k]  - val1;
 	      f_fe.ReplaceGlobalValues ((int) 1, &row1, &val);
 	      
@@ -1839,7 +1840,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     // numeqs_ number of variables(equations) 
     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
 							      const double &y,
-							      const double &z)>>(numeqs_);
+							      const double &z,
+							      const double &t)>>(numeqs_);
 
 //     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
 // 							      const double &y,
@@ -1854,6 +1856,55 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*dirichletfunc_)[0][1] = &dirichlet_zero_;						 
     (*dirichletfunc_)[0][2] = &dirichlet_zero_;						 
     (*dirichletfunc_)[0][3] = &dirichlet_zero_;
+
+  }else if("neumann" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					   const int &i, 
+					   const double &dt_, 
+					   const double &t_theta_, 
+					   const double &delta, 
+					   const double &time_)>(numeqs_);
+    (*residualfunc_)[0] = &residual_heat_test_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					 const int &i,  
+					 const int &j,
+					 const double &dt_, 
+					 const double &t_theta_, 
+					 const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &prec_heat_test_;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    (*initfunc_)[0] = &init_neumann_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							      const double &y,
+							      const double &z,
+							      const double &t)>>(numeqs_);
+
+//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+// 							      const double &y,
+// 							      const double &z)>>(numeqs_,
+// 										 std::map<int,double (*)(const double &x,
+// 													 const double &y, 
+//               													 const double &z)>(n_dirichlet));
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dirichlet_zero_;							 
+    (*dirichletfunc_)[0][1] = &dirichlet_zero_;						 
+    //(*dirichletfunc_)[0][2] = &dirichlet_zero_;						 
+    (*dirichletfunc_)[0][3] = &dirichlet_zero_;
+
 
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
@@ -1898,7 +1949,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
 							      const double &y,
-							      const double &z)>>(numeqs_);
+							      const double &z,
+							      const double &t)>>(numeqs_);
     (*dirichletfunc_)[0][1] = &dirichlet_mone_;	
     //(*dirichletfunc_)[0][3] = &dirichlet_zero_;												 
     (*dirichletfunc_)[1][1] = &dirichlet_mone_;												 
@@ -1970,7 +2022,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
       std::cout<<"  dirichletfunc_ with size "<<dirichletfunc_->size()<<" found."<<std::endl;
       typedef double (*DBCFUNC)(const double &x,
 				const double &y,
-				const double &z);
+				const double &z,
+				const double &t);
       std::map<int,DBCFUNC>::iterator it;
       
       for( int k = 0; k < numeqs_; k++ ){

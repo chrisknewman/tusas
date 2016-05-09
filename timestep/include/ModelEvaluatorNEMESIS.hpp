@@ -213,7 +213,13 @@ private: // data members
 
   std::vector<std::map<int,double (*)(const double &x,
 				      const double &y,
-				      const double &z)>> *dirichletfunc_;
+				      const double &z,
+				      const double &t)>> *dirichletfunc_;
+
+  std::vector<std::map<int,double (*)(const double &x,
+				      const double &y,
+				      const double &z,
+				      const double &t)>> *neumannfunc_;
   
   //cn need this to be a function of all variables eventually
   //std::vector<double (*)(const double &u)> *postprocfunc_;

@@ -554,7 +554,8 @@ double init_heat_test_(const double &x,
 }
 double dirichlet_zero_(const double &x,
 			 const double &y,
-			 const double &z)
+			 const double &z,
+			 const double &t)
 {
 
 
@@ -562,7 +563,8 @@ double dirichlet_zero_(const double &x,
 }
 double dirichlet_one_(const double &x,
 			 const double &y,
-			 const double &z)
+			 const double &z,
+			 const double &t)
 {
 
 
@@ -570,7 +572,8 @@ double dirichlet_one_(const double &x,
 }
 double dirichlet_mone_(const double &x,
 			 const double &y,
-			 const double &z)
+			 const double &z,
+			 const double &t)
 {
 
 
@@ -583,6 +586,15 @@ double postproc_null_(const double &u)
 }
 
 
+double init_neumann_test_(const double &x,
+			 const double &y,
+			 const double &z)
+{
+
+  double pi = 3.141592653589793;
+
+  return sin(pi*x);
+}
 
 
 

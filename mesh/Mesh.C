@@ -206,6 +206,7 @@ int Mesh::read_exodus(const char * filename){
     ss_ids.resize(num_side_sets);
     num_sides_per_ss.resize(num_side_sets);
     num_df_per_ss.resize(num_side_sets);
+
     ss_ctr_list.resize(num_side_sets);
     ss_node_list.resize(num_side_sets);
     ss_elem_list.resize(num_side_sets);

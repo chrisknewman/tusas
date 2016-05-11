@@ -487,11 +487,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  //cn and should be adjusted for quadratic elements and tris
 	  double delta = dx*delta_factor;
 
-	  // Loop over Nodes in Element
+	  
 
 	  //srand(123);
 
-	  for (int i=0; i< n_nodes_per_elem; i++) {
+	  for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
 	    int row = numeqs_*(
 			       mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
 			       );
@@ -542,7 +542,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #endif
 
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
-      typedef double (*DBCFUNC)(const double &x,
+      typedef double (*BCFUNC)(const double &x,
 				const double &y,
 				const double &z,
 				const double &t);
@@ -551,7 +551,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	f_fe.GlobalAssemble();
 	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
-	std::map<int,DBCFUNC>::iterator it;
+	std::map<int,BCFUNC>::iterator it;
       
         for( int k = 0; k < numeqs_; k++ ){
 	  for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
@@ -579,6 +579,71 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}//k
       }//if
 
+      if (nonnull(f_out) && NULL != neumannfunc_) {
+	f_fe.GlobalAssemble();
+	
+	Basis * basis = new BasisLBar();
+
+	std::vector<int> node_num_map(mesh_->get_node_num_map());
+	std::map<int,BCFUNC>::iterator it;
+      
+        for( int k = 0; k < numeqs_; k++ ){
+	  for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
+	    int ss_id = it->first;
+
+	    //this is the number of nodes per side edge
+	    //int num_node_per_side = mesh_->get_num_node_per_side(ss_id);
+	    int num_node_per_side = 2;//cn for now
+
+	    double *xx, *yy, *zz;
+	    xx = new double[num_node_per_side];
+	    yy = new double[num_node_per_side];
+	    zz = new double[num_node_per_side];
+
+	    double sum = 0.;
+
+	    for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces
+
+
+	      for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
+		int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+ll];
+		xx[ll] = mesh_->get_x(lid);
+		yy[ll] = mesh_->get_y(lid);
+		zz[ll] = mesh_->get_z(lid);
+	      }//ll
+
+	      for ( int gp = 0; gp < basis->ngp; gp++){//loop over gauss pts
+		basis->getBasis(gp,xx,yy,zz);
+
+
+		int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+gp];
+		int gid = node_num_map[lid];
+
+		//std::cout<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<" ";
+		int row = numeqs_*gid;
+		int row1 = row + k;
+		double jacwt = basis->jac * basis->wt;
+		double x = basis->xx;// x is coord of gauss point in x space
+		double y = basis->yy;
+		double z = basis->zz;
+		//going to need a test function also
+
+		sum = sum + jacwt*x*x;
+		for( int i = 0; i < num_node_per_side; i++ ){
+		  double phi = basis->phi[i];
+		  double val = -jacwt*phi*(it->second)(x,y,z,time_);//the function pointer eval
+		  //std::cout<<x<<" "<<y<<" "<<z<<" "<<sum<<" "<<val<<std::endl;
+		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
+		}//i
+
+	      }//gp
+	    }//j
+	    delete xx,yy,zz;
+	  }//it
+	}//k
+	delete basis;
+      }//if
+
 
 
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
@@ -586,7 +651,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	P_->GlobalAssemble();
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	int lenind = 27;//cn 27 in 3d
-	std::map<int,DBCFUNC>::iterator it;
+	std::map<int,BCFUNC>::iterator it;
         for( int k = 0; k < numeqs_; k++ ){
 	  for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	    int ns_id = it->first;
@@ -1809,6 +1874,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     dirichletfunc_ = NULL;
 
+    neumannfunc_ = NULL;
+
   }else if("heat" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;
@@ -1852,10 +1919,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dirichlet_zero_;							 
-    (*dirichletfunc_)[0][1] = &dirichlet_zero_;						 
-    (*dirichletfunc_)[0][2] = &dirichlet_zero_;						 
-    (*dirichletfunc_)[0][3] = &dirichlet_zero_;
+    (*dirichletfunc_)[0][0] = &bc_zero_;							 
+    (*dirichletfunc_)[0][1] = &bc_zero_;						 
+    (*dirichletfunc_)[0][2] = &bc_zero_;						 
+    (*dirichletfunc_)[0][3] = &bc_zero_;
+
+    neumannfunc_ = NULL;
+
 
   }else if("neumann" == paramList.get<std::string> (TusastestNameString)){
 
@@ -1880,7 +1950,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     initfunc_ = new  std::vector<double (*)(const double &x,
 					    const double &y,
 					    const double &z)>(numeqs_);
-    (*initfunc_)[0] = &init_neumann_test_;
+    //(*initfunc_)[0] = &init_neumann_test_;
+    (*initfunc_)[0] = &init_zero_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -1900,10 +1971,21 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
-    //(*dirichletfunc_)[0][0] = &dirichlet_zero_;							 
-    (*dirichletfunc_)[0][1] = &dirichlet_zero_;						 
-    //(*dirichletfunc_)[0][2] = &dirichlet_zero_;						 
-    (*dirichletfunc_)[0][3] = &dirichlet_zero_;
+    //(*dirichletfunc_)[0][0] = &bc_zero_;							 
+    //(*dirichletfunc_)[0][1] = &bc_zero_;						 
+    //(*dirichletfunc_)[0][2] = &bc_zero_;						 
+    (*dirichletfunc_)[0][3] = &bc_zero_;
+
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							      const double &y,
+							      const double &z,
+							      const double &t)>>(numeqs_);
+    //neumannfunc_ = NULL;
+    //(*neumannfunc_)[0][0] = &bc_one_;							 
+    (*neumannfunc_)[0][1] = &bc_one_;						 
+    //(*neumannfunc_)[0][2] = &bc_zero_;						 
+    //(*neumannfunc_)[0][3] = &bc_zero_;
 
 
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
@@ -1951,10 +2033,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 							      const double &y,
 							      const double &z,
 							      const double &t)>>(numeqs_);
-    (*dirichletfunc_)[0][1] = &dirichlet_mone_;	
-    //(*dirichletfunc_)[0][3] = &dirichlet_zero_;												 
-    (*dirichletfunc_)[1][1] = &dirichlet_mone_;												 
-    //(*dirichletfunc_)[1][3] = &dirichlet_one_;						 
+    (*dirichletfunc_)[0][1] = &bc_mone_;	
+    //(*dirichletfunc_)[0][3] = &bc_zero_;												 
+    (*dirichletfunc_)[1][1] = &bc_mone_;												 
+    //(*dirichletfunc_)[1][3] = &bc_one_;
+
+    neumannfunc_ = NULL;
+						 
 
     //exit(0);
   }else {

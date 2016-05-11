@@ -175,5 +175,31 @@ class BasisLTet : public Basis {
   // Variables that are calculated at the gauss point
   int sngp;
 };
+
+
+class BasisLBar : public Basis {
+
+ public:
+
+  // Constructor
+  BasisLBar(int sngp = 2);
+
+  // Destructor
+  ~BasisLBar();
+
+  BasisLBar* clone() const{ return new BasisLBar(*this); }
+  char type() { return 1; }
+
+
+  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
+
+
+
+ public:
+  // Variables that are calculated at the gauss point
+  int sngp;
+};
+
+
 #endif
 

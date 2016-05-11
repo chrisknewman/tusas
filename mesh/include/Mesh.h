@@ -90,7 +90,9 @@ class Mesh
 
   std::vector<int> get_nodal_adj(int i){return nodal_adj[i];}
   std::vector<int> get_node_set(int i){return ns_node_list[i];}
-  std::vector<int> get_side_set(int i){return ss_node_list[i];}
+  std::vector<int> get_side_set(int i){return ss_side_list[i];}
+  std::vector<int> get_side_set_node_list(int i){return ss_node_list[i];}
+  int get_num_node_per_side(int i){return ss_ctr_list[i][0];}
   int get_node_set_entry(int i, int j){return ns_node_list[i][j];}
   int get_side_set_node_entry(int i, int j){return ss_node_list[i][j];}
   int get_node_set_value(int i){ return node_set_map[i]; }

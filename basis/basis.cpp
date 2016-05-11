@@ -1196,3 +1196,124 @@ void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  con
   }
   return;
 }
+
+
+// Constructor
+BasisLBar::BasisLBar(int n) :sngp(n){
+  //sngp = 2;// number of Gauss points
+  if ( 2 != sngp ){
+    std::cout<<"BasisLBar only supported for n = 2 at this time"<<std::endl<<std::endl<<std::endl;
+    exit(0);
+  }
+  ngp = sngp;
+  phi = new double[2];//number of nodes
+  dphidxi = new double[2];
+  dphideta = new double[2];
+  dphidzta = new double[2];
+  dphidx = new double[2];
+  dphidy = new double[2];
+  dphidz = new double[2];
+  abscissa = new double[sngp];//number guass pts
+  weight = new double[sngp];
+  setN(sngp, abscissa, weight);
+  //std::cout<<abscissa[0]<<" "<<abscissa[1]<<" "<<weight[0]<<" "<<weight[1]<<std::endl;
+}
+
+// Destructor
+BasisLBar::~BasisLBar() {
+  delete [] phi;
+  delete [] dphidxi;
+  delete [] dphideta;
+  delete [] dphidzta;
+  delete [] dphidx;
+  delete [] dphidy;
+  delete [] dphidz;
+  delete [] abscissa;
+  delete [] weight;
+}
+
+void BasisLBar::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
+
+  //cn this is horrible, need a better way than having if statements in here
+  if(2 == ngp){
+    if(0 == gp){
+      xi = abscissa[0];
+      wt = weight[0];
+    }else if (1 == gp){
+      xi = abscissa[1];
+      wt = weight[0];
+    }
+  }
+  // Calculate basis function and derivatives at nodal pts
+  phi[0]=(1.0-xi)/2.0;
+  phi[1]=(1.0+xi)/2.0;
+
+  dphidxi[0]=-1.0/2.0;
+  dphidxi[1]= 1.0/2.0;
+
+  dphideta[0]= 0.0;
+  dphideta[1]= 0.0;
+  dphidzta[0] = 0.0;
+  dphidzta[1]= 0.0;
+  
+  // Caculate basis function and derivative at GP.
+  //std::cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<x[3]<<std::endl;
+  double dxdxi  = .5* (x[1]-x[0]);
+  //double dxdeta = .25*( (x[3]-x[0])*(1.- xi)+(x[2]-x[1])*(1.+ xi) );
+  //double dydxi  = .25*( (y[1]-y[0])*(1.-eta)+(y[2]-y[3])*(1.+eta) );
+  double dydxi  = .5*(y[1]-y[0]);
+  //double dydeta = .25*( (y[3]-y[0])*(1.- xi)+(y[2]-y[1])*(1.+ xi) );
+  double dzdxi  = .5*(z[1]-z[0]);
+
+  //cn not sure about this still
+  jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
+
+  dxidx = 1. / dxdxi;
+  dxidy = 1. / dydxi;
+  dxidz = 1. / dzdxi;
+  detadx = 0.;
+  detady = 0.;
+  detadz =0.;
+  dztadx =0.;
+  dztady =0.;
+  dztadz =0.;
+  // Caculate basis function and derivative at GP.
+  xx=0.0;
+  yy=0.0;
+  zz=0.0;
+  uu=0.0;
+  uuold=0.0;
+  uuoldold=0.0;
+  dudx=0.0;
+  dudy=0.0;
+  dudz=0.0;
+  duolddx = 0.;
+  duolddy = 0.;
+  duolddz = 0.;
+  duoldolddx = 0.;
+  duoldolddy = 0.;
+  duoldolddz = 0.;
+  // x[i] is a vector of node coords, x(j, k) 
+  for (int i=0; i < 2; i++) {
+    xx += x[i] * phi[i];
+    yy += y[i] * phi[i];
+    dphidx[i] = dphidxi[i]*dxidx;
+    dphidy[i] = dphidxi[i]*dxidy;
+    if( u ){
+      //uu += u[i] * phi[i];
+      //dudx += u[i] * dphidx[i];
+      //dudy += u[i]* dphidy[i];
+    }
+    if( uold ){
+      //uuold += uold[i] * phi[i];
+      //duolddx += uold[i] * dphidx[i];
+      //duolddy += uold[i]* dphidy[i];
+    }
+    if( uoldold ){
+      //uuoldold += uoldold[i] * phi[i];
+      //duoldolddx += uoldold[i] * dphidx[i];
+      //duoldolddy += uoldold[i]* dphidy[i];
+    }
+  }
+  return;
+}

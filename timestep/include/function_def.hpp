@@ -552,28 +552,35 @@ double init_heat_test_(const double &x,
 
   return sin(pi*x)*sin(pi*y);
 }
-double dirichlet_zero_(const double &x,
+double init_zero_(const double &x,
 			 const double &y,
-			 const double &z,
-			 const double &t)
+			 const double &z)
 {
-
 
   return 0.;
 }
-double dirichlet_one_(const double &x,
-			 const double &y,
-			 const double &z,
-			 const double &t)
+double bc_zero_(const double &x,
+		const double &y,
+		const double &z,
+		const double &t)
 {
-
-
+  
+  
+  return 0.;
+}
+double bc_one_(const double &x,
+	       const double &y,
+	       const double &z,
+	       const double &t)
+{
+  
+  
   return 1.;
 }
-double dirichlet_mone_(const double &x,
-			 const double &y,
-			 const double &z,
-			 const double &t)
+double bc_mone_(const double &x,
+		const double &y,
+		const double &z,
+		const double &t)
 {
 
 
@@ -694,7 +701,7 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
   double R = .003;
   double V = .003;
   double t0 = 0.;
-  double x = basis[0].xx;
+  double x = basis[0].xx;//cn this is in x space, maybe it should be gauss pt?
   double t = tl + G*(x-V*time);
   t=900.;
   double t_scale = (t-ts)/(tl-ts);

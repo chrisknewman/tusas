@@ -600,8 +600,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    yy = new double[num_node_per_side];
 	    zz = new double[num_node_per_side];
 
-	    double sum = 0.;
-
 	    for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces
 
 
@@ -626,9 +624,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		double x = basis->xx;// x is coord of gauss point in x space
 		double y = basis->yy;
 		double z = basis->zz;
-		//going to need a test function also
 
-		sum = sum + jacwt*x*x;
 		for( int i = 0; i < num_node_per_side; i++ ){
 		  double phi = basis->phi[i];
 		  double val = -jacwt*phi*(it->second)(x,y,z,time_);//the function pointer eval

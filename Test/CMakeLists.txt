@@ -61,4 +61,6 @@ add_test( NAME PhaseHeatQuadParNoPrec  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_
 
 add_test( NAME NeumannQuad  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/NeumannQuad COMMAND run_test )
 
+add_test( NAME NeumannTriPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/NeumannTriPar COMMAND run_test )
+
 #add_test( NAME RestartPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/RestartPar COMMAND run_test )

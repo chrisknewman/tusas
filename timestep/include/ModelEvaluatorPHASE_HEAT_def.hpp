@@ -516,7 +516,7 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
  	  if(3 == dim) {
  	    ubasis->getBasis(gp, xx, yy, zz);
  	  }else{
-	    ubasis->getBasis(gp, xx, yy);
+	    ubasis->getBasis(gp, xx, yy, zz);
  	  }
 	  //std::cout<<ubasis->jac<<"   "<<ubasis->wt<<std::endl;
 	  dx += ubasis->jac*ubasis->wt;

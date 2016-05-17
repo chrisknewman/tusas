@@ -582,8 +582,33 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       if (nonnull(f_out) && NULL != neumannfunc_) {
 	f_fe.GlobalAssemble();
 	
-	Basis * basis = new BasisLBar();
-
+	Basis * basis;
+	//this is the number of nodes per side edge
+	//int num_node_per_side = mesh_->get_num_node_per_side(ss_id);
+	int num_node_per_side = 2;
+	
+	
+	if( (0==elem_type.compare("QUAD4")) 
+	    || (0==elem_type.compare("QUAD")) 
+	    || (0==elem_type.compare("quad4")) 
+	    || (0==elem_type.compare("quad"))  
+	    || (0==elem_type.compare("TRI3")) 
+	    || (0==elem_type.compare("TRI")) 
+	    || (0==elem_type.compare("tri3"))  
+	    || (0==elem_type.compare("tri")) ){ // linear 2d element
+	  
+	  num_node_per_side = 2; 
+	  basis = new BasisLBar();
+	}
+	else if( (0==elem_type.compare("QUAD9")) 
+		 || (0==elem_type.compare("quad9")) 
+		 || (0==elem_type.compare("TRI6")) 
+		 || (0==elem_type.compare("tri6")) ){ // quadratic 2d
+	  
+	  num_node_per_side = 3;
+	  basis = new BasisQBar();
+	} 
+	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	std::map<int,BCFUNC>::iterator it;
       
@@ -591,25 +616,25 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
 	    int ss_id = it->first;
 
-	    //this is the number of nodes per side edge
-	    //int num_node_per_side = mesh_->get_num_node_per_side(ss_id);
-	    int num_node_per_side = 2;//cn for now
-
 	    double *xx, *yy, *zz;
 	    xx = new double[num_node_per_side];
 	    yy = new double[num_node_per_side];
 	    zz = new double[num_node_per_side];
 
+	    double sum = 0.;
 	    for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces
 
+// 	      for(int ll = 0;ll<mesh_->get_side_set_node_list(ss_id).size();ll++){
+// 		std::cout<<ll<<" "<<mesh_->get_side_set_node_list(ss_id)[ll]<<std::endl;
+// 	      }
 
 	      for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
 		int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+ll];
 		xx[ll] = mesh_->get_x(lid);
 		yy[ll] = mesh_->get_y(lid);
 		zz[ll] = mesh_->get_z(lid);
+		//std::cout<<ll<<" "<<lid<<" "<<xx[ll]<<" "<<yy[ll]<<" "<<zz[ll]<<" "<<mesh_->get_side_set_node_list(ss_id).size()<<std::endl;
 	      }//ll
-
 	      for ( int gp = 0; gp < basis->ngp; gp++){//loop over gauss pts
 		basis->getBasis(gp,xx,yy,zz);
 
@@ -617,18 +642,19 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+gp];
 		int gid = node_num_map[lid];
 
-		//std::cout<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<" ";
+		//std::cout<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<std::endl;
 		int row = numeqs_*gid;
 		int row1 = row + k;
 		double jacwt = basis->jac * basis->wt;
-		double x = basis->xx;// x is coord of gauss point in x space
+		double x = basis->xx;// x is coord of gauss point in x space, x(xi)
 		double y = basis->yy;
 		double z = basis->zz;
 
+		sum += jacwt;
 		for( int i = 0; i < num_node_per_side; i++ ){
 		  double phi = basis->phi[i];
 		  double val = -jacwt*phi*(it->second)(x,y,z,time_);//the function pointer eval
-		  //std::cout<<x<<" "<<y<<" "<<z<<" "<<sum<<" "<<val<<std::endl;
+		  //std::cout<<x<<" "<<y<<" "<<z<<" "<<val<<" "<<" "<<basis->jac<<" "<<basis->wt<<" "<<jacwt<<" "<<row1<<" "<<sum<<std::endl;
 		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
 		}//i
 
@@ -2114,6 +2140,23 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 	}
       }
     }
+
+    if(NULL != neumannfunc_){
+      std::cout<<"  neumannfunc_ with size "<<neumannfunc_->size()<<" found."<<std::endl;
+      typedef double (*DBCFUNC)(const double &x,
+				const double &y,
+				const double &z,
+				const double &t);
+      std::map<int,DBCFUNC>::iterator it;
+      
+      for( int k = 0; k < numeqs_; k++ ){
+	for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
+	  int ns_id = it->first;
+	  std::cout<<"    Equation: "<<k<<" sideset: "<<ns_id<<std::endl;
+	}
+      }
+    }
+
 
     std::cout<<"set_test_case ended"<<std::endl;
   }

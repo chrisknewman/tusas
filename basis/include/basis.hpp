@@ -201,5 +201,29 @@ class BasisLBar : public Basis {
 };
 
 
+
+class BasisQBar : public Basis {
+
+ public:
+
+  // Constructor
+  BasisQBar(int sngp = 3);
+
+  // Destructor
+  ~BasisQBar();
+
+  BasisQBar* clone() const{ return new BasisQBar(*this); }
+  char type() { return 1; }
+
+
+  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
+
+
+
+ public:
+  // Variables that are calculated at the gauss point
+  int sngp;
+};
+
 #endif
 

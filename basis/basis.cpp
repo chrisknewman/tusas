@@ -337,8 +337,13 @@ void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  cons
   double dxdeta = .25*( (x[3]-x[0])*(1.- xi)+(x[2]-x[1])*(1.+ xi) );
   double dydxi  = .25*( (y[1]-y[0])*(1.-eta)+(y[2]-y[3])*(1.+eta) );
   double dydeta = .25*( (y[3]-y[0])*(1.- xi)+(y[2]-y[1])*(1.+ xi) );
+  double dzdxi  = .25*( (z[1]-z[0])*(1.-eta)+(z[2]-z[3])*(1.+eta) );
+  double dzdeta = .25*( (z[3]-z[0])*(1.- xi)+(z[2]-z[1])*(1.+ xi) );
 
-  jac = dxdxi * dydeta - dxdeta * dydxi;
+  //jac = dxdxi * dydeta - dxdeta * dydxi;
+  jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
+	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
+	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
 
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
@@ -1248,7 +1253,7 @@ void BasisLBar::getBasis(const int gp,const  double *x, const  double *y,  const
   phi[0]=(1.0-xi)/2.0;
   phi[1]=(1.0+xi)/2.0;
 
-  dphidxi[0]=-1.0/2.0;
+  dphidxi[0]= -1.0/2.0;
   dphidxi[1]= 1.0/2.0;
 
   dphideta[0]= 0.0;
@@ -1297,8 +1302,138 @@ void BasisLBar::getBasis(const int gp,const  double *x, const  double *y,  const
   for (int i=0; i < 2; i++) {
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
+    zz += z[i] * phi[i];
     dphidx[i] = dphidxi[i]*dxidx;
     dphidy[i] = dphidxi[i]*dxidy;
+    dphidz[i] = dphidxi[i]*dxidz;
+    if( u ){
+      //uu += u[i] * phi[i];
+      //dudx += u[i] * dphidx[i];
+      //dudy += u[i]* dphidy[i];
+    }
+    if( uold ){
+      //uuold += uold[i] * phi[i];
+      //duolddx += uold[i] * dphidx[i];
+      //duolddy += uold[i]* dphidy[i];
+    }
+    if( uoldold ){
+      //uuoldold += uoldold[i] * phi[i];
+      //duoldolddx += uoldold[i] * dphidx[i];
+      //duoldolddy += uoldold[i]* dphidy[i];
+    }
+  }
+  return;
+}
+
+
+// Constructor
+BasisQBar::BasisQBar(int n) :sngp(n){
+  //sngp = 3;// number of Gauss points
+  if ( 3 != sngp ){
+    std::cout<<"BasisQBar only supported for n = 3 at this time"<<std::endl<<std::endl<<std::endl;
+    exit(0);
+  }
+  ngp = sngp;
+  phi = new double[3];//number of nodes
+  dphidxi = new double[3];
+  dphideta = new double[3];
+  dphidzta = new double[3];
+  dphidx = new double[3];
+  dphidy = new double[3];
+  dphidz = new double[3];
+  abscissa = new double[sngp];//number guass pts
+  weight = new double[sngp];
+  setN(sngp, abscissa, weight);
+  //std::cout<<abscissa[0]<<" "<<abscissa[1]<<" "<<abscissa[2]<<" "<<weight[0]<<" "<<weight[1]<<" "<<weight[2]<<std::endl;
+}
+
+// Destructor
+BasisQBar::~BasisQBar() {
+  delete [] phi;
+  delete [] dphidxi;
+  delete [] dphideta;
+  delete [] dphidzta;
+  delete [] dphidx;
+  delete [] dphidy;
+  delete [] dphidz;
+  delete [] abscissa;
+  delete [] weight;
+}
+
+void BasisQBar::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
+
+  //cn this is horrible, need a better way than having if statements in here
+  if(3 == ngp){
+    if(0 == gp){
+      xi = abscissa[0];
+      wt = weight[0];
+    }else if (1 == gp){
+      xi = abscissa[1];
+      wt = weight[1];
+    }else if (2 == gp){
+      xi = abscissa[2];
+      wt = weight[2];
+    }
+  }else{
+    std::cout<<"BasisQBar only supported for n = 3 at this time"<<std::endl<<std::endl<<std::endl;
+    exit(0);
+  }
+  // Calculate basis function and derivatives at nodal pts
+  phi[0]=-xi*(1.0-xi)/2.0;
+  phi[1]=xi*(1.0+xi)/2.0;
+  phi[2]=(1.0-xi*xi);
+
+  dphidxi[0]=-1.0/2.0 + xi;
+  dphidxi[1]= 1.0/2.0 + xi;
+  dphidxi[2]=-2.0*xi;
+
+  dphideta[0]= 0.0;
+  dphideta[1]= 0.0;
+  dphideta[2]= 0.0;
+  dphidzta[0] = 0.0;
+  dphidzta[1]= 0.0;
+  dphidzta[2]= 0.0;
+  
+  // Caculate basis function and derivative at GP.
+  double dxdxi  = dphidxi[0]*x[0] + dphidxi[1]*x[1] + dphidxi[2]*x[2];
+  double dydxi  = dphidxi[0]*y[0] + dphidxi[1]*y[1] + dphidxi[2]*y[2];
+  double dzdxi  = dphidxi[0]*z[0] + dphidxi[1]*z[1] + dphidxi[2]*z[2];
+    
+  jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
+
+  dxidx = 1. / dxdxi;
+  dxidy = 1. / dydxi;
+  dxidz = 1. / dzdxi;
+  detadx = 0.;
+  detady = 0.;
+  detadz =0.;
+  dztadx =0.;
+  dztady =0.;
+  dztadz =0.;
+  // Caculate basis function and derivative at GP.
+  xx=0.0;
+  yy=0.0;
+  zz=0.0;
+  uu=0.0;
+  uuold=0.0;
+  uuoldold=0.0;
+  dudx=0.0;
+  dudy=0.0;
+  dudz=0.0;
+  duolddx = 0.;
+  duolddy = 0.;
+  duolddz = 0.;
+  duoldolddx = 0.;
+  duoldolddy = 0.;
+  duoldolddz = 0.;
+  // x[i] is a vector of node coords, x(j, k) 
+  for (int i=0; i < 3; i++) {
+    xx += x[i] * phi[i];
+    yy += y[i] * phi[i];
+    zz += z[i] * phi[i];
+    dphidx[i] = dphidxi[i]*dxidx;
+    dphidy[i] = dphidxi[i]*dxidy;
+    dphidz[i] = dphidxi[i]*dxidz;
     if( u ){
       //uu += u[i] * phi[i];
       //dudx += u[i] * dphidx[i];

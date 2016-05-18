@@ -621,12 +621,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    yy = new double[num_node_per_side];
 	    zz = new double[num_node_per_side];
 
-	    double sum = 0.;
+	    //double sum = 0.;
 	    for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces
-
-// 	      for(int ll = 0;ll<mesh_->get_side_set_node_list(ss_id).size();ll++){
-// 		std::cout<<ll<<" "<<mesh_->get_side_set_node_list(ss_id)[ll]<<std::endl;
-// 	      }
 
 	      for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
 		int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+ll];
@@ -638,20 +634,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      for ( int gp = 0; gp < basis->ngp; gp++){//loop over gauss pts
 		basis->getBasis(gp,xx,yy,zz);
 
-
-		int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+gp];
-		int gid = node_num_map[lid];
-
-		//std::cout<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<std::endl;
-		int row = numeqs_*gid;
-		int row1 = row + k;
 		double jacwt = basis->jac * basis->wt;
 		double x = basis->xx;// x is coord of gauss point in x space, x(xi)
 		double y = basis->yy;
 		double z = basis->zz;
 
-		sum += jacwt;
+		//sum += jacwt;
 		for( int i = 0; i < num_node_per_side; i++ ){
+
+		  int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
+		  int gid = node_num_map[lid];
+		  
+		  //std::cout<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<std::endl;
+		  int row = numeqs_*gid;
+		  int row1 = row + k;
+
 		  double phi = basis->phi[i];
 		  double val = -jacwt*phi*(it->second)(x,y,z,time_);//the function pointer eval
 		  //std::cout<<x<<" "<<y<<" "<<z<<" "<<val<<" "<<" "<<basis->jac<<" "<<basis->wt<<" "<<jacwt<<" "<<row1<<" "<<sum<<std::endl;

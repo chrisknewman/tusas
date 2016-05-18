@@ -608,6 +608,20 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  num_node_per_side = 3;
 	  basis = new BasisQBar();
 	} 
+	else if( (0==elem_type.compare("HEX8")) 
+		 || (0==elem_type.compare("HEX")) 
+		 || (0==elem_type.compare("hex8")) 
+		 || (0==elem_type.compare("hex"))  ){ // linear hex
+	  num_node_per_side = 4;
+	  basis = new BasisLQuad();
+	} 
+	else if( (0==elem_type.compare("TETRA4")) 
+		 || (0==elem_type.compare("TETRA")) 
+		 || (0==elem_type.compare("tetra4")) 
+		 || (0==elem_type.compare("tetra")) ){ // linear tet
+	  num_node_per_side = 3;
+	  basis = new BasisLTri();
+	}
 	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	std::map<int,BCFUNC>::iterator it;

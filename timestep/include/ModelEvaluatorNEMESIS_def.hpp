@@ -581,7 +581,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
       if (nonnull(f_out) && NULL != neumannfunc_) {
 	f_fe.GlobalAssemble();
-	
 	Basis * basis;
 	//this is the number of nodes per side edge
 	//int num_node_per_side = mesh_->get_num_node_per_side(ss_id);
@@ -614,6 +613,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		 || (0==elem_type.compare("hex"))  ){ // linear hex
 	  num_node_per_side = 4;
 	  basis = new BasisLQuad();
+	  //basis = new BasisQQuad();
 	} 
 	else if( (0==elem_type.compare("TETRA4")) 
 		 || (0==elem_type.compare("TETRA")) 
@@ -621,6 +621,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		 || (0==elem_type.compare("tetra")) ){ // linear tet
 	  num_node_per_side = 3;
 	  basis = new BasisLTri();
+	  exit(0);
 	}
 	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
@@ -635,7 +636,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    yy = new double[num_node_per_side];
 	    zz = new double[num_node_per_side];
 
-	    //double sum = 0.;
+	    double sum = 0.;
 	    for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces
 
 	      for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
@@ -653,19 +654,22 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		double y = basis->yy;
 		double z = basis->zz;
 
-		//sum += jacwt;
+		sum += jacwt;
 		for( int i = 0; i < num_node_per_side; i++ ){
 
 		  int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
 		  int gid = node_num_map[lid];
 		  
-		  //std::cout<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<std::endl;
+		  //std::cout<<i<<" "<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<std::endl;
 		  int row = numeqs_*gid;
 		  int row1 = row + k;
 
 		  double phi = basis->phi[i];
+		  //cn what about t_theta_ here?
 		  double val = -jacwt*phi*(it->second)(x,y,z,time_);//the function pointer eval
-		  //std::cout<<x<<" "<<y<<" "<<z<<" "<<val<<" "<<" "<<basis->jac<<" "<<basis->wt<<" "<<jacwt<<" "<<row1<<" "<<sum<<std::endl;
+		  
+		  //std::cout<<x<<" "<<y<<" "<<z<<" "<<val<<" "<<" "<<basis->jac<<" "<<basis->wt<<" "<<jacwt<<" "<<row1<<" "<<sum<<" "<<phi<<std::endl;	  
+		  //std::cout<<i<<" "<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<" "<<val<<std::endl;
 		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
 		}//i
 
@@ -676,7 +680,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}//k
 	delete basis;
       }//if
-
 
 
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
@@ -714,29 +717,29 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  }//it
 	}//k
       }//if
-  }//blk
+      }//blk
 
     
-    if (nonnull(f_out)){
-      //f->Print(std::cout);
-      if (f_fe.GlobalAssemble() != 0){
-	std::cout<<"error f_fe.GlobalAssemble()"<<std::endl;
-	exit(0);
+      if (nonnull(f_out)){
+	//f->Print(std::cout);
+	if (f_fe.GlobalAssemble() != 0){
+	  std::cout<<"error f_fe.GlobalAssemble()"<<std::endl;
+	  exit(0);
+	}
+	
+	f->Update(1,*f_fe(0),0);
+	//*f=*f_fe(0);
       }
-      
-      f->Update(1,*f_fe(0),0);
-      //*f=*f_fe(0);
-    }
-    if (nonnull(W_prec_out)) {
-      P_->GlobalAssemble();
-      //P_->Print(std::cout);
-      //exit(0);
-      //std::cout<<" one norm P_ = "<<P_->NormOne()<<std::endl<<" inf norm P_ = "<<P_->NormInf()<<std::endl<<" fro norm P_ = "<<P_->NormFrobenius()<<std::endl;
-      //Epetra_Vector d(*f_owned_map_);P_->ExtractDiagonalCopy(d);d.Print(std::cout);	
-      prec_->ReComputePreconditioner();
-    }
-  }	
-}
+      if (nonnull(W_prec_out)) {
+	P_->GlobalAssemble();
+	//P_->Print(std::cout);
+	//exit(0);
+	//std::cout<<" one norm P_ = "<<P_->NormOne()<<std::endl<<" inf norm P_ = "<<P_->NormInf()<<std::endl<<" fro norm P_ = "<<P_->NormFrobenius()<<std::endl;
+	//Epetra_Vector d(*f_owned_map_);P_->ExtractDiagonalCopy(d);d.Print(std::cout);	
+	prec_->ReComputePreconditioner();
+      }
+    }	
+  }
 
 //====================================================================
 

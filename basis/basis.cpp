@@ -374,6 +374,7 @@ void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  cons
   for (int i=0; i < 4; i++) {
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
+    zz += z[i] * phi[i];
     dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx;
     dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady;
     dphidz[i] = 0.0;
@@ -836,7 +837,7 @@ BasisLHex::BasisLHex(int n) : sngp(n){
 }
 
 BasisLHex::BasisLHex(){
-  sngp = 4;
+  sngp = 2;//2 in each direction
   ngp = 8;
   phi = new double[ngp];
   dphidxi = new double[ngp];

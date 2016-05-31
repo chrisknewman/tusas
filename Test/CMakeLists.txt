@@ -67,5 +67,7 @@ add_test( NAME NeumannQuadQPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Ne
 
 add_test( NAME NeumannTriQ  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/NeumannTriQ COMMAND run_test )
 
+add_test( NAME NeumannHex  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/NeumannHex COMMAND run_test )
+
 
 #add_test( NAME RestartPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/RestartPar COMMAND run_test )

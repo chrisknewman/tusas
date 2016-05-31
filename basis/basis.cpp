@@ -135,15 +135,22 @@ void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  con
   double dxdeta = 0;
   double dydxi = 0;
   double dydeta = 0;
+  double dzdxi = 0;
+  double dzdeta = 0;
 
   for (int i=0; i < N; i++) {
     dxdxi += dphidxi[i] * x[i];
     dxdeta += dphideta[i] * x[i];
     dydxi += dphidxi[i] * y[i];
     dydeta += dphideta[i] * y[i];
+    dzdxi += dphidxi[i] * z[i];
+    dzdeta += dphideta[i] * z[i];
   }
 
-  jac = dxdxi * dydeta - dxdeta * dydxi;
+  //jac = dxdxi * dydeta - dxdeta * dydxi;
+  jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
+	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
+	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
 
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
@@ -174,6 +181,7 @@ void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  con
   for (int i=0; i < N; i++) {
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
+    zz += z[i] * phi[i];
     dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx;
     dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady;
     dphidz[i] = 0.;
@@ -1089,24 +1097,24 @@ void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  con
     xi = abscissa[0];  // 0, 0, 0
     eta = abscissa[0];
     zta = abscissa[0];
-    wt = weight[0] * weight[0] * weight[0];
+    //wt = weight[0] * weight[0] * weight[0];
   }else if (1 == gp){
     xi = abscissa[1]; // 1, 0, 0
     eta = abscissa[0];
     zta = abscissa[0];
-    wt = weight[0] * weight[1] * weight[0];
+    //wt = weight[0] * weight[1] * weight[0];
   }else if (2 == gp){
     xi = abscissa[0]; // 1, 1, 0
     eta = abscissa[1];
     zta = abscissa[0];
-    wt = weight[1] * weight[1] * weight[0];
+    //wt = weight[1] * weight[1] * weight[0];
   }else if (3 == gp){
     xi = abscissa[0];  //0, 1, 0
     eta = abscissa[0];
     zta = abscissa[1];
-    wt = weight[0] * weight[1] * weight[0];
+    //wt = weight[0] * weight[1] * weight[0];
   } 
-
+  wt=weight[0];//cn each wt = .25/6=0.041666666667
   // Calculate basis function and derivatives at nodal pts
    phi[0]   =  1.0 - xi  - eta - zta;
    phi[1]   =  xi;

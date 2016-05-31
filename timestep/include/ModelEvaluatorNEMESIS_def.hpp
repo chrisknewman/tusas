@@ -445,7 +445,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #ifndef TUSAS_OMP
       for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor 
 #endif
-
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
 	  int nodeid = mesh_->get_node_id(blk, ne, k);//cn appears this is the local id
@@ -613,7 +612,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		 || (0==elem_type.compare("hex"))  ){ // linear hex
 	  num_node_per_side = 4;
 	  basis = new BasisLQuad();
-	  //basis = new BasisQQuad();
 	} 
 	else if( (0==elem_type.compare("TETRA4")) 
 		 || (0==elem_type.compare("TETRA")) 
@@ -621,7 +619,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		 || (0==elem_type.compare("tetra")) ){ // linear tet
 	  num_node_per_side = 3;
 	  basis = new BasisLTri();
-	  exit(0);
 	}
 	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());

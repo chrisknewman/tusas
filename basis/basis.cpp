@@ -59,9 +59,18 @@ BasisLTri::BasisLTri(int n){
   dphidz = new double[3];
   abscissa = new double[ngp];//number guass pts
   weight = new double[ngp];
+
+  xi  = new double[ngp];
+  eta = new double[ngp];
+  nwt  = new double[ngp];
+
   if( ngp == 1 ){
     abscissa[0] = 1.0L / 3.0L;
     weight[0] = .5;
+
+    xi[0] = eta[0] = abscissa[0];
+    nwt[0] = weight[0];
+
   }else if (ngp == 3 ) {
     abscissa[0] = 1.0L / 2.0L;
     abscissa[1] = 1.0L / 2.0L;
@@ -69,6 +78,18 @@ BasisLTri::BasisLTri(int n){
     weight[0] = 1.0L / 6.0L;
     weight[1] = 1.0L / 6.0L;
     weight[2] = 1.0L / 6.0L;
+
+    xi[0]  = abscissa[0];
+    eta[0] = abscissa[0];
+    nwt[0]  = weight[0];
+
+    xi[1]  = abscissa[0];
+    eta[1] = abscissa[2];
+    nwt[1]  = weight[1];
+
+    xi[2]  = abscissa[2];
+    eta[2] = abscissa[0];
+    nwt[2]  = weight[2];
   }else {
     std::cout<<"void BasisLTri::getBasis(int gp, double *x, double *y, double *u, double *uold)"<<std::endl
 	     <<"   only ngp = 1 supported at this time"<<std::endl;
@@ -86,6 +107,8 @@ BasisLTri::~BasisLTri() {
   delete [] dphidz;
   delete [] abscissa;
   delete [] weight;
+
+  delete xi, eta, nwt;
 }
 
 
@@ -94,31 +117,14 @@ void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  con
   int N = 3;  
   // gp irrelevent and unused
 
-// one gauss point at center
-  if ( 1 == ngp ){
-    xi = eta = abscissa[0];
-    wt = weight[0];
-  }
-  if ( 3 == ngp ){
-    if(0 == gp){
-      xi = abscissa[0];
-      eta = abscissa[0];
-      wt = weight[0];
-    }else if (1 == gp){
-      xi = abscissa[0];
-      eta = abscissa[2];
-      wt = weight[1];
-    }else if (2 == gp){
-      xi = abscissa[2];
-      eta = abscissa[0];
-      wt = weight[2];
-    }
-  }
 
   // Calculate basis function and derivatives at nodel pts
-  phi[0]=(1.0-xi-eta);
-  phi[1]= xi;
-  phi[2]= eta;
+  phi[0]=(1.0-xi[gp]-eta[gp]);
+  phi[1]= xi[gp];
+  phi[2]= eta[gp];
+
+  wt = nwt[gp];
+
   dphidxi[0]=-1.0;
   dphidxi[1]=1.0;
   dphidxi[2]=0.0;
@@ -226,25 +232,13 @@ BasisLQuad::BasisLQuad(int n) :sngp(n){
   weight = new double[sngp];
   setN(sngp, abscissa, weight);
 
-}
+  xi  = new double[ngp];
+  eta = new double[ngp];
+  nwt  = new double[ngp];
 
-// Destructor
-BasisLQuad::~BasisLQuad() {
-  delete [] phi;
-  delete [] dphidxi;
-  delete [] dphideta;
-  delete [] dphidzta;
-  delete [] dphidx;
-  delete [] dphidy;
-  delete [] dphidz;
-  delete [] abscissa;
-  delete [] weight;
-}
 
-void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
-
-  //cn this is horrible, need a better way than having if statements in here
   if(4 == ngp){
+#if 0
     if(0 == gp){
       xi = abscissa[0];
       eta = abscissa[0];
@@ -262,7 +256,24 @@ void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  cons
       eta = abscissa[1];
       wt = weight[0] * weight[1];
     }
+#endif
+    xi[0]  = abscissa[0];
+    eta[0] = abscissa[0];
+    nwt[0]  = weight[0] * weight[0];
+
+    xi[1]  = abscissa[1];
+    eta[1] = abscissa[0];
+    nwt[1]  = weight[0] * weight[1];
+
+    xi[2]  = abscissa[1];
+    eta[2] = abscissa[1];
+    nwt[2]  = weight[1] * weight[1];
+
+    xi[3]  = abscissa[0];
+    eta[3] = abscissa[1];
+    nwt[3]  = weight[0] * weight[1];
   }
+#if 0
   if(9 == ngp){ 
     double ab[3];// = new double[3];
     ab[0] = abscissa[0];
@@ -323,30 +334,54 @@ void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  cons
       printf("gp = %d\n", gp);
     }
   }
+#endif
+}
+
+// Destructor
+BasisLQuad::~BasisLQuad() {
+  delete [] phi;
+  delete [] dphidxi;
+  delete [] dphideta;
+  delete [] dphidzta;
+  delete [] dphidx;
+  delete [] dphidy;
+  delete [] dphidz;
+  delete [] abscissa;
+  delete [] weight;
+
+  delete xi, eta, nwt;
+}
+
+void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
+
   // Calculate basis function and derivatives at nodal pts
-  phi[0]=(1.0-xi)*(1.0-eta)/4.0;
-  phi[1]=(1.0+xi)*(1.0-eta)/4.0;
-  phi[2]=(1.0+xi)*(1.0+eta)/4.0;
-  phi[3]=(1.0-xi)*(1.0+eta)/4.0;
+  phi[0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
+  phi[1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
+  phi[2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
+  phi[3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
 
-  dphidxi[0]=-(1.0-eta)/4.0;
-  dphidxi[1]= (1.0-eta)/4.0;
-  dphidxi[2]= (1.0+eta)/4.0;
-  dphidxi[3]=-(1.0+eta)/4.0;
+  dphidxi[0]=-(1.0-eta[gp])/4.0;
+  dphidxi[1]= (1.0-eta[gp])/4.0;
+  dphidxi[2]= (1.0+eta[gp])/4.0;
+  dphidxi[3]=-(1.0+eta[gp])/4.0;
 
-  dphideta[0]=-(1.0-xi)/4.0;
-  dphideta[1]=-(1.0+xi)/4.0;
-  dphideta[2]= (1.0+xi)/4.0;
-  dphideta[3]= (1.0-xi)/4.0;
+  dphideta[0]=-(1.0-xi[gp])/4.0;
+  dphideta[1]=-(1.0+xi[gp])/4.0;
+  dphideta[2]= (1.0+xi[gp])/4.0;
+  dphideta[3]= (1.0-xi[gp])/4.0;
   
   // Caculate basis function and derivative at GP.
   //std::cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<x[3]<<std::endl;
-  double dxdxi  = .25*( (x[1]-x[0])*(1.-eta)+(x[2]-x[3])*(1.+eta) );
-  double dxdeta = .25*( (x[3]-x[0])*(1.- xi)+(x[2]-x[1])*(1.+ xi) );
-  double dydxi  = .25*( (y[1]-y[0])*(1.-eta)+(y[2]-y[3])*(1.+eta) );
-  double dydeta = .25*( (y[3]-y[0])*(1.- xi)+(y[2]-y[1])*(1.+ xi) );
-  double dzdxi  = .25*( (z[1]-z[0])*(1.-eta)+(z[2]-z[3])*(1.+eta) );
-  double dzdeta = .25*( (z[3]-z[0])*(1.- xi)+(z[2]-z[1])*(1.+ xi) );
+  double dxdxi  = .25*( (x[1]-x[0])*(1.-eta[gp])+(x[2]-x[3])*(1.+eta[gp]) );
+  double dxdeta = .25*( (x[3]-x[0])*(1.- xi[gp])+(x[2]-x[1])*(1.+ xi[gp]) );
+  double dydxi  = .25*( (y[1]-y[0])*(1.-eta[gp])+(y[2]-y[3])*(1.+eta[gp]) );
+  double dydeta = .25*( (y[3]-y[0])*(1.- xi[gp])+(y[2]-y[1])*(1.+ xi[gp]) );
+  double dzdxi  = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
+  double dzdeta = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
+
+
+
+  wt = nwt[gp];
 
   //jac = dxdxi * dydeta - dxdeta * dydxi;
   jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
@@ -420,12 +455,33 @@ BasisQTri::BasisQTri() {
   ngp = 3;
   weight = new double[ngp];
   abscissa = new double[ngp];
-  abscissa[0] = 1.0L / 2.0L;
-  abscissa[1] = 1.0L / 2.0L;
+  abscissa[0] = 2.0L / 3.0L;
+  abscissa[1] = 1.0L / 6.0L;
   abscissa[2] = 0.;
   weight[0] = 1.0L / 6.0L;
   weight[1] = 1.0L / 6.0L;
   weight[2] = 1.0L / 6.0L;
+
+  xi  = new double[ngp];
+  eta = new double[ngp];
+  nwt  = new double[ngp];
+#if 0
+  wt = 1.0L / 6.0L;
+  if (gp==0) {xi = 2.0L/3.0L; eta=1.0L/6.0L;}
+  if (gp==1) {xi = 1.0L/6.0L; eta=2.0L/3.0L;}
+  if (gp==2) {xi = 1.0L/6.0L; eta=1.0L/6.0L;}
+#endif
+
+  xi[0]  = abscissa[0];
+  eta[0] = abscissa[1];
+  nwt[0]  = weight[0];
+  xi[1]  = abscissa[1]; 
+  eta[1] = abscissa[0];
+  nwt[1]  = weight[1];
+  xi[2]  = abscissa[1]; 
+  eta[2] = abscissa[1];
+  nwt[2]  = weight[2];
+ 
 }
 
 //Destructor
@@ -439,35 +495,34 @@ BasisQTri::~BasisQTri() {
   delete [] dphidz;
   delete [] weight;
   delete [] abscissa;
+
+  delete xi, eta, nwt;
 }
 
 void BasisQTri::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
   int N = 6;
-  wt = 1.0L / 6.0L;
-  if (gp==0) {xi = 2.0L/3.0L; eta=1.0L/6.0L;}
-  if (gp==1) {xi = 1.0L/6.0L; eta=2.0L/3.0L;}
-  if (gp==2) {xi = 1.0L/6.0L; eta=1.0L/6.0L;}
+
 
   // Calculate basis function and derivatives at nodel pts
-  phi[0]=2.0 * (1.0 - xi - eta) * (0.5 - xi - eta);
-  phi[1]= 2.0 * xi * (xi - 0.5);
-  phi[2]= 2.0 * eta * (eta - 0.5);
-  phi[3]=4.0 * (1.0 - xi - eta) * xi;
-  phi[4]= 4.0 * xi * eta;
-  phi[5]= 4.0 * (1.0 - xi - eta) * eta;
-  dphidxi[0]=-2.0 * (0.5 - xi - eta) - 2.0 * (1.0 - xi - eta);
-  dphidxi[1]= 2.0 * (xi - 0.5) + 2.0 * xi;
+  phi[0]=2.0 * (1.0 - xi[gp] - eta[gp]) * (0.5 - xi[gp] - eta[gp]);
+  phi[1]= 2.0 * xi[gp] * (xi[gp] - 0.5);
+  phi[2]= 2.0 * eta[gp] * (eta[gp] - 0.5);
+  phi[3]=4.0 * (1.0 - xi[gp] - eta[gp]) * xi[gp];
+  phi[4]= 4.0 * xi[gp] * eta[gp];
+  phi[5]= 4.0 * (1.0 - xi[gp] - eta[gp]) * eta[gp];
+  dphidxi[0]=-2.0 * (0.5 - xi[gp] - eta[gp]) - 2.0 * (1.0 - xi[gp] - eta[gp]);
+  dphidxi[1]= 2.0 * (xi[gp] - 0.5) + 2.0 * xi[gp];
   dphidxi[2]= 0.0;
-  dphidxi[3]=-4.0 * xi + 4.0 * (1.0 - xi - eta);
-  dphidxi[4]= 4.0 * eta;
-  dphidxi[5]= -4.0 * eta;
-  dphideta[0]=-2.0 * (0.5 - xi - eta) - 2.0 * (1.0 - xi - eta);
+  dphidxi[3]=-4.0 * xi[gp] + 4.0 * (1.0 - xi[gp] - eta[gp]);
+  dphidxi[4]= 4.0 * eta[gp];
+  dphidxi[5]= -4.0 * eta[gp];
+  dphideta[0]=-2.0 * (0.5 - xi[gp] - eta[gp]) - 2.0 * (1.0 - xi[gp] - eta[gp]);
   dphideta[1]= 0.0;
-  dphideta[2]= 2.0 * eta + 2.0 * (eta - 0.5);
-  dphideta[3]=-4.0 * xi;
-  dphideta[4]= 4.0 * xi;
-  dphideta[5]= 4.0 * (1.0 - xi - eta) - 4.0 * eta;
+  dphideta[2]= 2.0 * eta[gp] + 2.0 * (eta[gp] - 0.5);
+  dphideta[3]=-4.0 * xi[gp];
+  dphideta[4]= 4.0 * xi[gp];
+  dphideta[5]= 4.0 * (1.0 - xi[gp] - eta[gp]) - 4.0 * eta[gp];
   dphidzta[0]= 0.0;
   dphidzta[1]= 0.0;
   dphidzta[2]= 0.0;
@@ -475,6 +530,9 @@ void BasisQTri::getBasis( const int gp,  const double *x,  const double *y,  con
   dphidzta[4]= 0.0;
   dphidzta[5]= 0.0;
   
+  wt = nwt[gp];
+
+
   // Caculate basis function and derivative at GP.
   double dxdxi = 0;
   double dxdeta = 0;
@@ -556,35 +614,11 @@ BasisQQuad::BasisQQuad() {
   abscissa = new double[sngp];
   weight = new double[sngp];
   setN(sngp, abscissa, weight);
-}
 
-// Destructor
-BasisQQuad::~BasisQQuad() {
-  delete [] phi;
-  delete [] dphidxi;
-  delete [] dphideta;
-  delete [] dphidzta;
-  delete [] dphidx;
-  delete [] dphidy;
-  delete [] dphidz;
-  delete [] abscissa;
-  delete [] weight;
-}
+  xi  = new double[ngp];
+  eta = new double[ngp];
+  nwt  = new double[ngp]; 
 
-void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
-
-
-  //std::cout<<"getBasis(int gp, double *x, double *y, double *u, double *uold) "<<gp<<std::endl;
-  //printf("starting getBasis\n");
-//   abscissa[0] = -1.0/sqrt(3.0);
-//   abscissa[1] =  1.0/sqrt(3.0);
-//   weight[0] = 1.0;
-//   weight[1] = 1.0;
-
-//printf("x:::%f %f %f %f %f %f %f %f %f\n",x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],x[8]);
-//printf("y:::%f %f %f %f %f %f %f %f %f\n\n\n",y[0],y[1],y[2],y[3],y[4],y[5],y[6],y[7],y[8]);
-
-// reindex abscissa and weight so it makes sense  
   double ab[3];// = new double[3];
   ab[0] = abscissa[0];
   ab[1] = abscissa[2];
@@ -595,7 +629,7 @@ void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  co
   w[1] = weight[2];
   w[2] = weight[1];
 
-  
+#if 0  
   switch (gp){
     case 0:
       xi = ab[0];
@@ -645,42 +679,61 @@ void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  co
    default :
       printf("gp = %d\n", gp);
   }
+#endif  
+  xi[0] = ab[0];
+  eta[0]  = ab[0];
+  nwt[0]  = w[0] * w[0];
+  xi[1] = ab[1];
+  eta[1] = ab[0];
+  nwt[1] = w[1] * w[0];
+  xi[2] = ab[1];
+  eta[2]  = ab[1];
+  nwt[2]  = w[1] * w[1];
+  xi[3] = ab[0];
+  eta[3]  = ab[1];
+  nwt[3]  = w[0] * w[1];
+  xi[4] = ab[2];
+  eta[4] = ab[0];
+  nwt[4] = w[2] * w[0];
+  xi[5] = ab[1];
+  eta[5] = ab[2];
+  nwt[5] = w[1] * w[2];
+  xi[6] = ab[2];
+  eta[6] = ab[1];
+  nwt[6] = w[2] * w[1];
+  xi[7] = ab[0];
+  eta[7] = ab[2];
+  nwt[7] = w[0] * w[2];
+  xi[8] = ab[2];
+  eta[8] = ab[2];
+  nwt[8] = w[2] * w[2];
  
-//printf("xi = %f, eta = %f \n",xi,eta);
+}
 
-/*if(0 == gp){
-    xi = absciss[0];
-    eta = abscissa[0];
-    wt = weight[0] * weight[0];
-  }else if (1 == gp){
-    xi = abscissa[1];
-    eta = abscissa[0];
-    wt = weight[0] * weight[1];
-  }else if (2 == gp){
-    xi = abscissa[1];
-    eta = abscissa[1];
-    wt = weight[1] * weight[1];
-  }else if (3 == gp){
-    xi = abscissa[0];
-    eta = abscissa[1];
-    wt = weight[0] * weight[1];
-  }*/
+// Destructor
+BasisQQuad::~BasisQQuad() {
+  delete [] phi;
+  delete [] dphidxi;
+  delete [] dphideta;
+  delete [] dphidzta;
+  delete [] dphidx;
+  delete [] dphidy;
+  delete [] dphidz;
+  delete [] abscissa;
+  delete [] weight;
 
-  // Calculate basis function and derivatives at nodal pts
-/*phi[0]=(1.0-xi)*(1.0-eta)/4.0;
-  phi[1]=(1.0+xi)*(1.0-eta)/4.0;
-  phi[2]=(1.0+xi)*(1.0+eta)/4.0;
-  phi[3]=(1.0-xi)*(1.0+eta)/4.0;*/
+  delete xi, eta, nwt;
+}
 
+void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
   
+  double phi1_xi = -xi[gp]*(1-xi[gp])/2;
+  double phi2_xi = xi[gp]*(1+xi[gp])/2;
+  double phi3_xi = 1-xi[gp]*xi[gp];
 
-  double phi1_xi = -xi*(1-xi)/2;
-  double phi2_xi = xi*(1+xi)/2;
-  double phi3_xi = 1-xi*xi;
-
-  double phi1_eta = -eta*(1-eta)/2;
-  double phi2_eta = eta*(1+eta)/2;
-  double phi3_eta = 1-eta*eta;
+  double phi1_eta = -eta[gp]*(1-eta[gp])/2;
+  double phi2_eta = eta[gp]*(1+eta[gp])/2;
+  double phi3_eta = 1-eta[gp]*eta[gp];
  
   //double phi_xi[3] = [phi1_xi,phi2_xi,phi3_xi];
   //double phi_eta[3] = [phi1_eta,phi2_eta,phi3_eta];
@@ -689,47 +742,50 @@ void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  co
   //printf("_xi %f %f %f:\n", phi1_xi, phi2_xi, phi3_xi);
   //printf("_eta %f %f %f:\n\n", phi1_eta, phi2_eta, phi3_eta);
 
-  phi[0] = (-xi*(1-xi)/2)*(-eta*(1-eta)/2);
-  phi[1] = (xi*(1+xi)/2)*(-eta*(1-eta)/2);
-  phi[2] = (xi*(1+xi)/2)*(eta*(1+eta)/2);
-  phi[3] = (-xi*(1-xi)/2)*(eta*(1+eta)/2);
+  phi[0] = (-xi[gp]*(1-xi[gp])/2)*(-eta[gp]*(1-eta[gp])/2);
+  phi[1] = (xi[gp]*(1+xi[gp])/2)*(-eta[gp]*(1-eta[gp])/2);
+  phi[2] = (xi[gp]*(1+xi[gp])/2)*(eta[gp]*(1+eta[gp])/2);
+  phi[3] = (-xi[gp]*(1-xi[gp])/2)*(eta[gp]*(1+eta[gp])/2);
   
-  phi[4] = (1-xi*xi)*(-eta*(1-eta)/2);
-  phi[5] = (xi*(1+xi)/2)*(1-eta*eta);
-  phi[6] = (1-xi*xi)*(eta*(1+eta)/2);
-  phi[7] = (-xi*(1-xi)/2)*(1-eta*eta);
+  phi[4] = (1-xi[gp]*xi[gp])*(-eta[gp]*(1-eta[gp])/2);
+  phi[5] = (xi[gp]*(1+xi[gp])/2)*(1-eta[gp]*eta[gp]);
+  phi[6] = (1-xi[gp]*xi[gp])*(eta[gp]*(1+eta[gp])/2);
+  phi[7] = (-xi[gp]*(1-xi[gp])/2)*(1-eta[gp]*eta[gp]);
   
-  phi[8] = (1-xi*xi)*(1-eta*eta);
+  phi[8] = (1-xi[gp]*xi[gp])*(1-eta[gp]*eta[gp]);
 
-  double dphi1dxi = (-1+2*xi)/2;
-  double dphi2dxi = (1+2*xi)/2;
-  double dphi3dxi = (-2*xi);
+  double dphi1dxi = (-1+2*xi[gp])/2;
+  double dphi2dxi = (1+2*xi[gp])/2;
+  double dphi3dxi = (-2*xi[gp]);
 
-  double dphi1deta = (-1+2*eta)/2;
-  double dphi2deta = (1+2*eta)/2;
-  double dphi3deta = -2*eta;
+  double dphi1deta = (-1+2*eta[gp])/2;
+  double dphi2deta = (1+2*eta[gp])/2;
+  double dphi3deta = -2*eta[gp];
   
   
-  dphidxi[0] = ((-1+2*xi)/2)*(-eta*(1-eta)/2);
-  dphidxi[1] = ((1+2*xi)/2)*(-eta*(1-eta)/2);
-  dphidxi[2] = ((1+2*xi)/2)*(eta*(1+eta)/2);
-  dphidxi[3] = ((-1+2*xi)/2)*(eta*(1+eta)/2);
-  dphidxi[4] = (-2*xi)*(-eta*(1-eta)/2);
-  dphidxi[5] = ((1+2*xi)/2)*(1-eta*eta);
-  dphidxi[6] = (-2*xi)*(eta*(1+eta)/2);
-  dphidxi[7] = ((-1+2*xi)/2)*(1-eta*eta);
-  dphidxi[8] = (-2*xi)*(1-eta*eta);
+  dphidxi[0] = ((-1+2*xi[gp])/2)*(-eta[gp]*(1-eta[gp])/2);
+  dphidxi[1] = ((1+2*xi[gp])/2)*(-eta[gp]*(1-eta[gp])/2);
+  dphidxi[2] = ((1+2*xi[gp])/2)*(eta[gp]*(1+eta[gp])/2);
+  dphidxi[3] = ((-1+2*xi[gp])/2)*(eta[gp]*(1+eta[gp])/2);
+  dphidxi[4] = (-2*xi[gp])*(-eta[gp]*(1-eta[gp])/2);
+  dphidxi[5] = ((1+2*xi[gp])/2)*(1-eta[gp]*eta[gp]);
+  dphidxi[6] = (-2*xi[gp])*(eta[gp]*(1+eta[gp])/2);
+  dphidxi[7] = ((-1+2*xi[gp])/2)*(1-eta[gp]*eta[gp]);
+  dphidxi[8] = (-2*xi[gp])*(1-eta[gp]*eta[gp]);
 
 
-  dphideta[0] = (-xi*(1-xi)/2)*((-1+2*eta)/2);
-  dphideta[1] = (xi*(1+xi)/2)*((-1+2*eta)/2);
-  dphideta[2] = (xi*(1+xi)/2)*((1+2*eta)/2);
-  dphideta[3] = (-xi*(1-xi)/2)*((1+2*eta)/2);
-  dphideta[4] = (1-xi*xi)*((-1+2*eta)/2);
-  dphideta[5] = (xi*(1+xi)/2)*(-2*eta);
-  dphideta[6] = (1-xi*xi)*((1+2*eta)/2);
-  dphideta[7] = (-xi*(1-xi)/2)*(-2*eta);
-  dphideta[8] = (1-xi*xi)*(-2*eta);
+  dphideta[0] = (-xi[gp]*(1-xi[gp])/2)*((-1+2*eta[gp])/2);
+  dphideta[1] = (xi[gp]*(1+xi[gp])/2)*((-1+2*eta[gp])/2);
+  dphideta[2] = (xi[gp]*(1+xi[gp])/2)*((1+2*eta[gp])/2);
+  dphideta[3] = (-xi[gp]*(1-xi[gp])/2)*((1+2*eta[gp])/2);
+  dphideta[4] = (1-xi[gp]*xi[gp])*((-1+2*eta[gp])/2);
+  dphideta[5] = (xi[gp]*(1+xi[gp])/2)*(-2*eta[gp]);
+  dphideta[6] = (1-xi[gp]*xi[gp])*((1+2*eta[gp])/2);
+  dphideta[7] = (-xi[gp]*(1-xi[gp])/2)*(-2*eta[gp]);
+  dphideta[8] = (1-xi[gp]*xi[gp])*(-2*eta[gp]);
+
+  wt = nwt[gp];
+
 
  
 /*dphidx[0]=-(1.0-eta)/4.0;
@@ -854,26 +910,13 @@ BasisLHex::BasisLHex(){
   abscissa = new double[sngp];
   weight = new double[sngp];
   setN(sngp, abscissa, weight);
-}
 
-// Destructor
-BasisLHex::~BasisLHex() {
-  delete [] phi;
-  delete [] dphideta;
-  delete [] dphidxi;
-  delete [] dphidzta;
-  delete [] abscissa;
-  delete [] weight;
-}
+  xi  = new double[ngp];
+  eta = new double[ngp];
+  zta = new double[ngp];
+  nwt  = new double[ngp];
 
-// Calculates a linear 3D basis
-void BasisLHex::getBasis(const int gp, const double *x, const double *y) {
-  std::cout<<"BasisLHex::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
-  exit(0);
-}
-
-void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
-
+#if 0
   if(0 == gp){//cn N = 2 gp for now
     xi = abscissa[0];  // 0, 0, 0
     eta = abscissa[0];
@@ -915,68 +958,125 @@ void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  con
     zta = abscissa[1];
     wt = weight[0] * weight[1] * weight[1];
   }
+#endif    
+  xi[0] = abscissa[0];  // 0, 0, 0
+  eta[0] = abscissa[0];
+  zta[0] = abscissa[0];
+  nwt[0] = weight[0] * weight[0] * weight[0];
+  xi[1] = abscissa[1]; // 1, 0, 0
+  eta[1] = abscissa[0];
+  zta[1] = abscissa[0];
+  nwt[1] = weight[0] * weight[1] * weight[0];
+  xi[2] = abscissa[1]; // 1, 1, 0
+  eta[2] = abscissa[1];
+  zta[2] = abscissa[0];
+  nwt[2] = weight[1] * weight[1] * weight[0];
+  xi[3] = abscissa[0];  //0, 1, 0
+  eta[3] = abscissa[1];
+  zta[3] = abscissa[0];
+  nwt[3] = weight[0] * weight[1] * weight[0];
+  xi[4] = abscissa[0];  // 0, 0, 1
+  eta[4] = abscissa[0];
+  zta[4] = abscissa[1];
+  nwt[4] = weight[0] * weight[0] * weight[1];
+  xi[5] = abscissa[1]; // 1, 0, 1
+  eta[5] = abscissa[0];
+  zta[5] = abscissa[1];
+  nwt[5] = weight[0] * weight[1] * weight[1];
+  xi[6] = abscissa[1]; // 1, 1, 1
+  eta[6] = abscissa[1];
+  zta[6] = abscissa[1];
+  nwt[6] = weight[1] * weight[1] * weight[1];
+  xi[7] = abscissa[0];  //0, 1, 1
+  eta[7] = abscissa[1];
+  zta[7] = abscissa[1];
+  nwt[7] = weight[0] * weight[1] * weight[1];
+ 
+}
+
+// Destructor
+BasisLHex::~BasisLHex() {
+  delete [] phi;
+  delete [] dphideta;
+  delete [] dphidxi;
+  delete [] dphidzta;
+  delete [] abscissa;
+  delete [] weight;
+
+  delete xi, eta, zta, nwt;
+}
+
+// Calculates a linear 3D basis
+void BasisLHex::getBasis(const int gp, const double *x, const double *y) {
+  std::cout<<"BasisLHex::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
+  exit(0);
+}
+
+void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 
   // Calculate basis function and derivatives at nodal pts
-   phi[0]   =  0.125 * (1.0 - xi) * (1.0 - eta) * (1.0 - zta);
-   phi[1]   =  0.125 * (1.0 + xi) * (1.0 - eta) * (1.0 - zta);
-   phi[2]   =  0.125 * (1.0 + xi) * (1.0 + eta) * (1.0 - zta);
-   phi[3]   =  0.125 * (1.0 - xi) * (1.0 + eta) * (1.0 - zta);
-   phi[4]   =  0.125 * (1.0 - xi) * (1.0 - eta) * (1.0 + zta);
-   phi[5]   =  0.125 * (1.0 + xi) * (1.0 - eta) * (1.0 + zta);
-   phi[6]   =  0.125 * (1.0 + xi) * (1.0 + eta) * (1.0 + zta);
-   phi[7]   =  0.125 * (1.0 - xi) * (1.0 + eta) * (1.0 + zta);
+   phi[0]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+   phi[1]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+   phi[2]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+   phi[3]   =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+   phi[4]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+   phi[5]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+   phi[6]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+   phi[7]   =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]) * (1.0 + zta[gp]);
 
    // ksi-derivatives
-   dphidxi[0] = -0.125 * (1.0 - eta) * (1.0 - zta);
-   dphidxi[1] =  0.125 * (1.0 - eta) * (1.0 - zta);
-   dphidxi[2] =  0.125 * (1.0 + eta) * (1.0 - zta);
-   dphidxi[3] = -0.125 * (1.0 + eta) * (1.0 - zta);
-   dphidxi[4] = -0.125 * (1.0 - eta) * (1.0 + zta);
-   dphidxi[5] =  0.125 * (1.0 - eta) * (1.0 + zta);
-   dphidxi[6] =  0.125 * (1.0 + eta) * (1.0 + zta);
-   dphidxi[7] = -0.125 * (1.0 + eta) * (1.0 + zta);
+   dphidxi[0] = -0.125 * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+   dphidxi[1] =  0.125 * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+   dphidxi[2] =  0.125 * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+   dphidxi[3] = -0.125 * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+   dphidxi[4] = -0.125 * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+   dphidxi[5] =  0.125 * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+   dphidxi[6] =  0.125 * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+   dphidxi[7] = -0.125 * (1.0 + eta[gp]) * (1.0 + zta[gp]);
 
    // eta-derivatives
-   dphideta[0] = -0.125 * (1.0 - xi) * (1.0 - zta);
-   dphideta[1] = -0.125 * (1.0 + xi) * (1.0 - zta);
-   dphideta[2] =  0.125 * (1.0 + xi) * (1.0 - zta);
-   dphideta[3] =  0.125 * (1.0 - xi) * (1.0 - zta);
-   dphideta[4] = -0.125 * (1.0 - xi) * (1.0 + zta);
-   dphideta[5] = -0.125 * (1.0 + xi) * (1.0 + zta);
-   dphideta[6] =  0.125 * (1.0 + xi) * (1.0 + zta);
-   dphideta[7] =  0.125 * (1.0 - xi) * (1.0 + zta);
+   dphideta[0] = -0.125 * (1.0 - xi[gp]) * (1.0 - zta[gp]);
+   dphideta[1] = -0.125 * (1.0 + xi[gp]) * (1.0 - zta[gp]);
+   dphideta[2] =  0.125 * (1.0 + xi[gp]) * (1.0 - zta[gp]);
+   dphideta[3] =  0.125 * (1.0 - xi[gp]) * (1.0 - zta[gp]);
+   dphideta[4] = -0.125 * (1.0 - xi[gp]) * (1.0 + zta[gp]);
+   dphideta[5] = -0.125 * (1.0 + xi[gp]) * (1.0 + zta[gp]);
+   dphideta[6] =  0.125 * (1.0 + xi[gp]) * (1.0 + zta[gp]);
+   dphideta[7] =  0.125 * (1.0 - xi[gp]) * (1.0 + zta[gp]);
 
    // zeta-derivatives
-   dphidzta[0] = -0.125 * (1.0 - xi) * (1.0 - eta);
-   dphidzta[1] = -0.125 * (1.0 + xi) * (1.0 - eta);
-   dphidzta[2] = -0.125 * (1.0 + xi) * (1.0 + eta);
-   dphidzta[3] = -0.125 * (1.0 - xi) * (1.0 + eta);
-   dphidzta[4] =  0.125 * (1.0 - xi) * (1.0 - eta);
-   dphidzta[5] =  0.125 * (1.0 + xi) * (1.0 - eta);
-   dphidzta[6] =  0.125 * (1.0 + xi) * (1.0 + eta);
-   dphidzta[7] =  0.125 * (1.0 - xi) * (1.0 + eta);
+   dphidzta[0] = -0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]);
+   dphidzta[1] = -0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]);
+   dphidzta[2] = -0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]);
+   dphidzta[3] = -0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]);
+   dphidzta[4] =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]);
+   dphidzta[5] =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]);
+   dphidzta[6] =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]);
+   dphidzta[7] =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]);
   
   // Caculate basis function and derivative at GP.
-  double dxdxi  = 0.125*( (x[1]-x[0])*(1.-eta)*(1.-zta) + (x[2]-x[3])*(1.+eta)*(1.-zta) 
-	+ (x[5]-x[4])*(1.-eta)*(1.+zta) + (x[6]-x[7])*(1.+eta)*(1.+zta) );
-  double dxdeta = 0.125*( (x[3]-x[0])*(1.- xi)*(1.-zta) + (x[2]-x[1])*(1.+ xi)*(1.-zta) 
-	+ (x[7]-x[4])*(1.- xi)*(1.+zta) + (x[6]-x[5])*(1.+ xi)*(1.+zta) );
-  double dxdzta = 0.125*( (x[4]-x[0])*(1.- xi)*(1.-eta) + (x[5]-x[1])*(1.+ xi)*(1.-eta)
-	+ (x[6]-x[2])*(1.+ xi)*(1.+eta) + (x[7]-x[3])*(1.- xi)*(1.+eta) );
+  double dxdxi  = 0.125*( (x[1]-x[0])*(1.-eta[gp])*(1.-zta[gp]) + (x[2]-x[3])*(1.+eta[gp])*(1.-zta[gp]) 
+	+ (x[5]-x[4])*(1.-eta[gp])*(1.+zta[gp]) + (x[6]-x[7])*(1.+eta[gp])*(1.+zta[gp]) );
+  double dxdeta = 0.125*( (x[3]-x[0])*(1.- xi[gp])*(1.-zta[gp]) + (x[2]-x[1])*(1.+ xi[gp])*(1.-zta[gp]) 
+	+ (x[7]-x[4])*(1.- xi[gp])*(1.+zta[gp]) + (x[6]-x[5])*(1.+ xi[gp])*(1.+zta[gp]) );
+  double dxdzta = 0.125*( (x[4]-x[0])*(1.- xi[gp])*(1.-eta[gp]) + (x[5]-x[1])*(1.+ xi[gp])*(1.-eta[gp])
+	+ (x[6]-x[2])*(1.+ xi[gp])*(1.+eta[gp]) + (x[7]-x[3])*(1.- xi[gp])*(1.+eta[gp]) );
 
-  double dydxi  = 0.125*( (y[1]-y[0])*(1.-eta)*(1.-zta) + (y[2]-y[3])*(1.+eta)*(1.-zta)
-	+ (y[5]-y[4])*(1.-eta)*(1.+zta) + (y[6]-y[7])*(1.+eta)*(1.+zta) );
-  double dydeta = 0.125*( (y[3]-y[0])*(1.- xi)*(1.-zta) + (y[2]-y[1])*(1.+ xi)*(1.-zta) 
-	+ (y[7]-y[4])*(1.- xi)*(1.+zta) + (y[6]-y[5])*(1.+ xi)*(1.+zta) );
-  double dydzta = 0.125*( (y[4]-y[0])*(1.- xi)*(1.-eta) + (y[5]-y[1])*(1.+ xi)*(1.-eta)
-	+ (y[6]-y[2])*(1.+ xi)*(1.+eta) + (y[7]-y[3])*(1.- xi)*(1.+eta) );
+  double dydxi  = 0.125*( (y[1]-y[0])*(1.-eta[gp])*(1.-zta[gp]) + (y[2]-y[3])*(1.+eta[gp])*(1.-zta[gp])
+	+ (y[5]-y[4])*(1.-eta[gp])*(1.+zta[gp]) + (y[6]-y[7])*(1.+eta[gp])*(1.+zta[gp]) );
+  double dydeta = 0.125*( (y[3]-y[0])*(1.- xi[gp])*(1.-zta[gp]) + (y[2]-y[1])*(1.+ xi[gp])*(1.-zta[gp]) 
+	+ (y[7]-y[4])*(1.- xi[gp])*(1.+zta[gp]) + (y[6]-y[5])*(1.+ xi[gp])*(1.+zta[gp]) );
+  double dydzta = 0.125*( (y[4]-y[0])*(1.- xi[gp])*(1.-eta[gp]) + (y[5]-y[1])*(1.+ xi[gp])*(1.-eta[gp])
+	+ (y[6]-y[2])*(1.+ xi[gp])*(1.+eta[gp]) + (y[7]-y[3])*(1.- xi[gp])*(1.+eta[gp]) );
 
-  double dzdxi  = 0.125*( (z[1]-z[0])*(1.-eta)*(1.-zta) + (z[2]-z[3])*(1.+eta)*(1.-zta)
-	+ (z[5]-z[4])*(1.-eta)*(1.+zta) + (z[6]-z[7])*(1.+eta)*(1.+zta) );
-  double dzdeta = 0.125*( (z[3]-z[0])*(1.- xi)*(1.-zta) + (z[2]-z[1])*(1.+ xi)*(1.-zta) 
-	+ (z[7]-z[4])*(1.- xi)*(1.+zta) + (z[6]-z[5])*(1.+ xi)*(1.+zta) );
-  double dzdzta = 0.125*( (z[4]-z[0])*(1.- xi)*(1.-eta) + (z[5]-z[1])*(1.+ xi)*(1.-eta)
-	+ (z[6]-z[2])*(1.+ xi)*(1.+eta) + (z[7]-z[3])*(1.- xi)*(1.+eta) );
+  double dzdxi  = 0.125*( (z[1]-z[0])*(1.-eta[gp])*(1.-zta[gp]) + (z[2]-z[3])*(1.+eta[gp])*(1.-zta[gp])
+	+ (z[5]-z[4])*(1.-eta[gp])*(1.+zta[gp]) + (z[6]-z[7])*(1.+eta[gp])*(1.+zta[gp]) );
+  double dzdeta = 0.125*( (z[3]-z[0])*(1.- xi[gp])*(1.-zta[gp]) + (z[2]-z[1])*(1.+ xi[gp])*(1.-zta[gp]) 
+	+ (z[7]-z[4])*(1.- xi[gp])*(1.+zta[gp]) + (z[6]-z[5])*(1.+ xi[gp])*(1.+zta[gp]) );
+  double dzdzta = 0.125*( (z[4]-z[0])*(1.- xi[gp])*(1.-eta[gp]) + (z[5]-z[1])*(1.+ xi[gp])*(1.-eta[gp])
+	+ (z[6]-z[2])*(1.+ xi[gp])*(1.+eta[gp]) + (z[7]-z[3])*(1.- xi[gp])*(1.+eta[gp]) );
+
+  wt = nwt[gp];
 
   jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
 	                                      + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
@@ -1038,17 +1138,17 @@ void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  con
 }
 
 
-BasisLTet::BasisLTet(int n) : sngp(n){
-  ngp = 8;
-  phi = new double[ngp];
-  dphidxi = new double[ngp];
-  dphideta = new double[ngp];
-  dphidzta = new double[ngp];
-  abscissa = new double[sngp];
-  weight = new double[sngp];
-  setN(sngp, abscissa, weight);
-  exit(0);
-}
+// BasisLTet::BasisLTet(int n) : sngp(n){
+//   ngp = 8;
+//   phi = new double[ngp];
+//   dphidxi = new double[ngp];
+//   dphideta = new double[ngp];
+//   dphidzta = new double[ngp];
+//   abscissa = new double[sngp];
+//   weight = new double[sngp];
+//   setN(sngp, abscissa, weight);
+//   exit(0);
+// }
 
 BasisLTet::BasisLTet(){
   //cn we can have 1 or 4 guass points; 4 will be default
@@ -1073,26 +1173,13 @@ BasisLTet::BasisLTet(){
   abscissa[1] = 0.58541020;
   weight[0] = 0.041666666667;
   weight[1] = 0.041666666667;
-}
 
-// Destructor
-BasisLTet::~BasisLTet() {
-  delete [] phi;
-  delete [] dphideta;
-  delete [] dphidxi;
-  delete [] dphidzta;
-  delete [] abscissa;
-  delete [] weight;
-}
+  xi  = new double[ngp];
+  eta = new double[ngp];
+  zta = new double[ngp];
+  nwt  = new double[ngp];
 
-// Calculates a linear 3D basis
-void BasisLTet::getBasis(const int gp, const double *x, const double *y) {
-  std::cout<<"BasisLTet::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
-  exit(0);
-}
-
-void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
-
+#if 0
   if(0 == gp){
     xi = abscissa[0];  // 0, 0, 0
     eta = abscissa[0];
@@ -1115,29 +1202,72 @@ void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  con
     //wt = weight[0] * weight[1] * weight[0];
   } 
   wt=weight[0];//cn each wt = .25/6=0.041666666667
+#endif
+
+  xi[0] = abscissa[0];  // 0, 0, 0
+  eta[0]  = abscissa[0];
+  zta[0]  = abscissa[0];
+  nwt[0]  = weight[0];
+  xi[1] = abscissa[1]; // 1, 0, 0
+  eta[1] = abscissa[0];
+  zta[1] = abscissa[0];
+  nwt[1]  = weight[0];
+  xi[2]  = abscissa[0]; // 1, 1, 0
+  eta[2]  = abscissa[1];
+  zta[2]  = abscissa[0];
+  nwt[2]  = weight[0];
+  xi[3]= abscissa[0];  //0, 1, 0
+  eta[3] = abscissa[0];
+  zta [3]= abscissa[1];
+  nwt[3]  = weight[0];
+}
+
+// Destructor
+BasisLTet::~BasisLTet() {
+  delete [] phi;
+  delete [] dphideta;
+  delete [] dphidxi;
+  delete [] dphidzta;
+  delete [] abscissa;
+  delete [] weight;
+
+  delete xi, eta, zta, nwt;
+}
+
+// Calculates a linear 3D basis
+void BasisLTet::getBasis(const int gp, const double *x, const double *y) {
+  std::cout<<"BasisLTet::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
+  exit(0);
+}
+
+void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
+
   // Calculate basis function and derivatives at nodal pts
-   phi[0]   =  1.0 - xi  - eta - zta;
-   phi[1]   =  xi;
-   phi[2]   =  eta;
-   phi[3]   =  zta;
+  phi[0]   =  1.0 - xi[gp]  - eta[gp] - zta[gp];
+  phi[1]   =  xi[gp];
+  phi[2]   =  eta[gp];
+  phi[3]   =  zta[gp];
+  
+  
+  // ksi-derivatives
+  dphidxi[0] = -1.;
+  dphidxi[1] =  1.;
+  dphidxi[2] =  0.;
+  dphidxi[3] =  0.;
+  
+  // eta-derivatives
+  dphideta[0] = -1.;
+  dphideta[1] =  0.;
+  dphideta[2] =  1.;
+  dphideta[3] =  0.;
+  
+  // zeta-derivatives
+  dphidzta[0] = -1.;
+  dphidzta[1] =  0.;
+  dphidzta[2] =  0.;
+  dphidzta[3] =  1.;
 
-   // ksi-derivatives
-   dphidxi[0] = -1.;
-   dphidxi[1] =  1.;;
-   dphidxi[2] =  0.;
-   dphidxi[3] =  0.;
-
-   // eta-derivatives
-   dphideta[0] = -1.;
-   dphideta[1] =  0.;
-   dphideta[2] =  1.;
-   dphideta[3] =  0.;
-
-   // zeta-derivatives
-   dphidzta[0] = -1.;
-   dphidzta[1] =  0.;
-   dphidzta[2] =  0.;
-   dphidzta[3] =  1.;
+  wt = nwt[gp];
   
   // Caculate basis function and derivative at GP.
   double dxdxi  = (x[1]-x[0]);
@@ -1230,7 +1360,25 @@ BasisLBar::BasisLBar(int n) :sngp(n){
   abscissa = new double[sngp];//number guass pts
   weight = new double[sngp];
   setN(sngp, abscissa, weight);
-  //std::cout<<abscissa[0]<<" "<<abscissa[1]<<" "<<weight[0]<<" "<<weight[1]<<std::endl;
+
+  xi  = new double[ngp];
+  nwt  = new double[ngp];
+
+  if(2 == ngp){
+#if 0
+    if(0 == gp){
+      xi = abscissa[0];
+      wt = weight[0];
+    }else if (1 == gp){
+      xi = abscissa[1];
+      wt = weight[0];
+    }
+#endif  
+    xi[0] = abscissa[0];
+    nwt[0] = weight[0];
+    xi[1] = abscissa[1];
+    nwt[1] = weight[0];
+  }
 }
 
 // Destructor
@@ -1244,23 +1392,15 @@ BasisLBar::~BasisLBar() {
   delete [] dphidz;
   delete [] abscissa;
   delete [] weight;
+
+  delete xi, nwt;
 }
 
 void BasisLBar::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
 
-  //cn this is horrible, need a better way than having if statements in here
-  if(2 == ngp){
-    if(0 == gp){
-      xi = abscissa[0];
-      wt = weight[0];
-    }else if (1 == gp){
-      xi = abscissa[1];
-      wt = weight[0];
-    }
-  }
   // Calculate basis function and derivatives at nodal pts
-  phi[0]=(1.0-xi)/2.0;
-  phi[1]=(1.0+xi)/2.0;
+  phi[0]=(1.0-xi[gp])/2.0;
+  phi[1]=(1.0+xi[gp])/2.0;
 
   dphidxi[0]= -1.0/2.0;
   dphidxi[1]= 1.0/2.0;
@@ -1269,7 +1409,8 @@ void BasisLBar::getBasis(const int gp,const  double *x, const  double *y,  const
   dphideta[1]= 0.0;
   dphidzta[0] = 0.0;
   dphidzta[1]= 0.0;
-  
+
+
   // Caculate basis function and derivative at GP.
   //std::cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<x[3]<<std::endl;
   double dxdxi  = .5* (x[1]-x[0]);
@@ -1279,7 +1420,8 @@ void BasisLBar::getBasis(const int gp,const  double *x, const  double *y,  const
   //double dydeta = .25*( (y[3]-y[0])*(1.- xi)+(y[2]-y[1])*(1.+ xi) );
   double dzdxi  = .5*(z[1]-z[0]);
 
-  //cn not sure about this still
+  wt = nwt[gp];  
+
   jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
 
   dxidx = 1. / dxdxi;
@@ -1353,7 +1495,34 @@ BasisQBar::BasisQBar(int n) :sngp(n){
   abscissa = new double[sngp];//number guass pts
   weight = new double[sngp];
   setN(sngp, abscissa, weight);
-  //std::cout<<abscissa[0]<<" "<<abscissa[1]<<" "<<abscissa[2]<<" "<<weight[0]<<" "<<weight[1]<<" "<<weight[2]<<std::endl;
+
+  xi  = new double[ngp];
+  nwt  = new double[ngp];
+
+  if(3 == ngp){
+#if 0
+    if(0 == gp){
+      xi = abscissa[0];
+      wt = weight[0];
+    }else if (1 == gp){
+      xi = abscissa[1];
+      wt = weight[1];
+    }else if (2 == gp){
+      xi = abscissa[2];
+      wt = weight[2];
+    }
+#endif
+    xi[0] = abscissa[0];
+    nwt[0] = weight[0];
+    xi[1] = abscissa[1];
+    nwt[1] = weight[1];
+    xi[2] = abscissa[2];
+    nwt[2] = weight[2];
+
+  }else{
+    std::cout<<"BasisQBar only supported for n = 3 at this time"<<std::endl<<std::endl<<std::endl;
+    exit(0);
+  }
 }
 
 // Destructor
@@ -1367,35 +1536,21 @@ BasisQBar::~BasisQBar() {
   delete [] dphidz;
   delete [] abscissa;
   delete [] weight;
+
+  delete xi, nwt;
 }
+
 
 void BasisQBar::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
 
-  //cn this is horrible, need a better way than having if statements in here
-  if(3 == ngp){
-    if(0 == gp){
-      xi = abscissa[0];
-      wt = weight[0];
-    }else if (1 == gp){
-      xi = abscissa[1];
-      wt = weight[1];
-    }else if (2 == gp){
-      xi = abscissa[2];
-      wt = weight[2];
-    }
-  }else{
-    std::cout<<"BasisQBar only supported for n = 3 at this time"<<std::endl<<std::endl<<std::endl;
-    exit(0);
-  }
   // Calculate basis function and derivatives at nodal pts
-  phi[0]=-xi*(1.0-xi)/2.0;
-  phi[1]=xi*(1.0+xi)/2.0;
-  phi[2]=(1.0-xi*xi);
+  phi[0]=-xi[gp]*(1.0-xi[gp])/2.0;
+  phi[1]=xi[gp]*(1.0+xi[gp])/2.0;
+  phi[2]=(1.0-xi[gp]*xi[gp]);
 
-  dphidxi[0]=-1.0/2.0 + xi;
-  dphidxi[1]= 1.0/2.0 + xi;
-  dphidxi[2]=-2.0*xi;
-
+  dphidxi[0]=-1.0/2.0 + xi[gp];
+  dphidxi[1]= 1.0/2.0 + xi[gp];
+  dphidxi[2]=-2.0*xi[gp];
   dphideta[0]= 0.0;
   dphideta[1]= 0.0;
   dphideta[2]= 0.0;
@@ -1407,7 +1562,9 @@ void BasisQBar::getBasis(const int gp,const  double *x, const  double *y,  const
   double dxdxi  = dphidxi[0]*x[0] + dphidxi[1]*x[1] + dphidxi[2]*x[2];
   double dydxi  = dphidxi[0]*y[0] + dphidxi[1]*y[1] + dphidxi[2]*y[2];
   double dzdxi  = dphidxi[0]*z[0] + dphidxi[1]*z[1] + dphidxi[2]*z[2];
-    
+  
+  wt = nwt[gp];  
+  
   jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
 
   dxidx = 1. / dxdxi;

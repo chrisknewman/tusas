@@ -424,6 +424,20 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  basis.push_back(new BasisQTri());
 	//delta_factor = .5*delta_factor;
       } 
+      else if( (0==elem_type.compare("HEX27")) || (0==elem_type.compare("hex27")) ){ // quadratic triangle
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  {//basis.push_back(new BasisQHex());
+	  }
+	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
+	exit(0);
+      }
+      else if( (0==elem_type.compare("TETRA10")) || (0==elem_type.compare("tetra10")) ){ // quadratic triangle
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  {//basis.push_back(new BasisQTet());
+	  }
+	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
+	exit(0);
+      }
       else {
 	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
 	exit(0);

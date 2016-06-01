@@ -29,15 +29,18 @@ class Basis {
  public:
   // Variables that are calculated at the gauss point
   int ngp;
-  double *phi, *dphidxi, *dphideta, *dphidzta, *abscissa, *weight; 
-  double xi, eta, zta, wt, jac;
+  double *phi, *dphidxi, *dphideta, *dphidzta;
   double dxidx, dxidy,dxidz, detadx, detady, detadz, dztadx, dztady, dztadz;
+  double wt, jac;
   double uu, xx, yy, zz, dudx, dudy, dudz;
   double uuold, duolddx, duolddy, duolddz;
   double uuoldold, duoldolddx, duoldolddy, duoldolddz;
   double * dphidx;
   double * dphidy;
   double * dphidz;
+protected:
+  double *abscissa, *weight;
+  double *xi, *eta, *zta, *nwt;
 };
 
 class BasisLTri : public Basis {
@@ -157,7 +160,7 @@ class BasisLTet : public Basis {
 
   // Constructor
   BasisLTet();
-  BasisLTet(int sngp);
+//   BasisLTet(int sngp);
 
   // Destructor
   ~BasisLTet();

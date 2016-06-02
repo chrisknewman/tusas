@@ -26,8 +26,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   paramList.set(TusasthetaNameString,(double)1.,TusasthetaDocString);
   //paramList.set(TusasthetaNameString,(double)0.,TusasthetaDocString);
 
-  paramList.set(TusaspreconNameString,(bool)true,TusaspreconDocString);
-  //paramList.set(TusaspreconNameString,(bool)false,TusaspreconDocString);
+  //paramList.set(TusaspreconNameString,(bool)true,TusaspreconDocString);
+  paramList.set(TusaspreconNameString,(bool)false,TusaspreconDocString);
 
   //paramList.set(TusasmethodNameString,"phaseheat",TusasmethodDocString);
   paramList.set(TusasmethodNameString,"nemesis",TusasmethodDocString);

@@ -144,8 +144,13 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   // Initialize the graph for W CrsMatrix object
   W_graph_ = createGraph();
-  P_ = rcp(new Epetra_FECrsMatrix(Copy,*W_graph_));
-  prec_ = Teuchos::rcp(new preconditioner<Scalar>(P_, comm_, paramList.sublist("ML")));
+
+  bool precon = paramList.get<bool> (TusaspreconNameString);
+  if(precon){
+    P_ = rcp(new Epetra_FECrsMatrix(Copy,*W_graph_));
+    prec_ = Teuchos::rcp(new preconditioner<Scalar>(P_, comm_, paramList.sublist("ML")));
+  }
+
   u_old_ = rcp(new Epetra_Vector(*f_owned_map_));
   u_old_old_ = rcp(new Epetra_Vector(*f_owned_map_));
   dudt_ = rcp(new Epetra_Vector(*f_owned_map_));
@@ -817,13 +822,14 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 //   Teuchos::RCP< ::Thyra::ModelEvaluator<double> > thyraModel =
 //     Teuchos::rcp(new NOX::MatrixFreeModelEvaluatorDecorator<double>(this));
 
-  Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp = thyraModel->create_W_prec();
+  //Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp = thyraModel->create_W_prec();
   // Create the NOX::Thyra::Group
 
 
   bool precon = paramList.get<bool> (TusaspreconNameString);
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
   if(precon){
+    Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp = thyraModel->create_W_prec();
 #if 0
     nox_group =
       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null,weight));

@@ -11,6 +11,7 @@ preconditioner<Scalar>::preconditioner(const RCP<Epetra_CrsMatrix>& W,const Teuc
     range_ = W_op->range();
     domain_ = W_op->domain(); 
     map_ =  Teuchos::rcp(new Epetra_Map(*get_Epetra_Map(*domain_, comm_)));
+    //map_ =  Teuchos::rcp(new Epetra_Map(W_->DomainMap () ));
 
 
     //cn

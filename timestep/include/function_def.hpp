@@ -559,7 +559,18 @@ double init_zero_(const double &x,
 
   return 0.;
 }
-double bc_zero_(const double &x,
+double nbc_zero_(const Basis *basis,
+		 const int &i, 
+		 const double &dt_, 
+		 const double &t_theta_,
+		 const double &time)
+{
+  
+  double phi = basis->phi[i];
+  
+  return 0.*phi;
+}
+double dbc_zero_(const double &x,
 		const double &y,
 		const double &z,
 		const double &t)
@@ -568,7 +579,18 @@ double bc_zero_(const double &x,
   
   return 0.;
 }
-double bc_one_(const double &x,
+double nbc_one_(const Basis *basis,
+		const int &i, 
+		const double &dt_, 
+		const double &t_theta_,
+		const double &time)
+{
+  
+  double phi = basis->phi[i];
+  
+  return 1.*phi;
+}
+double dbc_one_(const double &x,
 	       const double &y,
 	       const double &z,
 	       const double &t)
@@ -577,7 +599,18 @@ double bc_one_(const double &x,
   
   return 1.;
 }
-double bc_mone_(const double &x,
+double nbc_mone_(const Basis *basis,
+		 const int &i, 
+		 const double &dt_, 
+		 const double &t_theta_,
+		 const double &time)
+{
+
+  double phi = basis->phi[i];
+
+  return -1.*phi;
+}
+double dbc_mone_(const double &x,
 		const double &y,
 		const double &z,
 		const double &t)

@@ -216,10 +216,11 @@ private: // data members
 				      const double &z,
 				      const double &t)>> *dirichletfunc_;
 
-  std::vector<std::map<int,double (*)(const double &x,
-				      const double &y,
-				      const double &z,
-				      const double &t)>> *neumannfunc_;
+  std::vector<std::map<int,double (*)(const Basis *basis,
+				      const int &i, 
+				      const double &dt_, 
+				      const double &t_theta_,
+				      const double &time)>> *neumannfunc_;
   
   //cn need this to be a function of all variables eventually
   //std::vector<double (*)(const double &u)> *postprocfunc_;

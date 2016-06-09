@@ -144,6 +144,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   // Initialize the graph for W CrsMatrix object
   W_graph_ = createGraph();
+  //W_graph_->Print(std::cout);
 
   bool precon = paramList.get<bool> (TusaspreconNameString);
   if(precon){
@@ -231,7 +232,10 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
     }
   }
   //W_graph->FillComplete();
-  W_graph->GlobalAssemble();
+  if (W_graph->GlobalAssemble() != 0){
+    std::cout<<"error W_graph->GlobalAssemble()"<<std::endl;
+    exit(0);
+  }
 //   W_graph->Print(std::cout);
 //   exit(0);
   return W_graph;
@@ -560,16 +564,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #endif
 
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
-      typedef double (*BCFUNC)(const double &x,
+      typedef double (*DBCFUNC)(const double &x,
 				const double &y,
 				const double &z,
 				const double &t);
+      typedef double (*NBCFUNC)(const Basis *basis,
+				const int &i, 
+				const double &dt_, 
+				const double &t_theta_,
+				const double &time);
 
       if (nonnull(f_out) && NULL != dirichletfunc_) {
 	f_fe.GlobalAssemble();
 	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
-	std::map<int,BCFUNC>::iterator it;
+	std::map<int,DBCFUNC>::iterator it;
       
         for( int k = 0; k < numeqs_; k++ ){
 	  for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
@@ -641,7 +650,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}
 	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
-	std::map<int,BCFUNC>::iterator it;
+	std::map<int,NBCFUNC>::iterator it;
       
         for( int k = 0; k < numeqs_; k++ ){
 	  for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
@@ -666,9 +675,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		basis->getBasis(gp,xx,yy,zz);
 
 		double jacwt = basis->jac * basis->wt;
-		double x = basis->xx;// x is coord of gauss point in x space, x(xi)
-		double y = basis->yy;
-		double z = basis->zz;
 
 		sum += jacwt;
 		for( int i = 0; i < num_node_per_side; i++ ){
@@ -680,9 +686,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  int row = numeqs_*gid;
 		  int row1 = row + k;
 
-		  double phi = basis->phi[i];
-		  //cn what about t_theta_ here?
-		  double val = -jacwt*phi*(it->second)(x,y,z,time_);//the function pointer eval
+		  double val = -jacwt*(it->second)(basis,i,dt_,t_theta_,time_);//the function pointer eval
 		  
 		  //std::cout<<x<<" "<<y<<" "<<z<<" "<<val<<" "<<" "<<basis->jac<<" "<<basis->wt<<" "<<jacwt<<" "<<row1<<" "<<sum<<" "<<phi<<std::endl;	  
 		  //std::cout<<i<<" "<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<" "<<val<<std::endl;
@@ -703,7 +707,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	P_->GlobalAssemble();
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	int lenind = 27;//cn 27 in 3d
-	std::map<int,BCFUNC>::iterator it;
+	std::map<int,DBCFUNC>::iterator it;
         for( int k = 0; k < numeqs_; k++ ){
 	  for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	    int ns_id = it->first;
@@ -721,7 +725,16 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 								num_nodes,
 								&column[0]
 								) ;
+	      //cn sometimes this comes back as nonzero (NeumannQuadQPar for instance)
+	      //cn need to make sure that mesh_->get_node_set is correct in parallel
+
+// 	      if( err < 0){
+// 		std::cout<<"Error: W_graph_->ExtractGlobalRowCopy"<<std::endl;
+// 		exit(0);
+// 	      }
 	    
+	      //num_nodes =P_-> NumGlobalEntries(row);
+
 	      column.resize(num_nodes);
 	      double d = 1.;
 	      std::vector<double> vals (num_nodes,0.);
@@ -1972,10 +1985,10 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &bc_zero_;							 
-    (*dirichletfunc_)[0][1] = &bc_zero_;						 
-    (*dirichletfunc_)[0][2] = &bc_zero_;						 
-    (*dirichletfunc_)[0][3] = &bc_zero_;
+    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
 
     neumannfunc_ = NULL;
 
@@ -2024,21 +2037,22 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
-    //(*dirichletfunc_)[0][0] = &bc_zero_;							 
-    //(*dirichletfunc_)[0][1] = &bc_zero_;						 
-    //(*dirichletfunc_)[0][2] = &bc_zero_;						 
-    (*dirichletfunc_)[0][3] = &bc_zero_;
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    //(*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
 
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
+    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
+							    const int &i, 
+							    const double &dt_, 
+							    const double &t_theta_,
+							    const double &time)>>(numeqs_);
     //neumannfunc_ = NULL;
-    //(*neumannfunc_)[0][0] = &bc_one_;							 
-    (*neumannfunc_)[0][1] = &bc_one_;						 
-    //(*neumannfunc_)[0][2] = &bc_zero_;						 
-    //(*neumannfunc_)[0][3] = &bc_zero_;
+    //(*neumannfunc_)[0][0] = &nbc_one_;							 
+    (*neumannfunc_)[0][1] = &nbc_one_;						 
+    //(*neumannfunc_)[0][2] = &nbc_zero_;						 
+    //(*neumannfunc_)[0][3] = &nbc_zero_;
 
 
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
@@ -2086,10 +2100,10 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 							      const double &y,
 							      const double &z,
 							      const double &t)>>(numeqs_);
-    (*dirichletfunc_)[0][1] = &bc_mone_;	
-    //(*dirichletfunc_)[0][3] = &bc_zero_;												 
-    (*dirichletfunc_)[1][1] = &bc_mone_;												 
-    //(*dirichletfunc_)[1][3] = &bc_one_;
+    (*dirichletfunc_)[0][1] = &dbc_mone_;	
+    //(*dirichletfunc_)[0][3] = &dbc_zero_;												 
+    (*dirichletfunc_)[1][1] = &dbc_mone_;												 
+    //(*dirichletfunc_)[1][3] = &dbc_one_;
 
     neumannfunc_ = NULL;
 						 
@@ -2174,11 +2188,12 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     if(NULL != neumannfunc_){
       std::cout<<"  neumannfunc_ with size "<<neumannfunc_->size()<<" found."<<std::endl;
-      typedef double (*DBCFUNC)(const double &x,
-				const double &y,
-				const double &z,
-				const double &t);
-      std::map<int,DBCFUNC>::iterator it;
+      typedef double (*NBCFUNC)(const Basis *basis,
+				const int &i, 
+				const double &dt_, 
+				const double &t_theta_,
+				const double &time);
+      std::map<int,NBCFUNC>::iterator it;
       
       for( int k = 0; k < numeqs_; k++ ){
 	for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){

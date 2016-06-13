@@ -211,6 +211,8 @@ private: // data members
 
   std::vector<std::string> *varnames_;
 
+
+  //cn in general, dirichlet should probably have same call sig as neumann
   std::vector<std::map<int,double (*)(const double &x,
 				      const double &y,
 				      const double &z,

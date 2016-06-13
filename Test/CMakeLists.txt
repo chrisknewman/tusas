@@ -71,5 +71,7 @@ add_test( NAME NeumannHex  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Neumann
 
 add_test( NAME NeumannTetPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/NeumannTetPar COMMAND run_test )
 
+add_test( NAME RobinQuad  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/RobinQuad COMMAND run_test )
+
 
 #add_test( NAME RestartPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/RestartPar COMMAND run_test )

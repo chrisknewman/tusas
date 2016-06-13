@@ -950,5 +950,87 @@ double prec_c_farzadi_(const boost::ptr_vector<Basis> &basis,
 }
 
 
+double residual_robin_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  //1-D robin bc test problem, steady state
+  // -d^2 u/dx^2 + a^2 u = 0
+  // u(x=0) = 0; grad u = b(1-u) | x=1
+  // u[x;b,a]=b cosh ( ax)/[b cosh(a)+a sinh(a)]
+
+
+
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  double u = basis[0].uu;
+  //double uold = basis[0].uuold;
+
+  double a =10.;
+
+  double au = a*a*u*test;
+  double divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+  //double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
+ 
+ 
+  return divgradu + au;
+}
+
+double prec_robin_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  double divgrad = dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz;
+  double a =10.;
+  double u_t =test * a*a*basis[0].phi[j];
+  return u_t + t_theta_*divgrad;
+}
+
+double nbc_robin_test_(const Basis *basis,
+		 const int &i, 
+		 const double &dt_, 
+		 const double &t_theta_,
+		 const double &time)
+{
+
+  double test = basis->phi[i];
+  double u = basis[0].uu;
+
+  double b =1.;
+
+  return b*(1.-u)*test;
+}
 
 #endif

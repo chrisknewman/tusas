@@ -2054,6 +2054,68 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //(*neumannfunc_)[0][2] = &nbc_zero_;						 
     //(*neumannfunc_)[0][3] = &nbc_zero_;
 
+  }else if("robin" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					   const int &i, 
+					   const double &dt_, 
+					   const double &t_theta_, 
+					   const double &delta, 
+					   const double &time_)>(numeqs_);
+    (*residualfunc_)[0] = &residual_robin_test_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					 const int &i,  
+					 const int &j,
+					 const double &dt_, 
+					 const double &t_theta_, 
+					 const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &prec_robin_test_;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    //(*initfunc_)[0] = &init_neumann_test_;
+    (*initfunc_)[0] = &init_zero_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							      const double &y,
+							      const double &z,
+							      const double &t)>>(numeqs_);
+
+//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+// 							      const double &y,
+// 							      const double &z)>>(numeqs_,
+// 										 std::map<int,double (*)(const double &x,
+// 													 const double &y, 
+//               													 const double &z)>(n_dirichlet));
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    //(*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
+							    const int &i, 
+							    const double &dt_, 
+							    const double &t_theta_,
+							    const double &time)>>(numeqs_);
+    //neumannfunc_ = NULL;
+    //(*neumannfunc_)[0][0] = &nbc_one_;							 
+    (*neumannfunc_)[0][1] = &nbc_robin_test_;						 
+    //(*neumannfunc_)[0][2] = &nbc_zero_;						 
+    //(*neumannfunc_)[0][3] = &nbc_zero_;
+
+
 
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test

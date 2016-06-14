@@ -1032,5 +1032,218 @@ double nbc_robin_test_(const Basis *basis,
 
   return b*(1.-u)*test;
 }
+double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  //3-D isotropic x-displacement based solid mech, steady state
+  //strong form: sigma = stress  eps = strain
+  // d^T sigma = d^T B D eps == 0
+
+  double E = 1e6;
+  double nu = .3;
+
+  double strain[6], stress[6];//x,y,z,yx,zy,zx
+
+
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  //double test = basis[0].phi[i];
+  //u, phi
+  //double u = basis[0].uu;
+
+  strain[0] = basis[0].dudx;
+  strain[1] = basis[1].dudy;
+  strain[2] = basis[2].dudz;
+  strain[3] = basis[0].dudy + basis[1].dudx;
+  strain[4] = basis[1].dudz + basis[2].dudy;
+  strain[5] = basis[0].dudz + basis[2].dudx;
+
+  //plane stress
+//   double c = E/(1.-nu*nu);
+//   double c1 = c;
+//   double c2 = c*nu;
+//   double c3 = c*(1.-nu)/2.;//always confused about the 2 here
+  //plane strain
+  double c = E/(1.+nu)/(1.-2.*nu);
+  double c1 = c*(1.-nu);
+  double c2 = c*nu;
+  double c3 = c*(1.-2.*nu)/2.;
+
+  stress[0] = c1*strain[0] + c2*strain[1] + c2*strain[2];
+  stress[1] = c2*strain[0] + c1*strain[1] + c2*strain[2];
+  stress[2] = c2*strain[0] + c2*strain[1] + c1*strain[2];
+  stress[3] = c3*strain[3]; 
+  stress[4] = c3*strain[4]; 
+  stress[5] = c3*strain[5]; 
+
+  double divgradu = stress[0]*dtestdx + stress[3]*dtestdy + stress[5]*dtestdz;//(grad u,grad phi)
+ 
+ 
+  return divgradu;
+}
+double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  //3-D isotropic x-displacement based solid mech, steady state
+  //strong form: sigma = stress  eps = strain
+  // d^T sigma = d^T B D eps == 0
+
+  double E = 1e6;
+  double nu = .3;
+
+  double strain[6], stress[6];//x,y,z,yx,zy,zx
+
+
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  //double test = basis[0].phi[i];
+  //u, phi
+  //double u = basis[0].uu;
+
+  strain[0] = basis[0].dudx;
+  strain[1] = basis[1].dudy;
+  strain[2] = basis[2].dudz;
+  strain[3] = basis[0].dudy + basis[1].dudx;
+  strain[4] = basis[1].dudz + basis[2].dudy;
+  strain[5] = basis[0].dudz + basis[2].dudx;
+
+  //plane stress
+//   double c = E/(1.-nu*nu);
+//   double c1 = c;
+//   double c2 = c*nu;
+//   double c3 = c*(1.-nu)/2.;//always confused about the 2 here
+  //plane strain
+  double c = E/(1.+nu)/(1.-2.*nu);
+  double c1 = c*(1.-nu);
+  double c2 = c*nu;
+  double c3 = c*(1.-2.*nu)/2.;
+
+  stress[0] = c1*strain[0] + c2*strain[1] + c2*strain[2];
+  stress[1] = c2*strain[0] + c1*strain[1] + c2*strain[2];
+  stress[2] = c2*strain[0] + c2*strain[1] + c1*strain[2];
+  stress[3] = c3*strain[3]; 
+  stress[4] = c3*strain[4]; 
+  stress[5] = c3*strain[5]; 
+
+  double divgradu = stress[1]*dtestdy + stress[3]*dtestdx + stress[4]*dtestdz;//(grad u,grad phi)
+ 
+ 
+  return divgradu;
+}
+double residual_liniso_z_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  //3-D isotropic x-displacement based solid mech, steady state
+  //strong form: sigma = stress  eps = strain
+  // d^T sigma = d^T B D eps == 0
+
+  double E = 1e6;
+  double nu = .3;
+
+  double strain[6], stress[6];//x,y,z,yx,zy,zx
+
+
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  //double test = basis[0].phi[i];
+  //u, phi
+  //double u = basis[0].uu;
+
+  strain[0] = basis[0].dudx;
+  strain[1] = basis[1].dudy;
+  strain[2] = basis[2].dudz;
+  strain[3] = basis[0].dudy + basis[1].dudx;
+  strain[4] = basis[1].dudz + basis[2].dudy;
+  strain[5] = basis[0].dudz + basis[2].dudx;
+
+  //plane stress
+//   double c = E/(1.-nu*nu);
+//   double c1 = c;
+//   double c2 = c*nu;
+//   double c3 = c*(1.-nu)/2.;//always confused about the 2 here
+  //plane strain
+  double c = E/(1.+nu)/(1.-2.*nu);
+  double c1 = c*(1.-nu);
+  double c2 = c*nu;
+  double c3 = c*(1.-2.*nu)/2.;
+
+  stress[0] = c1*strain[0] + c2*strain[1] + c2*strain[2];
+  stress[1] = c2*strain[0] + c1*strain[1] + c2*strain[2];
+  stress[2] = c2*strain[0] + c2*strain[1] + c1*strain[2];
+  stress[3] = c3*strain[3]; 
+  stress[4] = c3*strain[4]; 
+  stress[5] = c3*strain[5]; 
+
+  double divgradu = stress[2]*dtestdz + stress[4]*dtestdy + stress[5]*dtestdx;//(grad u,grad phi)
+ 
+ 
+  return divgradu;
+}
+
+
+
+double prec_liniso_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+{
+
+  exit(0);
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  double divgrad = dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz;
+  double a =10.;
+  double u_t =test * a*a*basis[0].phi[j];
+  return u_t + t_theta_*divgrad;
+}
+
 
 #endif

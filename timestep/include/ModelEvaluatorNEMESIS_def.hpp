@@ -727,6 +727,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 								) ;
 	      //cn sometimes this comes back as nonzero (NeumannQuadQPar for instance)
 	      //cn need to make sure that mesh_->get_node_set is correct in parallel
+	      //cn probably a by product of createonetoone, ie we call createonetoone
+	      //cn to get local nodes, however here we get the nodeset from the mesh, and it does not
+	      //cn know that we have called createonetoone. some nodes returned by get_node_set may
+	      //cn not live on this proc
+	      //cn maybe we extract it from the map
 
 // 	      if( err < 0){
 // 		std::cout<<"Error: W_graph_->ExtractGlobalRowCopy"<<std::endl;
@@ -2136,9 +2141,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 const double &dt_, 
 					 const double &t_theta_, 
 					 const double &delta)>(numeqs_);
-    (*preconfunc_)[0] = &prec_liniso_test_;
-    (*preconfunc_)[1] = &prec_liniso_test_;
-    (*preconfunc_)[2] = &prec_liniso_test_;
+    (*preconfunc_)[0] = &prec_liniso_x_test_;
+    (*preconfunc_)[1] = &prec_liniso_y_test_;
+    (*preconfunc_)[2] = &prec_liniso_z_test_;
 
     initfunc_ = new  std::vector<double (*)(const double &x,
 					    const double &y,
@@ -2189,6 +2194,82 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     //std::cout<<"liniso"<<std::endl;
     //exit(0);
+
+  }else if("linisobodyforce" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 3;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					   const int &i, 
+					   const double &dt_, 
+					   const double &t_theta_, 
+					   const double &delta, 
+					   const double &time_)>(numeqs_);
+    (*residualfunc_)[0] = &residual_liniso_x_test_;
+    (*residualfunc_)[1] = &residual_linisobodyforce_y_test_;
+    (*residualfunc_)[2] = &residual_liniso_z_test_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					 const int &i,  
+					 const int &j,
+					 const double &dt_, 
+					 const double &t_theta_, 
+					 const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &prec_liniso_x_test_;
+    (*preconfunc_)[1] = &prec_liniso_y_test_;
+    (*preconfunc_)[2] = &prec_liniso_z_test_;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    //(*initfunc_)[0] = &init_neumann_test_;
+    (*initfunc_)[0] = &init_zero_;
+    (*initfunc_)[1] = &init_zero_;
+    (*initfunc_)[2] = &init_zero_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "x_disp";
+    (*varnames_)[1] = "y_disp";
+    (*varnames_)[2] = "z_disp";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							      const double &y,
+							      const double &z,
+							      const double &t)>>(numeqs_);
+
+//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+// 							      const double &y,
+// 							      const double &z)>>(numeqs_,
+// 										 std::map<int,double (*)(const double &x,
+// 													 const double &y, 
+//               													 const double &z)>(n_dirichlet));
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[1][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[2][2] = &dbc_zero_;						 
+    //(*dirichletfunc_)[1][4] = &dbc_mone_;
+
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
+							    const int &i, 
+							    const double &dt_, 
+							    const double &t_theta_,
+							    const double &time)>>(numeqs_);
+    //neumannfunc_ = NULL;
+    //(*neumannfunc_)[0][0] = &nbc_one_;							 
+    //(*neumannfunc_)[0][1] = &nbc_robin_test_;						 
+    //(*neumannfunc_)[0][2] = &nbc_zero_;						 
+    //(*neumannfunc_)[0][3] = &nbc_zero_;
+    //(*neumannfunc_)[1][4] = &nbc_mone_;
+
+
+    //std::cout<<"liniso"<<std::endl;
+    //exit(0);
+
 
 
 

@@ -75,5 +75,7 @@ add_test( NAME RobinQuad  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/RobinQua
 
 add_test( NAME LinIsoHex  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/LinIsoHex COMMAND run_test )
 
+add_test( NAME LinIsoBodyForceHexPrec  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/LinIsoBodyForceHexPrec COMMAND run_test )
+
 
 #add_test( NAME RestartPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/RestartPar COMMAND run_test )

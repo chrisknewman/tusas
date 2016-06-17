@@ -1,0 +1,21 @@
+<ParameterList>
+	
+<!-- simulation parameters -->
+
+  <Parameter name="dt" type="double" value="1000"/>
+  <Parameter name="nt" type="int" value = "1"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/hex64.e"/>
+  <Parameter name="testcase" type="string" value="linisoheat"/>
+  <Parameter name="preconditioner" type="bool" value = "false"/>
+  <Parameter name="theta" type="double" value=".5"/>
+<!--   <Parameter name="method" type="string" value="heat"/> -->
+   <Parameter name="noxrelres" type="double" value="1.e-14"/>
+   <ParameterList name="ML">
+        <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/>
+<!--         <Parameter name="smoother: sweeps" type="int" value="6"/> -->
+         <Parameter name="PDE equations" type="int" value="3"/>
+        <Parameter name="coarse: type" type="string" value="Amesos-KLU"/> -->
+<!--         <Parameter name="coarse: max size" type="int" value="3000"/> -->
+   </ParameterList>
+
+</ParameterList>

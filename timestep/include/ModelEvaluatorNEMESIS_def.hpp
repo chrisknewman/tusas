@@ -585,10 +585,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    int ns_id = it->first;
 	    //std::cout<<it->first<<std::endl;
 	    
-#pragma omp parallel for
+	    //#pragma omp parallel for
 	    for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
 	      
 	      int lid = mesh_->get_node_set_entry(ns_id, j);
+	      if(!x_owned_map_->MyLID(lid) ) break;//check that this node lives on this proc, otherwise skip it
 	      int gid = node_num_map[lid];
 	      
 	      int row = numeqs_*gid;
@@ -711,10 +712,17 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
         for( int k = 0; k < numeqs_; k++ ){
 	  for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	    int ns_id = it->first;
-#pragma omp parallel for
+	    //#pragma omp parallel for
 	    for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
 	      int lid = mesh_->get_node_set_entry(ns_id, j);
-	      int gid = node_num_map[lid];
+
+	      //cn we could implement this up front;
+	      //cn ie construct a node_num_map that only contains locally owned nodes,
+	      //cn then we could turn openmp back on above
+	      //cn however mesh_->get_node_set(ns_id).size() would need to be fixed as well...
+	      if(!x_owned_map_->MyLID(lid) ) break;//check that this node lives on this proc, otherwise skip it
+	      //int gid = node_num_map[lid];
+	      int gid = x_owned_map_->GID(lid);
 	      int row = numeqs_*gid + k;
 	      int num_nodes;
 	    
@@ -725,18 +733,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 								num_nodes,
 								&column[0]
 								) ;
-	      //cn sometimes this comes back as nonzero (NeumannQuadQPar for instance)
-	      //cn need to make sure that mesh_->get_node_set is correct in parallel
-	      //cn probably a by product of createonetoone, ie we call createonetoone
-	      //cn to get local nodes, however here we get the nodeset from the mesh, and it does not
-	      //cn know that we have called createonetoone. some nodes returned by get_node_set may
-	      //cn not live on this proc
-	      //cn maybe we extract it from the map
 
-// 	      if( err < 0){
-// 		std::cout<<"Error: W_graph_->ExtractGlobalRowCopy"<<std::endl;
-// 		exit(0);
-// 	      }
 	    
 	      //num_nodes =P_-> NumGlobalEntries(row);
 
@@ -2269,6 +2266,89 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     //std::cout<<"liniso"<<std::endl;
     //exit(0);
+
+
+  }else if("linisoheat" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 4;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					   const int &i, 
+					   const double &dt_, 
+					   const double &t_theta_, 
+					   const double &delta, 
+					   const double &time_)>(numeqs_);
+    (*residualfunc_)[0] = &residual_linisoheat_x_test_;
+    (*residualfunc_)[1] = &residual_linisoheat_y_test_;
+    (*residualfunc_)[2] = &residual_linisoheat_z_test_;
+    (*residualfunc_)[3] = &residual_divgrad_test_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					 const int &i,  
+					 const int &j,
+					 const double &dt_, 
+					 const double &t_theta_, 
+					 const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &prec_liniso_x_test_;
+    (*preconfunc_)[1] = &prec_liniso_y_test_;
+    (*preconfunc_)[2] = &prec_liniso_z_test_;
+    (*preconfunc_)[3] = &prec_heat_test_;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    //(*initfunc_)[0] = &init_neumann_test_;
+    (*initfunc_)[0] = &init_zero_;
+    (*initfunc_)[1] = &init_zero_;
+    (*initfunc_)[2] = &init_zero_;
+    (*initfunc_)[3] = &init_zero_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "x_disp";
+    (*varnames_)[1] = "y_disp";
+    (*varnames_)[2] = "z_disp";
+    (*varnames_)[3] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							      const double &y,
+							      const double &z,
+							      const double &t)>>(numeqs_);
+
+//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+// 							      const double &y,
+// 							      const double &z)>>(numeqs_,
+// 										 std::map<int,double (*)(const double &x,
+// 													 const double &y, 
+//               													 const double &z)>(n_dirichlet));
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[1][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[2][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[3][2] = &dbc_ten_;						 
+    (*dirichletfunc_)[3][4] = &dbc_zero_;
+
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
+							    const int &i, 
+							    const double &dt_, 
+							    const double &t_theta_,
+							    const double &time)>>(numeqs_);
+    //neumannfunc_ = NULL;
+    //(*neumannfunc_)[0][0] = &nbc_one_;							 
+    //(*neumannfunc_)[0][1] = &nbc_robin_test_;						 
+    //(*neumannfunc_)[0][2] = &nbc_zero_;						 
+    //(*neumannfunc_)[0][3] = &nbc_zero_;
+    //(*neumannfunc_)[1][4] = &nbc_mone_;
+
+
+    //std::cout<<"liniso"<<std::endl;
+    //exit(0);
+
+
 
 
 

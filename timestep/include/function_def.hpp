@@ -599,6 +599,18 @@ double dbc_one_(const double &x,
   
   return 1.;
 }
+double dbc_ten_(const double &x,
+	       const double &y,
+	       const double &z,
+	       const double &t)
+{
+  
+  
+  return 10.*dbc_one_(x,
+	       y,
+	       z,
+	       t);
+}
 double nbc_mone_(const Basis *basis,
 		 const int &i, 
 		 const double &dt_, 
@@ -1260,9 +1272,9 @@ double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
   strain[0] = dbasisdx;
   strain[1] = 0;
   strain[2] = 0;
-  strain[3] = dbasisdy;
+  strain[3] = 0 + dbasisdy;
   strain[4] = 0;
-  strain[5] = dbasisdz;
+  strain[5] = dbasisdz +  0;
 
   //plane stress
 //   double c = E/(1.-nu*nu);
@@ -1451,5 +1463,90 @@ double residual_linisobodyforce_y_test_(const boost::ptr_vector<Basis> &basis,
   return divgradu;
 }
 
+double residual_linisoheat_x_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double gradu = basis[3].dudx;
+  double c = 1.e-6;
+  double alpha = 1.e-4;;
+  double E = 1.;
+
+  double divgradu = c*residual_liniso_x_test_(basis,i,dt_,t_theta_,delta,time) - alpha*E*gradu*dtestdx;
+ 
+  return divgradu;
+}
+
+
+double residual_linisoheat_y_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  //test function
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double gradu = basis[3].dudy;
+
+  double c = 1.e-6;
+  double alpha = 1.e-4;
+  double E = 1.;
+
+
+  double divgradu = c*residual_liniso_y_test_(basis,i,dt_,t_theta_,delta,time) - alpha*E*gradu*dtestdy;
+ 
+  return divgradu;
+}
+
+
+
+double residual_linisoheat_z_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  double gradu = basis[3].dudz;
+  double c = 1.e-6;
+  double alpha = 1.e-4;
+  double E = 1.;
+
+  double divgradu = c*residual_liniso_z_test_(basis,i,dt_,t_theta_,delta,time) - alpha*E*gradu*dtestdz;
+ 
+  return divgradu;
+}
+
+
+
+double residual_divgrad_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  //double test = basis[3].phi[i];
+  //u, phi
+  //double u = basis[0].uu;
+  //double uold = basis[0].uuold;
+
+  double divgradu = (basis[3].dudx*dtestdx + basis[3].dudy*dtestdy + basis[3].dudz*dtestdz);//(grad u,grad phi)
+  //double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
+ 
+ 
+  return divgradu;
+}
 
 #endif

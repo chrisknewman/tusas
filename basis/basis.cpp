@@ -1458,19 +1458,19 @@ void BasisLBar::getBasis(const int gp,const  double *x, const  double *y,  const
     dphidy[i] = dphidxi[i]*dxidy;
     dphidz[i] = dphidxi[i]*dxidz;
     if( u ){
-      //uu += u[i] * phi[i];
-      //dudx += u[i] * dphidx[i];
-      //dudy += u[i]* dphidy[i];
+      uu += u[i] * phi[i];
+      dudx += u[i] * dphidx[i];
+      dudy += u[i]* dphidy[i];
     }
     if( uold ){
-      //uuold += uold[i] * phi[i];
-      //duolddx += uold[i] * dphidx[i];
-      //duolddy += uold[i]* dphidy[i];
+      uuold += uold[i] * phi[i];
+      duolddx += uold[i] * dphidx[i];
+      duolddy += uold[i]* dphidy[i];
     }
     if( uoldold ){
-      //uuoldold += uoldold[i] * phi[i];
-      //duoldolddx += uoldold[i] * dphidx[i];
-      //duoldolddy += uoldold[i]* dphidy[i];
+      uuoldold += uoldold[i] * phi[i];
+      duoldolddx += uoldold[i] * dphidx[i];
+      duoldolddy += uoldold[i]* dphidy[i];
     }
   }
   return;

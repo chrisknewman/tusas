@@ -1549,4 +1549,198 @@ double residual_divgrad_test_(const boost::ptr_vector<Basis> &basis,
   return divgradu;
 }
 
+
+namespace uehara
+{
+
+double L = 3.e3;//J/m^3
+double m = 2.5e5;
+double a = 10.;//m^4
+double rho = 1.e3;//kg/m^3
+double c = 5.e2;//J/kg/K
+double k = 150.;//W/m/K
+
+  
+double init_heat_(const double &x,
+		   const double &y,
+		   const double &z)
+{
+  double val = 400.;  
+
+  return val;
+}
+double init_phase_(const double &x,
+		   const double &y,
+		   const double &z)
+{
+  double phi_sol_ = 1.;
+  double phi_liq_ = 0.;
+
+  double val = 0.;  
+
+  double dx = 1.e-2;
+  double r = 28.5*dx;
+
+  if(x > r && y > r){
+    val=phi_sol_;
+  }
+  else {
+    val=phi_liq_;
+  }
+  return val;
+}
+double residual_phase_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  double phi = basis[0].uu;
+  double phiold = basis[0].uuold;
+  double u = basis[1].uu;
+  //double uold = basis[1].uuold;
+
+  double dphidx = basis[0].dudx;
+  double dphidy = basis[0].dudy;
+  double dphidz = basis[0].dudz;
+
+  double b = 5.e-5;//m^3/J
+  double f = 0.;
+  double um = 400.;//K
+
+  double phit = m*(phi-phiold)/dt_*test;
+  double divgradphi = a*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);//(grad u,grad phi)
+  double M = b*phi*(1.-phi)*(L*(um-u)/um+f);
+  double g = -phi*(1.-phi)*(phi-.5+M)*test;
+  double rhs = divgradphi + g;
+
+  return (phit + t_theta_*rhs);
+
+}
+double residual_heat_(const boost::ptr_vector<Basis> &basis, 
+		      const int &i, 
+		      const double &dt_, 
+		      const double &t_theta_, 
+		      const double &delta, 
+		      const double &time)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  double phi = basis[0].uu;
+  double phiold = basis[0].uuold;
+  double u = basis[1].uu;
+  double uold = basis[1].uuold;
+
+  double dudx = basis[1].dudx;
+  double dudy = basis[1].dudy;
+  double dudz = basis[1].dudz;
+
+  double ut = rho*c*(u-uold)/dt_*test;
+  double divgradu = k*(dudx*dtestdx + dudy*dtestdy + dudz*dtestdz);
+  double phitu = -30.*L*phi*phi*(1.-phi)*(1.-phi)*(phi-phiold)/dt_*test; 
+
+  return (ut + t_theta_*divgradu + t_theta_*phitu);
+
+}
+double conv_bc_(const Basis *basis,
+		 const int &i, 
+		 const double &dt_, 
+		 const double &t_theta_,
+		 const double &time)
+{
+
+  double test = basis->phi[i];
+  double u = basis->uu;
+  double uw = 300.;//K
+  double h =1.e4;//W/m^2/K
+  std::cout<<u<<std::endl;
+  return h*(uw-u)*test;
+}
+double prec_phase_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+
+  double test = basis[0].phi[i];
+  
+  double phit = m*(basis[0].phi[j])/dt_*test;
+  double divgrad = a*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+
+
+  return (phit + t_theta_*divgrad);
+}
+double prec_heat_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+
+  double divgrad = k*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  double u_t =test * rho*c*basis[1].phi[j]/dt_;
+  return (u_t + t_theta_*divgrad);
+}
+}//namespace uehara
+
+
 #endif

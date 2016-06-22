@@ -657,12 +657,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
 	    int ss_id = it->first;
 
-	    double *xx, *yy, *zz;
+	    double *xx, *yy, *zz, *uu;
 	    xx = new double[num_node_per_side];
 	    yy = new double[num_node_per_side];
 	    zz = new double[num_node_per_side];
+	    uu = new double[num_node_per_side];
 
-	    double sum = 0.;
 	    for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces
 
 	      for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
@@ -670,14 +670,14 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		xx[ll] = mesh_->get_x(lid);
 		yy[ll] = mesh_->get_y(lid);
 		zz[ll] = mesh_->get_z(lid);
-		//std::cout<<ll<<" "<<lid<<" "<<xx[ll]<<" "<<yy[ll]<<" "<<zz[ll]<<" "<<mesh_->get_side_set_node_list(ss_id).size()<<std::endl;
+		uu[ll] = (*u)[numeqs_*lid+k];
+		//std::cout<<ll<<" "<<lid<<" "<<xx[ll]<<" "<<yy[ll]<<" "<<zz[ll]<<" "<<uu[ll]<<" "<<mesh_->get_side_set_node_list(ss_id).size()<<std::endl;
 	      }//ll
 	      for ( int gp = 0; gp < basis->ngp; gp++){//loop over gauss pts
-		basis->getBasis(gp,xx,yy,zz);
+		basis->getBasis(gp,xx,yy,zz,uu);
 
 		double jacwt = basis->jac * basis->wt;
 
-		sum += jacwt;
 		for( int i = 0; i < num_node_per_side; i++ ){
 
 		  int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
@@ -696,7 +696,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	      }//gp
 	    }//j
-	    delete xx,yy,zz;
+	    delete xx,yy,zz,uu;
 	  }//it
 	}//k
 	delete basis;
@@ -2347,6 +2347,85 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     //std::cout<<"liniso"<<std::endl;
     //exit(0);
+
+
+
+  }else if("uehara" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 2;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					   const int &i, 
+					   const double &dt_, 
+					   const double &t_theta_, 
+					   const double &delta, 
+					   const double &time_)>(numeqs_);
+    (*residualfunc_)[0] = &uehara::residual_phase_;
+    (*residualfunc_)[1] = &uehara::residual_heat_;
+    //(*residualfunc_)[2] = &residual_linisoheat_z_test_;
+    //(*residualfunc_)[3] = &residual_divgrad_test_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					 const int &i,  
+					 const int &j,
+					 const double &dt_, 
+					 const double &t_theta_, 
+					 const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &uehara::prec_phase_;
+    (*preconfunc_)[1] = &uehara::prec_heat_;
+    //(*preconfunc_)[2] = &prec_liniso_z_test_;
+    //(*preconfunc_)[3] = &prec_heat_test_;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    (*initfunc_)[0] = &uehara::init_phase_;
+    (*initfunc_)[1] = &uehara::init_heat_;
+    //(*initfunc_)[2] = &init_zero_;
+    //(*initfunc_)[3] = &init_zero_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "phi";
+    (*varnames_)[1] = "u";
+    //(*varnames_)[2] = "x_disp";
+    //(*varnames_)[3] = "y_disp";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							      const double &y,
+							      const double &z,
+							      const double &t)>>(numeqs_);
+ 
+    dirichletfunc_ = NULL;
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    //(*dirichletfunc_)[1][2] = &dbc_zero_;						 
+    //(*dirichletfunc_)[2][2] = &dbc_zero_;						 
+    //(*dirichletfunc_)[3][2] = &dbc_ten_;						 
+    //(*dirichletfunc_)[3][4] = &dbc_zero_;
+
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
+							    const int &i, 
+							    const double &dt_, 
+							    const double &t_theta_,
+							    const double &time)>>(numeqs_);
+    //neumannfunc_ = NULL;
+    (*neumannfunc_)[1][1] = &uehara::conv_bc_;
+    (*neumannfunc_)[1][2] = &uehara::conv_bc_;							 
+    //(*neumannfunc_)[0][1] = &nbc_robin_test_;						 
+    //(*neumannfunc_)[0][2] = &nbc_zero_;						 
+    //(*neumannfunc_)[0][3] = &nbc_zero_;
+    //(*neumannfunc_)[1][4] = &nbc_mone_;
+
+
+    //std::cout<<"uehara"<<std::endl;
+    //exit(0);
+
+
 
 
 

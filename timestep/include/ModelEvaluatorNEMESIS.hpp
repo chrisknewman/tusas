@@ -235,8 +235,7 @@ private: // data members
   double vtip_x_,vtip_x_old_;
 
   RCP<Teuchos::Time> ts_time_import;
-  error_estimator * Error_est;
-
+  boost::ptr_vector<error_estimator> Error_est;
 };
 
 

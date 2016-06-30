@@ -33,6 +33,7 @@
 #include <Teuchos_RCP.hpp>	
 #include "Teuchos_ParameterList.hpp"
 #include <Teuchos_TimeMonitor.hpp>
+#include "Teuchos_Array.hpp"
 
 // local support
 #include "preconditioner.hpp"
@@ -185,13 +186,16 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   init_nox();
 
-  int error_index = paramList.get<int> (TusaserrorestimatorNameString);
-  if( -1 < error_index && numeqs_ > error_index ){
-    Error_est = new error_estimator(comm_,mesh_,numeqs_,error_index);
+  std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,
+								       TusaserrorestimatorNameString)).toVector();
+  std::vector<int>::iterator it;
+  for(it = indices.begin();it != indices.end(); ++it){
+    std::cout<<*it<<" "<<std::endl;
+    int error_index = *it;
+    Error_est.push_back(new error_estimator(comm_,mesh_,numeqs_,error_index));
   }
-  else{
-    Error_est = NULL;
-  }
+
+  //exit(0);
 
 }
 
@@ -971,12 +975,14 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
     find_vtip();
   }
 
-
-  if( NULL != Error_est){
-    //Error_est->test_lapack();
-    Error_est->estimate_gradient(u_old_);
-    Error_est->estimate_error(u_old_);
+  boost::ptr_vector<error_estimator>::iterator it;
+  for(it = Error_est.begin();it != Error_est.end();++it){
+    //it.test_lapack();
+    it->estimate_gradient(u_old_);
+    it->estimate_error(u_old_);
   }
+    
+
 }
 
 template<class Scalar>
@@ -1129,7 +1135,6 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   delete initfunc_;
   delete varnames_;
   if( NULL != dirichletfunc_) delete dirichletfunc_;
-  if( NULL != Error_est) delete Error_est;
   //if( NULL != postprocfunc_) delete postprocfunc_;
 }
 
@@ -1554,8 +1559,9 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
     mesh_->update_nodal_data((*varnames_)[k], &output[k][0]);
   }
 
-  if( NULL != Error_est){
-    Error_est->update_mesh_data();
+  boost::ptr_vector<error_estimator>::iterator it;
+  for(it = Error_est.begin();it != Error_est.end();++it){
+    it->update_mesh_data();
   }
 
   delete temp;
@@ -2374,67 +2380,84 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
   }else if("uehara" == paramList.get<std::string> (TusastestNameString)){
 
-    numeqs_ = 2;
+    bool stress = true;
+
+    numeqs_ = 4;
+    if(stress) numeqs_ = 7;
 
     residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+					       const int &i, 
+					       const double &dt_, 
+					       const double &t_theta_, 
+					       const double &delta, 
+					       const double &time_)>(numeqs_);
     (*residualfunc_)[0] = &uehara::residual_phase_;
     (*residualfunc_)[1] = &uehara::residual_heat_;
-    //(*residualfunc_)[2] = &residual_linisoheat_z_test_;
-    //(*residualfunc_)[3] = &residual_divgrad_test_;
-
+    (*residualfunc_)[2] = &uehara::residual_liniso_x_test_;
+    (*residualfunc_)[3] = &uehara::residual_liniso_y_test_;
+    if(stress)(*residualfunc_)[4] = &uehara::residual_stress_x_test_;
+    if(stress)(*residualfunc_)[5] = &uehara::residual_stress_y_test_;
+    if(stress)(*residualfunc_)[6] = &uehara::residual_stress_xy_test_;
+    
     preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+					     const int &i,  
+					     const int &j,
+					     const double &dt_, 
+					     const double &t_theta_, 
+					     const double &delta)>(numeqs_);
     (*preconfunc_)[0] = &uehara::prec_phase_;
     (*preconfunc_)[1] = &uehara::prec_heat_;
-    //(*preconfunc_)[2] = &prec_liniso_z_test_;
-    //(*preconfunc_)[3] = &prec_heat_test_;
-
+    (*preconfunc_)[2] = &uehara::prec_liniso_x_test_;
+    (*preconfunc_)[3] = &uehara::prec_liniso_y_test_;
+    if(stress)(*preconfunc_)[4] = &uehara::prec_stress_test_;
+    if(stress)(*preconfunc_)[5] = &uehara::prec_stress_test_;
+    if(stress)(*preconfunc_)[6] = &uehara::prec_stress_test_;
+    
     initfunc_ = new  std::vector<double (*)(const double &x,
 					    const double &y,
 					    const double &z)>(numeqs_);
     (*initfunc_)[0] = &uehara::init_phase_;
     (*initfunc_)[1] = &uehara::init_heat_;
-    //(*initfunc_)[2] = &init_zero_;
-    //(*initfunc_)[3] = &init_zero_;
-
+    (*initfunc_)[2] = &init_zero_;
+    (*initfunc_)[3] = &init_zero_;
+    if(stress)(*initfunc_)[4] = &init_zero_;
+    if(stress)(*initfunc_)[5] = &init_zero_;
+    if(stress)(*initfunc_)[6] = &init_zero_;
+    
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "phi";
     (*varnames_)[1] = "u";
-    //(*varnames_)[2] = "x_disp";
-    //(*varnames_)[3] = "y_disp";
-
+    (*varnames_)[2] = "dispx";
+    (*varnames_)[3] = "dispy";
+    if(stress)(*varnames_)[4] = "x_stress";
+    if(stress)(*varnames_)[5] = "y_stress";
+    if(stress)(*varnames_)[6] = "xy_stress";
+    
     // numeqs_ number of variables(equations) 
     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
- 
+							     const double &y,
+							     const double &z,
+							     const double &t)>>(numeqs_);
+    
     //dirichletfunc_ = NULL;
-//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
-//               [numeq][nodeset id]
-//  [variable index][nodeset index]						 
-    (*dirichletfunc_)[1][1] = &uehara::dbc_;						 
-    (*dirichletfunc_)[1][2] = &uehara::dbc_;
-
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]						 
+    //(*dirichletfunc_)[1][1] = &uehara::dbc_;						 
+    //(*dirichletfunc_)[1][2] = &uehara::dbc_;
+    (*dirichletfunc_)[2][3] = &dbc_zero_;
+    (*dirichletfunc_)[3][0] = &dbc_zero_;
+    
     // numeqs_ number of variables(equations) 
     neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
-							    const int &i, 
-							    const double &dt_, 
-							    const double &t_theta_,
-							    const double &time)>>(numeqs_);
+							   const int &i, 
+							   const double &dt_, 
+							   const double &t_theta_,
+							   const double &time)>>(numeqs_);
     //neumannfunc_ = NULL;
-    //(*neumannfunc_)[1][1] = &uehara::conv_bc_;
-    //(*neumannfunc_)[1][2] = &uehara::conv_bc_;
-
+    (*neumannfunc_)[1][1] = &uehara::conv_bc_;
+    (*neumannfunc_)[1][2] = &uehara::conv_bc_;
+    
 
     //std::cout<<"uehara"<<std::endl;
     //exit(0);

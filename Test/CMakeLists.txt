@@ -78,6 +78,7 @@ add_test( NAME LinIsoHex  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/LinIsoHe
 add_test( NAME LinIsoBodyForceHexPrec  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/LinIsoBodyForceHexPrec COMMAND run_test )
 
 add_test( NAME LinIsoHeatHexPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/LinIsoHeatHexPar COMMAND run_test )
+
 add_test( NAME CoupledStressQuad  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CoupledStressQuad COMMAND run_test )
 
 

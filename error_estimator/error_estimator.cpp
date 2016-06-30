@@ -35,8 +35,10 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 				      *comm_));
   gradx_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
   grady_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
-  mesh_->add_nodal_field("gradx");
-  mesh_->add_nodal_field("grady");
+  std::string xstring="grad"+std::to_string(index_)+"x";
+  std::string ystring="grad"+std::to_string(index_)+"y";
+  mesh_->add_nodal_field(xstring);
+  mesh_->add_nodal_field(ystring);
 
   std::vector<int> elem_num_map(*(mesh_->get_elem_num_map()));
   elem_map_ = Teuchos::rcp(new Epetra_Map(-1,
@@ -45,7 +47,8 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 				      0,
 				      *comm_));
   elem_error_ = Teuchos::rcp(new Epetra_Vector(*elem_map_));
-  mesh_->add_elem_field("error");
+  std::string estring="error"+std::to_string(index_);
+  mesh_->add_elem_field(estring);
   global_error_ = 0.;
   std::cout<<"Error estimator created for variable "<<index_<<std::endl;
   //exit(0);
@@ -291,8 +294,10 @@ void error_estimator::update_mesh_data(){
       gradx[nn]=(*gradx_)[nn];
       grady[nn]=(*grady_)[nn];
   }
-  mesh_->update_nodal_data("gradx", &gradx[0]);
-  mesh_->update_nodal_data("grady", &grady[0]);
+  std::string xstring="grad"+std::to_string(index_)+"x";
+  std::string ystring="grad"+std::to_string(index_)+"y";
+  mesh_->update_nodal_data(xstring, &gradx[0]);
+  mesh_->update_nodal_data(ystring, &grady[0]);
 
   int num_elem = mesh_->get_elem_num_map()->size();
   std::vector<double> error(num_elem);
@@ -300,7 +305,8 @@ void error_estimator::update_mesh_data(){
   for (int nn=0; nn < num_elem; nn++) {
       error[nn]=(*elem_error_)[nn];
   }
-  mesh_->update_elem_data("error", &error[0]);
+  std::string estring="error"+std::to_string(index_);
+  mesh_->update_elem_data(estring, &error[0]);
 
 };
 

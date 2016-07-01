@@ -82,7 +82,18 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
 
   int qpt_for_basis = sqrt(num_q_pts);
 
-  Basis * basis = new BasisLQuad(qpt_for_basis);
+  std::string elem_type=mesh_->get_blk_elem_type(blk);
+    
+  Basis * basis;
+
+  if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
+    for ( int nb = 0; nb < numeqs_; nb++ )
+      basis = new BasisLQuad(qpt_for_basis);
+  }else{
+    std::cout<<"Error estimator only supports bilinear quad element types at this time."<<std::endl;
+    std::cout<<elem_type<<" not supported."<<std::endl;
+    exit(0);
+  }
 
   for(int nn = 0; nn < mesh_->get_num_nodes(); nn++ ){
 

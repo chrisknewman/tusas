@@ -1139,7 +1139,7 @@ int Mesh::update_elem_data(std::string name, double *data){
   for (int i = 0; i < num_elem_fields; i++){
     if(name == elem_field_names[i]){
       //std::cout<<"found"<<std::endl;
-      std::vector<double> a(data, data + num_nodes);
+      std::vector<double> a(data, data + num_elem);
       elem_fields[i]=a;
       //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<proc_id<<" "<<(nodal_fields[i]).size()<<" "<<num_nodes<<" "<<j<<" "<<nodal_fields[i][j]<<std::endl;
       return 1;

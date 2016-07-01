@@ -190,7 +190,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 								       TusaserrorestimatorNameString)).toVector();
   std::vector<int>::iterator it;
   for(it = indices.begin();it != indices.end(); ++it){
-    std::cout<<*it<<" "<<std::endl;
+    //std::cout<<*it<<" "<<std::endl;
     int error_index = *it;
     Error_est.push_back(new error_estimator(comm_,mesh_,numeqs_,error_index));
   }

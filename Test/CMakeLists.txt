@@ -81,5 +81,7 @@ add_test( NAME LinIsoHeatHexPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/L
 
 add_test( NAME CoupledStressQuad  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CoupledStressQuad COMMAND run_test )
 
+add_test( NAME HeatTri  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HeatTri COMMAND run_test )
+
 
 #add_test( NAME RestartPar  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/RestartPar COMMAND run_test )

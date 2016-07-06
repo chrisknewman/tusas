@@ -1565,20 +1565,20 @@ namespace uehara
   //double k = 1.5;//W/m/K
   double r0 = 29.5;
 
-  //double E = 200.e9;//GPa
-  double E = 200.;//GPa
+  //double E = 200.;//GPa
+  double E = 200.*1000.;//mPa
   double nu = .3;
 
   //plane stress
-//   double c = E/(1.-nu*nu);
-//   double c1 = c;
-//   double c2 = c*nu;
-//   double c3 = c*(1.-nu)/2.;//always confused about the 2 here
-  //plane strain
-  double c0 = E/(1.+nu)/(1.-2.*nu);
-  double c1 = c0*(1.-nu);
+  double c0 = E/(1.-nu*nu);
+  double c1 = c0;
   double c2 = c0*nu;
-  double c3 = c0*(1.-2.*nu)/2.;
+  double c3 = c0*(1.-nu)/2.;//always confused about the 2 here
+  //plane strain
+//   double c0 = E/(1.+nu)/(1.-2.*nu);
+//   double c1 = c0*(1.-nu);
+//   double c2 = c0*nu;
+//   double c3 = c0*(1.-2.*nu)/2.;
 
   double alpha = 5.e-6;//1/K
   double beta = 1.5e-3;
@@ -2282,7 +2282,31 @@ double prec_stress_test_(const boost::ptr_vector<Basis> &basis,
 
   return test * basis[0].phi[j];
 }
+double postproc_stress_x_(const double *u, const double *gradu)
+{
+  //u is u0,u1,...
+  //gradu is d0dx,d0dy,d1dx...
 
+  double strain[2];//x,y,z,yx,zy,zx
+  strain[0] = gradu[0];//var 0 dx
+  strain[1] = gradu[3];//var 1 dy
+
+  return c1*strain[0] + c2*strain[1];
+}
+double postproc_stress_y_(const double *u, const double *gradu)
+{
+  double strain[2];//x,y,z,yx,zy,zx
+  strain[0] = gradu[0];//var 0 dx
+  strain[1] = gradu[3];//var 1 dy
+
+  return c2*strain[0] + c1*strain[1];
+}
+double postproc_stress_xy_(const double *u, const double *gradu)
+{
+  double strain = gradu[1] + gradu[2];
+
+  return c3*strain;
+}
 
 }//namespace coupledstress
 #endif

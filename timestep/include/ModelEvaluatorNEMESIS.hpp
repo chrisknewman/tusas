@@ -10,8 +10,10 @@
 #include "preconditioner.hpp"
 #include "timestep.hpp"
 #include "error_estimator.h"
+#include "post_process.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
+
 template<class Scalar> class ModelEvaluatorNEMESIS;
 
 template<class Scalar>
@@ -224,9 +226,15 @@ private: // data members
 				      const double &t_theta_,
 				      const double &time)>> *neumannfunc_;
   
+  //post process stuff
   //cn need this to be a function of all variables eventually
-  //std::vector<double (*)(const double &u)> *postprocfunc_;
+//   std::vector<double (*)(const double *u, const double *gradu)> *postprocfunc_;
+  void postprocess();
+//   int numpostprocvar_;
+//   std::vector<std::string> *postprocvarnames_;
+//   Teuchos::RCP<Epetra_Vector> u_postproc_;
 
+  //tip velocity stuff
   std::map<double,int> x_node;
   void init_vtip();
   void find_vtip();
@@ -236,6 +244,7 @@ private: // data members
 
   RCP<Teuchos::Time> ts_time_import;
   boost::ptr_vector<error_estimator> Error_est;
+  boost::ptr_vector<post_process> post_proc;
 };
 
 

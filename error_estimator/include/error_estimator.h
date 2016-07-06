@@ -27,6 +27,9 @@ public:
 
   double estimate_global_error();
 
+  Teuchos::RCP<Epetra_Vector> gradx_;
+  Teuchos::RCP<Epetra_Vector> grady_;
+
 private:
 
   Mesh *mesh_;
@@ -36,8 +39,6 @@ private:
   const Teuchos::RCP<const Epetra_Comm>  comm_;
   Teuchos::RCP<const Epetra_Map>   node_map_;
   Teuchos::RCP<const Epetra_Map>   elem_map_;
-  Teuchos::RCP<Epetra_Vector> gradx_;
-  Teuchos::RCP<Epetra_Vector> grady_;
   Teuchos::RCP<Epetra_Vector> elem_error_;
 
   double global_error_;

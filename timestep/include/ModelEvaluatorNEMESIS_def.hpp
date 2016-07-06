@@ -982,6 +982,7 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
     it->estimate_error(u_old_);
   }
     
+  postprocess();
 
 }
 
@@ -1562,6 +1563,11 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
   boost::ptr_vector<error_estimator>::iterator it;
   for(it = Error_est.begin();it != Error_est.end();++it){
     it->update_mesh_data();
+  }
+
+  boost::ptr_vector<post_process>::iterator itp;
+  for(itp = post_proc.begin();itp != post_proc.end();++itp){
+    itp->update_mesh_data();
   }
 
   delete temp;
@@ -2380,7 +2386,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
   }else if("uehara" == paramList.get<std::string> (TusastestNameString)){
 
-    bool stress = true;
+    bool stress = false;
 
     numeqs_ = 4;
     if(stress) numeqs_ = 7;
@@ -2537,12 +2543,17 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*neumannfunc_)[1][2] = &nbc_mone_;
 
 
+    //cn this needs to be better...
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &coupledstress::postproc_stress_x_;
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &coupledstress::postproc_stress_y_;
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc[2].postprocfunc_ = &coupledstress::postproc_stress_xy_;
+
+
     //std::cout<<"coupledstress"<<std::endl;
     //exit(0);
-
-
-
-
 
 
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
@@ -2693,9 +2704,45 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
       }
     }
 
+    if(post_proc.size() > 0 ){
+      std::cout<<"  post_proc with size "<<post_proc.size()<<" found."<<std::endl;
+    }
+
 
     std::cout<<"set_test_case ended"<<std::endl;
   }
+
+}
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::postprocess()
+{
+  if(0 == post_proc.size() ) return;
+
+  int numee = Error_est.size();
+
+  int dim = 2;//for now
+
+  std::vector<double> uu(numeqs_);
+  std::vector<double> ug(dim*numee);
+
+  //#pragma omp parallel for
+  for (int nn=0; nn < num_my_nodes_; nn++) {
+    for( int k = 0; k < numeqs_; k++ ){
+      uu[k] = (*u_old_)[numeqs_*nn+k];
+    }
+    for( int k = 0; k < numee; k++ ){
+      ug[k] = (*(Error_est[k].gradx_))[nn];
+      ug[k+dim] = (*(Error_est[k].grady_))[nn];
+    }
+
+
+    boost::ptr_vector<post_process>::iterator itp;
+    for(itp = post_proc.begin();itp != post_proc.end();++itp){
+      itp->process(nn,&uu[0],&ug[0]);
+    }
+
+
+  }//nn
 
 }
 #endif

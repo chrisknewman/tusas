@@ -1078,7 +1078,7 @@ int Mesh::add_nodal_data(std::string name, std::vector<double> &data){
 
 }
 
-int Mesh::add_nodal_field(std::string name){
+int Mesh::add_nodal_field(const std::string name){
   //if( 0 == proc_id ){
     num_nodal_fields++;
     
@@ -1094,7 +1094,7 @@ int Mesh::add_nodal_field(std::string name){
 
 }
 
-int Mesh::add_elem_field(std::string name){
+int Mesh::add_elem_field(const std::string name){
     num_elem_fields++;
    
     elem_field_names.push_back(name);
@@ -1109,7 +1109,7 @@ int Mesh::add_elem_field(std::string name){
 }
 
 
-int Mesh::update_nodal_data(std::string name, double *data){
+int Mesh::update_nodal_data(const std::string name, const double *data){
 
   for (int i = 0; i < num_nodal_fields; i++){
     if(name == nodal_field_names[i]){
@@ -1134,7 +1134,7 @@ int Mesh::update_nodal_data(std::string name, double *data){
 
 }
 
-int Mesh::update_elem_data(std::string name, double *data){
+int Mesh::update_elem_data(const std::string name, const double *data){
 
   for (int i = 0; i < num_elem_fields; i++){
     if(name == elem_field_names[i]){
@@ -1280,32 +1280,43 @@ void Mesh::compute_nodal_patch(){
 
   //cn not confirmed in parallel yet, there may be some issues
 
-  //std::cout<<"compute_nodal_patch()"<<std::endl<<std::endl;
 
-  nodal_patch.resize(num_nodes);
+  //my_node_num_map is local ids
+  //we really want to search by global id
+  num_my_nodes = my_node_num_map.size();
 
+  //std::cout<<"compute_nodal_patch() started on proc_id: "<<proc_id<<" with num_my_nodes "<<num_my_nodes<<std::endl;
 
-  //std::cout<<"compute_nodal_patch() "<<nodal_patch.size()<<" "<<num_nodes<<std::endl<<std::endl;
+  nodal_patch.resize(num_my_nodes);
+
+  //std::cout<<"compute_nodal_patch() "<<nodal_patch.size()<<" "<<num_nodes<<" "<<my_node_num_map.size()<<std::endl<<std::endl;
   for(int blk = 0; blk < get_num_elem_blks(); blk++){
     int n_nodes_per_elem = get_num_nodes_per_elem_in_blk(blk);
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
       for(int k = 0; k < n_nodes_per_elem; k++){
 	
 	int nodeid = get_node_id(blk, ne, k);
-	nodal_patch[nodeid].push_back(ne);
-      }
-
+	//std::cout<<proc_id<<" "<<get_global_elem_id(ne)<<" "<<nodeid<<" "<<node_num_map[nodeid]<<" "<<num_my_nodes<<std::endl;
+	//we check here if the node lives on this proc
+	if(nodeid < num_my_nodes){
+	  //int elemid = get_global_elem_id(ne);
+	  int elemid = ne;
+	  nodal_patch[nodeid].push_back(elemid);
+	}
+      }      
     }
   }
 
-//   for(int i=0; i<num_nodes; i++){
-//     std::cout<<i<<":: ";
+//   for(int i=0; i<num_my_nodes; i++){
+//     std::cout<<proc_id<<" "<<i<<":: "<<node_num_map[i]<<"::  ";
 //     for(int j=0; j< nodal_patch[i].size(); j++){
 //       std::cout<<nodal_patch[i][j]<<" ";
 //     }
 //     std::cout<<std::endl;
 //   }
-//   exit(0);
+
+  //std::cout<<"compute_nodal_patch() finished on proc_id: "<<proc_id<<std::endl;
+  //exit(0);
 
 }
 

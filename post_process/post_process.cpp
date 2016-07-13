@@ -11,15 +11,18 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   index_(index)
 {
   std::vector<int> node_num_map(mesh_->get_node_num_map());
-  node_map_ = Teuchos::rcp(new Epetra_Map(-1,
-				      node_num_map.size(),
-				      &node_num_map[0],
-				      0,
-				      *comm_));
+
+  Epetra_Map overlap_map(-1,
+			 node_num_map.size(),
+			 &node_num_map[0],
+			 0,
+			 *comm_);
+  node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(overlap_map)));
+
   ppvar_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
   std::string ystring="pp"+std::to_string(index_);
   mesh_->add_nodal_field(ystring);
-;
+
   std::cout<<"Post process created for variable "<<index_<<std::endl;
   //exit(0);
 };

@@ -5,6 +5,11 @@
 
 #include "clapack.h"
 
+#ifdef HAVE_MPI
+#include "Epetra_MpiComm.h"
+#else
+#include "Epetra_SerialComm.h"
+#endif
 
 //template<class Scalar>
 error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm, 
@@ -22,21 +27,35 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   bool tri_type= (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"));
  
   if( !(quad_type || tri_type) ){ // linear quad
-    std::cout<<"Error estimator only supports bilinear quad and tri element types at this time."<<std::endl;
-    std::cout<<elem_type<<" not supported."<<std::endl;
+    if( 0 == comm_->MyPID() )std::cout<<"Error estimator only supports bilinear quad and tri element types at this time."<<std::endl
+	     <<elem_type<<" not supported."<<std::endl;
     exit(0);
   }
 
   mesh_->compute_nodal_patch();
 
   std::vector<int> node_num_map(mesh_->get_node_num_map());
-  node_map_ = Teuchos::rcp(new Epetra_Map(-1,
-				      node_num_map.size(),
-				      &node_num_map[0],
-				      0,
-				      *comm_));
+
+  //we want this map to be a one equation version of the x_owned_map in tusas
+  //do it this way and hope it is the same
+
+  overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
+					     node_num_map.size(),
+					     &node_num_map[0],
+					     0,
+					     *comm_));
+  if( 1 == comm_->NumProc() ){
+    node_map_ = overlap_map_;
+  }else{
+    node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
+  }
+  //node_map_->Print(std::cout);
+  importer_ = Teuchos::rcp(new Epetra_Import(*overlap_map_, *node_map_));
+
   gradx_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  gradx_->PutScalar(0.);
   grady_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  grady_->PutScalar(0.);
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
   mesh_->add_nodal_field(xstring);
@@ -54,14 +73,17 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   std::string estring="error"+std::to_string(index_);
   mesh_->add_elem_field(estring);
   global_error_ = 0.;
-  std::cout<<"Error estimator created for variable "<<index_<<std::endl;
+  
+  if( 0 == comm_->MyPID() )std::cout<<"Error estimator created for variable "<<index_<<std::endl;
+
+  std::cout<<estring<<std::endl;
   //exit(0);
 };
 
 
 error_estimator::~error_estimator(){};
 
-void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
+void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in){
 
   //not tested nor working in parallel
 
@@ -74,6 +96,17 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
   //Also alot of cleaning up could be done another time.  The changes above
   //could be incorporated then during ass wiping and generalization to other elements.
 
+  //the vector coming in is dimensioned to numeqs_*num_nodes, hence we need to rethink the import here
+  //the maps created above assume output of one variable
+  //hack a copy/import for now....
+
+  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
+    (*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
+  }
+
+  Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
+  u->Import(*u1, *importer_, Insert);
 
 
   const int blk = 0;//for now
@@ -105,11 +138,11 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
     exit(0);
   }
 
-  for(int nn = 0; nn < mesh_->get_num_nodes(); nn++ ){
+  for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
 
     int num_elem_in_patch = mesh_->get_nodal_patch(nn).size();
 
-    //std::cout<<nn<<" "<<num_elem_in_patch<<std::endl;
+    //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<num_elem_in_patch<<std::endl;
 
     int q = num_q_pts*num_elem_in_patch;//the matrix p will be q rows x dimp cols, 
     //the rows of p will be the basis evaluated at quadrature pts
@@ -138,13 +171,18 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
 	
 	//int nodeid = mesh_->get_node_id(blk, ne, k);
 	int nodeid = mesh_->get_node_id(blk, n_patch[ne], k);
+	//std::cout<<comm_->MyPID()<<" "<<nn<<" "<<mesh_->node_num_map[nn]<<" "<<k<<" "<<n_patch[ne]<<" "<<nodeid<<std::endl;
 	xx[k] = mesh_->get_x(nodeid);
 	yy[k] = mesh_->get_y(nodeid);
 	zz[k] = mesh_->get_z(nodeid);
 
-	uu[k] = (*u)[numeqs_*nodeid+index_]; 
+	//uu[k] = (*u)[numeqs_*nodeid+index_]; 
+	uu[k] = (*u)[nodeid]; 
 
-      }
+      }//k
+
+      //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<num_elem_in_patch<<std::endl;
+
       for(int gp=0; gp < basis->ngp; gp++) {// Loop Over Gauss Points 
 	basis->getBasis(gp, xx, yy, zz, uu);
 	double x = basis->xx;
@@ -158,12 +196,12 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
 	if(4 ==dimp) p[row][3] = x*y;
 	b[row] = basis->dudx;// du/dx
 	b[row+q]  = basis->dudy;// du/dy
-// 	std::cout<<row<<" "<<row+q<<" : "<<p[row][0]<<" "<<p[row][1]<<" "<<p[row][2]<<" "<<p[row][3]
+// 	std::cout<<comm_->MyPID()<<" "<<row<<" "<<row+q<<" : "<<p[row][0]<<" "<<p[row][1]<<" "<<p[row][2]<<" "<<p[row][3]
 // 		 <<" : "<<b[row]<<" "<<b[row+q]<<std::endl;
 	row++;
-      }
+      }//gp
       delete xx, yy, zz, uu;
-    }
+    }//ne
     
     int m = q;
     int n = dimp;
@@ -188,6 +226,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
     //note that we fill a by column
     a = new double[lda*n];
     
+#pragma omp parallel for collapse(2)
     for(int j = 0; j < n; j++){
       for(int i = 0; i < m; i++){
 	a[j*lda+i] = p[i][j];
@@ -230,11 +269,12 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u){
     //std::cout<<nn<<" "<<x<<" "<<y<<" "<<gradx<<" "<<grady<<std::endl;
     //std::cout<<x<<"   "<<y<<"            "<<gradx<<std::endl;
     
-    gradx_->ReplaceGlobalValues ((int) 1, (int) 0, &gradx, &nn);
-    grady_->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &nn);
+    int gid = (mesh_->get_node_num_map())[nn];
+    gradx_->ReplaceGlobalValues ((int) 1, (int) 0, &gradx, &gid);
+    grady_->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &gid);
     
     delete a,b;
-  }
+  }//nn
   delete basis;
   //gradx_->Print(std::cout);
   //exit(0);
@@ -322,13 +362,20 @@ void error_estimator::test_lapack(){
 
 void error_estimator::update_mesh_data(){
   
-  int num_nodes = mesh_->get_node_num_map().size();
-  std::vector<double> gradx(num_nodes);
-  std::vector<double> grady(num_nodes);
+  Epetra_Vector *tempx,*tempy;
+  tempx = new Epetra_Vector(*overlap_map_);
+  tempx->Import(*gradx_, *importer_, Insert);
+  tempy = new Epetra_Vector(*overlap_map_);
+  tempy->Import(*grady_, *importer_, Insert);
+
+  int num_nodes = overlap_map_->NumMyElements ();
+  std::vector<double> gradx(num_nodes,0.);
+  std::vector<double> grady(num_nodes,0.);
 #pragma omp parallel for
   for (int nn=0; nn < num_nodes; nn++) {
-      gradx[nn]=(*gradx_)[nn];
-      grady[nn]=(*grady_)[nn];
+      gradx[nn]=(*tempx)[nn];
+      grady[nn]=(*tempy)[nn];
+      //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<grady[nn]<<" "<<(*grady_)[nn]<<std::endl;
   }
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
@@ -336,18 +383,33 @@ void error_estimator::update_mesh_data(){
   mesh_->update_nodal_data(ystring, &grady[0]);
 
   int num_elem = mesh_->get_elem_num_map()->size();
-  std::vector<double> error(num_elem);
+  std::vector<double> error(num_elem,0.);
 #pragma omp parallel for
   for (int nn=0; nn < num_elem; nn++) {
       error[nn]=(*elem_error_)[nn];
-      //std::cout<<nn<<" "<<error[nn]<<" "<<(*elem_error_)[nn]<<std::endl;
+      //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<error[nn]<<" "<<(*elem_error_)[nn]<<std::endl;
   }
   std::string estring="error"+std::to_string(index_);
   mesh_->update_elem_data(estring, &error[0]);
 
+  delete tempx, tempy;
 };
 
-void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u){
+void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
+
+  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
+    (*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
+  }
+
+  Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
+  u->Import(*u1, *importer_, Insert);
+
+  Epetra_Vector *tempx,*tempy;
+  tempx = new Epetra_Vector(*overlap_map_);
+  tempx->Import(*gradx_, *importer_, Insert);
+  tempy = new Epetra_Vector(*overlap_map_);
+  tempy->Import(*grady_, *importer_, Insert);
 
   const int blk = 0;//for now
 
@@ -391,25 +453,28 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u){
       xx[k] = mesh_->get_x(nodeid);
       yy[k] = mesh_->get_y(nodeid);
       zz[k] = mesh_->get_z(nodeid);
-      uu[k] = (*u)[numeqs_*nodeid+index_]; 
-      ux[k] = (*gradx_)[nodeid];
-      uy[k] = (*grady_)[nodeid];
+      uu[k] = (*u)[nodeid]; 
+      ux[k] = (*tempx)[nodeid];
+      uy[k] = (*tempy)[nodeid];
     }//k
     for(int gp=0; gp < basis->ngp; gp++) { 
       //ux is uuold, uy is uuoldold
       basis->getBasis(gp, xx, yy, zz, uu, ux, uy);
       double ex = (basis->dudx - basis->uuold);
       double ey = (basis->dudy - basis->uuoldold);
+
       error += basis->jac * basis->wt *(ex*ex + ey*ey);
       
-      //std::cout<<ne<<"  "<<gp<<"  "<<basis->dudx<<" "<<basis->uuold<<std::endl;
-      //std::cout<<ne<<"  "<<gp<<"  "<<ex*ex<<" "<<ey*ey<<std::endl;
+//       std::cout<<comm_->MyPID()<<" "<<ne<<"  "<<gp<<"  "<<basis->dudx<<" "<<basis->uuold<<std::endl;
+//       std::cout<<comm_->MyPID()<<" "<<ne<<"  "<<gp<<"  "<<ex*ex<<" "<<ey*ey<<std::endl;
     }//gp
     error = sqrt(error);
-    elem_error_->ReplaceGlobalValues ((int) 1, (int) 0, &error, &ne);
+    int gid = (*(mesh_->get_elem_num_map()))[ne];
+    elem_error_->ReplaceGlobalValues ((int) 1, (int) 0, &error, &gid);
     //std::cout<<ne<<"  "<<error<<std::endl;
   }//ne
   delete xx, yy, zz, uu, ux, uy, basis;
+  delete tempx, tempy;
   //elem_error_->Print(std::cout);
   //std::cout<<estimate_global_error()<<std::endl;
   //   exit(0);

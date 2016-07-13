@@ -9,6 +9,7 @@
 // Epetra support
 #include "Epetra_Vector.h"
 #include "Epetra_Map.h"
+#include "Epetra_Import.h"
 
 //template<class Scalar>
 class error_estimator
@@ -38,8 +39,11 @@ private:
   int index_;
   const Teuchos::RCP<const Epetra_Comm>  comm_;
   Teuchos::RCP<const Epetra_Map>   node_map_;
+  Teuchos::RCP<const Epetra_Map>   overlap_map_;
   Teuchos::RCP<const Epetra_Map>   elem_map_;
   Teuchos::RCP<Epetra_Vector> elem_error_;
+
+  Teuchos::RCP<const Epetra_Import> importer_;
 
   double global_error_;
 

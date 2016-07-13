@@ -43,11 +43,11 @@ class Mesh
 
   int add_nodal_data(std::string name, std::vector<double> &data);
   int add_nodal_data(std::string name, double *data);
-  int add_nodal_field(std::string name);
-  int update_nodal_data(std::string name, double *data);
+  int add_nodal_field(const std::string name);
+  int update_nodal_data(const std::string name, const double *data);
 
-  int add_elem_field(std::string name);
-  int update_elem_data(std::string name, double *data);
+  int add_elem_field(const std::string name);
+  int update_elem_data(const std::string name, const double *data);
 
   void set_verbose(const bool v = true);
 
@@ -73,6 +73,7 @@ class Mesh
   int get_boundary_status(int blk, int elem);
   int get_node_boundary_status(int nodeid);
   int get_global_node_id(int i){ return node_num_map[i];}
+  int get_global_elem_id(int i){ return elem_num_map[i];}
 
   std::vector<int> get_node_num_map(){ return node_num_map; }
   std::vector<int> *get_elem_num_map(){ return &elem_num_map; }
@@ -104,6 +105,7 @@ class Mesh
   std::string get_blk_elem_type(const int i){return blk_elem_type[i];}
 
   void set_my_num_nodes(int n){num_my_nodes = n;}
+  std::vector<int> node_num_map;
 
  private:
 
@@ -166,7 +168,7 @@ class Mesh
   int close_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
   int get_nodal_field_index(std::string name);
-  std::vector<int> node_num_map;
+  //std::vector<int> node_num_map;
   std::vector<int> elem_num_map;
 
   std::vector<int> node_set_map;
@@ -196,6 +198,7 @@ class Mesh
   int proc_id, nprocs, nprocs_infile;
 
   char filetype;
+
 
   //#endif
 

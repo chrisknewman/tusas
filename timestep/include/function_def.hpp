@@ -1566,7 +1566,7 @@ namespace uehara
   double r0 = 29.5;
 
   //double E = 200.;//GPa
-  double E = 200.*1000.;//mPa
+  double E = 200.*1.e9;//mPa
   double nu = .3;
 
   //plane stress
@@ -1691,12 +1691,74 @@ double residual_phase_(const boost::ptr_vector<Basis> &basis,
 
   double phit = m*(phi-phiold)/dt_*test;
   double divgradphi = a*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);//(grad u,grad test)
-  double M = 200000000.*b*phi*(1. - phi)*(L*(um - u)/um + f);
+  //double M = b*phi*(1. - phi)*(L*(um - u)/um + f);
+  double M = 150000000.*b*phi*(1. - phi)*(L*(um - u)/um + f);
   double g = -phi*(1. - phi)*(phi - .5 + M)*test;
   double rhs = divgradphi + g;
 
   return (phit + t_theta_*rhs)/m;
 
+}
+double residual_stress_x_dt_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  //3-D isotropic x-displacement based solid mech, steady state
+  //strong form: sigma = stress  eps = strain
+  // d^T sigma = d^T B D eps == 0
+
+  double strain[3], stress[3];//x,y,yx
+
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+
+  strain[0] = basis[2].dudx;
+  strain[1] = basis[3].dudy;
+  //strain[2] = basis[0].dudy + basis[1].dudx;
+
+  stress[0] = c1*strain[0] + c2*strain[1];
+  // stress[1] = c2*strain[0] + c1*strain[1];
+  //stress[2] = c3*strain[2];
+
+  strain[0] = basis[2].duolddx;
+  strain[1] = basis[3].duolddy;
+  //strain[2] = basis[0].dudy + basis[1].dudx;
+
+  stress[1] = c1*strain[0] + c2*strain[1];
+
+  return (stress[0]-stress[1])/dt_*test;
+}
+double residual_stress_y_dt_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+  //3-D isotropic x-displacement based solid mech, steady state
+  //strong form: sigma = stress  eps = strain
+  // d^T sigma = d^T B D eps == 0
+
+  double strain[3], stress[3];//x,y,z,yx,zy,zx
+
+  double test = basis[0].phi[i];
+  //u, phi
+
+  strain[0] = basis[2].dudx;
+  strain[1] = basis[3].dudy;
+  //strain[2] = basis[0].dudy + basis[1].dudx;
+
+  //stress[0] = c1*strain[0] + c2*strain[1];
+  stress[1] = c2*strain[0] + c1*strain[1];
+  //stress[2] = c3*strain[2];
+
+  strain[0] = basis[2].duolddx;
+  strain[1] = basis[3].duolddy;
+  //strain[2] = basis[0].dudy + basis[1].dudx;
+
+  //stress[0] = c1*strain[0] + c2*strain[1];
+  stress[0] = c2*strain[0] + c1*strain[1];
+  //stress[2] = c3*strain[2];
+
+  return (stress[1]-stress[0])/dt_*test;//(grad u,grad phi)
 }
 double residual_heat_(const boost::ptr_vector<Basis> &basis, 
 		      const int &i, 
@@ -1725,12 +1787,22 @@ double residual_heat_(const boost::ptr_vector<Basis> &basis,
 
   double dudx = basis[1].dudx;
   double dudy = basis[1].dudy;
-  double dudz = basis[1].dudz;
+  //double dudz = basis[1].dudz;
 
   double ut = rho*c*(u-uold)/dt_*test;
-  double divgradu = k*(dudx*dtestdx + dudy*dtestdy + dudz*dtestdz);
+  double divgradu = k*(dudx*dtestdx + dudy*dtestdy);
   double phitu = -30.*L*phi*phi*(1.-phi)*(1.-phi)*(phi-phiold)/dt_*test; 
-  double rhs = divgradu + phitu;
+  
+  //thermal term
+  double stress = test*alpha*u*(residual_stress_x_dt_(basis, 
+					 i, dt_, t_theta_, delta, 
+					 time)
+		   +residual_stress_y_dt_(basis, 
+					  i, dt_, t_theta_, delta, 
+					  time));
+  
+
+  double rhs = divgradu + phitu + stress;
 
   return (ut + t_theta_*rhs)/rho/c;
 
@@ -1771,7 +1843,7 @@ double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
   // stress[1] = c2*strain[0] + c1*strain[1];
   stress[2] = c3*strain[2];
 
-  double divgradu = stress[0]*dtestdx + stress[2]*dtestdy;//(grad u,grad phi)
+  double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E;//(grad u,grad phi)
  
   //std::cout<<"residual_liniso_x_test_"<<std::endl;
  
@@ -1816,7 +1888,7 @@ double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
   stress[1] = c2*strain[0] + c1*strain[1];
   stress[2] = c3*strain[2];
 
-  double divgradu = stress[1]*dtestdy + stress[2]*dtestdx;//(grad u,grad phi)
+  double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E;//(grad u,grad phi)
   
   //std::cout<<"residual_liniso_y_test_"<<std::endl;
 
@@ -1986,7 +2058,7 @@ double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
   //stress[1] = c2*strain[0] + c1*strain[1];
   stress[2] = c3*strain[2];
 
-  double divgradu = stress[0]*dtestdx + stress[2]*dtestdy;//(grad u,grad phi)
+  double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E;//(grad u,grad phi)
  
   return divgradu;
 }
@@ -2021,7 +2093,7 @@ double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
   stress[2] = c3*strain[2];
 
 
-  double divgradu = stress[1]*dtestdy + stress[2]*dtestdx;//(grad u,grad phi)
+  double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E;//(grad u,grad phi)
 
   return divgradu;
 }
@@ -2031,6 +2103,50 @@ double prec_stress_test_(const boost::ptr_vector<Basis> &basis,
   double test = basis[0].phi[i];
 
   return test * basis[0].phi[j];
+}
+double postproc_stress_x_(const double *u, const double *gradu)
+{
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+
+  double strain[2];//x,y,z,yx,zy,zx
+  strain[0] = gradu[0];//var 0 dx
+  strain[1] = gradu[3];//var 1 dy
+
+  return c1*strain[0] + c2*strain[1];
+}
+double postproc_stress_y_(const double *u, const double *gradu)
+{
+  double strain[2];//x,y,z,yx,zy,zx
+  strain[0] = gradu[0];//var 0 dx
+  strain[1] = gradu[3];//var 1 dy
+
+  return c2*strain[0] + c1*strain[1];
+}
+double postproc_stress_xy_(const double *u, const double *gradu)
+{
+  double strain = gradu[1] + gradu[2];
+
+  return c3*strain;
+}
+double postproc_stress_eq_(const double *u, const double *gradu)
+{
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  double strain[3], stress[3];//x,y,z,yx,zy,zx
+
+  strain[0] = gradu[0];//var 0 dx
+  strain[1] = gradu[3];//var 1 dy
+  strain[2] = gradu[1] + gradu[2];
+
+  stress[0] = c1*strain[0] + c2*strain[1];
+  stress[1] = c2*strain[0] + c1*strain[1];
+  stress[2] = c3*strain[2];
+
+  return sqrt(((stress[0]-stress[1])*(stress[0]-stress[1])
+	       + stress[0]*stress[0]
+	       + stress[1]*stress[1]
+	       + 6. *stress[2]*stress[2])/2.);
 }
 
 }//namespace uehara

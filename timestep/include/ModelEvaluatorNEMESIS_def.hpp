@@ -47,8 +47,6 @@
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
-//#include "function_def.hpp"
-
 //#define TUSAS_OMP
 
 // Nonmember constuctors
@@ -531,8 +529,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #pragma omp critical
 #endif
 		f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
-// 		if(0 != f_fe.SumIntoGlobalValues ((int) 1, &row1, &val))
-// 		  exit(0);
 	      }//k
 
 	    }//if
@@ -589,14 +585,25 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    int ns_id = it->first;
 	    //std::cout<<it->first<<std::endl;
 	    
-	    //#pragma omp parallel for
+	    //cn there is a fundamental difference between Epetra_FEVector::ReplaceGlobalValues
+	    // and Epetra_FEVector(Epetra_MultiVector)::ReplaceGlobalValue
+	    // the first performs an MPI communication, while the second only updates local values.
+	    // the first case leads to a clash between MPI and OpenMP.
+	    // ie the global id could be accessed simultaneously
+	    // on threads in each mpi process. This caused segfault with mpi+omp here.
+
+
+	    #pragma omp parallel for
 	    for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
 	      
 	      int lid = mesh_->get_node_set_entry(ns_id, j);
-	      if(!x_owned_map_->MyLID(lid) ) break;//check that this node lives on this proc, otherwise skip it
+
+	      //cn not sure why this next line is here.....
+	      //if(!x_owned_map_->MyLID(lid) ) exit(0);//break;//check that this node lives on this proc, otherwise skip it
 	      int gid = node_num_map[lid];
-	      
-	      int row = numeqs_*gid;
+	      //std::cout<<ns_id<<" "<<gid<<" "<<mesh_->get_node_set(ns_id).size()<<std::endl;
+	      int row = numeqs_*gid;//global row
+	      //int row = numeqs_*lid;//local row
 	      double x = mesh_->get_x(lid);
 	      double y = mesh_->get_y(lid);
 	      double z = mesh_->get_z(lid);
@@ -604,7 +611,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      int row1 = row + k;
 	      double val1 = (it->second)(x,y,z,time_);//the function pointer eval
 	      double val = (*u)[numeqs_*lid + k]  - val1;
-	      f_fe.ReplaceGlobalValues ((int) 1, &row1, &val);
+	      //std::cout<<comm_->MyPID()<<" "<<row1<<" "<<std::endl;
+	      //f_fe.ReplaceGlobalValues ((int) 1, &row1, &val);
+	      f_fe.ReplaceGlobalValue (row1, (int)0, val);
 	      
 	    }//j
 	  }//it
@@ -618,7 +627,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	//int num_node_per_side = mesh_->get_num_node_per_side(ss_id);
 	int num_node_per_side = 2;
 	
-	
+	std::string elem_type=mesh_->get_blk_elem_type(blk);
+
 	if( (0==elem_type.compare("QUAD4")) 
 	    || (0==elem_type.compare("QUAD")) 
 	    || (0==elem_type.compare("quad4")) 
@@ -698,6 +708,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  //std::cout<<i<<" "<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<" "<<val<<std::endl;
 		  //std::cout<<lid<<" "<<gid<<" "<<row1<<" "<<val<<std::endl
 		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
+		  //f_fe.SumIntoGlobalValue (row1, (int) 0, val);
 		}//i
 
 	      }//gp
@@ -2449,10 +2460,11 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]						 
-    //(*dirichletfunc_)[1][1] = &uehara::dbc_;						 
-    //(*dirichletfunc_)[1][2] = &uehara::dbc_;
+//     (*dirichletfunc_)[1][1] = &uehara::dbc_;						 
+//     (*dirichletfunc_)[1][2] = &uehara::dbc_;
     (*dirichletfunc_)[2][3] = &dbc_zero_;
     (*dirichletfunc_)[3][0] = &dbc_zero_;
+    //(*dirichletfunc_)[4][1] = &dbc_zero_;
     
     // numeqs_ number of variables(equations) 
     neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
@@ -2472,9 +2484,62 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     post_proc[2].postprocfunc_ = &uehara::postproc_stress_xy_;
     post_proc.push_back(new post_process(comm_,mesh_,(int)3));
     post_proc[3].postprocfunc_ = &uehara::postproc_stress_eq_;
+    post_proc.push_back(new post_process(comm_,mesh_,(int)4));
+    post_proc[4].postprocfunc_ = &uehara::postproc_phi_;
 
     //std::cout<<"uehara"<<std::endl;
     //exit(0);
+
+
+  }else if("laplace" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					   const int &i, 
+					   const double &dt_, 
+					   const double &t_theta_, 
+					   const double &delta, 
+					   const double &time_)>(numeqs_);
+    (*residualfunc_)[0] = &laplace::residual_heat_test_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					 const int &i,  
+					 const int &j,
+					 const double &dt_, 
+					 const double &t_theta_, 
+					 const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &prec_heat_test_;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    (*initfunc_)[0] = &init_zero_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							      const double &y,
+							      const double &z,
+							      const double &t)>>(numeqs_);
+
+//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+// 							      const double &y,
+// 							      const double &z)>>(numeqs_,
+// 										 std::map<int,double (*)(const double &x,
+// 													 const double &y, 
+//               													 const double &z)>(n_dirichlet));
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
 
 
 

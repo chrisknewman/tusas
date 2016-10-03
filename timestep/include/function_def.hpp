@@ -1565,8 +1565,8 @@ namespace uehara
   //double k = 1.5;//W/m/K
   double r0 = 29.5;
 
-  //double E = 200.;//GPa
-  double E = 200.*1.e9;//mPa
+  double E = 2000.;//GPa
+  //double E = 200.*1.e9;//mPa
   double nu = .3;
 
   //plane stress
@@ -1581,7 +1581,9 @@ namespace uehara
 //   double c3 = c0*(1.-2.*nu)/2.;
 
   double alpha = 5.e-6;//1/K
+  //double alpha = 0.;//1/K
   double beta = 1.5e-3;
+  //double beta = 0.;
   
 double init_heat_(const double &x,
 		   const double &y,
@@ -1616,6 +1618,8 @@ double init_phase_(const double &x,
 		   const double &y,
 		   const double &z)
 {
+
+  //this is not exactly symmetric on the fine mesh
   double phi_sol_ = 1.;
   double phi_liq_ = 0.;
 
@@ -1658,6 +1662,17 @@ double conv_bc_(const Basis *basis,
   
   return h*(uw-u)*test/rho/c;
 }
+double nbc_stress_(const Basis *basis,
+		 const int &i, 
+		 const double &dt_, 
+		 const double &t_theta_,
+		 const double &time)
+{
+
+  double test = basis->phi[i];
+  
+  return -alpha*300.*test;
+}
 double residual_phase_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
 		      const double &time)
@@ -1696,69 +1711,55 @@ double residual_phase_(const boost::ptr_vector<Basis> &basis,
   double g = -phi*(1. - phi)*(phi - .5 + M)*test;
   double rhs = divgradphi + g;
 
-  return (phit + t_theta_*rhs)/m;
+  return (phit + rhs)/m;
 
 }
+
+
 double residual_stress_x_dt_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
 		      const double &time)
 {
-  //3-D isotropic x-displacement based solid mech, steady state
-  //strong form: sigma = stress  eps = strain
-  // d^T sigma = d^T B D eps == 0
-
-  double strain[3], stress[3];//x,y,yx
+  double strain[3];//x,y,yx
 
   //test function
-  double test = basis[0].phi[i];
+  //double test = basis[0].phi[i];
   //u, phi
+  double phi = basis[0].uu;
+  //double phit = (phi - basis[0].uuoldold)/dt_/2.;
+  double phit = (phi - basis[0].uuold)/dt_;
+  //double ut = (basis[1].uu - basis[1].uuoldold)/dt_/2.;
+  double ut = (basis[1].uu - basis[1].uuold)/dt_;
+  double strain_phi = 30.*beta*phi*phi*(1.-phi)*(1.-phi)*phit;
 
-  strain[0] = basis[2].dudx;
-  strain[1] = basis[3].dudy;
-  //strain[2] = basis[0].dudy + basis[1].dudx;
+  strain[0] = (basis[2].dudx-basis[2].duolddx)/dt_ - strain_phi - alpha*ut ;
+  strain[1] = (basis[3].dudy-basis[3].duolddy)/dt_ - strain_phi - alpha*ut ;
 
-  stress[0] = c1*strain[0] + c2*strain[1];
-  // stress[1] = c2*strain[0] + c1*strain[1];
-  //stress[2] = c3*strain[2];
+  double stress = c1*strain[0] + c2*strain[1];
 
-  strain[0] = basis[2].duolddx;
-  strain[1] = basis[3].duolddy;
-  //strain[2] = basis[0].dudy + basis[1].dudx;
-
-  stress[1] = c1*strain[0] + c2*strain[1];
-
-  return (stress[0]-stress[1])/dt_*test;
+  return stress;
 }
 double residual_stress_y_dt_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
 		      const double &time)
 {
-  //3-D isotropic x-displacement based solid mech, steady state
-  //strong form: sigma = stress  eps = strain
-  // d^T sigma = d^T B D eps == 0
+  double strain[3];//x,y,z,yx,zy,zx
 
-  double strain[3], stress[3];//x,y,z,yx,zy,zx
-
-  double test = basis[0].phi[i];
+  //double test = basis[0].phi[i];
   //u, phi
+  double phi = basis[0].uu;
+  //double phit = (phi - basis[0].uuoldold)/dt_/2.;
+  double phit = (phi - basis[0].uuold)/dt_;
+  //double ut = (basis[1].uu - basis[1].uuoldold)/dt_/2.;
+  double ut = (basis[1].uu - basis[1].uuold)/dt_;
+  double strain_phi = 30.*beta*phi*phi*(1.-phi)*(1.-phi)*phit;
 
-  strain[0] = basis[2].dudx;
-  strain[1] = basis[3].dudy;
-  //strain[2] = basis[0].dudy + basis[1].dudx;
+  strain[0] = (basis[2].dudx-basis[2].duolddx)/dt_ - strain_phi - alpha*ut;
+  strain[1] = (basis[3].dudy-basis[3].duolddy)/dt_ - strain_phi - alpha*ut;
 
-  //stress[0] = c1*strain[0] + c2*strain[1];
-  stress[1] = c2*strain[0] + c1*strain[1];
-  //stress[2] = c3*strain[2];
+  double stress = c2*strain[0] + c1*strain[1];
 
-  strain[0] = basis[2].duolddx;
-  strain[1] = basis[3].duolddy;
-  //strain[2] = basis[0].dudy + basis[1].dudx;
-
-  //stress[0] = c1*strain[0] + c2*strain[1];
-  stress[0] = c2*strain[0] + c1*strain[1];
-  //stress[2] = c3*strain[2];
-
-  return (stress[1]-stress[0])/dt_*test;//(grad u,grad phi)
+  return stress;
 }
 double residual_heat_(const boost::ptr_vector<Basis> &basis, 
 		      const int &i, 
@@ -1782,6 +1783,7 @@ double residual_heat_(const boost::ptr_vector<Basis> &basis,
   //u, phi
   double phi = basis[0].uu;
   double phiold = basis[0].uuold;
+  double phioldold = basis[0].uuoldold;
   double u = basis[1].uu;
   double uold = basis[1].uuold;
 
@@ -1791,20 +1793,22 @@ double residual_heat_(const boost::ptr_vector<Basis> &basis,
 
   double ut = rho*c*(u-uold)/dt_*test;
   double divgradu = k*(dudx*dtestdx + dudy*dtestdy);
-  double phitu = -30.*L*phi*phi*(1.-phi)*(1.-phi)*(phi-phiold)/dt_*test; 
+  //double phitu = -30.*L*phi*phi*(1.-phi)*(1.-phi)*(phi-phioldold)/2./dt_*test; 
+  double h = phi*phi*(1.-phi)*(1.-phi);
+  double phitu = -30.*L*h*(phi-phiold)/dt_*test; 
   
   //thermal term
   double stress = test*alpha*u*(residual_stress_x_dt_(basis, 
-					 i, dt_, t_theta_, delta, 
-					 time)
-		   +residual_stress_y_dt_(basis, 
-					  i, dt_, t_theta_, delta, 
-					  time));
+						      i, dt_, t_theta_, delta, 
+						      time)
+				+residual_stress_y_dt_(basis, 
+						       i, dt_, t_theta_, delta, 
+						       time));
   
 
   double rhs = divgradu + phitu + stress;
 
-  return (ut + t_theta_*rhs)/rho/c;
+  return (ut + rhs)/rho/c;
 
 }
 double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
@@ -1826,22 +1830,36 @@ double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
     +basis[0].dphideta[i]*basis[0].detady
     +basis[0].dphidzta[i]*basis[0].dztady;
   //test function
-  //double test = basis[0].phi[i];
+  double test = basis[0].phi[i];
   //u, phi
   //double u = basis[0].uu;
 
+  //double ut = (basis[1].uu - basis[1].uuoldold)/dt_/2;//thermal strain
   double ut = (basis[1].uu - basis[1].uuold)/dt_;//thermal strain
 
   double phi = basis[0].uu;
-  double strain_phi = 30.*beta*phi*phi*(1.-phi)*(1.-phi)*(phi-basis[0].uuold)/dt_;
+  double h = phi*phi*(1.-phi)*(1.-phi);
+  //double hp = 2.*(1.-phi)*(1.-phi)*phi-2.*(1.-phi)*phi*phi;//2 (1 - x)^2 x - 2 (1 - x) x^2
+  // h' p_t p_x +h p_t_x
+  double strain_phi = 30.*beta*h*(phi-basis[0].uuold)/dt_;
+//   double strain_phi = 0.*2.*30.*beta*(c1+c2)*(hp*(phi-basis[0].uuold)/dt_*basis[0].dudx
+// 					   +h*(basis[0].dudx-basis[0].duolddx)/dt_
+// 					   )*test;
+  
+//   strain[0] = (basis[2].dudx-basis[2].duolddx)/dt_- alpha*ut;// - strain_phi;// - alpha*ut ;
+//   strain[1] = (basis[3].dudy-basis[3].duolddy)/dt_- alpha*ut;// - strain_phi;// - alpha*ut ;
+//   strain[2] = (basis[2].dudy-basis[2].duolddy + basis[3].dudx-basis[3].duolddx)/dt_;// - alpha*ut - strain_phi;
 
-  strain[0] = (basis[2].dudx-basis[2].duolddx)/dt_ - alpha*ut - strain_phi;
-  strain[1] = (basis[3].dudy-basis[3].duolddy)/dt_ - alpha*ut - strain_phi;
-  strain[2] = (basis[2].dudy-basis[2].duolddy + basis[3].dudx-basis[3].duolddx)/dt_ - alpha*ut - strain_phi;
+  strain[0] = (basis[2].dudx)- alpha*basis[1].uu - 30.*beta*h*phi;// - strain_phi;// - alpha*ut ;
+  strain[1] = (basis[3].dudy)- alpha*basis[1].uu - 30.*beta*h*phi;// - strain_phi;// - alpha*ut ;
+  strain[2] = (basis[2].dudy + basis[3].dudx);// - alpha*ut - strain_phi;
 
   stress[0] = c1*strain[0] + c2*strain[1];
   // stress[1] = c2*strain[0] + c1*strain[1];
   stress[2] = c3*strain[2];
+
+  //there is probably a 2 or 4 coefficient here
+  double t_term = 0.*2.*alpha*(c1+c2)*(basis[1].dudx - basis[1].duolddx)/dt_*test;
 
   double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E;//(grad u,grad phi)
  
@@ -1867,7 +1885,7 @@ double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
   double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
     +basis[0].dphideta[i]*basis[0].detady
     +basis[0].dphidzta[i]*basis[0].dztady;
-  //double test = basis[0].phi[i];
+  double test = basis[0].phi[i];
   //u, phi
   //double u = basis[0].uu;
 
@@ -1875,18 +1893,31 @@ double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
   //strain[1] = basis[3].dudy;
   //strain[2] = basis[2].dudy + basis[3].dudx;
 
+  //double ut = (basis[1].uu - basis[1].uuoldold)/dt_/2.;//thermal strain
   double ut = (basis[1].uu - basis[1].uuold)/dt_;//thermal strain
 
   double phi = basis[0].uu;
-  double strain_phi = 30.*beta*phi*phi*(1.-phi)*(1.-phi)*(phi-basis[0].uuold)/dt_;
+  double h = phi*phi*(1.-phi)*(1.-phi);
+  //double hp = 2.*(1.-phi)*(1.-phi)*phi-2.*(1.-phi)*phi*phi;//2 (1 - x)^2 x - 2 (1 - x) x^2
+  double strain_phi = 30.*beta*h*(phi-basis[0].uuold)/dt_;
+//   double strain_phi = 0.*2.*30.*beta*(c1+c2)*(hp*(phi-basis[0].uuold)/dt_*basis[0].dudy
+// 					+h*(basis[0].dudy-basis[0].duolddy)/dt_
+// 					)*test;
   
-  strain[0] = (basis[2].dudx-basis[2].duolddx)/dt_ - alpha*ut - strain_phi;
-  strain[1] = (basis[3].dudy-basis[3].duolddy)/dt_ - alpha*ut - strain_phi;
-  strain[2] = (basis[2].dudy-basis[2].duolddy + basis[3].dudx-basis[3].duolddx)/dt_ - alpha*ut - strain_phi;
+//   strain[0] = (basis[2].dudx-basis[2].duolddx)/dt_- alpha*ut;// - strain_phi;// - alpha*ut ;
+//   strain[1] = (basis[3].dudy-basis[3].duolddy)/dt_- alpha*ut;// - strain_phi;// - alpha*ut ;
+//   strain[2] = (basis[2].dudy-basis[2].duolddy + basis[3].dudx-basis[3].duolddx)/dt_;// - alpha*ut - strain_phi;
 
-  stress[0] = c1*strain[0] + c2*strain[1];
+  strain[0] = (basis[2].dudx)- alpha*basis[1].uu - 30.*beta*h*phi;// - strain_phi;
+  strain[1] = (basis[3].dudy)- alpha*basis[1].uu - 30.*beta*h*phi;// - strain_phi;
+  strain[2] = (basis[2].dudy + basis[3].dudx);// - alpha*ut - strain_phi;
+
+  //stress[0] = c1*strain[0] + c2*strain[1];
   stress[1] = c2*strain[0] + c1*strain[1];
   stress[2] = c3*strain[2];
+
+  //there is probably a 2 or 4 coefficient here
+  double t_term = 0.*2.*alpha*(c1+c2)*(basis[1].dudy - basis[1].duolddy)/dt_*test;
 
   double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E;//(grad u,grad phi)
   
@@ -1909,8 +1940,8 @@ double residual_stress_x_test_(const boost::ptr_vector<Basis> &basis,
   //u, phi
   double sx = basis[4].uu;
 
-  strain[0] = basis[2].dudx;
-  strain[1] = basis[3].dudy;
+  strain[0] = basis[2].dudx-alpha*basis[1].uu;
+  strain[1] = basis[3].dudy-alpha*basis[1].uu;
   //strain[2] = basis[0].dudy + basis[1].dudx;
 
   stress[0] = c1*strain[0] + c2*strain[1];
@@ -1933,8 +1964,8 @@ double residual_stress_y_test_(const boost::ptr_vector<Basis> &basis,
   //u, phi
   double sy = basis[5].uu;
 
-  strain[0] = basis[2].dudx;
-  strain[1] = basis[3].dudy;
+  strain[0] = basis[2].dudx-alpha*basis[1].uu;
+  strain[1] = basis[3].dudy-alpha*basis[1].uu;
   //strain[2] = basis[0].dudy + basis[1].dudx;
 
   //stress[0] = c1*strain[0] + c2*strain[1];
@@ -2058,6 +2089,7 @@ double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
   //stress[1] = c2*strain[0] + c1*strain[1];
   stress[2] = c3*strain[2];
 
+  //double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E/dt_;//(grad u,grad phi)
   double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E;//(grad u,grad phi)
  
   return divgradu;
@@ -2093,7 +2125,9 @@ double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
   stress[2] = c3*strain[2];
 
 
+  //double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E/dt_;//(grad u,grad phi)
   double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E;//(grad u,grad phi)
+
 
   return divgradu;
 }
@@ -2110,16 +2144,28 @@ double postproc_stress_x_(const double *u, const double *gradu)
   //gradu is dee0dx,dee0dy,dee1dx...
 
   double strain[2];//x,y,z,yx,zy,zx
-  strain[0] = gradu[0];//var 0 dx
-  strain[1] = gradu[3];//var 1 dy
+  double phi = u[0];
+  if(phi < 0.) phi = 0.;
+  if(phi > 1.) phi = 1.;
+  double h = phi*phi*(1.-phi)*(1.-phi);
+//   strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
+//   strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
+  strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
+  strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
 
   return c1*strain[0] + c2*strain[1];
 }
 double postproc_stress_y_(const double *u, const double *gradu)
 {
   double strain[2];//x,y,z,yx,zy,zx
-  strain[0] = gradu[0];//var 0 dx
-  strain[1] = gradu[3];//var 1 dy
+  double phi = u[0];
+  if(phi < 0.) phi = 0.;
+  if(phi > 1.) phi = 1.;
+  double h = phi*phi*(1.-phi)*(1.-phi);
+//   strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
+//   strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
+  strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
+  strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
 
   return c2*strain[0] + c1*strain[1];
 }
@@ -2134,21 +2180,37 @@ double postproc_stress_eq_(const double *u, const double *gradu)
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
   double strain[3], stress[3];//x,y,z,yx,zy,zx
+  double phi = u[0];
+  if(phi < 0.) phi = 0.;
+  if(phi > 1.) phi = 1.;
+  double h = phi*phi*(1.-phi)*(1.-phi);
 
-  strain[0] = gradu[0];//var 0 dx
-  strain[1] = gradu[3];//var 1 dy
+  strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
+  strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
   strain[2] = gradu[1] + gradu[2];
 
   stress[0] = c1*strain[0] + c2*strain[1];
   stress[1] = c2*strain[0] + c1*strain[1];
   stress[2] = c3*strain[2];
 
+//   return sqrt(((stress[0]-stress[1])*(stress[0]-stress[1])
+// 	       + stress[0]*stress[0]
+// 	       + stress[1]*stress[1]
+// 	       + 6. *stress[2]*stress[2]
+// 	       )/2.);
   return sqrt(((stress[0]-stress[1])*(stress[0]-stress[1])
 	       + stress[0]*stress[0]
 	       + stress[1]*stress[1]
-	       + 6. *stress[2]*stress[2])/2.);
+	       + 6. *stress[2]*stress[2]
+	       )/2.);
 }
-
+double postproc_phi_(const double *u, const double *gradu)
+{
+  double phi = u[0];
+  if(phi < 0.) phi = 0.;
+  if(phi > 1.) phi = 1.;
+  return phi;
+}
 }//namespace uehara
 
 
@@ -2425,4 +2487,37 @@ double postproc_stress_xy_(const double *u, const double *gradu)
 }
 
 }//namespace coupledstress
+
+namespace laplace
+{
+double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
+			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+		      const double &time)
+{
+
+  //u[x,y,t]=exp(-2 pi^2 t)sin(pi x)sin(pi y)
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  //double u = basis[0].uu;
+  //double uold = basis[0].uuold;
+
+  //double ut = (u-uold)/dt_*test;
+  double divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+  //double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
+ 
+ 
+  return divgradu - 8.*test;
+}
+}//namespace laplace
 #endif

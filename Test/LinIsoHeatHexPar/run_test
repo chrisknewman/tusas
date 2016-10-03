@@ -1,4 +1,4 @@
 #!/bin/bash
 rm -rf results.e
 mpirun -np 4 ../../tusas --input-file=tusas.xml
-../exodiff Gold.e results.e
+../exodiff -Floor 2.4e-15 Gold.e results.e

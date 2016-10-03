@@ -52,7 +52,7 @@ ${DIR_7}/basis/include/basis.hpp
 ${DIR_7}/input/ReadInput.cpp 
 ${DIR_7}/input/include/ReadInput.h 
 ${DIR_7}/error_estimator/error_estimator.cpp 
-${DIR_7}/timestep/include/ModelEvaluatorNEMESIS.hpp
+${DIR_7}/timestep/include/ModelEvaluatorNEMESIS_def.hpp
 ${DIR_7}/post_process/post_process.cpp 
 ${DIR_7}/post_process/include/post_process.h 
 )

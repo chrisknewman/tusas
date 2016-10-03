@@ -32,7 +32,7 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
     exit(0);
   }
 
-  mesh_->compute_nodal_patch();
+  mesh_->compute_nodal_patch_old();
 
   std::vector<int> node_num_map(mesh_->get_node_num_map());
 
@@ -53,14 +53,14 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   importer_ = Teuchos::rcp(new Epetra_Import(*overlap_map_, *node_map_));
 
   gradx_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
-  gradx_->PutScalar(0.);
   grady_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
-  grady_->PutScalar(0.);
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
   mesh_->add_nodal_field(xstring);
   mesh_->add_nodal_field(ystring);
 
+
+  //cn this is the map of elements belonging to this processor
   std::vector<int> elem_num_map(*(mesh_->get_elem_num_map()));
   elem_map_ = Teuchos::rcp(new Epetra_Map(-1,
 				      elem_num_map.size(),
@@ -69,14 +69,12 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 				      *comm_));
 
   elem_error_ = Teuchos::rcp(new Epetra_Vector(*elem_map_));
-  elem_error_->PutScalar(0.);
   std::string estring="error"+std::to_string(index_);
   mesh_->add_elem_field(estring);
   global_error_ = 0.;
   
   if( 0 == comm_->MyPID() )std::cout<<"Error estimator created for variable "<<index_<<std::endl;
 
-  std::cout<<estring<<std::endl;
   //exit(0);
 };
 
@@ -100,7 +98,8 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   //the maps created above assume output of one variable
   //hack a copy/import for now....
 
-  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
+#pragma omp parallel for 
   for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
     (*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
   }
@@ -169,9 +168,23 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
       uu = new double[n_nodes_per_elem];
       for(int k = 0; k < n_nodes_per_elem; k++){
 	
+
+
+	//cn I believe mesh_->get_node_id(blk, n_patch[ne], k); takes a local elem id in the second slot, not a global one
+	//cn ie it expects the ith elem on this proc
+
+	//cn right now, the patch has elements (on and off proc) according to the nodes on this proc, but the underlying mesh
+	// does not know about off proc elements
+
+
 	//int nodeid = mesh_->get_node_id(blk, ne, k);
-	int nodeid = mesh_->get_node_id(blk, n_patch[ne], k);
-	//std::cout<<comm_->MyPID()<<" "<<nn<<" "<<mesh_->node_num_map[nn]<<" "<<k<<" "<<n_patch[ne]<<" "<<nodeid<<std::endl;
+
+	int lid = elem_map_->LID(n_patch[ne]);//cn this wont work because it is not an overlap map
+
+
+	//int nodeid = mesh_->get_node_id(blk, n_patch[ne], k);
+	int nodeid = mesh_->get_node_id(blk,lid, k);
+	std::cout<<comm_->MyPID()<<" "<<nn<<" "<<mesh_->node_num_map[nn]<<" "<<k<<" "<<n_patch[ne]<<" "<<nodeid<<" "<<lid<<std::endl;
 	xx[k] = mesh_->get_x(nodeid);
 	yy[k] = mesh_->get_y(nodeid);
 	zz[k] = mesh_->get_z(nodeid);
@@ -397,7 +410,8 @@ void error_estimator::update_mesh_data(){
 
 void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
 
-  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
+#pragma omp parallel for 
   for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
     (*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
   }

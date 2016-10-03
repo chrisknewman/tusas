@@ -41,8 +41,6 @@
 
 using namespace std;
 
-//std::string TRILINOS_DIR="/Users/cnewman/src/trilinos-11.12.1-Source/GCC_4_9_1_MPI_OMP_DBG/";
-
 int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const Epetra_Comm * comm);
 int join(const int mypid, const int numproc);
 
@@ -79,14 +77,10 @@ int main(int argc, char *argv[])
     decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString),&Comm);
     Comm.Barrier();
     
-    in_mesh->read_exodus(pfile .c_str());
+    in_mesh->read_exodus(pfile.c_str());
     //exit(0);
   }
-
-  //we want end dt = .14 here; dt=.001   for dendquad300.e and ModelEvaluatorPHASE_HEAT
-  //                           dt=.0001  for dendquad600.e and ModelEvaluatorPHASE_HEAT
-  //                           dt=.00001 for dendquad300.e and ModelEvaluatorPHASE_HEAT_Exp
-  //                           dt=.000001 for dendquad600.e and ModelEvaluatorPHASE_HEAT_Exp
+  in_mesh->set_global_file_name(paramList.get<std::string> (TusasmeshNameString) );
 
   double dt = paramList.get<double> (TusasdtNameString);
   int numSteps = paramList.get<int> (TusasntNameString);

@@ -37,6 +37,7 @@ class Mesh
   void compute_nodal_adj();
 
   void compute_nodal_patch();
+  void compute_nodal_patch_old();
 
   std::vector<int> get_nodal_patch(int i){return nodal_patch[i];}
 
@@ -106,6 +107,7 @@ class Mesh
 
   void set_my_num_nodes(int n){num_my_nodes = n;}
   std::vector<int> node_num_map;
+  void set_global_file_name(std::string filename){global_file_name = filename;return;};
 
  private:
 
@@ -199,7 +201,10 @@ class Mesh
 
   char filetype;
 
+  std::string global_file_name;
 
+  bool is_global_node_local(int i);
+  bool is_global_elem_local(int i);
   //#endif
 
 };

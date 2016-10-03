@@ -1280,6 +1280,108 @@ void Mesh::compute_nodal_patch(){
 
   //cn not confirmed in parallel yet, there may be some issues
 
+  //cn if we can loop over all elements in the non partitioned file here, rather than the
+  //cn elements on this block, this might work in parallel
+  
+  //cn however, we need a version of get_node_id(blk, ne, k) that works globally as well
+  
+  //cn one hack option is to pass the filename in here and create a one off of get_node_id(blk, ne, k)
+  
+  //cn another hack option is to create a new global mesh right here, get this info
+  //cn and delete the mesh
+  
+  
+  
+  Mesh * global_mesh = new Mesh((int)0,(int)1,false);
+  global_mesh->read_exodus(global_file_name.c_str());
+
+
+  //we really want to search by global id
+  num_my_nodes = my_node_num_map.size();
+
+  //std::cout<<"compute_nodal_patch() started on proc_id: "<<proc_id<<" with num_my_nodes "<<num_my_nodes<<std::endl;
+
+  nodal_patch.resize(num_my_nodes);
+
+  //std::cout<<"compute_nodal_patch() "<<nodal_patch.size()<<" "<<num_nodes<<" "<<my_node_num_map.size()<<std::endl<<std::endl;
+  for(int blk = 0; blk < get_num_elem_blks(); blk++){
+    int n_nodes_per_elem = global_mesh->get_num_nodes_per_elem_in_blk(blk);
+
+
+    //cn node_num_map is the list of global ids
+    //cn it is allocated to the # of internal nodes + ghosts
+    //cn my_node_num_map is a mapping: global id = my_node_num_map[local id]
+    //cn it is allocated to the # of internal nodes
+
+
+
+
+    for (int ne=0; ne < global_mesh->get_num_elem_in_blk(blk); ne++){
+      for(int k = 0; k < n_nodes_per_elem; k++){
+	
+	int nodeid = global_mesh->get_node_id(blk, ne, k);
+	//std::cout<<proc_id<<" "<<global_mesh->get_global_elem_id(ne)<<" "<<nodeid<<" "<<my_node_num_map[nodeid]<<" "<<is_global_node_local(nodeid)<<std::endl;
+	//we check here if the node lives on this proc
+	if(is_global_node_local(nodeid)){
+
+
+	  //cn we load global elem id here
+	  int elemid = global_mesh->get_global_elem_id(ne);
+
+	  //cn might be better to load the local elem id instead
+	  //cn which would mean look up the global elem id from global_mesh in in_mesh
+
+	  //cn or we need some kind of overlap map for elements
+	  //cn that we could load up here, we would need
+	  // elem, nodes and x, y,z
+	  // we could get by with just getting the off processor info for elem, node, coord
+
+
+	  //int elemid = ne;
+
+	  //cn into a local node id map
+	  nodal_patch[nodeid].push_back(elemid);
+	}
+      }      
+    }
+  }
+
+  for(int i=0; i<num_my_nodes; i++){
+    std::cout<<proc_id<<" "<<i<<":: "<<node_num_map[i]<<"::  ";
+    for(int j=0; j< nodal_patch[i].size(); j++){
+      std::cout<<nodal_patch[i][j]<<" ";
+    }
+    std::cout<<std::endl;
+  }
+
+  //std::cout<<"compute_nodal_patch() finished on proc_id: "<<proc_id<<std::endl;
+  //exit(0);
+
+  delete global_mesh;
+}
+
+bool Mesh::is_global_node_local(int i){
+  bool found = false;
+
+  found = (std::find(my_node_num_map.begin(), my_node_num_map.end(), i) != my_node_num_map.end());
+
+  return found;
+}
+
+bool Mesh::is_global_elem_local(int i){
+  bool found = false;
+
+  found = (std::find(elem_num_map.begin(), elem_num_map.end(), i) != elem_num_map.end());
+
+  return found;
+}
+
+
+void Mesh::compute_nodal_patch_old(){
+
+
+  //cn not working in parallel yet, there are some issues
+
 
   //my_node_num_map is local ids
   //we really want to search by global id
@@ -1292,6 +1394,7 @@ void Mesh::compute_nodal_patch(){
   //std::cout<<"compute_nodal_patch() "<<nodal_patch.size()<<" "<<num_nodes<<" "<<my_node_num_map.size()<<std::endl<<std::endl;
   for(int blk = 0; blk < get_num_elem_blks(); blk++){
     int n_nodes_per_elem = get_num_nodes_per_elem_in_blk(blk);
+
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
       for(int k = 0; k < n_nodes_per_elem; k++){
 	
@@ -1319,4 +1422,3 @@ void Mesh::compute_nodal_patch(){
   //exit(0);
 
 }
-

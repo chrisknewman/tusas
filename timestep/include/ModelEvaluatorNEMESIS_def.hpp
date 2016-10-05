@@ -47,6 +47,8 @@
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
+#include "elem_color.h"
+
 //#define TUSAS_OMP
 
 // Nonmember constuctors
@@ -193,6 +195,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
     Error_est.push_back(new error_estimator(comm_,mesh_,numeqs_,error_index));
   }
 
+  //Elem_col = rcp(new elem_color(comm_,mesh_));
   //exit(0);
 
 }
@@ -435,14 +438,14 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  basis.push_back(new BasisQTri());
 	//delta_factor = .5*delta_factor;
       } 
-      else if( (0==elem_type.compare("HEX27")) || (0==elem_type.compare("hex27")) ){ // quadratic triangle
+      else if( (0==elem_type.compare("HEX27")) || (0==elem_type.compare("hex27")) ){ // quadratic hex
 	for ( int nb = 0; nb < numeqs_; nb++ )
 	  {//basis.push_back(new BasisQHex());
 	  }
 	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
 	exit(0);
       }
-      else if( (0==elem_type.compare("TETRA10")) || (0==elem_type.compare("tetra10")) ){ // quadratic triangle
+      else if( (0==elem_type.compare("TETRA10")) || (0==elem_type.compare("tetra10")) ){ // quadratic tet
 	for ( int nb = 0; nb < numeqs_; nb++ )
 	  {//basis.push_back(new BasisQTet());
 	  }

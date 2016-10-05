@@ -35,6 +35,7 @@ class Mesh
 // We need a set of convenient functions to retrieve data from this object, and write data to it
 
   void compute_nodal_adj();
+  void compute_elem_adj();
 
   void compute_nodal_patch();
   void compute_nodal_patch_old();
@@ -81,6 +82,8 @@ class Mesh
   std::vector<int> get_my_node_num_map(){ return my_node_num_map; }
   std::vector<int> get_my_node_num_mapi(){ return node_mapi; }
   std::vector<int> get_my_node_num_mapb(){ return node_mapb; }
+
+  std::vector<int> get_elem_connect(int i){return elem_connect[i];};
 
   double get_x(int i){return x[i];}
   double get_y(int i){return y[i];}
@@ -134,7 +137,8 @@ class Mesh
   std::vector<int> num_elem_in_blk;
   std::vector<std::string> blk_elem_type;
   std::vector<int> num_node_per_elem_in_blk;
-  std::vector<std::vector<int> > connect;      
+  std::vector<std::vector<int> > connect;
+  std::vector< std::vector <int> > elem_connect;      
 
   std::vector<int> ss_ids;
   std::vector<int> num_sides_per_ss;

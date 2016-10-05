@@ -79,7 +79,10 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 };
 
 
-error_estimator::~error_estimator(){};
+error_estimator::~error_estimator()
+{
+  delete mesh_;
+};
 
 void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in){
 

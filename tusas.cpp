@@ -39,6 +39,7 @@
 #include "ReadInput.h"
 #include "tusas.h"
 
+
 using namespace std;
 
 int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const Epetra_Comm * comm);
@@ -163,10 +164,13 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
     std::string sliceStr = trilinosPath+"/bin/nem_slice -e -m mesh="+std::to_string(numproc)+" -l inertial -o "+
       nemFile+" "+infile;
     std::cout<<"  Running nemslice command: "<<sliceStr <<std::endl;
+
     if(-1 == system(sliceStr.c_str()) ){
       std::cout<<"Error running nemslice: "<<sliceStr<<std::endl;
       exit(0);
     }
+
+
     std::string spreadFile=decompPath+"nem_spread.inp";
     std::ofstream spreadfile;
     spreadfile.open(spreadFile.c_str());
@@ -250,12 +254,15 @@ int join(const int mypid, const int numproc)
     std::string decompPath="decomp/";
     std::string trilinosPath=TRILINOS_DIR;
     //std::string trilinosPath=getenv("TRILINOS_DIR");
-    std::string comStr = trilinosPath+"/bin/epu -auto -add_processor_id "+decompPath+"results.e."+std::to_string(numproc)+".000";
+    std::string comStr = trilinosPath+"bin/epu -auto -add_processor_id "+decompPath+"results.e."+std::to_string(numproc)+".000";
     
     std::cout<<"Running epu command: "<<comStr <<std::endl;
+//     FILE * f = popen(comStr.c_str(),"r");
+//     if ( f == 0 ) {
     if(-1 == system(comStr.c_str()) ){
       std::cout<<"Error running epu: "<<comStr<<std::endl;
       exit(0);
     }
+      //pclose(f);
   }
 }

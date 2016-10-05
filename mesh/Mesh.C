@@ -1422,3 +1422,95 @@ void Mesh::compute_nodal_patch_old(){
   //exit(0);
 
 }
+
+void Mesh::compute_elem_adj(){
+
+  //at the end we have a
+  //std::vector<std::vector<int>> elem_connect indexed by local elemid
+  //where elem_connect[ne] is a vector of global elemids icluding and surrounding ne
+
+  //we have also made blk = 0 assumption
+
+
+
+  elem_connect.resize(num_elem);
+
+  for(int blk = 0; blk < get_num_elem_blks(); blk++){
+
+    std::string elem_type=get_blk_elem_type(blk);
+ 
+    int num_vertices_in_elem = 3;
+
+    if( (0==elem_type.compare("QUAD4")) || 
+	(0==elem_type.compare("QUAD")) || 
+	(0==elem_type.compare("quad4")) || 
+	(0==elem_type.compare("quad")) || 
+	(0==elem_type.compare("quad9")) || 
+	(0==elem_type.compare("QUAD9")) || 
+	(0==elem_type.compare("TETRA4")) || 
+	(0==elem_type.compare("TETRA")) || 
+	(0==elem_type.compare("tetra4")) || 
+	(0==elem_type.compare("tetra")) ||
+	(0==elem_type.compare("TETRA10")) || 
+	(0==elem_type.compare("tetra10")) ){ 
+      num_vertices_in_elem = 4;
+    }
+    else if( (0==elem_type.compare("HEX8")) || 
+	     (0==elem_type.compare("HEX")) || 
+	     (0==elem_type.compare("hex8")) || 
+	     (0==elem_type.compare("hex"))  ||
+	     (0==elem_type.compare("HEX27")) || 
+	     (0==elem_type.compare("hex27")) ){ 
+      num_vertices_in_elem = 8;
+    }
+
+//     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+//       int elemid = get_global_elem_id(ne);
+//       std::cout<<proc_id<<" "<<ne<<" "<<elemid<<" "<<elem_num_map[ne]<<std::endl;
+//     }
+
+    for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+      int elemid = get_global_elem_id(ne);
+      for(int k = 0; k < num_vertices_in_elem; k++){
+
+	int nodeid = get_node_id(blk, ne, k);//local node id
+	int gnodeid = node_num_map[nodeid];
+	//std::cout<<proc_id<<" "<<ne<<" "<<elemid<<" "<<nodeid<<" "<<gnodeid<<std::endl;
+
+	for(int ne2=0; ne2 < get_num_elem_in_blk(blk); ne2++){
+	  for(int k2 = 0; k2 < num_vertices_in_elem; k2++){
+	    //std::cout<<ne<<" "<<ne2<<std::endl;
+	    int nodeid2 = get_node_id(blk, ne2, k2);//local node id
+	    //if(nodeid == nodeid2) elem_connect[elemid].push_back(get_global_elem_id(ne2));
+	    if(nodeid == nodeid2) elem_connect[ne].push_back(get_global_elem_id(ne2));
+	  }
+	}
+
+      }
+    }
+  }
+
+
+  if(verbose)
+    std::cout<<"=== Compute elem adjacencies ==="<<std::endl;
+
+  int blk = 0;
+  for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+    int elemid = get_global_elem_id(ne);
+
+    sort( elem_connect[ne].begin(), elem_connect[ne].end() );
+    elem_connect[ne].erase( unique( elem_connect[ne].begin(), elem_connect[ne].end() ), elem_connect[ne].end() );
+
+
+    if(verbose){
+
+      int n=elem_connect[ne].size();
+      std::cout<<elemid<<"::"<<std::endl;
+      for (int k =0; k<n; k++){
+	std::cout<<"  "<<elem_connect[ne][k];
+      }
+      std::cout<<std::endl;
+    }
+  }
+
+}

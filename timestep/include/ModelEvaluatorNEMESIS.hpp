@@ -10,6 +10,7 @@
 #include "preconditioner.hpp"
 #include "timestep.hpp"
 #include "error_estimator.h"
+#include "elem_color.h"
 #include "post_process.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
@@ -245,6 +246,7 @@ private: // data members
   RCP<Teuchos::Time> ts_time_import;
   boost::ptr_vector<error_estimator> Error_est;
   boost::ptr_vector<post_process> post_proc;
+  Teuchos::RCP<elem_color> Elem_col;
 };
 
 

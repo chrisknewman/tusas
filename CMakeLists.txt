@@ -11,6 +11,7 @@ SET( DIR_4 "input/include" )
 SET( DIR_5 "timestep/include" )
 SET( DIR_8 "error_estimator/include" )
 SET( DIR_9 "post_process/include" )
+SET( DIR_10 "elem_color/include" )
 SET( DIR_6 ${TRILINOS_DIR}lib )
 SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 
@@ -18,7 +19,7 @@ SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 # Give access to all subdirectories ( basis, basis/include, etc. )
 #---------------------------------------------------------------------------------
 
-INCLUDE_DIRECTORIES( ${DIR_1} ${DIR_2} ${DIR_3} ${DIR_4} ${DIR_5} ${DIR_8} ${DIR_9} ${DIR_1}/.. ${DIR_2}/.. ${DIR_3}/.. ${DIR_4}/.. ${DIR_5}/.. ${DIR_8}/..)
+INCLUDE_DIRECTORIES( ${DIR_1} ${DIR_2} ${DIR_3} ${DIR_4} ${DIR_5} ${DIR_8} ${DIR_9} ${DIR_10}  ${DIR_1}/.. ${DIR_2}/.. ${DIR_3}/.. ${DIR_4}/.. ${DIR_5}/.. ${DIR_8}/.. ${DIR_10}/..)
 
 
 #---------------------------------------------------------------------------------
@@ -55,6 +56,7 @@ ${DIR_7}/error_estimator/error_estimator.cpp
 ${DIR_7}/timestep/include/ModelEvaluatorNEMESIS_def.hpp
 ${DIR_7}/post_process/post_process.cpp 
 ${DIR_7}/post_process/include/post_process.h 
+${DIR_7}/elem_color/elem_color.cpp 
 )
 
 

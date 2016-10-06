@@ -187,7 +187,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
 	//int nodeid = mesh_->get_node_id(blk, n_patch[ne], k);
 	int nodeid = mesh_->get_node_id(blk,lid, k);
-	std::cout<<comm_->MyPID()<<" "<<nn<<" "<<mesh_->node_num_map[nn]<<" "<<k<<" "<<n_patch[ne]<<" "<<nodeid<<" "<<lid<<std::endl;
+	//std::cout<<comm_->MyPID()<<" "<<nn<<" "<<mesh_->node_num_map[nn]<<" "<<k<<" "<<n_patch[ne]<<" "<<nodeid<<" "<<lid<<std::endl;
 	xx[k] = mesh_->get_x(nodeid);
 	yy[k] = mesh_->get_y(nodeid);
 	zz[k] = mesh_->get_z(nodeid);

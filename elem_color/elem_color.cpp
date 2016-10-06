@@ -58,6 +58,7 @@ void elem_color::compute_graph()
 void elem_color::create_colorer()
 {
   using Teuchos::rcp;
+  int mypid = comm_->MyPID();
 
   //cn looks like the default is a distance-2 coloring,
   //   we need a distance-1 coloring
@@ -74,25 +75,38 @@ void elem_color::create_colorer()
 		      );
   map_coloring_->Print(std::cout);
 
-  int num_color_ = map_coloring_->NumColors ();
+  num_color_ = map_coloring_->NumColors ();
 
   color_list_.assign(map_coloring_->ListOfColors(),map_coloring_->ListOfColors()+num_color_);
 
   elem_LIDS_.resize(num_color_);
 
+  //colors seem to begin with 1, which is the defaultcolor?
+  int default_color_=map_coloring_->DefaultColor();
+
   for(int i = 0; i < num_color_; i++){
-    int num_elem = map_coloring_->NumElementsWithColor(i);
-    elem_LIDS_[i].assign(map_coloring_->ColorLIDList(i),map_coloring_->ColorLIDList(i)+num_elem);
-    //std::cout<<color_list_[i]<<" "; 
+    int num_elem = map_coloring_->NumElementsWithColor(color_list_[i]);
+    //int num_elem = map_coloring_->NumElementsWithColor(i);
+
+    elem_LIDS_[i].assign(map_coloring_->ColorLIDList(color_list_[i]),map_coloring_->ColorLIDList(color_list_[i])+num_elem);
+    //elem_LIDS_[i].assign(map_coloring_->ColorLIDList(i),map_coloring_->ColorLIDList(i)+num_elem);
+
+    //std::cout<<color_list_[i]<<" ("<<map_coloring_->NumElementsWithColor(color_list_[i])<<") "; 
   }
   //std::cout<<std::endl;
+  //std::cout<<"num_color_"<<num_color_<<std::endl;
 
 
-  std::vector<int>::iterator it;
-  //for(it = elem_LIDS_.begin();it != elem_LIDS_.end(); ++it){
+  for(int i = 0; i < num_color_; i++){
+    int num_elem = elem_LIDS_[i].size();
 
-  //}
+    std::cout<<mypid<<" "<<i<<" ("<<color_list_[i]<<") : ";
+    for(int n = 0; n < num_elem; n++){
+      std::cout<<elem_LIDS_[i][n]<<" ";
+    }
+    std::cout<<std::endl;
+  }
 
 
-  exit(0);
+  //exit(0);
 }

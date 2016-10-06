@@ -16,6 +16,8 @@
 #include "Epetra_SerialComm.h"
 #endif
 
+//#define TUSAS_COLOR
+
 
 class elem_color
 {
@@ -23,6 +25,10 @@ public:
   elem_color(const Teuchos::RCP<const Epetra_Comm>& comm, 
 				 Mesh *mesh);
   ~elem_color();
+
+  //we could point to the underlying isorropia data instead, in the future
+  std::vector<int> get_color(int i){return elem_LIDS_[i];}
+  int get_num_color(){return num_color_;}
 
 private:
 
@@ -40,6 +46,7 @@ private:
 
   std::vector<int> color_list_;
   std::vector< std::vector< int > > elem_LIDS_;
+  int num_color_;
 
 };
 #endif

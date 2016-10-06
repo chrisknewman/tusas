@@ -184,6 +184,10 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   ts_time_import= Teuchos::TimeMonitor::getNewTimer("Total Import Time");
 
+#ifdef TUSAS_COLOR
+  Elem_col = rcp(new elem_color(comm_,mesh_));
+#endif
+
   init_nox();
 
   std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,
@@ -195,7 +199,6 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
     Error_est.push_back(new error_estimator(comm_,mesh_,numeqs_,error_index));
   }
 
-  //Elem_col = rcp(new elem_color(comm_,mesh_));
   //exit(0);
 
 }
@@ -401,10 +404,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 
-#ifdef TUSAS_OMP
-#pragma omp parallel for
-      for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
-#endif
+// #ifdef TUSAS_OMP
+// #pragma omp parallel for
+//       for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
+// #endif
 
       n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
       std::string elem_type=mesh_->get_blk_elem_type(blk);
@@ -470,12 +473,36 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
       std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
 
-#ifndef TUSAS_OMP
-      for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor 
+
+
+#ifdef TUSAS_COLOR
+      int num_color = Elem_col->get_num_color();
+#else
+      int num_color = 1;
+#endif
+
+      for(int c = 0; c < num_color; c++){
+#ifdef TUSAS_COLOR
+	std::vector<int> elem_map = Elem_col->get_color(c);
+#else
+	std::vector<int> elem_map = *mesh_->get_elem_num_map();
+#endif
+
+	//#ifndef TUSAS_OMP
+      //int num_elem = mesh_->get_num_elem_in_blk(blk);
+      //int num_elem = mesh_->get_num_elem();
+      int num_elem = elem_map.size();
+
+      for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
+	//#endif
+#ifdef TUSAS_COLOR
+	int elem = elem_map[ne];
+#else
+	int elem = ne;
 #endif
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
-	  int nodeid = mesh_->get_node_id(blk, ne, k);//cn appears this is the local id
+	  int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
 
 	  xx[k] = mesh_->get_x(nodeid);
 	  yy[k] = mesh_->get_y(nodeid);
@@ -495,11 +522,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	  dx += basis[0].jac*basis[0].wt;
 	}
-	if ( dx < 1e-16){
-	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
-	  std::cout<<"dx = "<<dx<<"  ne = "<<ne<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
-	  exit(0);
-	}
+// 	if ( dx < 1e-16){
+// 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
+// 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
+// 	  exit(0);
+// 	}
 	//cn should be cube root in 3d
 	dx = sqrt(dx);	
 	
@@ -520,7 +547,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	  for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
 	    int row = numeqs_*(
-			       mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
+			       mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
 			       );
 	    if (nonnull(f_out)) {    
    
@@ -528,9 +555,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		int row1 = row + k;
 		double jacwt = basis[0].jac * basis[0].wt;
 		double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta,time_);
-#ifdef TUSAS_OMP
-#pragma omp critical
-#endif
+// #ifdef TUSAS_OMP
+// #pragma omp critical
+// #endif
 		f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
 	      }//k
 
@@ -541,8 +568,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	    if (nonnull(W_prec_out)) {
 	      for(int j=0;j < n_nodes_per_elem; j++) {
-		//int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, ne, j)));
-		int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
+		//int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, elem, j)));
+		int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, j)));
 
 		for( int k = 0; k < numeqs_; k++ ){
 		  int row1 = row + k;
@@ -557,14 +584,14 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    }//if
 	  }//i
 	}//gp
-#ifdef TUSAS_OMP
-   	delete xx, yy, zz;
-#endif
+// #ifdef TUSAS_OMP
+//    	delete xx, yy, zz;
+// #endif
       }//ne
-
-#ifndef TUSAS_OMP
+      }//c
+      //#ifndef TUSAS_OMP
       delete xx, yy, zz;
-#endif
+      //#endif
 
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
       typedef double (*DBCFUNC)(const double &x,

@@ -183,6 +183,8 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   time_=0.;
 
   ts_time_import= Teuchos::TimeMonitor::getNewTimer("Total Import Time");
+  ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Total Residual Fill Time");
+  ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
 
 #ifdef TUSAS_COLOR
   Elem_col = rcp(new elem_color(comm_,mesh_));
@@ -399,201 +401,263 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     }
     int n_nodes_per_elem;
 
-    //double delta_factor =1.;//amount to adjust delta by
+    //amount to adjust delta by
     double delta_factor =paramList.get<double> (TusasdeltafactorNameString);
+
+    if (nonnull(f_out)) {
+      Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
+      for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+		
+#ifdef TUSAS_COLOR
+	int num_color = Elem_col->get_num_color();
+	for(int c = 0; c < num_color; c++){
+	  std::vector<int> elem_map = Elem_col->get_color(c);
+	  int num_elem = elem_map.size();
+#pragma omp parallel for
+	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
+	    int elem = elem_map[ne];
+#else
+#endif
+   
+	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+	std::string elem_type=mesh_->get_blk_elem_type(blk);
+	
+	boost::ptr_vector<Basis> basis;
+	
+	set_basis(basis,elem_type);
+	
+	if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
+	  delta_factor = 2.*delta_factor;
+	}
+	else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
+	  delta_factor = .5*delta_factor;
+	}
+	
+	std::vector<double> xx(n_nodes_per_elem);
+	std::vector<double> yy(n_nodes_per_elem);
+	std::vector<double> zz(n_nodes_per_elem);
+	
+	std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
+	std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
+	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));	
+	
+#ifdef TUSAS_COLOR
+#else
+	int num_color = 1;
+	for(int c = 0; c < num_color; c++){
+	  std::vector<int> elem_map = *mesh_->get_elem_num_map();
+	  int num_elem = elem_map.size();
+	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
+	    int elem = ne;
+#endif
+	    for(int k = 0; k < n_nodes_per_elem; k++){
+	      
+	      int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
+	      
+	      xx[k] = mesh_->get_x(nodeid);
+	      yy[k] = mesh_->get_y(nodeid);
+	      zz[k] = mesh_->get_z(nodeid);
+	      
+	      for( int neq = 0; neq < numeqs_; neq++ ){
+		uu[neq][k] = (*u)[numeqs_*nodeid+neq]; 
+		uu_old[neq][k] = (*u_old)[numeqs_*nodeid+neq];
+		uu_old_old[neq][k] = (*u_old_old)[numeqs_*nodeid+neq];
+	      }//neq
+	    }//k
+	    
+	    double dx = 0.;
+	    for(int gp=0; gp < basis[0].ngp; gp++) {
+	      
+	      basis[0].getBasis(gp, &xx[0], &yy[0], &zz[0]);
+	      
+	      dx += basis[0].jac*basis[0].wt;
+	    }
+	    // 	if ( dx < 1e-16){
+	    // 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
+	    // 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
+	    // 	  exit(0);
+	    // 	}
+	    //cn should be cube root in 3d
+	    dx = sqrt(dx);	
+	    
+	    for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
+	      
+	      // Calculate the basis function at the gauss point
+	      for( int neq = 0; neq < numeqs_; neq++ ){
+		basis[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
+	      }
+	      
+	      //double jacwt = basis[0].jac * basis[0].wt;
+	      //cn and should be adjusted for quadratic elements and tris
+	      double delta = dx*delta_factor;
+	      
+	      
+	      
+	      //srand(123);
+	      
+	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
+		int row = numeqs_*(
+				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
+				   );
+		
+		
+		
+		for( int k = 0; k < numeqs_; k++ ){
+		  int row1 = row + k;
+		  double jacwt = basis[0].jac * basis[0].wt;
+		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta,time_);
+		  
+		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
+		}//k
+		
+		
+		
+	      }//i
+	    }//gp	    
+	  }//ne
+	}//c
+      }//blk
+    }//if f
+
+    if (nonnull(W_prec_out)) {
+      for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+	
+	// #ifdef TUSAS_OMP
+	// #pragma omp parallel for
+	//       for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
+	// #endif
+	
+	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+	std::string elem_type=mesh_->get_blk_elem_type(blk);
+	
+	boost::ptr_vector<Basis> basis;
+	
+	set_basis(basis,elem_type);
+	
+	if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
+	  delta_factor = 2.*delta_factor;
+	}
+	else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
+	  delta_factor = .5*delta_factor;
+	}
+	
+	std::vector<double> xx(n_nodes_per_elem);
+	std::vector<double> yy(n_nodes_per_elem);
+	std::vector<double> zz(n_nodes_per_elem);
+	
+	std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
+	std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
+	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
+	
+	
+	//cn for now we will turn coloring for matrix fill off, until we get a good handle on residual fill
+	// #ifdef TUSAS_COLOR
+	//       num_color = Elem_col->get_num_color();
+	// #else
+	  int num_color = 1;
+	  // #endif
+	  for(int c = 0; c < num_color; c++){
+	    // #ifdef TUSAS_COLOR
+	    // 	std::vector<int> elem_map = Elem_col->get_color(c);
+	    // #else
+	    std::vector<int> elem_map = *mesh_->get_elem_num_map();
+	    // #endif
+	      
+	    //#ifndef TUSAS_OMP
+	    //int num_elem = mesh_->get_num_elem_in_blk(blk);
+	    //int num_elem = mesh_->get_num_elem();
+	    int num_elem = elem_map.size();
+	    
+	    // #ifdef TUSAS_COLOR
+	    //       //#pragma omp parallel for
+	    // #endif
+	      for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
+		//#endif
+		// #ifdef TUSAS_COLOR
+		// 	int elem = elem_map[ne];
+		// #else
+		int elem = ne;
+		// #endif
+		  for(int k = 0; k < n_nodes_per_elem; k++){
+		    
+		    int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
+		    
+		    xx[k] = mesh_->get_x(nodeid);
+		    yy[k] = mesh_->get_y(nodeid);
+		    zz[k] = mesh_->get_z(nodeid);
+		    
+		    for( int neq = 0; neq < numeqs_; neq++ ){
+		      uu[neq][k] = (*u)[numeqs_*nodeid+neq]; 
+		      uu_old[neq][k] = (*u_old)[numeqs_*nodeid+neq];
+		      uu_old_old[neq][k] = (*u_old_old)[numeqs_*nodeid+neq];
+		    }//neq
+		  }//k
+		  
+		  double dx = 0.;
+		  for(int gp=0; gp < basis[0].ngp; gp++) {
+		    
+		    basis[0].getBasis(gp, &xx[0], &yy[0], &zz[0]);
+		    
+		    dx += basis[0].jac*basis[0].wt;
+		  }
+		  // 	if ( dx < 1e-16){
+		  // 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
+		  // 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
+		  // 	  exit(0);
+		  // 	}
+		  //cn should be cube root in 3d
+		  dx = sqrt(dx);	
+		  
+		  for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
+		    
+		    // Calculate the basis function at the gauss point
+		    for( int neq = 0; neq < numeqs_; neq++ ){
+		      basis[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
+		    }
+		    
+		    //double jacwt = basis[0].jac * basis[0].wt;
+		    //cn and should be adjusted for quadratic elements and tris
+		    double delta = dx*delta_factor;
+		    
+		    //srand(123);//note that if this is activated, we get a different random number in f and prec
+		    
+		    for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
+		      int row = numeqs_*(
+					 mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
+					 );
+		      
+		      // Loop over Trial (basis) Functions
+		      
+		      if (nonnull(W_prec_out)) {
+			for(int j=0;j < n_nodes_per_elem; j++) {
+			  //int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, elem, j)));
+			  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, j)));
+			  
+			  for( int k = 0; k < numeqs_; k++ ){
+			    int row1 = row + k;
+			    int column1 = column + k;
+			    double jacwt = basis[0].jac * basis[0].wt;
+			    double jac = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,delta);
+			    
+			    P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
+			  }//k
+			  
+			}//j
+		      }//if
+		    }//i
+		  }//gp
+		  
+	      }//ne
+	  }//c
+	  
+      }//blk
+      
+    }//if prec
+
+
 
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 
-// #ifdef TUSAS_OMP
-// #pragma omp parallel for
-//       for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {// Loop Over # of Finite Elements on Processor
-// #endif
-
-      n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
-      std::string elem_type=mesh_->get_blk_elem_type(blk);
- 
-      boost::ptr_vector<Basis> basis;
-
-      if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
-	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisLQuad());
-      }
-      else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
-	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisLTri());
-	delta_factor = 2.*delta_factor;
-      }
-      else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){ // linear hex
-	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisLHex());
-      } 
-      else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra")) ){ // linear tet
-	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisLTet());
-      } 
-      else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
-	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisQQuad());
-	delta_factor = .5*delta_factor;
-      }
-      else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){ // quadratic triangle
-	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisQTri());
-	//delta_factor = .5*delta_factor;
-      } 
-      else if( (0==elem_type.compare("HEX27")) || (0==elem_type.compare("hex27")) ){ // quadratic hex
-	for ( int nb = 0; nb < numeqs_; nb++ )
-	  {//basis.push_back(new BasisQHex());
-	  }
-	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
-	exit(0);
-      }
-      else if( (0==elem_type.compare("TETRA10")) || (0==elem_type.compare("tetra10")) ){ // quadratic tet
-	for ( int nb = 0; nb < numeqs_; nb++ )
-	  {//basis.push_back(new BasisQTet());
-	  }
-	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
-	exit(0);
-      }
-      else {
-	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
-	exit(0);
-      }
-      if( basis.size() != numeqs_ ){
-	std::cout<<" basis.size() != numeqs_ "<<std::endl;
-	exit(0);
-      }
-
-
-      double *xx, *yy, *zz;
-      xx = new double[n_nodes_per_elem];
-      yy = new double[n_nodes_per_elem];
-      zz = new double[n_nodes_per_elem];
-      std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
-      std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
-      std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
-
-
-
-#ifdef TUSAS_COLOR
-      int num_color = Elem_col->get_num_color();
-#else
-      int num_color = 1;
-#endif
-
-      for(int c = 0; c < num_color; c++){
-#ifdef TUSAS_COLOR
-	std::vector<int> elem_map = Elem_col->get_color(c);
-#else
-	std::vector<int> elem_map = *mesh_->get_elem_num_map();
-#endif
-
-	//#ifndef TUSAS_OMP
-      //int num_elem = mesh_->get_num_elem_in_blk(blk);
-      //int num_elem = mesh_->get_num_elem();
-      int num_elem = elem_map.size();
-
-      for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
-	//#endif
-#ifdef TUSAS_COLOR
-	int elem = elem_map[ne];
-#else
-	int elem = ne;
-#endif
-	for(int k = 0; k < n_nodes_per_elem; k++){
-	  
-	  int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
-
-	  xx[k] = mesh_->get_x(nodeid);
-	  yy[k] = mesh_->get_y(nodeid);
-	  zz[k] = mesh_->get_z(nodeid);
-
-	  for( int neq = 0; neq < numeqs_; neq++ ){
-	    uu[neq][k] = (*u)[numeqs_*nodeid+neq]; 
-	    uu_old[neq][k] = (*u_old)[numeqs_*nodeid+neq];
-	    uu_old_old[neq][k] = (*u_old_old)[numeqs_*nodeid+neq];
-	  }//neq
-	}//k
-	
-	double dx = 0.;
-	for(int gp=0; gp < basis[0].ngp; gp++) {
-
-	  basis[0].getBasis(gp, xx, yy, zz);
-
-	  dx += basis[0].jac*basis[0].wt;
-	}
-// 	if ( dx < 1e-16){
-// 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
-// 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
-// 	  exit(0);
-// 	}
-	//cn should be cube root in 3d
-	dx = sqrt(dx);	
-	
-	for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
-
-	  // Calculate the basis function at the gauss point
-	  for( int neq = 0; neq < numeqs_; neq++ ){
-	    basis[neq].getBasis(gp, xx, yy, zz, &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
-	  }
-
-	  //double jacwt = basis[0].jac * basis[0].wt;
-	  //cn and should be adjusted for quadratic elements and tris
-	  double delta = dx*delta_factor;
-
-	  
-
-	  //srand(123);
-
-	  for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
-	    int row = numeqs_*(
-			       mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
-			       );
-	    if (nonnull(f_out)) {    
-   
-	      for( int k = 0; k < numeqs_; k++ ){
-		int row1 = row + k;
-		double jacwt = basis[0].jac * basis[0].wt;
-		double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta,time_);
-// #ifdef TUSAS_OMP
-// #pragma omp critical
-// #endif
-		f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
-	      }//k
-
-	    }//if
-
-
-	    // Loop over Trial (basis) Functions
-
-	    if (nonnull(W_prec_out)) {
-	      for(int j=0;j < n_nodes_per_elem; j++) {
-		//int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, elem, j)));
-		int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, j)));
-
-		for( int k = 0; k < numeqs_; k++ ){
-		  int row1 = row + k;
-		  int column1 = column + k;
-		  double jacwt = basis[0].jac * basis[0].wt;
-		  double jac = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,delta);
-
-		  P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
-		}//k
-		
-	      }//j
-	    }//if
-	  }//i
-	}//gp
-// #ifdef TUSAS_OMP
-//    	delete xx, yy, zz;
-// #endif
-      }//ne
-      }//c
-      //#ifndef TUSAS_OMP
-      delete xx, yy, zz;
-      //#endif
-
-      //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
       typedef double (*DBCFUNC)(const double &x,
 				const double &y,
 				const double &z,
@@ -981,11 +1045,13 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   //random_vector_->Print(std::cout);
 
   //std::cout<<"random_number_= "<<random_number_<<std::endl;
-
-  NOX::StatusTest::StatusType solvStatus = solver_->solve();
-  if( !(NOX::StatusTest::Converged == solvStatus)) {
-    std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
-    if(200 == paramList.get<int> (TusasnoxmaxiterNameString)) exit(0);
+  {
+    Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
+    NOX::StatusTest::StatusType solvStatus = solver_->solve();
+    if( !(NOX::StatusTest::Converged == solvStatus)) {
+      std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
+      if(200 == paramList.get<int> (TusasnoxmaxiterNameString)) exit(0);
+    }
   }
   nnewt_ += solver_->getNumIterations();
 
@@ -2846,6 +2912,60 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
 
 
   }//nn
+
+}
+
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::set_basis( boost::ptr_vector<Basis> &basis, const std::string elem_type) const
+{
+      basis.resize(0);
+
+      if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisLQuad());
+      }
+      else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisLTri());
+      }
+      else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){ // linear hex
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisLHex());
+      } 
+      else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra")) ){ // linear tet
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisLTet());
+      } 
+      else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisQQuad());
+      }
+      else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){ // quadratic triangle
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  basis.push_back(new BasisQTri());
+      } 
+      else if( (0==elem_type.compare("HEX27")) || (0==elem_type.compare("hex27")) ){ // quadratic hex
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  {//basis.push_back(new BasisQHex());
+	  }
+	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
+	exit(0);
+      }
+      else if( (0==elem_type.compare("TETRA10")) || (0==elem_type.compare("tetra10")) ){ // quadratic tet
+	for ( int nb = 0; nb < numeqs_; nb++ )
+	  {//basis.push_back(new BasisQTet());
+	  }
+	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
+	exit(0);
+      }
+      else {
+	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
+	exit(0);
+      }
+      if( basis.size() != numeqs_ ){
+	std::cout<<" basis.size() != numeqs_ "<<std::endl;
+	exit(0);
+      }
 
 }
 #endif

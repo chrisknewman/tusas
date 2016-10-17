@@ -244,9 +244,13 @@ private: // data members
   double vtip_x_,vtip_x_old_;
 
   RCP<Teuchos::Time> ts_time_import;
+  RCP<Teuchos::Time> ts_time_resfill;
+  RCP<Teuchos::Time> ts_time_nsolve;
   boost::ptr_vector<error_estimator> Error_est;
   boost::ptr_vector<post_process> post_proc;
   Teuchos::RCP<elem_color> Elem_col;
+
+  void set_basis( boost::ptr_vector<Basis> &basis, const std::string elem_type) const;
 };
 
 

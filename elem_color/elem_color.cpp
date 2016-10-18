@@ -31,7 +31,7 @@ void elem_color::compute_graph()
  				 0,
  				 *comm_));
 
-  elem_map_->Print(std::cout);
+  //elem_map_->Print(std::cout);
 
   graph_ = rcp(new Epetra_CrsGraph(Copy, *elem_map_, 0));
 
@@ -51,7 +51,7 @@ void elem_color::compute_graph()
     std::cout<<"error graph_->GlobalAssemble()"<<std::endl;
     exit(0);
   } 
-  graph_->Print(std::cout);
+  //graph_->Print(std::cout);
   //exit(0);
 }
 
@@ -73,7 +73,7 @@ void elem_color::create_colorer()
 					     *(elem_colorer_->Isorropia::Epetra::Colorer::generateRowMapColoring())
 					     )
 		      );
-  map_coloring_->Print(std::cout);
+  //map_coloring_->Print(std::cout);
 
   num_color_ = map_coloring_->NumColors ();
 
@@ -97,15 +97,15 @@ void elem_color::create_colorer()
   //std::cout<<"num_color_"<<num_color_<<std::endl;
 
 
-  for(int i = 0; i < num_color_; i++){
-    int num_elem = elem_LIDS_[i].size();
+//   for(int i = 0; i < num_color_; i++){
+//     int num_elem = elem_LIDS_[i].size();
 
-    std::cout<<mypid<<" "<<i<<" ("<<color_list_[i]<<") : ";
-    for(int n = 0; n < num_elem; n++){
-      std::cout<<elem_LIDS_[i][n]<<" ";
-    }
-    std::cout<<std::endl;
-  }
+//     std::cout<<mypid<<" "<<i<<" ("<<color_list_[i]<<") : ";
+//     for(int n = 0; n < num_elem; n++){
+//       std::cout<<elem_LIDS_[i][n]<<" ";
+//     }
+//     std::cout<<std::endl;
+//   }
 
 
   //exit(0);

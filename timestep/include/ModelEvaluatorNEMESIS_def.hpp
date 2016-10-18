@@ -407,25 +407,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     if (nonnull(f_out)) {
       Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
       for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
-		
-#ifdef TUSAS_COLOR
-	int num_color = Elem_col->get_num_color();
-	for(int c = 0; c < num_color; c++){
-	  std::vector<int> elem_map = Elem_col->get_color(c);
-	  int num_elem = elem_map.size();
-#pragma omp parallel for
-	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
-	    int elem = elem_map[ne];
-#else
-#endif
    
 	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
 	std::string elem_type=mesh_->get_blk_elem_type(blk);
-	
-	boost::ptr_vector<Basis> basis;
-	
-	set_basis(basis,elem_type);
-	
+		
 	if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
 	  delta_factor = 2.*delta_factor;
 	}
@@ -433,17 +418,47 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  delta_factor = .5*delta_factor;
 	}
 	
+#ifdef TUSAS_COLOR
+	int num_color = Elem_col->get_num_color();
+#pragma omp parallel
+	{
 	std::vector<double> xx(n_nodes_per_elem);
 	std::vector<double> yy(n_nodes_per_elem);
 	std::vector<double> zz(n_nodes_per_elem);
 	
 	std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
 	std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
-	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));	
+	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
+	boost::ptr_vector<Basis> basis;
 	
-#ifdef TUSAS_COLOR
+	set_basis(basis,elem_type);
+
+	for(int c = 0; c < num_color; c++){
+	  std::vector<int> elem_map = Elem_col->get_color(c);
+	  int num_elem = elem_map.size();
+	  //cn might be better to do a parallel for firstprivate(xx,yy,zz,uu,...) below
+	  //cn and remove the omp parallel here???
+	
+#pragma omp for
+	  //#pragma omp parallel for firstprivate(xx,yy,zz,uu,uu_old,uu_old_old,basis)
+	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
+	    int elem = elem_map[ne];
+#else
+#endif		
+#ifdef TUSAS_COLOR		
 #else
 	int num_color = 1;
+	std::vector<double> xx(n_nodes_per_elem);
+	std::vector<double> yy(n_nodes_per_elem);
+	std::vector<double> zz(n_nodes_per_elem);
+	
+	std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
+	std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
+	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
+	boost::ptr_vector<Basis> basis;
+	
+	set_basis(basis,elem_type);
+	
 	for(int c = 0; c < num_color; c++){
 	  std::vector<int> elem_map = *mesh_->get_elem_num_map();
 	  int num_elem = elem_map.size();
@@ -495,7 +510,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      
 	      //srand(123);
 	      
+
 	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
+		
 		int row = numeqs_*(
 				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
 				   );
@@ -647,7 +664,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		    }//i
 		  }//gp
 		  
-	      }//ne
+	      }//ne		
+#ifdef TUSAS_COLOR
+	  }//omp parallel
+#else
+#endif	
 	  }//c
 	  
       }//blk
@@ -1214,6 +1235,15 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
       <<"Average number of Newton per Timestep: "<<(float)nnewt_/(float)(numstep)<<std::endl
       <<"Average number of GMRES per Newton:    "<<(float)ngmres/(float)nnewt_<<std::endl
       <<"Average number of GMRES per Timestep:  "<<(float)ngmres/(float)(numstep)<<std::endl; 	
+    outfile.close();
+    int nt = 0; 
+    #pragma omp parallel reduction(+:nt)
+    nt += 1;
+    //nt = omp_get_num_threads();
+    outfile.open("openmp.dat");
+    outfile 	
+      <<"omp_get_num_threads()            :     "<<nt<<std::endl
+      <<"omp_get_max_threads()            :     "<<omp_get_max_threads()<<std::endl;
     outfile.close();
   }
 

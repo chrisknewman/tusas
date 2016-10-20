@@ -76,7 +76,7 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   std::string estring="error"+std::to_string(index_);
   mesh_->add_elem_field(estring);
   global_error_ = 0.;
-  
+   
   if( 0 == comm_->MyPID() )std::cout<<"Error estimator created for variable "<<index_<<std::endl;
 
   //exit(0);

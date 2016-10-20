@@ -3,7 +3,11 @@
 
 #include <iostream>
 
+#ifdef TUSAS_HAVE_ACML
+#include "acml.h"
+#else
 #include "clapack.h"
+#endif
 
 #ifdef HAVE_MPI
 #include "Epetra_MpiComm.h"
@@ -252,15 +256,27 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     //the first call queries the workspace
     lwork = -1;
     char msg[] = "No transpose";
+#if TUSAS_HAVE_ACML
+    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+	    &info,0 );
+#else
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info );
+    //#endif
+#endif
     //std::cout<<"info 1 = "<<info<<" ldb = "<<ldb<<std::endl;    
 
     lwork = (int)wkopt;
     work = new double[lwork];
     //second call does the solve
+
+#if TUSAS_HAVE_ACML
+    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+	    &info,0 );
+#else
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info );
+#endif
     //std::cout<<"info 2 = "<<info<<" ldb = "<<ldb<<std::endl;   
     delete work;
 //     for(int i = 0; i < n; i++){
@@ -355,14 +371,25 @@ void error_estimator::test_lapack(){
   //the first call queries the workspace
   lwork = -1;
   char msg[] = "No transpose";
+
+#if TUSAS_HAVE_ACML
+  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+	  &info,0 );
+#else
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	 &info );
-
+#endif
   lwork = (int)wkopt;
   work = new double[lwork];
   //second call does the solve
+
+#if TUSAS_HAVE_ACML
+  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+	  &info,0 );
+#else
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
                         &info );
+#endif
   delete work;
 
   std::cout<<"test_lapack"<<std::endl;

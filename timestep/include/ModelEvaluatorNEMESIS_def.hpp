@@ -1236,16 +1236,17 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
       <<"Average number of GMRES per Newton:    "<<(float)ngmres/(float)nnewt_<<std::endl
       <<"Average number of GMRES per Timestep:  "<<(float)ngmres/(float)(numstep)<<std::endl; 	
     outfile.close();
-    int nt = 0; 
-    #pragma omp parallel reduction(+:nt)
-    nt += 1;
-    //nt = omp_get_num_threads();
-    outfile.open("openmp.dat");
-    outfile 	
-      <<"omp_get_num_threads()            :     "<<nt<<std::endl
-      <<"omp_get_max_threads()            :     "<<omp_get_max_threads()<<std::endl;
-    outfile.close();
   }
+  int nt = 0; 
+#pragma omp parallel reduction(+:nt)
+  nt += 1;
+  //nt = omp_get_num_threads();
+  std::ofstream outfile;
+  outfile.open("openmp.dat");
+  outfile 	
+    <<"mpirank :    "<<mypid<<" omp_get_num_threads() :    "<<nt
+    <<" omp_get_max_threads() :    "<<omp_get_max_threads()<<std::endl;
+  outfile.close();
 
   std::ofstream timefile;
   timefile.open("time.dat");

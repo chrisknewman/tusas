@@ -16,18 +16,17 @@ SET( DIR_6 ${TRILINOS_DIR}lib )
 SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 
 #---------------------------------------------------------------------------------
-# Give access to all subdirectories ( basis, basis/include, etc. )
-#---------------------------------------------------------------------------------
-
-INCLUDE_DIRECTORIES( ${DIR_1} ${DIR_2} ${DIR_3} ${DIR_4} ${DIR_5} ${DIR_8} ${DIR_9} ${DIR_10}  ${DIR_1}/.. ${DIR_2}/.. ${DIR_3}/.. ${DIR_4}/.. ${DIR_5}/.. ${DIR_8}/.. ${DIR_10}/..)
-
-
-#---------------------------------------------------------------------------------
 # Give access to TrilinosConfig.cmake in order to access its variables
 #---------------------------------------------------------------------------------
 
 INCLUDE( ${DIR_6}/cmake/Trilinos/TrilinosConfig.cmake )
 
+
+#---------------------------------------------------------------------------------
+# Give access to all subdirectories ( basis, basis/include, etc. )
+#---------------------------------------------------------------------------------
+
+INCLUDE_DIRECTORIES( ${Trilinos_TPL_INCLUDE_DIRS} ${DIR_1} ${DIR_2} ${DIR_3} ${DIR_4} ${DIR_5} ${DIR_8} ${DIR_9} ${DIR_10}  ${DIR_1}/.. ${DIR_2}/.. ${DIR_3}/.. ${DIR_4}/.. ${DIR_5}/.. ${DIR_8}/.. ${DIR_10}/.. )
 
 #---------------------------------------------------------------------------------
 # Change compiler. This must be done before PROJECT() specification
@@ -41,7 +40,7 @@ SET( CMAKE_CXX_COMPILER ${Trilinos_CXX_COMPILER} )
 #---------------------------------------------------------------------------------
 # General information. Specify name and executable. 
 # Let all contributing files feed into executable by saving them in SOURCES and 
-# feeding the variable directle in ADD_EXECUTABLE()
+# feeding the variable directly in ADD_EXECUTABLE()
 #---------------------------------------------------------------------------------
 
 SET( SOURCES 
@@ -85,7 +84,7 @@ TARGET_LINK_LIBRARIES( tusas ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} )
 #---------------------------------------------------------------------------------
 
 SET( CMAKE_C_FLAGS ${Trilinos_C_COMPILER_FLAGS} )
-SET( CMAKE_CXX_FLAGS ${Trilinos_CXX_COMPILER_FLAGS})
+SET( CMAKE_CXX_FLAGS "${Trilinos_CXX_COMPILER_FLAGS} ${TUSAS_CXX_FLAGS}" )
 
 
 #---------------------------------------------------------------------------------

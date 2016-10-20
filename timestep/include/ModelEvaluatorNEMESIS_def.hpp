@@ -1103,9 +1103,9 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
     find_vtip();
   }
 
-  boost::ptr_vector<error_estimator>::iterator it;
-  for(it = Error_est.begin();it != Error_est.end();++it){
-    //it.test_lapack();
+  //boost::ptr_vector<error_estimator>::iterator it;
+  for(boost::ptr_vector<error_estimator>::iterator it = Error_est.begin();it != Error_est.end();++it){
+    //it->test_lapack();
     it->estimate_gradient(u_old_);
     it->estimate_error(u_old_);
   }

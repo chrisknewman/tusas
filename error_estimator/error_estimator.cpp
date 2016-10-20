@@ -110,7 +110,6 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
     (*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
   }
-
   Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
   u->Import(*u1, *importer_, Insert);
 
@@ -222,7 +221,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
       }//gp
       delete xx, yy, zz, uu;
     }//ne
-    
+  
     int m = q;
     int n = dimp;
     int lda = q;
@@ -262,7 +261,6 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 #else
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info );
-    //#endif
 #endif
     //std::cout<<"info 1 = "<<info<<" ldb = "<<ldb<<std::endl;    
 
@@ -271,19 +269,19 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     //second call does the solve
 
 #if TUSAS_HAVE_ACML
-    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info,0 );
 #else
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info );
 #endif
-    //std::cout<<"info 2 = "<<info<<" ldb = "<<ldb<<std::endl;   
+    //std::cout<<"info 2 = "<<info<<" ldb = "<<ldb<<std::endl; cout<<std::endl;
+      
     delete work;
 //     for(int i = 0; i < n; i++){
 //       std::cout<<b[i]<<" ";
 //     }
-//     std::cout<<std::endl;
-    
+//     std::
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);
     p[0][0] = 1.;
@@ -304,8 +302,9 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     int gid = (mesh_->get_node_num_map())[nn];
     gradx_->ReplaceGlobalValues ((int) 1, (int) 0, &gradx, &gid);
     grady_->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &gid);
-    
-    delete a,b;
+   
+    delete a;
+    delete b;
   }//nn
   delete basis;
   //gradx_->Print(std::cout);
@@ -384,7 +383,7 @@ void error_estimator::test_lapack(){
   //second call does the solve
 
 #if TUSAS_HAVE_ACML
-  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	  &info,0 );
 #else
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,

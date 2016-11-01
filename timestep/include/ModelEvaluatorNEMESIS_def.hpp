@@ -375,7 +375,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     // ****************
 
     RCP<Epetra_Vector> f;
-    Epetra_FEVector f_fe(*f_owned_map_);
+    Epetra_FEVector f_fe(*f_owned_map_);//shared
     f_fe.PutScalar(0.0);
     if (nonnull(f_out)) {
       f = Thyra::get_Epetra_Vector(*f_owned_map_,outArgs.get_f());//f_out?
@@ -388,61 +388,61 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     if (nonnull(W_prec_out))
       P_->PutScalar(0.0);
 
-    RCP<const Epetra_Vector> u_in = (Thyra::get_Epetra_Vector(*x_owned_map_,inArgs.get_x()));
-    RCP< Epetra_Vector> u = rcp(new Epetra_Vector(*x_overlap_map_));
+    RCP<const Epetra_Vector> u_in = (Thyra::get_Epetra_Vector(*x_owned_map_,inArgs.get_x()));//shared
+    RCP< Epetra_Vector> u = rcp(new Epetra_Vector(*x_overlap_map_));//shared
     //cn could probably just make u_old_(*x_overlap_map_) (and u_old_old_) instead of communicating here
-    RCP< Epetra_Vector> u_old = rcp(new Epetra_Vector(*x_overlap_map_));
-    RCP< Epetra_Vector> u_old_old = rcp(new Epetra_Vector(*x_overlap_map_));
+    RCP< Epetra_Vector> u_old = rcp(new Epetra_Vector(*x_overlap_map_));//shared
+    RCP< Epetra_Vector> u_old_old = rcp(new Epetra_Vector(*x_overlap_map_));//shared
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);
       u->Import(*u_in, *importer_, Insert);
       u_old->Import(*u_old_, *importer_, Insert);
       u_old_old->Import(*u_old_old_, *importer_, Insert);
     }
-    int n_nodes_per_elem;
+    int n_nodes_per_elem;//shared
 
     //amount to adjust delta by
     double delta_factor =paramList.get<double> (TusasdeltafactorNameString);
 
     if (nonnull(f_out)) {
       Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
-      for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+      for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){//shared
    
-	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
-	std::string elem_type=mesh_->get_blk_elem_type(blk);
+	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
+	std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
 		
 	if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
-	  delta_factor = 2.*delta_factor;
+	  delta_factor = 2.*delta_factor;//shared
 	}
 	else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
-	  delta_factor = .5*delta_factor;
+	  delta_factor = .5*delta_factor;//shared
 	}
 	
 #ifdef TUSAS_COLOR
-	int num_color = Elem_col->get_num_color();
-#pragma omp parallel
-	{
-	std::vector<double> xx(n_nodes_per_elem);
-	std::vector<double> yy(n_nodes_per_elem);
-	std::vector<double> zz(n_nodes_per_elem);
-	
-	std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
-	std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
-	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
-	boost::ptr_vector<Basis> basis;
-	
-	set_basis(basis,elem_type);
-
+	int num_color = Elem_col->get_num_color();//shared
 	for(int c = 0; c < num_color; c++){
-	  std::vector<int> elem_map = Elem_col->get_color(c);
-	  int num_elem = elem_map.size();
+	  std::vector<int> elem_map = Elem_col->get_color(c);//shared
+	  int num_elem = elem_map.size();//shared
 	  //cn might be better to do a parallel for firstprivate(xx,yy,zz,uu,...) below
 	  //cn and remove the omp parallel here???
 	
+#pragma omp parallel
+	{
+
 #pragma omp for
 	  //#pragma omp parallel for firstprivate(xx,yy,zz,uu,uu_old,uu_old_old,basis)
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
-	    int elem = elem_map[ne];
+	    int elem = elem_map[ne];//private
+	std::vector<double> xx(n_nodes_per_elem);//private
+	std::vector<double> yy(n_nodes_per_elem);//private
+	std::vector<double> zz(n_nodes_per_elem);//private
+	
+	std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));//private
+	std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
+	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
+	boost::ptr_vector<Basis> basis;//private
+	
+	set_basis(basis,elem_type);//cn really want this out at the block level
 #else
 #endif		
 #ifdef TUSAS_COLOR		
@@ -505,34 +505,34 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //double jacwt = basis[0].jac * basis[0].wt;
 	      //cn and should be adjusted for quadratic elements and tris
 	      double delta = dx*delta_factor;
-	      
-	      
-	      
+	      	      
 	      //srand(123);
 	      
-
 	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
 		
 		int row = numeqs_*(
 				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
 				   );
-		
-		
-		
+						
 		for( int k = 0; k < numeqs_; k++ ){
 		  int row1 = row + k;
 		  double jacwt = basis[0].jac * basis[0].wt;
 		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta,time_);
-		  
+	     
+		  //cn there seems to be a segfault deep in this call when the right conditions of mpiranks>1 and numthreads>1
+		  //#pragma omp critical
 		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
-		}//k
-		
-		
-		
+		}//k					      
 	      }//i
-	    }//gp	    
-	  }//ne
-	}//c
+	    }//gp
+	  }//ne	
+#ifdef TUSAS_COLOR
+	  }//omp parallel
+	//f_fe.GlobalAssemble();	    
+#else
+#endif
+	}//c	
+	  //exit(0);	
       }//blk
     }//if f
 
@@ -664,11 +664,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		    }//i
 		  }//gp
 		  
-	      }//ne		
-#ifdef TUSAS_COLOR
-	  }//omp parallel
-#else
-#endif	
+	      }//ne
 	  }//c
 	  
       }//blk
@@ -1708,6 +1704,10 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
     itp->update_mesh_data();
   }
 
+#ifdef TUSAS_COLOR
+  Elem_col->update_mesh_data();
+#endif
+
   delete temp;
   return err;
 
@@ -2163,6 +2163,39 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*dirichletfunc_)[0][1] = &dbc_zero_;						 
     (*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+
+}else if("omp" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis,
+                       const int &i,
+                       const double &dt_,
+                       const double &t_theta_,
+                       const double &delta,
+                       const double &time_)>(numeqs_);
+    (*residualfunc_)[0] = &residual_heat_test_;
+
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis,
+                     const int &i, 
+                     const int &j,
+                     const double &dt_,
+                     const double &t_theta_,
+                     const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &prec_heat_test_;
+
+    initfunc_ = new  std::vector<double (*)(const double &x,
+                        const double &y,
+                        const double &z)>(numeqs_);
+    (*initfunc_)[0] = &init_heat_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations)
+    dirichletfunc_ = NULL;
 
     neumannfunc_ = NULL;
 
@@ -2993,10 +3026,10 @@ void ModelEvaluatorNEMESIS<Scalar>::set_basis( boost::ptr_vector<Basis> &basis, 
 	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
 	exit(0);
       }
-      if( basis.size() != numeqs_ ){
-	std::cout<<" basis.size() != numeqs_ "<<std::endl;
-	exit(0);
-      }
+//       if( basis.size() != numeqs_ ){
+// 	std::cout<<" basis.size() != numeqs_ "<<std::endl;
+// 	exit(0);
+//       }
 
 }
 #endif

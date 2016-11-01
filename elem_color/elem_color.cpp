@@ -9,6 +9,7 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
 {
   compute_graph();
   create_colorer();
+  init_mesh_data();
 }
 
 elem_color::~elem_color()
@@ -110,3 +111,26 @@ void elem_color::create_colorer()
 
   //exit(0);
 }
+void elem_color::init_mesh_data()
+{
+  std::string cstring="color";
+  mesh_->add_elem_field(cstring);
+}
+void elem_color::update_mesh_data()
+{
+  int num_elem = mesh_->get_elem_num_map()->size();
+  std::vector<double> color(num_elem,0.);
+  for(int c = 0; c < num_color_; c++){
+    std::vector<int> elem_map = get_color(c);
+    int num_elem = elem_map.size();
+    for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
+      int elem = elem_map[ne];
+      color[elem] = c;  
+    }
+    
+  }
+
+  std::string cstring="color";
+  mesh_->update_elem_data(cstring, &color[0]);
+}
+

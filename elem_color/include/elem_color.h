@@ -29,6 +29,7 @@ public:
   //we could point to the underlying isorropia data instead, in the future
   std::vector<int> get_color(int i){return elem_LIDS_[i];}
   int get_num_color(){return num_color_;}
+  void update_mesh_data();
 
 private:
 
@@ -47,6 +48,8 @@ private:
   std::vector<int> color_list_;
   std::vector< std::vector< int > > elem_LIDS_;
   int num_color_;
+
+  void init_mesh_data();
 
 };
 #endif

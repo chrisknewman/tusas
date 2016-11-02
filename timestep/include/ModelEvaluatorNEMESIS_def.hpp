@@ -423,26 +423,25 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	for(int c = 0; c < num_color; c++){
 	  std::vector<int> elem_map = Elem_col->get_color(c);//shared
 	  int num_elem = elem_map.size();//shared
-	  //cn might be better to do a parallel for firstprivate(xx,yy,zz,uu,...) below
-	  //cn and remove the omp parallel here???
 	
-#pragma omp parallel
-	{
-
-#pragma omp for
-	  //#pragma omp parallel for firstprivate(xx,yy,zz,uu,uu_old,uu_old_old,basis)
+#pragma omp declare reduction (imerge : std::vector<int> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+#pragma omp declare reduction (dmerge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+     
+	  std::vector<int> offrows;
+	  std::vector<double> offvals;
+#pragma omp parallel for reduction(imerge: offrows) reduction(dmerge: offvals)
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
 	    int elem = elem_map[ne];//private
-	std::vector<double> xx(n_nodes_per_elem);//private
-	std::vector<double> yy(n_nodes_per_elem);//private
-	std::vector<double> zz(n_nodes_per_elem);//private
-	
-	std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));//private
-	std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
-	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
-	boost::ptr_vector<Basis> basis;//private
-	
-	set_basis(basis,elem_type);//cn really want this out at the block level
+	    std::vector<double> xx(n_nodes_per_elem);//private
+	    std::vector<double> yy(n_nodes_per_elem);//private
+	    std::vector<double> zz(n_nodes_per_elem);//private
+	    
+	    std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));//private
+	    std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
+	    std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
+	    boost::ptr_vector<Basis> basis;//private
+	    
+	    set_basis(basis,elem_type);//cn really want this out at the block level
 #else
 #endif		
 #ifdef TUSAS_COLOR		
@@ -513,22 +512,29 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		int row = numeqs_*(
 				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
 				   );
-						
+		std::vector<int>offrows;std::vector<double>offvals;				
 		for( int k = 0; k < numeqs_; k++ ){
 		  int row1 = row + k;
 		  double jacwt = basis[0].jac * basis[0].wt;
 		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta,time_);
-	     
-		  //cn there seems to be a segfault deep in this call when the right conditions of mpiranks>1 and numthreads>1
-		  //#pragma omp critical
-		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
-		}//k					      
+
+#ifdef TUSAS_COLOR
+		  if(f_owned_map_->MyGID(row1)){
+#endif
+		    f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
+#ifdef TUSAS_COLOR
+		  }else{
+		    //std::cout<<comm_->MyPID()<<":"<<row<<std::endl;
+		    offrows.push_back(row);
+		    offvals.push_back(val);
+		  }//if
+#endif
+		}//k
 	      }//i
 	    }//gp
 	  }//ne	
 #ifdef TUSAS_COLOR
-	  }//omp parallel
-	//f_fe.GlobalAssemble();	    
+	  f_fe.SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
 #else
 #endif
 	}//c	
@@ -686,7 +692,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 				const double &time);
 
       if (nonnull(f_out) && NULL != dirichletfunc_) {
-	f_fe.GlobalAssemble();
+	f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
 	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	std::map<int,DBCFUNC>::iterator it;
@@ -732,7 +738,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       }//if
 
       if (nonnull(f_out) && NULL != neumannfunc_) {
-	f_fe.GlobalAssemble();
+	//f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
 	Basis * basis;
 	//this is the number of nodes per side edge
 	//int num_node_per_side = mesh_->get_num_node_per_side(ss_id);
@@ -815,11 +821,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 		  double val = -jacwt*(it->second)(basis,i,dt_,t_theta_,time_);//the function pointer eval
 		  
-		  //std::cout<<x<<" "<<y<<" "<<z<<" "<<val<<" "<<" "<<basis->jac<<" "<<basis->wt<<" "<<jacwt<<" "<<row1<<" "<<sum<<" "<<phi<<std::endl;	  
-		  //std::cout<<i<<" "<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<" "<<val<<std::endl;
-		  //std::cout<<lid<<" "<<gid<<" "<<row1<<" "<<val<<std::endl
 		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
-		  //f_fe.SumIntoGlobalValue (row1, (int) 0, val);
 		}//i
 
 	      }//gp
@@ -833,7 +835,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
       if (nonnull(W_prec_out) && NULL != dirichletfunc_) {
-	P_->GlobalAssemble();
+	P_->GlobalAssemble(true,Epetra_CombineMode::Add,true);
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	int lenind = 27;//cn 27 in 3d
 	std::map<int,DBCFUNC>::iterator it;
@@ -881,7 +883,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     
       if (nonnull(f_out)){
 	//f->Print(std::cout);
-	if (f_fe.GlobalAssemble() != 0){
+	if (f_fe.GlobalAssemble(Epetra_CombineMode::Add,true) != 0){
 	  std::cout<<"error f_fe.GlobalAssemble()"<<std::endl;
 	  exit(0);
 	}
@@ -890,7 +892,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	//*f=*f_fe(0);
       }
       if (nonnull(W_prec_out)) {
-	P_->GlobalAssemble();
+	P_->GlobalAssemble(true,Epetra_CombineMode::Add,true);
 	//P_->Print(std::cout);
 	//exit(0);
 	//std::cout<<" one norm P_ = "<<P_->NormOne()<<std::endl<<" inf norm P_ = "<<P_->NormInf()<<std::endl<<" fro norm P_ = "<<P_->NormFrobenius()<<std::endl;

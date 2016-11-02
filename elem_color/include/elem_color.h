@@ -16,7 +16,7 @@
 #include "Epetra_SerialComm.h"
 #endif
 
-#define TUSAS_COLOR
+//#define TUSAS_COLOR
 
 
 class elem_color

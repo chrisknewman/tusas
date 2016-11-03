@@ -245,6 +245,7 @@ private: // data members
 
   RCP<Teuchos::Time> ts_time_import;
   RCP<Teuchos::Time> ts_time_resfill;
+  RCP<Teuchos::Time> ts_time_precfill;
   RCP<Teuchos::Time> ts_time_nsolve;
   boost::ptr_vector<error_estimator> Error_est;
   boost::ptr_vector<post_process> post_proc;

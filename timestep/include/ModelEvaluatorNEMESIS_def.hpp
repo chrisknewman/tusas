@@ -184,6 +184,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   ts_time_import= Teuchos::TimeMonitor::getNewTimer("Total Import Time");
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Total Residual Fill Time");
+  ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
 
 #ifdef TUSAS_COLOR
@@ -419,17 +420,16 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}
 	
 #ifdef TUSAS_COLOR
-	int num_color = Elem_col->get_num_color();//shared
+	int num_color = Elem_col->get_num_color();
 	for(int c = 0; c < num_color; c++){
-	  std::vector<int> elem_map = Elem_col->get_color(c);//shared
-	  int num_elem = elem_map.size();//shared
+	  std::vector<int> elem_map = Elem_col->get_color(c);
+	  int num_elem = elem_map.size();
 	
-#pragma omp declare reduction (imerge : std::vector<int> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-#pragma omp declare reduction (dmerge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+#pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
      
 	  std::vector<int> offrows;
 	  std::vector<double> offvals;
-#pragma omp parallel for reduction(imerge: offrows) reduction(dmerge: offvals)
+#pragma omp parallel for reduction(merge: offrows, offvals)
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
 	    int elem = elem_map[ne];//private
 	    std::vector<double> xx(n_nodes_per_elem);//private
@@ -543,6 +543,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     }//if f
 
     if (nonnull(W_prec_out)) {
+      Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);  
       for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 	
 	// #ifdef TUSAS_OMP

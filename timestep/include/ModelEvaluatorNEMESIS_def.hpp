@@ -535,7 +535,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  }//ne	
 #ifdef TUSAS_COLOR
 	  f_fe.SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
-#else
 #endif
 	}//c	
 	  //exit(0);	
@@ -554,9 +553,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
 	std::string elem_type=mesh_->get_blk_elem_type(blk);
 	
-	boost::ptr_vector<Basis> basis;
-	
-	set_basis(basis,elem_type);
 	
 	if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
 	  delta_factor = 2.*delta_factor;
@@ -564,7 +560,34 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
 	  delta_factor = .5*delta_factor;
 	}
+
+	//cn for now we will turn coloring for matrix fill off, until we get a good handle on residual fill
+#ifdef TUSAS_COLOR
+	int num_color = Elem_col->get_num_color();
+	for(int c = 0; c < num_color; c++){
+	  std::vector<int> elem_map = Elem_col->get_color(c);
+	  int num_elem = elem_map.size();
 	
+#pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+     
+	  std::vector<int> offrows;
+	  std::vector<int> offcols;
+	  std::vector<double> offvals;
+#pragma omp parallel for reduction(merge: offrows, offcols, offvals)
+	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
+	    int elem = elem_map[ne];//private
+	    std::vector<double> xx(n_nodes_per_elem);//private
+	    std::vector<double> yy(n_nodes_per_elem);//private
+	    std::vector<double> zz(n_nodes_per_elem);//private
+	    
+	    std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));//private
+	    std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
+	    std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
+	    boost::ptr_vector<Basis> basis;//private
+	    
+	    set_basis(basis,elem_type);//cn really want this out at the block level
+#else
+	int num_color = 1;	
 	std::vector<double> xx(n_nodes_per_elem);
 	std::vector<double> yy(n_nodes_per_elem);
 	std::vector<double> zz(n_nodes_per_elem);
@@ -572,110 +595,102 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
 	std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
 	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
+	boost::ptr_vector<Basis> basis;
 	
+	set_basis(basis,elem_type);
 	
-	//cn for now we will turn coloring for matrix fill off, until we get a good handle on residual fill
-	// #ifdef TUSAS_COLOR
-	//       num_color = Elem_col->get_num_color();
-	// #else
-	  int num_color = 1;
-	  // #endif
-	  for(int c = 0; c < num_color; c++){
-	    // #ifdef TUSAS_COLOR
-	    // 	std::vector<int> elem_map = Elem_col->get_color(c);
-	    // #else
-	    std::vector<int> elem_map = *mesh_->get_elem_num_map();
-	    // #endif
-	      
-	    //#ifndef TUSAS_OMP
-	    //int num_elem = mesh_->get_num_elem_in_blk(blk);
-	    //int num_elem = mesh_->get_num_elem();
-	    int num_elem = elem_map.size();
-	    
-	    // #ifdef TUSAS_COLOR
-	    //       //#pragma omp parallel for
-	    // #endif
-	      for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
-		//#endif
-		// #ifdef TUSAS_COLOR
-		// 	int elem = elem_map[ne];
-		// #else
-		int elem = ne;
-		// #endif
-		  for(int k = 0; k < n_nodes_per_elem; k++){
-		    
-		    int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
-		    
-		    xx[k] = mesh_->get_x(nodeid);
-		    yy[k] = mesh_->get_y(nodeid);
-		    zz[k] = mesh_->get_z(nodeid);
-		    
-		    for( int neq = 0; neq < numeqs_; neq++ ){
-		      uu[neq][k] = (*u)[numeqs_*nodeid+neq]; 
-		      uu_old[neq][k] = (*u_old)[numeqs_*nodeid+neq];
-		      uu_old_old[neq][k] = (*u_old_old)[numeqs_*nodeid+neq];
-		    }//neq
-		  }//k
-		  
-		  double dx = 0.;
-		  for(int gp=0; gp < basis[0].ngp; gp++) {
-		    
-		    basis[0].getBasis(gp, &xx[0], &yy[0], &zz[0]);
-		    
-		    dx += basis[0].jac*basis[0].wt;
-		  }
-		  // 	if ( dx < 1e-16){
-		  // 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
-		  // 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
-		  // 	  exit(0);
-		  // 	}
-		  //cn should be cube root in 3d
-		  dx = sqrt(dx);	
-		  
-		  for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
-		    
-		    // Calculate the basis function at the gauss point
-		    for( int neq = 0; neq < numeqs_; neq++ ){
-		      basis[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
-		    }
-		    
-		    //double jacwt = basis[0].jac * basis[0].wt;
-		    //cn and should be adjusted for quadratic elements and tris
-		    double delta = dx*delta_factor;
-		    
-		    //srand(123);//note that if this is activated, we get a different random number in f and prec
-		    
-		    for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
-		      int row = numeqs_*(
-					 mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
-					 );
-		      
-		      // Loop over Trial (basis) Functions
-		      
-		      if (nonnull(W_prec_out)) {
-			for(int j=0;j < n_nodes_per_elem; j++) {
-			  //int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, elem, j)));
-			  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, j)));
-			  
-			  for( int k = 0; k < numeqs_; k++ ){
-			    int row1 = row + k;
-			    int column1 = column + k;
-			    double jacwt = basis[0].jac * basis[0].wt;
-			    double jac = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,delta);
-			    
-			    P_->SumIntoGlobalValues(row1, 1, &jac, &column1);
-			  }//k
-			  
-			}//j
-		      }//if
-		    }//i
-		  }//gp
-		  
-	      }//ne
-	  }//c
+	for(int c = 0; c < num_color; c++){
+	  std::vector<int> elem_map = *mesh_->get_elem_num_map();
+	  int num_elem = elem_map.size();
 	  
-      }//blk
-      
+	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
+	    int elem = ne;
+#endif
+	    for(int k = 0; k < n_nodes_per_elem; k++){
+	      
+	      int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
+	      
+	      xx[k] = mesh_->get_x(nodeid);
+	      yy[k] = mesh_->get_y(nodeid);
+	      zz[k] = mesh_->get_z(nodeid);
+	      
+	      for( int neq = 0; neq < numeqs_; neq++ ){
+		uu[neq][k] = (*u)[numeqs_*nodeid+neq]; 
+		uu_old[neq][k] = (*u_old)[numeqs_*nodeid+neq];
+		uu_old_old[neq][k] = (*u_old_old)[numeqs_*nodeid+neq];
+	      }//neq
+	    }//k
+	    
+	    double dx = 0.;
+	    for(int gp=0; gp < basis[0].ngp; gp++) {
+	      
+	      basis[0].getBasis(gp, &xx[0], &yy[0], &zz[0]);
+	      
+	      dx += basis[0].jac*basis[0].wt;
+	    }
+	    // 	if ( dx < 1e-16){
+	    // 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
+	    // 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
+	    // 	  exit(0);
+	    // 	}
+	    //cn should be cube root in 3d
+	    dx = sqrt(dx);	
+	    
+	    for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
+	      
+	      // Calculate the basis function at the gauss point
+	      for( int neq = 0; neq < numeqs_; neq++ ){
+		basis[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
+	      }
+	      
+	      //double jacwt = basis[0].jac * basis[0].wt;
+	      //cn and should be adjusted for quadratic elements and tris
+	      double delta = dx*delta_factor;
+	      
+	      //srand(123);//note that if this is activated, we get a different random number in f and prec
+	      
+	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
+		int row = numeqs_*(
+				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
+				   );
+		
+		// Loop over Trial (basis) Functions
+		
+		if (nonnull(W_prec_out)) {
+		  for(int j=0;j < n_nodes_per_elem; j++) {
+		    //int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, elem, j)));
+		    int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, j)));
+		    
+		    for( int k = 0; k < numeqs_; k++ ){
+		      int row1 = row + k;
+		      int column1 = column + k;
+		      double jacwt = basis[0].jac * basis[0].wt;
+		      double val = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,delta);
+		      
+#ifdef TUSAS_COLOR
+		      if(f_owned_map_->MyGID(row1) && f_owned_map_->MyGID(column1)){
+#endif
+			P_->SumIntoGlobalValues(row1, 1, &val, &column1);
+#ifdef TUSAS_COLOR
+		      }else{
+			offrows.push_back(row1);
+			offcols.push_back(column1);
+			offvals.push_back(val);
+		      }//if
+#endif
+		    }//k		    
+		  }//j
+		}//if
+	      }//i
+	    }//gp	    
+	  }//ne
+#ifdef TUSAS_COLOR
+	  for( int k = 0; k < offrows.size(); k++ ){
+	    P_->SumIntoGlobalValues(offrows[k], (int)1, &offvals[k], offcols[k]);
+	  }//k	    
+#endif
+	}//c	
+      }//blk      
     }//if prec
 
 

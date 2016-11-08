@@ -1,5 +1,6 @@
 #include "error_estimator.h"
 #include "basis.hpp"
+#include "elem_color.h"
 
 #include <iostream>
 
@@ -79,6 +80,8 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
    
   if( 0 == comm_->MyPID() )std::cout<<"Error estimator created for variable "<<index_<<std::endl;
 
+  ts_time_grad= Teuchos::TimeMonitor::getNewTimer("Total Gradient Est Time");
+  ts_time_error= Teuchos::TimeMonitor::getNewTimer("Total Error Est Time");
   //exit(0);
 };
 
@@ -90,7 +93,7 @@ error_estimator::~error_estimator()
 
 void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in){
 
-  //not tested nor working in parallel
+  //not tested nor working with mpi
 
   //according to the ainsworth book, for bilinear quads it is better to sample
   //at centroids, rather than guass pts as is done here. This is due to
@@ -105,6 +108,8 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   //the maps created above assume output of one variable
   //hack a copy/import for now....
 
+  Teuchos::TimeMonitor GradEstTimer(*ts_time_grad);  
+
   Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
 #pragma omp parallel for 
   for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
@@ -112,7 +117,6 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   }
   Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
   u->Import(*u1, *importer_, Insert);
-
 
   const int blk = 0;//for now
 
@@ -123,7 +127,12 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   int nrhs = mesh_->get_num_dim();//num right hand size or dim of gradient = 2 for 2d
 
   std::string elem_type=mesh_->get_blk_elem_type(blk);
-    
+   
+#ifdef ERROR_ESTIMATOR_OMP
+#pragma omp parallel for
+  for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
+#endif
+ 
   Basis * basis;
 
   if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad   
@@ -143,7 +152,10 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     exit(0);
   }
 
+#ifdef ERROR_ESTIMATOR_OMP
+#else
   for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
+#endif
 
     int num_elem_in_patch = mesh_->get_nodal_patch(nn).size();
 
@@ -215,8 +227,8 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 	if(4 ==dimp) p[row][3] = x*y;
 	b[row] = basis->dudx;// du/dx
 	b[row+q]  = basis->dudy;// du/dy
-// 	std::cout<<comm_->MyPID()<<" "<<row<<" "<<row+q<<" : "<<p[row][0]<<" "<<p[row][1]<<" "<<p[row][2]<<" "<<p[row][3]
-// 		 <<" : "<<b[row]<<" "<<b[row+q]<<std::endl;
+//  	std::cout<<comm_->MyPID()<<" "<<row<<" "<<row+q<<" : "<<p[row][0]<<" "<<p[row][1]<<" "<<p[row][2]<<" "<<p[row][3]
+//  		 <<" : "<<b[row]<<" "<<b[row+q]<<std::endl;
 	row++;
       }//gp
       delete xx, yy, zz, uu;
@@ -305,8 +317,14 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
    
     delete a;
     delete b;
+#ifdef ERROR_ESTIMATOR_OMP
+    delete basis;
+#endif
   }//nn
+#ifdef ERROR_ESTIMATOR_OMP
+#else
   delete basis;
+#endif
   //gradx_->Print(std::cout);
   //exit(0);
 };
@@ -438,6 +456,8 @@ void error_estimator::update_mesh_data(){
 };
 
 void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
+  
+  Teuchos::TimeMonitor ErrorEstTimer(*ts_time_error); 
 
   Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
 #pragma omp parallel for 
@@ -455,6 +475,11 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   tempy->Import(*grady_, *importer_, Insert);
 
   const int blk = 0;//for now
+
+#ifdef ERROR_ESTIMATOR_OMP
+#pragma omp parallel for
+    for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
+#endif
 
   double *xx, *yy, *zz;
   double *uu, *ux, *uy;
@@ -486,8 +511,11 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   uy = new double[n_nodes_per_elem];
   
   // Loop Over # of Finite Elements on Processor
-  
+
+#ifdef ERROR_ESTIMATOR_OMP
+#else  
   for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
+#endif
     double error = 0.;
     for(int k = 0; k < n_nodes_per_elem; k++){
       
@@ -515,8 +543,16 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
     int gid = (*(mesh_->get_elem_num_map()))[ne];
     elem_error_->ReplaceGlobalValues ((int) 1, (int) 0, &error, &gid);
     //std::cout<<ne<<"  "<<error<<std::endl;
+#ifdef ERROR_ESTIMATOR_OMP
+     delete xx, yy, zz, uu, ux, uy;
+     delete basis;
+#endif
   }//ne
-  delete xx, yy, zz, uu, ux, uy, basis;
+#ifdef ERROR_ESTIMATOR_OMP
+#else
+  delete basis;
+  delete xx, yy, zz, uu, ux, uy;
+#endif
   delete tempx, tempy;
   //elem_error_->Print(std::cout);
   //std::cout<<estimate_global_error()<<std::endl;

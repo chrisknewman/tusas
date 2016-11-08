@@ -511,8 +511,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		
 		int row = numeqs_*(
 				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
-				   );
-		std::vector<int>offrows;std::vector<double>offvals;				
+				   );				
 		for( int k = 0; k < numeqs_; k++ ){
 		  int row1 = row + k;
 		  double jacwt = basis[0].jac * basis[0].wt;
@@ -656,31 +655,29 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		
 		// Loop over Trial (basis) Functions
 		
-		if (nonnull(W_prec_out)) {
-		  for(int j=0;j < n_nodes_per_elem; j++) {
-		    //int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, elem, j)));
-		    int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, j)));
+		for(int j=0;j < n_nodes_per_elem; j++) {
+		  //int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, elem, j)));
+		  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, j)));
+		  
+		  for( int k = 0; k < numeqs_; k++ ){
+		    int row1 = row + k;
+		    int column1 = column + k;
+		    double jacwt = basis[0].jac * basis[0].wt;
+		    double val = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,delta);
 		    
-		    for( int k = 0; k < numeqs_; k++ ){
-		      int row1 = row + k;
-		      int column1 = column + k;
-		      double jacwt = basis[0].jac * basis[0].wt;
-		      double val = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,delta);
-		      
 #ifdef TUSAS_COLOR
-		      if(f_owned_map_->MyGID(row1) && f_owned_map_->MyGID(column1)){
+		    if(f_owned_map_->MyGID(row1) && f_owned_map_->MyGID(column1)){
 #endif
-			P_->SumIntoGlobalValues(row1, 1, &val, &column1);
+		      P_->SumIntoGlobalValues(row1, 1, &val, &column1);
 #ifdef TUSAS_COLOR
-		      }else{
-			offrows.push_back(row1);
-			offcols.push_back(column1);
-			offvals.push_back(val);
-		      }//if
+		    }else{
+		      offrows.push_back(row1);
+		      offcols.push_back(column1);
+		      offvals.push_back(val);
+		    }//if
 #endif
-		    }//k		    
-		  }//j
-		}//if
+		  }//k		    
+		}//j
 	      }//i
 	    }//gp	    
 	  }//ne

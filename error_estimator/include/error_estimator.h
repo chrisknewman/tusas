@@ -10,6 +10,9 @@
 #include "Epetra_Vector.h"
 #include "Epetra_Map.h"
 #include "Epetra_Import.h"
+#include <Teuchos_TimeMonitor.hpp>
+
+#define ERROR_ESTIMATOR_OMP
 
 //template<class Scalar>
 class error_estimator
@@ -46,6 +49,9 @@ private:
   Teuchos::RCP<const Epetra_Import> importer_;
 
   double global_error_;
+
+  Teuchos::RCP<Teuchos::Time> ts_time_grad;
+  Teuchos::RCP<Teuchos::Time> ts_time_error;
 
 };
 

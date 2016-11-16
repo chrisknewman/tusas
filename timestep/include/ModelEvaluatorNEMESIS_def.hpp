@@ -130,6 +130,8 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   num_my_nodes_ = x_owned_map_->NumMyElements ()/numeqs_;
   num_nodes_ = x_overlap_map_->NumMyElements ()/numeqs_;
 
+//   std::cout<< x_owned_map_->NumMyElements ()<<std::endl;
+//   exit(0);
 
   x_space_ = ::Thyra::create_VectorSpace(x_owned_map_);
   
@@ -723,7 +725,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    // on threads in each mpi process. This caused segfault with mpi+omp here.
 
 
-	    #pragma omp parallel for
+#pragma omp parallel for
 	    for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
 	      
 	      int lid = mesh_->get_node_set_entry(ns_id, j);
@@ -848,7 +850,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
       if (nonnull(W_prec_out) && NULL != dirichletfunc_) {
-	P_->GlobalAssemble(true,Epetra_CombineMode::Add,true);
+	//P_->GlobalAssemble(true,Epetra_CombineMode::Add,true);
+	P_->GlobalAssemble();
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	int lenind = 27;//cn 27 in 3d
 	std::map<int,DBCFUNC>::iterator it;
@@ -905,7 +908,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	//*f=*f_fe(0);
       }
       if (nonnull(W_prec_out)) {
-	P_->GlobalAssemble(true,Epetra_CombineMode::Add,true);
+	//P_->GlobalAssemble(true,Epetra_CombineMode::Add,true);
+	P_->GlobalAssemble();
 	//P_->Print(std::cout);
 	//exit(0);
 	//std::cout<<" one norm P_ = "<<P_->NormOne()<<std::endl<<" inf norm P_ = "<<P_->NormInf()<<std::endl<<" fro norm P_ = "<<P_->NormFrobenius()<<std::endl;
@@ -913,7 +917,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	prec_->ReComputePreconditioner();
       }
     }	
-  }
+    }
 
 //====================================================================
 
@@ -2573,6 +2577,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
   }else if("uehara" == paramList.get<std::string> (TusastestNameString)){
 
     bool stress = false;
+    //bool stress = true;
 
     numeqs_ = 4;
     if(stress) numeqs_ = 7;
@@ -2608,8 +2613,10 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     initfunc_ = new  std::vector<double (*)(const double &x,
 					    const double &y,
 					    const double &z)>(numeqs_);
-    (*initfunc_)[0] = &uehara::init_phase_;
+    //(*initfunc_)[0] = &uehara::init_phase_;
+    (*initfunc_)[0] = &uehara::init_phase_c_;
     (*initfunc_)[1] = &uehara::init_heat_;
+    //(*initfunc_)[1] = &uehara::init_heat_seed_c_;
     (*initfunc_)[2] = &init_zero_;
     (*initfunc_)[3] = &init_zero_;
     if(stress)(*initfunc_)[4] = &init_zero_;
@@ -2648,19 +2655,23 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 							   const double &t_theta_,
 							   const double &time)>>(numeqs_);
     //neumannfunc_ = NULL;
+//     (*neumannfunc_)[0][0] = &nbc_zero_;
+//     (*neumannfunc_)[0][1] = &nbc_zero_;
+//     (*neumannfunc_)[0][2] = &nbc_zero_;
+//     (*neumannfunc_)[0][3] = &nbc_zero_;
     (*neumannfunc_)[1][1] = &uehara::conv_bc_;
     (*neumannfunc_)[1][2] = &uehara::conv_bc_;
     
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &uehara::postproc_stress_x_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &uehara::postproc_stress_y_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
-    post_proc[2].postprocfunc_ = &uehara::postproc_stress_xy_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)3));
-    post_proc[3].postprocfunc_ = &uehara::postproc_stress_eq_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)4));
-    post_proc[4].postprocfunc_ = &uehara::postproc_phi_;
+//     post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+//     post_proc[0].postprocfunc_ = &uehara::postproc_stress_x_;
+//     post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+//     post_proc[1].postprocfunc_ = &uehara::postproc_stress_y_;
+//     post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+//     post_proc[2].postprocfunc_ = &uehara::postproc_stress_xy_;
+//     post_proc.push_back(new post_process(comm_,mesh_,(int)3));
+//     post_proc[3].postprocfunc_ = &uehara::postproc_stress_eq_;
+//     post_proc.push_back(new post_process(comm_,mesh_,(int)4));
+//     post_proc[4].postprocfunc_ = &uehara::postproc_phi_;
 
     //std::cout<<"uehara"<<std::endl;
     //exit(0);

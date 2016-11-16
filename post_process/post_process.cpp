@@ -37,9 +37,10 @@ void post_process::process(const int i,const double *u, const double *gradu)
 
 void post_process::update_mesh_data(){
 
-  int num_nodes = mesh_->get_node_num_map().size();
+  //int num_nodes = mesh_->get_node_num_map().size();
+  int num_nodes = node_map_->NumMyElements();
   std::vector<double> ppvar(num_nodes);
-#pragma omp parallel for
+  //#pragma omp parallel for
   for (int nn=0; nn < num_nodes; nn++) {
       ppvar[nn]=(*ppvar_)[nn];
   }

@@ -2576,8 +2576,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
   }else if("uehara" == paramList.get<std::string> (TusastestNameString)){
 
-    bool stress = false;
-    //bool stress = true;
+    //bool stress = false;
+    bool stress = true;
 
     numeqs_ = 4;
     if(stress) numeqs_ = 7;

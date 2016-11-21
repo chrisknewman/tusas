@@ -2576,8 +2576,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
   }else if("uehara" == paramList.get<std::string> (TusastestNameString)){
 
-    //bool stress = false;
-    bool stress = true;
+    bool stress = false;
+    //bool stress = true;
 
     numeqs_ = 4;
     if(stress) numeqs_ = 7;
@@ -2662,16 +2662,21 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*neumannfunc_)[1][1] = &uehara::conv_bc_;
     (*neumannfunc_)[1][2] = &uehara::conv_bc_;
     
-//     post_proc.push_back(new post_process(comm_,mesh_,(int)0));
-//     post_proc[0].postprocfunc_ = &uehara::postproc_stress_x_;
-//     post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &uehara::postproc_stress_x_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
 //     post_proc[1].postprocfunc_ = &uehara::postproc_stress_y_;
-//     post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc[1].postprocfunc_ = &uehara::postproc_stress_xd_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
 //     post_proc[2].postprocfunc_ = &uehara::postproc_stress_xy_;
-//     post_proc.push_back(new post_process(comm_,mesh_,(int)3));
-//     post_proc[3].postprocfunc_ = &uehara::postproc_stress_eq_;
+    post_proc[2].postprocfunc_ = &uehara::postproc_stress_eq_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)3));
+    post_proc[3].postprocfunc_ = &uehara::postproc_stress_eqd_;
 //     post_proc.push_back(new post_process(comm_,mesh_,(int)4));
-//     post_proc[4].postprocfunc_ = &uehara::postproc_phi_;
+//     post_proc[4].postprocfunc_ = &uehara::postproc_strain_;
 
     //std::cout<<"uehara"<<std::endl;
     //exit(0);

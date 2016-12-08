@@ -1,3 +1,12 @@
+//////////////////////////////////////////////////////////////////////////////
+//
+//  Copyright (c) Los Alamos National Security, LLC.  This file is part of the
+//  Tusas code (LA-CC-17-001) and is subject to the revised BSD license terms
+//  in the LICENSE file found in the top-level directory of this distribution.
+//
+//////////////////////////////////////////////////////////////////////////////
+
+
 
 #include <Teuchos_ConfigDefs.hpp>
 #include <Teuchos_UnitTestHarness.hpp>
@@ -44,9 +53,14 @@ using namespace std;
 
 int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const Epetra_Comm * comm);
 int join(const int mypid, const int numproc);
+void print_disclaimer(const int mypid);
+void print_copyright(const int mypid);
 
 int main(int argc, char *argv[])
 {
+  print_disclaimer(0);
+  print_copyright(0);
+
   Teuchos::TimeMonitor::zeroOutTimers();
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
 
@@ -264,5 +278,61 @@ int join(const int mypid, const int numproc)
       exit(0);
     }
       //pclose(f);
+  }
+}
+
+void print_disclaimer(const int mypid)
+{
+  if(0 == mypid){
+    std::cout<<std::endl
+	     <<"Tusas Version 1.0 is registered with Los Alamos National Laboratory (LANL) as LA-CC-17-001."
+	     <<std::endl<<std::endl;
+  }
+}
+void print_copyright(const int mypid)
+{
+  if(0 == mypid){
+    std::cout<<std::endl
+	     <<"Copyright (c) 2016, Los Alamos National Security, LLC"<<std::endl
+	     <<std::endl
+	     <<"All rights reserved."<<std::endl
+	     <<std::endl
+	     <<"This software was produced under U.S. Government contract DE-AC52-06NA25396"<<std::endl
+	     <<"for Los Alamos National Laboratory (LANL), which is operated by Los Alamos"<<std::endl
+	     <<"National Security, LLC for the U.S. Department of Energy. The U.S. Government"<<std::endl
+	     <<"has rights to use, reproduce, and distribute this software.  NEITHER THE"<<std::endl 
+	     <<"GOVERNMENT NOR LOS ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS"<<std::endl 
+	     <<"OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software"<<std::endl 
+	     <<"is modified to produce derivative works, such modified software should be"<<std::endl 
+	     <<"clearly marked, so as not to confuse it with the version available from LANL."<<std::endl
+	     <<std::endl
+	     <<"Additionally, redistribution and use in source and binary forms, with or"<<std::endl 
+	     <<"without modification, are permitted provided that the following conditions"<<std::endl 
+	     <<"are met:"
+	     <<std::endl
+	     <<"1. Redistributions of source code must retain the above copyright notice,"<<std::endl 
+	     <<"   this list of conditions and the following disclaimer."<<std::endl
+	     <<std::endl
+	     <<"2. Redistributions in binary form must reproduce the above copyright notice,"<<std::endl 
+	     <<"   this list of conditions and the following disclaimer in the documentation"<<std::endl 
+	     <<"   and/or other materials provided with the distribution."<<std::endl
+	     <<std::endl
+	     <<"3. Neither the name of Los Alamos National Security, LLC, Los Alamos National"<<std::endl 
+	     <<"   Laboratory, LANL, the U.S. Government, nor the names of its contributors"<<std::endl
+	     <<"   may be used to endorse or promote products derived from this software"<<std::endl 
+	     <<"   without specific prior written permission."<<std::endl
+	     <<std::endl
+	     <<"THIS SOFTWARE IS PROVIDED BY LOS ALAMOS NATIONAL SECURITY, LLC AND"<<std::endl 
+	     <<"CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,"<<std::endl 
+	     <<"BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS"<<std::endl 
+	     <<"FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL LOS ALAMOS"<<std::endl
+	     <<"NATIONAL SECURITY, LLC OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,"<<std::endl 
+	     <<"INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT"<<std::endl 
+	     <<"NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,"<<std::endl 
+	     <<"DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY"<<std::endl 
+	     <<"THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT"<<std::endl 
+	     <<"(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF"<<std::endl 
+	     <<"THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."<<std::endl
+	     <<std::endl<<std::endl;
   }
 }

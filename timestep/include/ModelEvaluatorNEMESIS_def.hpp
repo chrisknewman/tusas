@@ -2681,6 +2681,117 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //std::cout<<"uehara"<<std::endl;
     //exit(0);
 
+}else if("uehara2" == paramList.get<std::string> (TusastestNameString)){
+
+    bool stress = false;
+    //bool stress = true;
+
+    numeqs_ = 4;
+    if(stress) numeqs_ = 7;
+
+    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					       const int &i, 
+					       const double &dt_, 
+					       const double &t_theta_, 
+					       const double &delta, 
+					       const double &time_)>(numeqs_);
+    (*residualfunc_)[0] = &uehara::residual_phase_;
+    (*residualfunc_)[1] = &uehara2::residual_heat_;
+    (*residualfunc_)[2] = &uehara::residual_liniso_x_test_;
+    (*residualfunc_)[3] = &uehara::residual_liniso_y_test_;
+    if(stress)(*residualfunc_)[4] = &uehara::residual_stress_x_test_;
+    if(stress)(*residualfunc_)[5] = &uehara::residual_stress_y_test_;
+    if(stress)(*residualfunc_)[6] = &uehara::residual_stress_xy_test_;
+    
+    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
+					     const int &i,  
+					     const int &j,
+					     const double &dt_, 
+					     const double &t_theta_, 
+					     const double &delta)>(numeqs_);
+    (*preconfunc_)[0] = &uehara::prec_phase_;
+    (*preconfunc_)[1] = &uehara::prec_heat_;
+    (*preconfunc_)[2] = &uehara::prec_liniso_x_test_;
+    (*preconfunc_)[3] = &uehara::prec_liniso_y_test_;
+    if(stress)(*preconfunc_)[4] = &uehara::prec_stress_test_;
+    if(stress)(*preconfunc_)[5] = &uehara::prec_stress_test_;
+    if(stress)(*preconfunc_)[6] = &uehara::prec_stress_test_;
+    
+    initfunc_ = new  std::vector<double (*)(const double &x,
+					    const double &y,
+					    const double &z)>(numeqs_);
+    //(*initfunc_)[0] = &uehara::init_phase_;
+    (*initfunc_)[0] = &uehara2::init_phase_c_;
+    (*initfunc_)[1] = &uehara2::init_heat_;
+    //(*initfunc_)[1] = &uehara::init_heat_seed_c_;
+    (*initfunc_)[2] = &init_zero_;
+    (*initfunc_)[3] = &init_zero_;
+    if(stress)(*initfunc_)[4] = &init_zero_;
+    if(stress)(*initfunc_)[5] = &init_zero_;
+    if(stress)(*initfunc_)[6] = &init_zero_;
+    
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "phi";
+    (*varnames_)[1] = "u";
+    (*varnames_)[2] = "dispx";
+    (*varnames_)[3] = "dispy";
+    if(stress)(*varnames_)[4] = "x_stress";
+    if(stress)(*varnames_)[5] = "y_stress";
+    if(stress)(*varnames_)[6] = "xy_stress";
+    
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+							     const double &y,
+							     const double &z,
+							     const double &t)>>(numeqs_);
+    
+    //dirichletfunc_ = NULL;
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]						 
+//     (*dirichletfunc_)[1][1] = &uehara::dbc_;						 
+//     (*dirichletfunc_)[1][2] = &uehara::dbc_;
+    (*dirichletfunc_)[2][1] = &dbc_zero_;
+    (*dirichletfunc_)[2][3] = &dbc_zero_;
+    (*dirichletfunc_)[3][0] = &dbc_zero_;
+    (*dirichletfunc_)[3][2] = &dbc_zero_;
+    //(*dirichletfunc_)[4][1] = &dbc_zero_;
+    
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
+							   const int &i, 
+							   const double &dt_, 
+							   const double &t_theta_,
+							   const double &time)>>(numeqs_);
+    //neumannfunc_ = NULL;
+//     (*neumannfunc_)[0][0] = &nbc_zero_;
+//     (*neumannfunc_)[0][1] = &nbc_zero_;
+//     (*neumannfunc_)[0][2] = &nbc_zero_;
+//     (*neumannfunc_)[0][3] = &nbc_zero_;
+    (*neumannfunc_)[1][0] = &uehara::conv_bc_;
+    (*neumannfunc_)[1][1] = &uehara::conv_bc_;
+    (*neumannfunc_)[1][2] = &uehara::conv_bc_;
+    (*neumannfunc_)[1][3] = &uehara::conv_bc_;
+    
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &uehara::postproc_stress_x_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+//     post_proc[1].postprocfunc_ = &uehara::postproc_stress_y_;
+    post_proc[1].postprocfunc_ = &uehara::postproc_stress_xd_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+//     post_proc[2].postprocfunc_ = &uehara::postproc_stress_xy_;
+    post_proc[2].postprocfunc_ = &uehara::postproc_stress_eq_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)3));
+    post_proc[3].postprocfunc_ = &uehara::postproc_stress_eqd_;
+//     post_proc.push_back(new post_process(comm_,mesh_,(int)4));
+//     post_proc[4].postprocfunc_ = &uehara::postproc_strain_;
+
+    //std::cout<<"uehara"<<std::endl;
+    //exit(0);
+
 
   }else if("laplace" == paramList.get<std::string> (TusastestNameString)){
 

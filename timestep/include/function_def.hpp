@@ -2316,6 +2316,95 @@ double postproc_strain_(const double *u, const double *gradu)
 }//namespace uehara
 
 
+namespace uehara2
+{
+double init_phase_c_(const double &x,
+		   const double &y,
+		   const double &z)
+{
+  double phi_sol_ = 1.;
+  double phi_liq_ = 0.;
+
+  double val = phi_sol_ ;  
+
+  double r0 = uehara::r0;
+  double dx = 1.e-2;
+  double x0 = 15.*dx;
+  double r = .9*r0*dx/2.;
+
+  double rr = sqrt((x-x0)*(x-x0)+(y-x0)*(y-x0));
+
+  val=phi_liq_;
+
+  if( rr > r0*sqrt(2.)*dx/2. ){
+    val=phi_sol_;
+  }
+  else {
+    val=phi_liq_;
+  }
+
+  return val;
+}
+
+double init_heat_(const double &x,
+		   const double &y,
+		   const double &z)
+{
+  double val = 300.;  
+
+  return val;
+}
+double residual_heat_(const boost::ptr_vector<Basis> &basis, 
+		      const int &i, 
+		      const double &dt_, 
+		      const double &t_theta_, 
+		      const double &delta, 
+		      const double &time)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[1].phi[i];
+  //u, phi
+  double phi = basis[0].uu;
+  double phiold = basis[0].uuold;
+  double phioldold = basis[0].uuoldold;
+  double u = basis[1].uu;
+  double uold = basis[1].uuold;
+
+  double dudx = basis[1].dudx;
+  double dudy = basis[1].dudy;
+  //double dudz = basis[1].dudz;
+
+  double ut = uehara::rho*uehara::c*(u-uold)/dt_*test;
+  double divgradu = uehara::k*(dudx*dtestdx + dudy*dtestdy);
+  double h = phi*phi*(1.-phi)*(1.-phi);
+  //double phitu = -30.*1e12*uehara::L*h*(phi-phioldold)/2./dt_*test; 
+  double phitu = -30.*uehara::L*h*(phi-phiold)/dt_*test; 
+  
+  //thermal term
+  double stress = test*uehara::alpha*u*(uehara::residual_stress_x_dt_(basis, 
+						      i, dt_, t_theta_, delta, 
+						      time)
+				+uehara::residual_stress_y_dt_(basis, 
+						       i, dt_, t_theta_, delta, 
+						       time));
+  
+
+  double rhs = divgradu + phitu + stress;
+
+  return (ut + rhs)/uehara::rho/uehara::c;
+
+}
+}//namespace uehara2
 
 
 

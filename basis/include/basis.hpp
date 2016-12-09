@@ -1,3 +1,13 @@
+//////////////////////////////////////////////////////////////////////////////
+//
+//  Copyright (c) Los Alamos National Security, LLC.  This file is part of the
+//  Tusas code (LA-CC-17-001) and is subject to the revised BSD license terms
+//  in the LICENSE file found in the top-level directory of this distribution.
+//
+//////////////////////////////////////////////////////////////////////////////
+
+
+
 // 1D Linear basis function for finite element method
 
 #ifndef _NOX_EXAMPLE_EPETRA_LINEAR_BASIS_H

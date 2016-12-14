@@ -665,7 +665,25 @@ double init_neumann_test_(const double &x,
 
 
 
-//farzadi
+namespace farzadi
+{
+
+  double pi = 3.141592653589793;
+  double theta_0_ = 0.;
+
+  double phi_sol_ = 1.;
+  double phi_liq_ = -1.;
+  double k_ =0.14;
+  double eps_ = .01;
+  double M_= 4.;
+  double lambda = 10.;
+  double c_inf = 3.;
+  //double D_ = 3.e-9;//m^2/s
+  double D_ = .003;//mm^2/s
+
+
+
+
 double init_conc_farzadi_(const double &x,
 			 const double &y,
 			 const double &z)
@@ -680,15 +698,11 @@ double init_phase_farzadi_(const double &x,
 			 const double &z)
 {
   //cn something wierd with greater than 8 procs here....
-  double pi = 3.141592653589793;
-  double theta_0_ = 0.;
-
-  double phi_sol_ = 1.;
-  double phi_liq_ = -1.;
-
   double val = phi_liq_;  
 
-  double r = 10.+ 10.*abs(sin(y*7.*pi/636.408));//cn this will be a perturbation
+  double r = 1.e-6;//+ 10.*abs(sin(y*7.*pi/636.408));//cn this will be a perturbation
+
+  r=.9;
 
   if(x < r){
     val=phi_sol_;
@@ -721,25 +735,23 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
   double phi = basis[1].uu;
   double phiold = basis[1].uuold;
 
-  double k =0.14;
-  double eps_ = .01;
-  double M_= 4.;
-  double lambda = 10.;
-
   double dphidx = basis[1].dudx;
   double dphidy = basis[1].dudy;
 
-  double theta_ = theta(basis[1].duolddx,basis[1].duolddy);
+  //double theta_ = theta(basis[1].duolddx,basis[1].duolddy);
+  double theta_ = theta(basis[1].dudx,basis[1].dudy);
 
-  double m = (1+(1-k)*u)*m_cummins_(theta_, M_, eps_);//cn we probably need u and uold here for CN...
+  double m = (1+(1-k_)*u)*m_cummins_(theta_, M_, eps_);//cn we probably need u and uold here for CN...
   //double m = m_cummins_(theta_, M_, eps_);//cn we probably need u and uold here for CN...
-  double theta_old = theta(dphidx,dphidy);
-  double mold = (1+(1-k)*uold)*m_cummins_(theta_old, M_, eps_);
+  //double theta_old = theta(dphidx,dphidy);
+  //double mold = (1+(1-k_)*uold)*m_cummins_(theta_old, M_, eps_);
 
-  double phit = (t_theta_*m+(1.-t_theta_)*mold)*(phi-phiold)/dt_*test;
-  //phit = (phi-phiold)/dt_*test;
+  //double phit = (t_theta_*m+(1.-t_theta_)*mold)*(phi-phiold)/dt_*test;
+  //double phit = m*(phi-phiold)/dt_*test;
   double gs2 = gs2_cummins_(theta_, M_, eps_,0.);
   double divgradphi = gs2*(dphidx*dtestdx + dphidy*dtestdy);//(grad u,grad phi)
+
+  double phit = (1.+(1.-k_)*u)*gs2*(phi-phiold)/dt_*test;
 
   double dgdtheta = dgs2_2dtheta_cummins_(theta_, M_, eps_, 0.);	
   double dgdpsi = 0.;
@@ -749,44 +761,44 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
   double phidel2 = gp1*test;
 
   //double m = -2.6;
-  //double c_inf = 3.;
   double tl = 925.2;
   double ts = 877.3;
   double G = 290900.;
   double R = .003;
   double V = .003;
   double t0 = 0.;
-  double x = basis[0].xx;//cn this is in x space, maybe it should be gauss pt?
-  double t = tl + G*(x-V*time);
-  t=900.;
-  double t_scale = (t-ts)/(tl-ts);
+  double x = basis[0].xx;
+  //double t = tl + G*(x-V*time);
+  double t = t0 + G*(x-V*time);
+  //t=900.;
+  double t_scale = 0.*(t-ts)/(tl-ts);
 
   double hp1 = lambda*(1. - phi*phi)*(1. - phi*phi)*(u+t_scale);
   double phidel = hp1*test;
   //phidel = 0.;
-  double rhs = divgradphi + curlgrad + phidel2 + phidel;
-  rhs = divgradphi + phidel;
-  dphidx = basis[1].duolddx;
-  dphidy = basis[1].duolddy;
-  theta_ = theta(dphidx,dphidy);
+  double rhs = divgradphi + 0.*curlgrad + 0.*phidel2 + phidel;
 
-  gs2 = gs2_cummins_(theta_, M_, eps_,0.);
-  divgradphi = gs2*dphidx*dtestdx + gs2*dphidy*dtestdy;//(grad u,grad phi)
-  dgdtheta = dgs2_2dtheta_cummins_(theta_, M_, eps_, 0.);
+//   dphidx = basis[1].duolddx;
+//   dphidy = basis[1].duolddy;
+//   theta_ = theta(dphidx,dphidy);
 
-  curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy);
+//   gs2 = gs2_cummins_(theta_, M_, eps_,0.);
+//   divgradphi = gs2*dphidx*dtestdx + gs2*dphidy*dtestdy;//(grad u,grad phi)
+//   dgdtheta = dgs2_2dtheta_cummins_(theta_, M_, eps_, 0.);
 
-  gp1 = -(phiold-phiold*phiold*phiold);
+//   curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy);
+
+//   gp1 = -(phiold-phiold*phiold*phiold);
   
-  phidel2 = gp1*test;
+//   phidel2 = gp1*test;
   
-  hp1 = lambda*(1.-phiold*phiold)*(1.-phiold*phiold)*(uold+t_scale);
+//   hp1 = lambda*(1.-phiold*phiold)*(1.-phiold*phiold)*(uold+t_scale);
 
-  phidel = hp1*test;
+//   phidel = hp1*test;
 	      
-  double rhs_old = divgradphi + curlgrad + phidel2 + phidel;
+//   double rhs_old = divgradphi + curlgrad + phidel2 + phidel;
 
-  return dt_*phit + dt_*t_theta_*rhs;// + (1.-t_theta_)*rhs_old*0.;
+  return phit + t_theta_*rhs;// + (1.-t_theta_)*rhs_old*0.;
 
 }
 
@@ -811,11 +823,7 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
   double dphidx = basis[1].dudx;
   double dphidy = basis[1].dudy;
 
-  double k =0.14;
-  //double D_ = .6267/.8839*10.*10.;
-  double D_ = .6267*10.;//a_2*lambda
-
-  double ut = (1.+k)/2.*(u-uold)/dt_*test;
+  double ut = (1.+k_)/2.*(u-uold)/dt_*test;
   //ut = (u-uold)/dt_*test;
   double divgradu = D_*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);//(grad u,grad phi)
   //divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);
@@ -829,9 +837,9 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
   
   double j_coef = 0.;
   if (0 < norm) {
-    j_coef = (1.+(1.-k)*u)/sqrt(8.)/norm*(phi-phiold)/dt_;
+    j_coef = (1.+(1.-k_)*u)/sqrt(8.)/norm*(phi-phiold)/dt_;
   } 
-  //j_coef = 0.;
+  j_coef = 0.;
   double j1 = j_coef*dphidx;
   double j2 = j_coef*dphidy;
   double divj = j1*dtestdx + j2*dtestdy;
@@ -841,38 +849,26 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
   norm = sqrt(dphidx*dphidx + dphidy*dphidy);
   j_coef = 0.;
   if (1.e-6 < norm) {
-    j_coef = (1.+(1.-k)*uold)/sqrt(8.)/norm*(phiold-basis[1].uuoldold)/dt_; 
+    j_coef = (1.+(1.-k_)*uold)/sqrt(8.)/norm*(phiold-basis[1].uuoldold)/dt_; 
   }
   j1 = j_coef*dphidx;
   j2 = j_coef*dphidy;
-  //j_coef = 0.;
+  j_coef = 0.;
   double divj_old = j1 *dtestdx + j2 *dtestdy;
 
-  double h = phi*(1+(1.-k)*u);
-  double hold = phiold + (1.-k)*uold;
+  double h = phi*(1.+(1.-k_)*u);
+  double hold = phiold*(1. + (1.-k_)*uold);
 
-  double phitu = -.5*(h-hold)/dt_*test; 
+  //double phitu = -.5*(h-hold)/dt_*test; 
+  double phitu = -.5*(phi-phiold)/dt_*(1.+(1.-k_)*u)*test; 
   //phitu = 1.*test; 
-  h = hold;
-  hold = basis[1].uuoldold*(1. + (1.-k)*basis[0].uuoldold);
-  double phitu_old = -.5*(h-hold)/dt_*test;
+//   h = hold;
+//   hold = basis[1].uuoldold*(1. + (1.-k_)*basis[0].uuoldold);
+//   double phitu_old = -.5*(h-hold)/dt_*test;
  
   //return ut*0.  + t_theta_*(divgradu + divj*0.) + (1.-t_theta_)*(divgradu_old + divj_old)*0. + t_theta_*phitu*0. + (1.-t_theta_)*phitu_old*0.;
 
-  return dt_*ut + dt_*t_theta_*divgradu  + 0.*dt_*t_theta_*divj + dt_*t_theta_*phitu;
-}
-double residual_c_farzadi_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
-{
-  double u = basis[0].uu;
-  double phi = basis[1].uu;
-  double c = basis[2].uu;
-  double test = basis[2].phi[i];
-  double k = 0.14;
-  double c_inf = 3.;
-
-  return dt_*(2.*k*c+c_inf*(1.+k-phi+k*phi)*(-1-u+k*u))*test;
+  return ut + t_theta_*divgradu  + 0.*dt_*t_theta_*divj + t_theta_*phitu;
 }
 double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -898,25 +894,21 @@ double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
     +basis[0].dphideta[j]*basis[0].detadz
     +basis[0].dphidzta[j]*basis[0].dztadz;
 
-  double test = basis[0].phi[i];
+  double test = basis[1].phi[i];
   
   double dphidx = basis[1].dudx;
   double dphidy = basis[1].dudy;
   double dphidz = basis[1].dudz;
 
-  double k =0.14;
-  double eps_ = .01;
-  double M_= 4.;
+  double u = basis[0].uu;
 
-  double theta_0_ =0.;
   double theta_ = theta(dphidx,dphidy)-theta_0_;
 
-  double m = t_theta_*(1.+(1.-k)*basis[0].phi[j])*m_cummins_(theta_, M_, eps_);
-  //double m = t_theta_*m_cummins_(theta_, M_, eps_);
+  double gs2 = gs2_cummins_(theta_, M_, eps_,0.);
 
+  double m = (1.+(1.-k_)*u)*gs2;
   double phit = m*(basis[1].phi[j])/dt_*test;
   //phit = (basis[1].phi[j])/dt_*test;
-  double gs2 = gs2_cummins_(theta_, M_, eps_,0.);
 
   double divgrad = gs2*dbasisdx * dtestdx + gs2*dbasisdy * dtestdy + gs2*dbasisdz * dtestdz;
 
@@ -925,7 +917,7 @@ double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   //return phit + t_theta_*divgrad + t_theta_*curlgrad;
 
-  return dt_*phit + dt_*t_theta_*divgrad;
+  return phit + t_theta_*divgrad;
 }
 double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -952,25 +944,20 @@ double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
     +basis[0].dphideta[j]*basis[0].detadz
     +basis[0].dphidzta[j]*basis[0].dztadz;
   double test = basis[0].phi[i];
-  double k =0.14;
-  //double D_ = .6267/.8839*10.*10.;
-  double D_ = .6267*10.;
-  double divgrad = D_*(1.-basis[1].phi[j])/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
+  double divgrad = D_*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
   //double divgrad = D_/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
-  double u_t =(1.+k)/2.*test * basis[0].phi[j]/dt_;
-  return dt_*u_t + dt_*t_theta_*divgrad;
+  double u_t =(1.+k_)/2.*test * basis[0].phi[j]/dt_;
+  return u_t + t_theta_*divgrad;
 }
-double prec_c_farzadi_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+double postproc_c_(const double *u, const double *gradu)
 {
-  double test = basis[2].phi[i];
-  double k = 0.14;
-  double val =0.;
-  //val = 2.*k*basis[2].phi[j]*test;
-  if(i == j ) val=1.;
-  return val;
-}
 
+  double uu = u[0];
+  double phi = u[1];
+
+  return c_inf*(1.+k_-phi+k_*phi)*(-1.-uu+k_*uu)/2./k_;
+}
+}//namespace farzadi
 
 double residual_robin_test_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 

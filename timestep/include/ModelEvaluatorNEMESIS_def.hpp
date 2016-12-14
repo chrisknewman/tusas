@@ -2945,14 +2945,12 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //farzadi test
 
     numeqs_ = 2;
-    //numeqs_ = 3;
 
     initfunc_ = new  std::vector<double (*)(const double &x,
 					    const double &y,
 					    const double &z)>(numeqs_);
-    (*initfunc_)[0] = &init_conc_farzadi_;
-    (*initfunc_)[1] = &init_phase_farzadi_;
-    //(*initfunc_)[2] = &init_conc_farzadi_;
+    (*initfunc_)[0] = &farzadi::init_conc_farzadi_;
+    (*initfunc_)[1] = &farzadi::init_phase_farzadi_;
 
     residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
 					   const int &i, 
@@ -2960,9 +2958,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					   const double &t_theta_, 
 					   const double &delta, 
 					   const double &time_)>(numeqs_);
-    (*residualfunc_)[0] = &residual_conc_farzadi_;
-    (*residualfunc_)[1] = &residual_phase_farzadi_;
-    //(*residualfunc_)[2] = &residual_c_farzadi_;
+    (*residualfunc_)[0] = &farzadi::residual_conc_farzadi_;
+    (*residualfunc_)[1] = &farzadi::residual_phase_farzadi_;
 
     preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
 					 const int &i,  
@@ -2970,28 +2967,30 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 const double &dt_, 
 					 const double &t_theta_, 
 					 const double &delta)>(numeqs_);
-    (*preconfunc_)[0] = &prec_conc_farzadi_;
-    (*preconfunc_)[1] = &prec_phase_farzadi_;
+    (*preconfunc_)[0] = &farzadi::prec_conc_farzadi_;
+    (*preconfunc_)[1] = &farzadi::prec_phase_farzadi_;
     //(*preconfunc_)[2] = &prec_c_farzadi_;
 
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
     (*varnames_)[1] = "phi";
-    //(*varnames_)[2] = "c";
 
-    //dirichletfunc_ = NULL;
+    dirichletfunc_ = NULL;
 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
-    (*dirichletfunc_)[0][1] = &dbc_mone_;	
+//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
+// 							      const double &y,
+// 							      const double &z,
+// 							      const double &t)>>(numeqs_);
+    //(*dirichletfunc_)[0][1] = &dbc_mone_;	
     //(*dirichletfunc_)[0][3] = &dbc_zero_;												 
-    (*dirichletfunc_)[1][1] = &dbc_mone_;												 
+    //(*dirichletfunc_)[1][1] = &dbc_mone_;												 
     //(*dirichletfunc_)[1][3] = &dbc_one_;
 
     neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &farzadi::postproc_c_;
 						 
 
     //exit(0);

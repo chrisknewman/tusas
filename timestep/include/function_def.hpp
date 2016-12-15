@@ -868,7 +868,7 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
  
   //return ut*0.  + t_theta_*(divgradu + divj*0.) + (1.-t_theta_)*(divgradu_old + divj_old)*0. + t_theta_*phitu*0. + (1.-t_theta_)*phitu_old*0.;
 
-  return ut + t_theta_*divgradu  + 0.*dt_*t_theta_*divj + t_theta_*phitu;
+  return ut + t_theta_*divgradu  + 0.*t_theta_*divj + t_theta_*phitu;
 }
 double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -910,14 +910,14 @@ double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
   double phit = m*(basis[1].phi[j])/dt_*test;
   //phit = (basis[1].phi[j])/dt_*test;
 
-  double divgrad = gs2*dbasisdx * dtestdx + gs2*dbasisdy * dtestdy + gs2*dbasisdz * dtestdz;
+  double divgrad = gs2*dbasisdx * dtestdx + gs2*dbasisdy * dtestdy;// + gs2*dbasisdz * dtestdz;
 
   double dg2 = dgs2_2dtheta_cummins_(theta_, M_, eps_,0.);
   double curlgrad = -dg2*(dtestdy*dphidx -dtestdx*dphidy);
 
   //return phit + t_theta_*divgrad + t_theta_*curlgrad;
 
-  return phit + t_theta_*divgrad;
+  return phit/m  + 0.*t_theta_*divgrad;
 }
 double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -947,7 +947,8 @@ double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
   double divgrad = D_*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
   //double divgrad = D_/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
   double u_t =(1.+k_)/2.*test * basis[0].phi[j]/dt_;
-  return u_t + t_theta_*divgrad;
+  double phitu = -.5*(basis[1].uu-basis[1].uuold)/dt_*(1.+(1.-k_)*basis[0].phi[j])*test; 
+  return u_t/((1.+k_)/2.) + 0.*t_theta_*divgrad + 0.*t_theta_*phitu;
 }
 double postproc_c_(const double *u, const double *gradu)
 {

@@ -2969,8 +2969,6 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 const double &delta)>(numeqs_);
     (*preconfunc_)[0] = &farzadi::prec_conc_farzadi_;
     (*preconfunc_)[1] = &farzadi::prec_phase_farzadi_;
-    //(*preconfunc_)[2] = &prec_c_farzadi_;
-
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";

@@ -33,20 +33,21 @@ modelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 			 Mesh &mesh,
 			 Teuchos::ParameterList plist 
 			 );
-
+/// Implentation of timestep with MPI and OpenMP support.
 template<class Scalar>
 class ModelEvaluatorNEMESIS
   : public ::timestep<Scalar>, public ::Thyra::StateFuncModelEvaluatorBase<Scalar>
 {
 public:
-
+  /// Constructor
   ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 			   Mesh *mesh,
 			   Teuchos::ParameterList plist 
 			   );
+  /// Destructor
   ~ModelEvaluatorNEMESIS();
 
-  /** \name Initializers/Accessors */
+  /** \name Initializers/Accessors from ModelEvaulator.*/
   //@{
 
   /** \brief . */
@@ -77,22 +78,23 @@ public:
   /** \brief . */
   Teuchos::RCP< ::Thyra::PreconditionerBase< Scalar > > create_W_prec() const;
   //@}
-
+  /// Initialize and create the NOX and linear solvers.
   void init_nox();
   void initialize();
   void finalize();
   void advance();
+  /// Compute a global L^2 error based on an analytic solution.
   void compute_error( double *u);
   //void write_exodus(const int output_step);
   void write_exodus();
-
+  /// Write solution to a matlab readable file.
   void write_matlab();
-
+  /// Fill u and u_old with restart values.
   void restart(Teuchos::RCP<Epetra_Vector> u,Teuchos::RCP<Epetra_Vector> u_old);
 
 private:
 
-  /** Allocates and returns the Jacobian matrix graph */
+  /// Allocates and returns the Jacobian matrix graph.
   virtual Teuchos::RCP<Epetra_FECrsGraph> createGraph();
 
   /** \name Private functions overridden from ModelEvaulatorDefaultBase. */

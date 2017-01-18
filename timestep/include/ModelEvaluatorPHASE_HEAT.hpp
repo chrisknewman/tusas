@@ -26,6 +26,7 @@ modelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
 			 Teuchos::ParameterList plist 
 			 );
 
+/// DEPRECATED
 template<class Scalar>
 class ModelEvaluatorPHASE_HEAT
   : public ::timestep<Scalar>, public ::Thyra::StateFuncModelEvaluatorBase<Scalar>

@@ -24,6 +24,7 @@ modelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
             Mesh &mesh,
 		   Teuchos::ParameterList plist);
 
+/// DEPRECATED
 template<class Scalar>
 class ModelEvaluatorHEAT
   : public ::timestep<Scalar>, public ::Thyra::StateFuncModelEvaluatorBase<Scalar>

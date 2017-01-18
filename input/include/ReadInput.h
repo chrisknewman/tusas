@@ -12,7 +12,7 @@
 #define READ_INPUT_H
 	
 #include "Teuchos_ParameterList.hpp"
-
+/// Read parameters from an xml file.
 void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &paramList ,int mypid);
 
 #endif

@@ -11,25 +11,36 @@
 #ifndef TIMESTEP_HPP
 #define TIMESTEP_HPP 
 
-
+/// Base class for timestepping methods.
 template<class Scalar>
 class timestep 
 {
 
 public:
+  /// Constructor
   timestep():start_time(0.0),start_step(0){};
+  /// Destructor
   ~timestep(){};
+  /// Initialize
+  /** Initial conditions. Write initial conditions to output exodusII file. */
   virtual void initialize() = 0;
+  /// Advance one timestep.
   virtual void advance() = 0;
+  /// Finalize
+  /** Write final timestep to output exodusII file. Cleanup. */ 
   virtual void finalize() = 0;
+  /// Write solution to exodusII file.
   virtual void write_exodus() = 0;
-
+  /// Return the timestep index for restart.
   virtual int get_start_step(){return start_step;};
+  /// Return the timestep for restart.
   virtual double get_start_time(){return start_time;};
   
   protected:
   //Teuchos::ParameterList paramList_;
+  /// Start timestep for restart.
   double start_time;
+  /// Timestep index for restart.
   int start_step;
   
 };

@@ -1356,13 +1356,13 @@ void Mesh::compute_nodal_patch(){
     }
   }
 
-  for(int i=0; i<num_my_nodes; i++){
-    std::cout<<proc_id<<" "<<i<<":: "<<node_num_map[i]<<"::  ";
-    for(int j=0; j< nodal_patch[i].size(); j++){
-      std::cout<<nodal_patch[i][j]<<" ";
-    }
-    std::cout<<std::endl;
-  }
+//   for(int i=0; i<num_my_nodes; i++){
+//     std::cout<<proc_id<<" "<<i<<":: "<<node_num_map[i]<<"::  ";
+//     for(int j=0; j< nodal_patch[i].size(); j++){
+//       std::cout<<nodal_patch[i][j]<<" ";
+//     }
+//     std::cout<<std::endl;
+//   }
 
   //std::cout<<"compute_nodal_patch() finished on proc_id: "<<proc_id<<std::endl;
   //exit(0);

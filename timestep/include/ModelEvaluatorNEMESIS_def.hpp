@@ -1731,6 +1731,7 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
   boost::ptr_vector<post_process>::iterator itp;
   for(itp = post_proc.begin();itp != post_proc.end();++itp){
     itp->update_mesh_data();
+    itp->update_scalar_data(time_);
   }
 
 #ifdef TUSAS_COLOR
@@ -2929,9 +2930,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 
     //cn this needs to be better...
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0,post_process::SCALAR_OP::NORM1));
     post_proc[0].postprocfunc_ = &coupledstress::postproc_stress_x_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1,post_process::SCALAR_OP::MEANVALUE,(int)5));
     post_proc[1].postprocfunc_ = &coupledstress::postproc_stress_y_;
     post_proc.push_back(new post_process(comm_,mesh_,(int)2));
     post_proc[2].postprocfunc_ = &coupledstress::postproc_stress_xy_;

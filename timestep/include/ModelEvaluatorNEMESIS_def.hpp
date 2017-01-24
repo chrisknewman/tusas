@@ -706,16 +706,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 
-      typedef double (*DBCFUNC)(const double &x,
-				const double &y,
-				const double &z,
-				const double &t);
-      typedef double (*NBCFUNC)(const Basis *basis,
-				const int &i, 
-				const double &dt_, 
-				const double &t_theta_,
-				const double &time);
-
       if (nonnull(f_out) && NULL != dirichletfunc_) {
 	f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
 	
@@ -2113,27 +2103,15 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
 #endif
     
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &residual_heat_;
     (*residualfunc_)[1] = &residual_phase_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &prec_heat_;
     (*preconfunc_)[1] = &prec_phase_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &init_heat_;
     //(*initfunc_)[0] = &init_heat_const_;
     (*initfunc_)[1] = &init_phase_;
@@ -2150,42 +2128,21 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 1;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &residual_heat_test_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &prec_heat_test_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &init_heat_test_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
 
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
 
-//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-// 							      const double &y,
-// 							      const double &z)>>(numeqs_,
-// 										 std::map<int,double (*)(const double &x,
-// 													 const double &y, 
-//               													 const double &z)>(n_dirichlet));
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
@@ -2200,25 +2157,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 1;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis,
-                       const int &i,
-                       const double &dt_,
-                       const double &t_theta_,
-                       const double &delta,
-                       const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &residual_heat_test_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis,
-                     const int &i, 
-                     const int &j,
-                     const double &dt_,
-                     const double &t_theta_,
-                     const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &prec_heat_test_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-                        const double &y,
-                        const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &init_heat_test_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
@@ -2234,25 +2179,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 1;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &residual_heat_test_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &prec_heat_test_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &init_neumann_test_;
     (*initfunc_)[0] = &init_zero_;
 
@@ -2260,17 +2193,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*varnames_)[0] = "u";
 
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
 
-//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-// 							      const double &y,
-// 							      const double &z)>>(numeqs_,
-// 										 std::map<int,double (*)(const double &x,
-// 													 const double &y, 
-//               													 const double &z)>(n_dirichlet));
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
@@ -2280,11 +2204,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*dirichletfunc_)[0][3] = &dbc_zero_;
 
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
-							    const int &i, 
-							    const double &dt_, 
-							    const double &t_theta_,
-							    const double &time)>>(numeqs_);
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
     //(*neumannfunc_)[0][0] = &nbc_one_;							 
     (*neumannfunc_)[0][1] = &nbc_one_;						 
@@ -2295,25 +2215,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 1;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &residual_robin_test_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &prec_robin_test_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &init_neumann_test_;
     (*initfunc_)[0] = &init_zero_;
 
@@ -2321,17 +2229,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*varnames_)[0] = "u";
 
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
 
-//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-// 							      const double &y,
-// 							      const double &z)>>(numeqs_,
-// 										 std::map<int,double (*)(const double &x,
-// 													 const double &y, 
-//               													 const double &z)>(n_dirichlet));
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
@@ -2341,11 +2240,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*dirichletfunc_)[0][3] = &dbc_zero_;
 
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
-							    const int &i, 
-							    const double &dt_, 
-							    const double &t_theta_,
-							    const double &time)>>(numeqs_);
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
     //(*neumannfunc_)[0][0] = &nbc_one_;							 
     (*neumannfunc_)[0][1] = &nbc_robin_test_;						 
@@ -2357,29 +2252,17 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 3;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &liniso::residual_liniso_x_test_;
     (*residualfunc_)[1] = &liniso::residual_liniso_y_test_;
     (*residualfunc_)[2] = &liniso::residual_liniso_z_test_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &liniso::prec_liniso_x_test_;
     (*preconfunc_)[1] = &liniso::prec_liniso_y_test_;
     (*preconfunc_)[2] = &liniso::prec_liniso_z_test_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &init_neumann_test_;
     (*initfunc_)[0] = &init_zero_;
     (*initfunc_)[1] = &init_zero_;
@@ -2391,17 +2274,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*varnames_)[2] = "z_disp";
 
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
 
-//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-// 							      const double &y,
-// 							      const double &z)>>(numeqs_,
-// 										 std::map<int,double (*)(const double &x,
-// 													 const double &y, 
-//               													 const double &z)>(n_dirichlet));
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
@@ -2411,11 +2285,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //(*dirichletfunc_)[1][4] = &dbc_mone_;
 
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
-							    const int &i, 
-							    const double &dt_, 
-							    const double &t_theta_,
-							    const double &time)>>(numeqs_);
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
     //(*neumannfunc_)[0][0] = &nbc_one_;							 
     //(*neumannfunc_)[0][1] = &nbc_robin_test_;						 
@@ -2431,29 +2301,17 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 3;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &liniso::residual_liniso_x_test_;
     (*residualfunc_)[1] = &liniso::residual_linisobodyforce_y_test_;
     (*residualfunc_)[2] = &liniso::residual_liniso_z_test_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &liniso::prec_liniso_x_test_;
     (*preconfunc_)[1] = &liniso::prec_liniso_y_test_;
     (*preconfunc_)[2] = &liniso::prec_liniso_z_test_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &init_neumann_test_;
     (*initfunc_)[0] = &init_zero_;
     (*initfunc_)[1] = &init_zero_;
@@ -2465,17 +2323,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*varnames_)[2] = "z_disp";
 
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
 
-//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-// 							      const double &y,
-// 							      const double &z)>>(numeqs_,
-// 										 std::map<int,double (*)(const double &x,
-// 													 const double &y, 
-//               													 const double &z)>(n_dirichlet));
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
@@ -2486,11 +2335,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //(*dirichletfunc_)[1][4] = &dbc_mone_;
 
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
-							    const int &i, 
-							    const double &dt_, 
-							    const double &t_theta_,
-							    const double &time)>>(numeqs_);
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
     //(*neumannfunc_)[0][0] = &nbc_one_;							 
     //(*neumannfunc_)[0][1] = &nbc_robin_test_;						 
@@ -2507,31 +2352,19 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 4;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &liniso::residual_linisoheat_x_test_;
     (*residualfunc_)[1] = &liniso::residual_linisoheat_y_test_;
     (*residualfunc_)[2] = &liniso::residual_linisoheat_z_test_;
     (*residualfunc_)[3] = &liniso::residual_divgrad_test_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &liniso::prec_liniso_x_test_;
     (*preconfunc_)[1] = &liniso::prec_liniso_y_test_;
     (*preconfunc_)[2] = &liniso::prec_liniso_z_test_;
     (*preconfunc_)[3] = &prec_heat_test_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &init_neumann_test_;
     (*initfunc_)[0] = &init_zero_;
     (*initfunc_)[1] = &init_zero_;
@@ -2545,17 +2378,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*varnames_)[3] = "u";
 
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
 
-//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-// 							      const double &y,
-// 							      const double &z)>>(numeqs_,
-// 										 std::map<int,double (*)(const double &x,
-// 													 const double &y, 
-//               													 const double &z)>(n_dirichlet));
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
@@ -2567,11 +2391,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*dirichletfunc_)[3][4] = &dbc_zero_;
 
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
-							    const int &i, 
-							    const double &dt_, 
-							    const double &t_theta_,
-							    const double &time)>>(numeqs_);
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
     //(*neumannfunc_)[0][0] = &nbc_one_;							 
     //(*neumannfunc_)[0][1] = &nbc_robin_test_;						 
@@ -2593,12 +2413,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     numeqs_ = 4;
     if(stress) numeqs_ = 7;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					       const int &i, 
-					       const double &dt_, 
-					       const double &t_theta_, 
-					       const double &delta, 
-					       const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &uehara::residual_phase_;
     (*residualfunc_)[1] = &uehara::residual_heat_;
     (*residualfunc_)[2] = &uehara::residual_liniso_x_test_;
@@ -2607,12 +2422,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     if(stress)(*residualfunc_)[5] = &uehara::residual_stress_y_test_;
     if(stress)(*residualfunc_)[6] = &uehara::residual_stress_xy_test_;
     
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					     const int &i,  
-					     const int &j,
-					     const double &dt_, 
-					     const double &t_theta_, 
-					     const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &uehara::prec_phase_;
     (*preconfunc_)[1] = &uehara::prec_heat_;
     (*preconfunc_)[2] = &uehara::prec_liniso_x_test_;
@@ -2621,9 +2431,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     if(stress)(*preconfunc_)[5] = &uehara::prec_stress_test_;
     if(stress)(*preconfunc_)[6] = &uehara::prec_stress_test_;
     
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &uehara::init_phase_;
     (*initfunc_)[0] = &uehara::init_phase_c_;
     (*initfunc_)[1] = &uehara::init_heat_;
@@ -2644,10 +2452,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     if(stress)(*varnames_)[6] = "xy_stress";
     
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							     const double &y,
-							     const double &z,
-							     const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
     
     //dirichletfunc_ = NULL;
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
@@ -2660,11 +2465,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //(*dirichletfunc_)[4][1] = &dbc_zero_;
     
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
-							   const int &i, 
-							   const double &dt_, 
-							   const double &t_theta_,
-							   const double &time)>>(numeqs_);
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
 //     (*neumannfunc_)[0][0] = &nbc_zero_;
 //     (*neumannfunc_)[0][1] = &nbc_zero_;
@@ -2700,12 +2501,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     numeqs_ = 4;
     if(stress) numeqs_ = 7;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					       const int &i, 
-					       const double &dt_, 
-					       const double &t_theta_, 
-					       const double &delta, 
-					       const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &uehara::residual_phase_;
     (*residualfunc_)[1] = &uehara2::residual_heat_;
     (*residualfunc_)[2] = &uehara::residual_liniso_x_test_;
@@ -2714,12 +2510,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     if(stress)(*residualfunc_)[5] = &uehara::residual_stress_y_test_;
     if(stress)(*residualfunc_)[6] = &uehara::residual_stress_xy_test_;
     
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					     const int &i,  
-					     const int &j,
-					     const double &dt_, 
-					     const double &t_theta_, 
-					     const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &uehara::prec_phase_;
     (*preconfunc_)[1] = &uehara::prec_heat_;
     (*preconfunc_)[2] = &uehara::prec_liniso_x_test_;
@@ -2728,9 +2519,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     if(stress)(*preconfunc_)[5] = &uehara::prec_stress_test_;
     if(stress)(*preconfunc_)[6] = &uehara::prec_stress_test_;
     
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &uehara::init_phase_;
     (*initfunc_)[0] = &uehara2::init_phase_c_;
     (*initfunc_)[1] = &uehara2::init_heat_;
@@ -2751,10 +2540,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     if(stress)(*varnames_)[6] = "xy_stress";
     
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							     const double &y,
-							     const double &z,
-							     const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
     
     //dirichletfunc_ = NULL;
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
@@ -2769,11 +2555,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //(*dirichletfunc_)[4][1] = &dbc_zero_;
     
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
-							   const int &i, 
-							   const double &dt_, 
-							   const double &t_theta_,
-							   const double &time)>>(numeqs_);
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
 //     (*neumannfunc_)[0][0] = &nbc_zero_;
 //     (*neumannfunc_)[0][1] = &nbc_zero_;
@@ -2808,42 +2590,21 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 1;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &laplace::residual_heat_test_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &prec_heat_test_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &init_zero_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
 
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
 
-//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-// 							      const double &y,
-// 							      const double &z)>>(numeqs_,
-// 										 std::map<int,double (*)(const double &x,
-// 													 const double &y, 
-//               													 const double &z)>(n_dirichlet));
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
@@ -2860,34 +2621,24 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 5;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &coupledstress::residual_liniso_x_test_;
     (*residualfunc_)[1] = &coupledstress::residual_liniso_y_test_;
     (*residualfunc_)[2] = &coupledstress::residual_stress_x_test_;
     (*residualfunc_)[3] = &coupledstress::residual_stress_y_test_;
     (*residualfunc_)[4] = &coupledstress::residual_stress_xy_test_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &coupledstress::prec_liniso_x_test_;
     (*preconfunc_)[1] = &coupledstress::prec_liniso_y_test_;
     (*preconfunc_)[2] = &coupledstress::prec_stress_test_;
     (*preconfunc_)[3] = &coupledstress::prec_stress_test_;
     (*preconfunc_)[4] = &coupledstress::prec_stress_test_;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
-    //(*initfunc_)[0] = &init_neumann_test_;
+//     initfunc_ = new  std::vector<double (*)(const double &x,
+// 					    const double &y,
+// 					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &init_zero_;
     (*initfunc_)[1] = &init_zero_;
     (*initfunc_)[2] = &init_zero_;
@@ -2902,10 +2653,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*varnames_)[4] = "xy_stress";
 
     // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-							      const double &y,
-							      const double &z,
-							      const double &t)>>(numeqs_);
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
 
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
@@ -2916,11 +2664,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //(*dirichletfunc_)[1][4] = &dbc_mone_;
 
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,double (*)(const Basis *basis,
-							    const int &i, 
-							    const double &dt_, 
-							    const double &t_theta_,
-							    const double &time)>>(numeqs_);
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
     //(*neumannfunc_)[0][0] = &nbc_one_;							 
     //(*neumannfunc_)[0][1] = &nbc_robin_test_;						 
@@ -2947,27 +2691,15 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     numeqs_ = 2;
 
-    initfunc_ = new  std::vector<double (*)(const double &x,
-					    const double &y,
-					    const double &z)>(numeqs_);
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &farzadi::init_conc_farzadi_;
     (*initfunc_)[1] = &farzadi::init_phase_farzadi_;
 
-    residualfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					   const int &i, 
-					   const double &dt_, 
-					   const double &t_theta_, 
-					   const double &delta, 
-					   const double &time_)>(numeqs_);
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &farzadi::residual_conc_farzadi_;
     (*residualfunc_)[1] = &farzadi::residual_phase_farzadi_;
 
-    preconfunc_ = new std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-					 const int &i,  
-					 const int &j,
-					 const double &dt_, 
-					 const double &t_theta_, 
-					 const double &delta)>(numeqs_);
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &farzadi::prec_conc_farzadi_;
     (*preconfunc_)[1] = &farzadi::prec_phase_farzadi_;
 
@@ -2977,13 +2709,10 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-//     dirichletfunc_ = new std::vector<std::map<int,double (*)(const double &x,
-// 							      const double &y,
-// 							      const double &z,
-// 							      const double &t)>>(numeqs_);
+//     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
     //(*dirichletfunc_)[0][1] = &dbc_mone_;	
-    //(*dirichletfunc_)[0][3] = &dbc_zero_;												 
-    //(*dirichletfunc_)[1][1] = &dbc_mone_;												 
+    //(*dirichletfunc_)[0][3] = &dbc_zero_;
+    //(*dirichletfunc_)[1][1] = &dbc_mone_;
     //(*dirichletfunc_)[1][3] = &dbc_one_;
 
     neumannfunc_ = NULL;
@@ -3056,10 +2785,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     if(NULL != dirichletfunc_){
       std::cout<<"  dirichletfunc_ with size "<<dirichletfunc_->size()<<" found."<<std::endl;
-      typedef double (*DBCFUNC)(const double &x,
-				const double &y,
-				const double &z,
-				const double &t);
+
       std::map<int,DBCFUNC>::iterator it;
       
       for( int k = 0; k < numeqs_; k++ ){
@@ -3072,11 +2798,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     if(NULL != neumannfunc_){
       std::cout<<"  neumannfunc_ with size "<<neumannfunc_->size()<<" found."<<std::endl;
-      typedef double (*NBCFUNC)(const Basis *basis,
-				const int &i, 
-				const double &dt_, 
-				const double &t_theta_,
-				const double &time);
+
       std::map<int,NBCFUNC>::iterator it;
       
       for( int k = 0; k < numeqs_; k++ ){

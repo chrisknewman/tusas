@@ -37,7 +37,6 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   std::string ystring="pp"+std::to_string(index_);
   mesh_->add_nodal_field(ystring);
 
-
   if ( (0 == comm_->MyPID()) && (s_op_ != NONE) ){
     filename_ = ystring+".dat";
     std::ofstream outfile;
@@ -45,10 +44,10 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
     outfile.close();
   }
 
-  std::cout<<"Post process created for variable "<<index_<<std::endl;
+  if ( 0 == comm_->MyPID())
+    std::cout<<"Post process created for variable "<<index_<<std::endl;
   //exit(0);
 };
-
 
 post_process::~post_process(){};
 

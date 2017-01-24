@@ -204,40 +204,46 @@ private: // data members
   double (*dgs2_2dtheta_)(const double &theta,const double &M, const double &eps, const double &psi);
   double (*dgs2_2dpsi_)(const double &theta,const double &M, const double &eps, const double &psi);
 
+  typedef double (*RESFUNC)(const boost::ptr_vector<Basis> &basis, 
+			    const int &i, 
+			    const double &dt_, 
+			    const double &t_theta_, 
+			    const double &delta, 
+			    const double &time);
 
-  std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, 
-			 const double &dt_, 
-			 const double &t_theta_, 
-			 const double &delta, 
-			 const double &time)> *residualfunc_;
+  std::vector<RESFUNC> *residualfunc_;
 
+  typedef double (*PREFUNC)(const boost::ptr_vector<Basis> &basis, 
+			    const int &i,  
+			    const int &j,
+			    const double &dt_, 
+			    const double &t_theta_, 
+			    const double &delta);
 
-  std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-			 const int &i,  
-			 const int &j,
-			 const double &dt_, 
-			 const double &t_theta_, 
-			 const double &delta)> *preconfunc_;
+  std::vector<PREFUNC> *preconfunc_;
 
-  std::vector<double (*)(const double &x,
-			 const double &y,
-			 const double &z)> *initfunc_;
+  typedef double (*INITFUNC)(const double &x,
+			     const double &y,
+			     const double &z);
+
+  std::vector<INITFUNC> *initfunc_;
 
   std::vector<std::string> *varnames_;
 
+  typedef double (*DBCFUNC)(const double &x,
+			    const double &y,
+			    const double &z,
+			    const double &t);
 
-  //cn in general, dirichlet should probably have same call sig as neumann
-  std::vector<std::map<int,double (*)(const double &x,
-				      const double &y,
-				      const double &z,
-				      const double &t)>> *dirichletfunc_;
+  std::vector<std::map<int,DBCFUNC>> *dirichletfunc_;
 
-  std::vector<std::map<int,double (*)(const Basis *basis,
-				      const int &i, 
-				      const double &dt_, 
-				      const double &t_theta_,
-				      const double &time)>> *neumannfunc_;
+  typedef double (*NBCFUNC)(const Basis *basis,
+			    const int &i, 
+			    const double &dt_, 
+			    const double &t_theta_,
+			    const double &time);
+
+  std::vector<std::map<int,NBCFUNC>> *neumannfunc_;
   
   //post process stuff
   //cn need this to be a function of all variables eventually

@@ -38,9 +38,9 @@ public:
 		  MEANVALUE ///< Mean value
   };
   /// Constructor
-  /** Creates a nodal post process variable with name =<CODE>"pp"+std::to_string(index_)</CODE>.
+  /** Creates a nodal post process variable with name <CODE>"pp"+index_</CODE>.
       Optionally a scalar operation performed on the variable and written to the text
-      file <CODE>"pp"+std::to_string(index_)+".dat"</CODE> at each timestep with precision \p precision.*/
+      file <CODE>"pp"+index_+".dat"</CODE> at each timestep with precision \p precision.*/
   post_process(const Teuchos::RCP<const Epetra_Comm>& comm, Mesh *mesh, const int index, SCALAR_OP s_op = NONE, const double precision = 6);
   /// Destructor
   ~post_process();

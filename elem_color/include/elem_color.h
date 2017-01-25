@@ -29,7 +29,7 @@
 //#define TUSAS_COLOR
 
 /// Element coloring for residual and preconditioner fill with OpenMP.
-/** To enable #define TUSAS_COLOR. */
+/** To enable <code>\#define TUSAS_COLOR</code>. */
 class elem_color
 {
 public:

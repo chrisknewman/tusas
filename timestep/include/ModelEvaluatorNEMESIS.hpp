@@ -46,38 +46,27 @@ public:
 			   );
   /// Destructor
   ~ModelEvaluatorNEMESIS();
-
-  /** \name Initializers/Accessors from ModelEvaulator.*/
-  //@{
-
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   void set_x0(const Teuchos::ArrayView<const Scalar> &x0);
-
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   void setShowGetInvalidArgs(bool showGetInvalidArg);
-
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   void set_W_factory(const Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> >& W_factory);
-
-  //@}
-
-  /** \name Public functions overridden from ModelEvaulator. */
-  //@{
-
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > get_x_space() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > get_f_space() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP< ::Thyra::LinearOpBase<Scalar> > create_W_op() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> > get_W_factory() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> createInArgs() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP< ::Thyra::PreconditionerBase< Scalar > > create_W_prec() const;
-  //@}
+
   /// Initialize and create the NOX and linear solvers.
   void init_nox();
   void initialize();
@@ -97,18 +86,14 @@ private:
   /// Allocates and returns the Jacobian matrix graph.
   virtual Teuchos::RCP<Epetra_FECrsGraph> createGraph();
 
-  /** \name Private functions overridden from ModelEvaulatorDefaultBase. */
-  //@{
 
-  /** \brief . */
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
-  /** \brief . */
+
   void evalModelImpl(
     const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
     const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
     ) const;
 
-  //@}
 
 private: // data members
 

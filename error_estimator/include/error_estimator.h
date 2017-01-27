@@ -32,22 +32,28 @@ class error_estimator
 public:
   /// Constructor.
   /** Input total number of PDEs in the system numeqs, and the index index of the variable to create error estimator for. */
-  error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm, Mesh *mesh, const int numeqs, const int index);
+  error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,  ///< MPI communicator 
+		  Mesh *mesh,  ///< mesh object
+		  const int numeqs,  ///< the total number of pdes
+		  const int index ///< the index of the variable 
+		  );
   /// Destructor.
   ~error_estimator();
   /// Estimate the gradient at each node.
-  void estimate_gradient(const Teuchos::RCP<Epetra_Vector>&);
+  void estimate_gradient(const Teuchos::RCP<Epetra_Vector>& ///< solution vector (input)
+			 );
   /// Estimate the error on each element.
-  void estimate_error(const Teuchos::RCP<Epetra_Vector>&);
+  void estimate_error(const Teuchos::RCP<Epetra_Vector>& ///< solution vector (input)
+		      );
   /// A helper function to test the Lapack implementation.
   void test_lapack();
   /// Output the nodal gradient and the elemental error contribution to the exodus file.
   void update_mesh_data();
   /// Estimate the global H^1 error.
   double estimate_global_error();
-  /// Estimated derivative wrt to x.
+  /// Estimated nodal derivative wrt to x.
   Teuchos::RCP<Epetra_Vector> gradx_;
-  /// Estimated derivative wrt to y.
+  /// Estimated nodal derivative wrt to y.
   Teuchos::RCP<Epetra_Vector> grady_;
 
 private:

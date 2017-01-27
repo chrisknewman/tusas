@@ -13,7 +13,7 @@
 
 #include "basis.hpp"
 
-void Basis::setN(int N, double *abscissa, double *weight){
+void Basis::setN(const int N, double *abscissa, double *weight){
 
  if ( N == 2 ) {
     abscissa[0] = -1.0L/sqrt(3.0L);

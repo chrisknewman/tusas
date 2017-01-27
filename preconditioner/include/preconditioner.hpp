@@ -45,8 +45,10 @@ public:
 
   /// Constructor
   /** Create the preconditioning object given RCP<Epetra_CrsMatrix>& W and Teuchos::ParameterList MLList. */
-  preconditioner(const RCP<Epetra_CrsMatrix>& W,const Teuchos::RCP<const Epetra_Comm>&  comm,
-			 Teuchos::ParameterList MLList );
+  preconditioner(const RCP<Epetra_CrsMatrix>& W, ///< preconditioning matrix
+		 const Teuchos::RCP<const Epetra_Comm>&  comm,  ///< MPI communicator
+		 Teuchos::ParameterList MLList   ///< Parameter list
+		 );
   /// Destructor
   ~preconditioner();
   /// Required for Thyra::LinearOpBase< Scalar >
@@ -68,15 +70,17 @@ public:
   /// Required for Thyra::LinearOpBase< Scalar >
   /** Wrapper for Apply (const Epetra_MultiVector &X, Epetra_MultiVector &Y). */
   void applyImpl(
-    const EOpTransp M_trans,
-    const MultiVectorBase<Scalar> &X,
-    const Ptr<MultiVectorBase<Scalar> > &Y,
-    const Scalar alpha,
-    const Scalar beta
+		 const EOpTransp M_trans, ///< not used
+    const MultiVectorBase<Scalar> &X, ///< input vector
+    const Ptr<MultiVectorBase<Scalar> > &Y, ///< output vector
+    const Scalar alpha, ///< not used
+    const Scalar beta ///< not used
     ) const ;
   /// Required for Thyra::LinearOpBase< Scalar >
-  /** This the function that applies the preconditioner. */
-  int Apply (const Epetra_MultiVector &X, Epetra_MultiVector &Y) const;//cn this will be virtual 
+  /** This the function that applies the preconditioner. X = M^-1 Y*/
+  int Apply (const Epetra_MultiVector &X, ///< input vector
+	     Epetra_MultiVector &Y ///< output vector
+	     ) const;//cn this will be virtual 
   /// Recompute the ML hierarchy.
   int ReComputePreconditioner () const;
   /// Initially compute  the ML hierarchy

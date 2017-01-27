@@ -24,23 +24,51 @@ class Basis {
   virtual ~Basis(){}
 
   /// Evaluate the basis functions at the specified gauss point
-  /** Evaluate the 2D basis functions at Guass point gp given x, y. This function needs to be called before any accessor function.*/
-  virtual void getBasis(const int gp, const double *x, const double *y){getBasis(gp, x, y, NULL, NULL, NULL, NULL);};
+  /** Evaluate the 2D basis functions at Gauss point gp given x, y. This function needs to be called before any accessor function.*/
+  virtual void getBasis(const int gp, ///< current Gauss point (input)
+			const double *x, ///< x array (input)
+			const double *y ///< y array (input)
+			){getBasis(gp, x, y, NULL, NULL, NULL, NULL);};
   /// Evaluate the basis functions at the specified gauss point
-  /** Evaluate the 3D basis functions at Guass point gp given x, y, z.  This function needs to be called before any accessor function.*/
-  virtual void getBasis(const int gp, const double *x, const double *y, const double *z){getBasis(gp, x, y, z, NULL, NULL, NULL);};
+  /** Evaluate the 3D basis functions at Gauss point gp given x, y, z.  This function needs to be called before any accessor function.*/
+  virtual void getBasis(const int gp, ///< current Gauss point (input) 
+			const double *x, ///< x array (input) 
+			const double *y, ///< y array (input) 
+			const double *z ///< z array (input)
+			){getBasis(gp, x, y, z, NULL, NULL, NULL);};
   /// Evaluate the basis functions at the specified gauss point
-  /** Evaluate the 3D basis functions at Guass point gp given x, y, z and interpolate u.  This function needs to be called before any accessor function.*/
-  virtual void getBasis(const int gp, const double *x, const double *y, const double *z, const double *u){getBasis(gp, x, y, z, u, NULL, NULL);};
+  /** Evaluate the 3D basis functions at Gauss point gp given x, y, z and interpolate u.  This function needs to be called before any accessor function.*/
+  virtual void getBasis(const int gp,  ///< current Gauss point (input)
+			const double *x,  ///< x array (input)
+			const double *y, ///< y array (input) 
+			const double *z, ///< z array (input)
+			const double *u ///< u (solution)  array (input)
+			){getBasis(gp, x, y, z, u, NULL, NULL);};
   /// Evaluate the basis functions at the specified gauss point
-  /** Evaluate the 3D basis functions at Guass point gp given x, y, z and interpolate u, uold.  This function needs to be called before any accessor function.*/
-  virtual void getBasis(const int gp, const double *x, const double *y, const double *z, const double *u, const double *uold){getBasis(gp, x, y, z, u, uold, NULL);};
+  /** Evaluate the 3D basis functions at Gauss point gp given x, y, z and interpolate u, uold.  This function needs to be called before any accessor function.*/
+  virtual void getBasis(const int gp,  ///< current Gauss point (input)
+			const double *x,  ///< x array (input)
+			const double *y, ///< y array (input) 
+			const double *z, ///< z array (input) 
+			const double *u, ///< u (solution)  array (input) 
+			const double *uold ///< uold (solution)  array (input)
+			){getBasis(gp, x, y, z, u, uold, NULL);};
   /// Evaluate the basis functions at the specified gauss point
-  /** Evaluate the 3D basis functions at Guass point gp given x, y, z and interpolate u, uold, uoldold.  This function needs to be called before any accessor function.*/
-  virtual void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){exit(0);};
+  /** Evaluate the 3D basis functions at Gauss point gp given x, y, z and interpolate u, uold, uoldold.  This function needs to be called before any accessor function.*/
+  virtual void getBasis( const int gp,  ///< current Gauss point (input) 
+			 const double *x,  ///< x array (input) 
+			 const double *y, ///< y array (input)  
+			 const double *z, ///< z array (input)  
+			 const double *u, ///< u (solution)  array (input)  
+			 const double *uold, ///< uold (solution)  array (input) 
+			 const double *uoldold///< uoldold (solution)  array (input)
+			 ){exit(0);};
 
-  /// Set the number of Guass points.
-  void setN(int N, double *abscissa, double *weight);    
+  /// Set the number of Gauss points.
+  void setN(const int N, ///< number of Gauss points (input)
+	    double *abscissa, ///< abscissa array
+	    double *weight ///< weight array
+	    );    
 
   /// Required for particular implementation
   virtual Basis* clone() const {exit(0);};
@@ -127,7 +155,7 @@ class Basis {
   /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
   double * dphidz;
 protected:
-  /// Access a pointer to the coordinates of the Guass points in canonical space.
+  /// Access a pointer to the coordinates of the Gauss points in canonical space.
   double *abscissa;
   /// Access a pointer to the Gauss weights.
   double *weight;
@@ -154,7 +182,14 @@ class BasisLTri : public Basis {
   /// Destructor
   virtual ~BasisLTri();
 
-  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
+  void getBasis( const int gp,   ///< current Gauss point (input) 
+		 const double *x,   ///< x array (input) 
+		 const double *y,   ///< y array (input) 
+		 const double *z,   ///< z array (input)
+		 const double *u,  ///< u (solution)  array (input)  
+		 const double *uold,  ///< uold (solution)  array (input)  
+		 const double *uoldold ///< uoldold (solution)  array (input)
+		 );
 
   BasisLTri* clone() const{ return new BasisLTri(*this); }
   char type() { return 1; }
@@ -175,10 +210,17 @@ class BasisLQuad : public Basis {
   /// Destructor
   ~BasisLQuad();
 
+  void getBasis( const int gp,   ///< current Gauss point (input) 
+		 const double *x,   ///< x array (input) 
+		 const double *y,   ///< y array (input) 
+		 const double *z,   ///< z array (input)
+		 const double *u,  ///< u (solution)  array (input)  
+		 const double *uold,  ///< uold (solution)  array (input)  
+		 const double *uoldold ///< uoldold (solution)  array (input)
+		 );
+
   BasisLQuad* clone() const{ return new BasisLQuad(*this); }
   char type() { return 1; }
-
-  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
 
  public:
   // Variables that are calculated at the gauss point
@@ -197,11 +239,17 @@ class BasisQTri : public Basis {
   /// Destructor
   ~BasisQTri();
 
+  void getBasis( const int gp,   ///< current Gauss point (input) 
+		 const double *x,   ///< x array (input) 
+		 const double *y,   ///< y array (input) 
+		 const double *z,   ///< z array (input)
+		 const double *u,  ///< u (solution)  array (input)  
+		 const double *uold,  ///< uold (solution)  array (input)  
+		 const double *uoldold ///< uoldold (solution)  array (input)
+		 );
+
   BasisQTri* clone() const{ return new BasisQTri(*this); }
   char type() { return 1; }
-
-  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
-
 
  public:
 
@@ -217,14 +265,19 @@ class BasisQQuad : public Basis {
   BasisQQuad();
 
   /// Destructor
-  ~BasisQQuad();    
+  ~BasisQQuad();
+
+  void getBasis( const int gp,   ///< current Gauss point (input) 
+		 const double *x,   ///< x array (input) 
+		 const double *y,   ///< y array (input) 
+		 const double *z,   ///< z array (input)
+		 const double *u,  ///< u (solution)  array (input)  
+		 const double *uold,  ///< uold (solution)  array (input)  
+		 const double *uoldold ///< uoldold (solution)  array (input)
+		 );    
 
   BasisQQuad* clone() const{ return new BasisQQuad(*this); }
   char type() { return 1; }
-
-  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
-
-
 
  public:
   // Variables that are calculated at the gauss point
@@ -248,13 +301,23 @@ class BasisLHex : public Basis {
   /// Destructor
   ~BasisLHex();
 
+  void getBasis( const int gp,   ///< current Gauss point (input) 
+		 const double *x,   ///< x array (input) 
+		 const double *y,   ///< y array (input) 
+		 const double *z,   ///< z array (input)
+		 const double *u,  ///< u (solution)  array (input)  
+		 const double *uold,  ///< uold (solution)  array (input)  
+		 const double *uoldold ///< uoldold (solution)  array (input)
+		 );  
+
   BasisLHex* clone() const{ return new BasisLHex(*this); }
   char type() { return 1; }
 
   // Calculates the values of u and x at the specified gauss point
-  void getBasis(const int gp, const double *x, const double *y);
-
-  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
+  void getBasis(const int gp,    ///< current Gauss point (input)
+		const double *x,    ///< x array (input) 
+		const double *y   ///< y array (input) 
+		);
 
  public:
   // Variables that are calculated at the gauss point
@@ -277,11 +340,20 @@ class BasisLTet : public Basis {
   BasisLTet* clone() const{ return new BasisLTet(*this); }
   char type() { return 1; }
 
+  void getBasis( const int gp,   ///< current Gauss point (input) 
+		 const double *x,   ///< x array (input) 
+		 const double *y,   ///< y array (input) 
+		 const double *z,   ///< z array (input)
+		 const double *u,  ///< u (solution)  array (input)  
+		 const double *uold,  ///< uold (solution)  array (input)  
+		 const double *uoldold ///< uoldold (solution)  array (input)
+		 );  
+
   // Calculates the values of u and x at the specified gauss point
-  void getBasis(const int gp, const double *x, const double *y);
-
-  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
-
+  void getBasis(const int gp,     ///< current Gauss point (input)
+		const double *x,     ///< x array (input)
+		const double *y   ///< y array (input) 
+		);
 
  public:
   // Variables that are calculated at the gauss point
@@ -302,13 +374,17 @@ class BasisLBar : public Basis {
   /// Destructor
   ~BasisLBar();
 
+  void getBasis( const int gp,   ///< current Gauss point (input) 
+		 const double *x,   ///< x array (input) 
+		 const double *y,   ///< y array (input) 
+		 const double *z,   ///< z array (input)
+		 const double *u,  ///< u (solution)  array (input)  
+		 const double *uold,  ///< uold (solution)  array (input)  
+		 const double *uoldold ///< uoldold (solution)  array (input)
+		 );  
+
   BasisLBar* clone() const{ return new BasisLBar(*this); }
   char type() { return 1; }
-
-
-  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
-
-
 
  public:
   // Variables that are calculated at the gauss point
@@ -330,13 +406,17 @@ class BasisQBar : public Basis {
   /// Destructor
   ~BasisQBar();
 
+  void getBasis( const int gp,   ///< current Gauss point (input) 
+		 const double *x,   ///< x array (input) 
+		 const double *y,   ///< y array (input) 
+		 const double *z,   ///< z array (input)
+		 const double *u,  ///< u (solution)  array (input)  
+		 const double *uold,  ///< uold (solution)  array (input)  
+		 const double *uoldold ///< uoldold (solution)  array (input)
+		 );  
+
   BasisQBar* clone() const{ return new BasisQBar(*this); }
   char type() { return 1; }
-
-
-  void getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold);
-
-
 
  public:
   // Variables that are calculated at the gauss point

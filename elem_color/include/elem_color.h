@@ -34,14 +34,16 @@ class elem_color
 {
 public:
   /// Constructor
-  elem_color(const Teuchos::RCP<const Epetra_Comm>& comm, 
-				 Mesh *mesh);
+  elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,   ///< MPI communicator
+	     Mesh *mesh ///< mesh object
+	     );
   ///Destructor
   ~elem_color();
 
   //we could point to the underlying isorropia data instead, in the future
   /// Return a std::vector of elements in the i-th color.
-  std::vector<int> get_color(int i){return elem_LIDS_[i];}
+  std::vector<int> get_color(int i ///<color index
+			     ){return elem_LIDS_[i];}
   /// Return the number of colors.
   int get_num_color(){return num_color_;}
   /// Output element color to exodus file.

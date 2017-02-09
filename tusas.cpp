@@ -58,9 +58,6 @@ void print_copyright(const int mypid);
 
 int main(int argc, char *argv[])
 {
-  print_disclaimer(0);
-  print_copyright(0);
-
   Teuchos::TimeMonitor::zeroOutTimers();
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
 
@@ -73,6 +70,9 @@ int main(int argc, char *argv[])
 
   int mypid = Comm.MyPID();
   int numproc = Comm.NumProc();
+  
+  print_disclaimer(mypid);
+  print_copyright(mypid);
 
   Teuchos::ParameterList paramList;
 

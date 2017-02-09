@@ -33,80 +33,67 @@ modelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 			 Mesh &mesh,
 			 Teuchos::ParameterList plist 
 			 );
-
+/// Implentation of timestep with MPI and OpenMP support.
 template<class Scalar>
 class ModelEvaluatorNEMESIS
   : public ::timestep<Scalar>, public ::Thyra::StateFuncModelEvaluatorBase<Scalar>
 {
 public:
-
+  /// Constructor
   ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 			   Mesh *mesh,
 			   Teuchos::ParameterList plist 
 			   );
+  /// Destructor
   ~ModelEvaluatorNEMESIS();
-
-  /** \name Initializers/Accessors */
-  //@{
-
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   void set_x0(const Teuchos::ArrayView<const Scalar> &x0);
-
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   void setShowGetInvalidArgs(bool showGetInvalidArg);
-
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   void set_W_factory(const Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> >& W_factory);
-
-  //@}
-
-  /** \name Public functions overridden from ModelEvaulator. */
-  //@{
-
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > get_x_space() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > get_f_space() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP< ::Thyra::LinearOpBase<Scalar> > create_W_op() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> > get_W_factory() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> createInArgs() const;
-  /** \brief . */
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP< ::Thyra::PreconditionerBase< Scalar > > create_W_prec() const;
-  //@}
 
+  /// Initialize and create the NOX and linear solvers.
   void init_nox();
   void initialize();
   void finalize();
   void advance();
+  /// Compute a global L^2 error based on an analytic solution.
   void compute_error( double *u);
   //void write_exodus(const int output_step);
   void write_exodus();
-
+  /// Write solution to a matlab readable file.
   void write_matlab();
-
+  /// Fill u and u_old with restart values.
   void restart(Teuchos::RCP<Epetra_Vector> u,Teuchos::RCP<Epetra_Vector> u_old);
 
 private:
 
-  /** Allocates and returns the Jacobian matrix graph */
+  /// Allocates and returns the Jacobian matrix graph.
   virtual Teuchos::RCP<Epetra_FECrsGraph> createGraph();
 
-  /** \name Private functions overridden from ModelEvaulatorDefaultBase. */
-  //@{
 
-  /** \brief . */
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
-  /** \brief . */
+
   void evalModelImpl(
     const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
     const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
     ) const;
 
-  //@}
 
 private: // data members
 
@@ -202,40 +189,46 @@ private: // data members
   double (*dgs2_2dtheta_)(const double &theta,const double &M, const double &eps, const double &psi);
   double (*dgs2_2dpsi_)(const double &theta,const double &M, const double &eps, const double &psi);
 
+  typedef double (*RESFUNC)(const boost::ptr_vector<Basis> &basis, 
+			    const int &i, 
+			    const double &dt_, 
+			    const double &t_theta_, 
+			    const double &delta, 
+			    const double &time);
 
-  std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, 
-			 const double &dt_, 
-			 const double &t_theta_, 
-			 const double &delta, 
-			 const double &time)> *residualfunc_;
+  std::vector<RESFUNC> *residualfunc_;
 
+  typedef double (*PREFUNC)(const boost::ptr_vector<Basis> &basis, 
+			    const int &i,  
+			    const int &j,
+			    const double &dt_, 
+			    const double &t_theta_, 
+			    const double &delta);
 
-  std::vector<double (*)(const boost::ptr_vector<Basis> &basis, 
-			 const int &i,  
-			 const int &j,
-			 const double &dt_, 
-			 const double &t_theta_, 
-			 const double &delta)> *preconfunc_;
+  std::vector<PREFUNC> *preconfunc_;
 
-  std::vector<double (*)(const double &x,
-			 const double &y,
-			 const double &z)> *initfunc_;
+  typedef double (*INITFUNC)(const double &x,
+			     const double &y,
+			     const double &z);
+
+  std::vector<INITFUNC> *initfunc_;
 
   std::vector<std::string> *varnames_;
 
+  typedef double (*DBCFUNC)(const double &x,
+			    const double &y,
+			    const double &z,
+			    const double &t);
 
-  //cn in general, dirichlet should probably have same call sig as neumann
-  std::vector<std::map<int,double (*)(const double &x,
-				      const double &y,
-				      const double &z,
-				      const double &t)>> *dirichletfunc_;
+  std::vector<std::map<int,DBCFUNC>> *dirichletfunc_;
 
-  std::vector<std::map<int,double (*)(const Basis *basis,
-				      const int &i, 
-				      const double &dt_, 
-				      const double &t_theta_,
-				      const double &time)>> *neumannfunc_;
+  typedef double (*NBCFUNC)(const Basis *basis,
+			    const int &i, 
+			    const double &dt_, 
+			    const double &t_theta_,
+			    const double &time);
+
+  std::vector<std::map<int,NBCFUNC>> *neumannfunc_;
   
   //post process stuff
   //cn need this to be a function of all variables eventually

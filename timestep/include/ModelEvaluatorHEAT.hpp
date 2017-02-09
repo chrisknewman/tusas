@@ -24,6 +24,7 @@ modelEvaluatorHEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
             Mesh &mesh,
 		   Teuchos::ParameterList plist);
 
+/// DEPRECATED
 template<class Scalar>
 class ModelEvaluatorHEAT
   : public ::timestep<Scalar>, public ::Thyra::StateFuncModelEvaluatorBase<Scalar>
@@ -35,37 +36,26 @@ public:
 		   Teuchos::ParameterList plist);
   ~ModelEvaluatorHEAT();
 
-  /** \name Initializers/Accessors */
-  //@{
-
-  /** \brief . */
   void set_x0(const Teuchos::ArrayView<const Scalar> &x0);
 
-  /** \brief . */
   void setShowGetInvalidArgs(bool showGetInvalidArg);
 
   void set_W_factory(const Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> >& W_factory);
 
-  //@}
-
-  /** \name Public functions overridden from ModelEvaulator. */
-  //@{
-
-  /** \brief . */
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > get_x_space() const;
-  /** \brief . */
+
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > get_f_space() const;
-  /** \brief . */
+
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const;
-  /** \brief . */
+
   Teuchos::RCP< ::Thyra::LinearOpBase<Scalar> > create_W_op() const;
-  /** \brief . */
+
   Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> > get_W_factory() const;
-  /** \brief . */
+
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> createInArgs() const;
-  /** \brief . */
+
   Teuchos::RCP< ::Thyra::PreconditionerBase< Scalar > > create_W_prec() const;
-  //@}
+
 
   void init_nox();
   void initialize();
@@ -77,21 +67,15 @@ public:
 
 private:
 
-  /** Allocates and returns the Jacobian matrix graph */
   virtual Teuchos::RCP<Epetra_CrsGraph> createGraph();
 
-  /** \name Private functions overridden from ModelEvaulatorDefaultBase. */
-  //@{
-
-  /** \brief . */
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
-  /** \brief . */
+
   void evalModelImpl(
     const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
     const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
     ) const;
 
-  //@}
 
 private: // data members
 

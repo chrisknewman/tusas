@@ -2719,8 +2719,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     post_proc.push_back(new post_process(comm_,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &farzadi::postproc_c_;
-//     post_proc.push_back(new post_process(comm_,mesh_,(int)1));
-//     post_proc[0].postprocfunc_ = &farzadi::postproc_t_;
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc[0].postprocfunc_ = &farzadi::postproc_t_;
 						 
 
     //exit(0);
@@ -2848,7 +2848,7 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
 
     boost::ptr_vector<post_process>::iterator itp;
     for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      itp->process(nn,&uu[0],&ug[0],&xyz[0]);
+      itp->process(nn,&uu[0],&ug[0],&xyz[0],time_);
     }
 
   }//nn

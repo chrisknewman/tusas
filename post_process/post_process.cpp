@@ -51,9 +51,9 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
 
 post_process::~post_process(){};
 
-void post_process::process(const int i,const double *u, const double *gradu, const double *xyz)
+void post_process::process(const int i,const double *u, const double *gradu, const double *xyz, const double &time)
 {
-  (*ppvar_)[i] = (*postprocfunc_)(u, gradu, xyz);
+  (*ppvar_)[i] = (*postprocfunc_)(u, gradu, xyz, time);
 };
 
 void post_process::update_mesh_data(){

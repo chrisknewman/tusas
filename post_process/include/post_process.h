@@ -58,12 +58,14 @@ public:
   void process(const int i,///< index of vector entry
 	       const double *u, ///< solution array
 	       const double *gradu, ///< solution derivative array
-	       const double *xyz ///< nodal coords array
+	       const double *xyz, ///< nodal coords array
+	       const double &time ///< current time
 	       );
   /// typedef for post process function pointer
   typedef double (*PPFUNC)(const double *u, ///< solution array
 			   const double *gradu, ///< solution derivative array
-			   const double *xyz ///< node xyz array
+			   const double *xyz, ///< node xyz array
+			   const double &time ///< current time
 			   );
   /// Pointer to the post process function.
   PPFUNC postprocfunc_;

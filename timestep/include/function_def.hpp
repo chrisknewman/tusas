@@ -967,13 +967,21 @@ double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
   double phitu = -.5*(basis[1].uu-basis[1].uuold)/dt_*(1.+(1.-k_)*basis[0].phi[j])*test; 
   return u_t + t_theta_*divgrad + 0.*t_theta_*phitu;
 }
-double postproc_c_(const double *u, const double *gradu, const double *xyz)
+double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
 
   double uu = u[0];
   double phi = u[1];
 
   return -c_inf*(1.+k_-phi+k_*phi)*(-1.-uu+k_*uu)/2./k_;
+}
+double postproc_t_(const double *u, const double *gradu, const double *xyz, const double &time)
+{
+
+  double x = xyz[0];
+  double phi = u[1];
+
+  return 0.;
 }
 }//namespace farzadi
 
@@ -2196,7 +2204,7 @@ double prec_stress_test_(const boost::ptr_vector<Basis> &basis,
 
   return test * basis[0].phi[j]/dt_*dt_/E;
 }
-double postproc_stress_x_(const double *u, const double *gradu, const double *xyz)
+double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2213,7 +2221,7 @@ double postproc_stress_x_(const double *u, const double *gradu, const double *xy
 
   return c1*strain[0] + c2*strain[1];
 }
-double postproc_stress_xd_(const double *u, const double *gradu, const double *xyz)
+double postproc_stress_xd_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2230,7 +2238,7 @@ double postproc_stress_xd_(const double *u, const double *gradu, const double *x
 
   return c1*strain[0] + c2*strain[1];
 }
-double postproc_stress_y_(const double *u, const double *gradu, const double *xyz)
+double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double strain[2];//x,y,z,yx,zy,zx
   double phi = u[0];
@@ -2244,7 +2252,7 @@ double postproc_stress_y_(const double *u, const double *gradu, const double *xy
 
   return c2*strain[0] + c1*strain[1];
 }
-double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz)
+double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double phi = u[0];
   if(phi < 0.) phi = 0.;
@@ -2255,7 +2263,7 @@ double postproc_stress_xy_(const double *u, const double *gradu, const double *x
 
   return c3*strain;
 }
-double postproc_stress_eq_(const double *u, const double *gradu, const double *xyz)
+double postproc_stress_eq_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2282,7 +2290,7 @@ double postproc_stress_eq_(const double *u, const double *gradu, const double *x
 	       + 3.*stress[2]*stress[2]
 	       );
 }
-double postproc_stress_eqd_(const double *u, const double *gradu, const double *xyz)
+double postproc_stress_eqd_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2312,14 +2320,14 @@ double postproc_stress_eqd_(const double *u, const double *gradu, const double *
 //   return (stress[0]+stress[1])/2.
 //     +sqrt((stress[0]-stress[1])*(stress[0]-stress[1])/4.+stress[3]*stress[3]);
 }
-double postproc_phi_(const double *u, const double *gradu, const double *xyz)
+double postproc_phi_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double phi = u[0];
   if(phi < 0.) phi = 0.;
   if(phi > 1.) phi = 1.;
   return phi;
 }
-double postproc_strain_(const double *u, const double *gradu, const double *xyz)
+double postproc_strain_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double phi = u[0];
   double uu = u[1];
@@ -2666,7 +2674,7 @@ double prec_stress_test_(const boost::ptr_vector<Basis> &basis,
 
   return test * basis[0].phi[j];
 }
-double postproc_stress_x_(const double *u, const double *gradu, const double *xyz)
+double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is d0dx,d0dy,d1dx...
@@ -2677,7 +2685,7 @@ double postproc_stress_x_(const double *u, const double *gradu, const double *xy
 
   return c1*strain[0] + c2*strain[1];
 }
-double postproc_stress_y_(const double *u, const double *gradu, const double *xyz)
+double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double strain[2];//x,y,z,yx,zy,zx
   strain[0] = gradu[0];//var 0 dx
@@ -2685,7 +2693,7 @@ double postproc_stress_y_(const double *u, const double *gradu, const double *xy
 
   return c2*strain[0] + c1*strain[1];
 }
-double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz)
+double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double strain = gradu[1] + gradu[2];
 

@@ -2719,6 +2719,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     post_proc.push_back(new post_process(comm_,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &farzadi::postproc_c_;
+//     post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+//     post_proc[0].postprocfunc_ = &farzadi::postproc_t_;
 						 
 
     //exit(0);
@@ -2829,6 +2831,7 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
 
   std::vector<double> uu(numeqs_);
   std::vector<double> ug(dim*numee);
+  std::vector<double> xyz(dim);
 
   //#pragma omp parallel for
   for (int nn=0; nn < num_my_nodes_; nn++) {
@@ -2839,18 +2842,20 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
       ug[k] = (*(Error_est[k].gradx_))[nn];
       ug[k+dim] = (*(Error_est[k].grady_))[nn];
     }
-
+    xyz[0] = mesh_->get_x(nn);
+    xyz[1] = mesh_->get_y(nn);
+    //xyz[2] = mesh_->get_z(nn);
 
     boost::ptr_vector<post_process>::iterator itp;
     for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      itp->process(nn,&uu[0],&ug[0]);
+      itp->process(nn,&uu[0],&ug[0],&xyz[0]);
     }
-
 
   }//nn
 
 }
 
+//cn seems this should live in the basis class.....
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::set_basis( boost::ptr_vector<Basis> &basis, const std::string elem_type) const
 {

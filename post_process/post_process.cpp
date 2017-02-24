@@ -26,12 +26,17 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
 {
   std::vector<int> node_num_map(mesh_->get_node_num_map());
 
-  Epetra_Map overlap_map(-1,
-			 node_num_map.size(),
-			 &node_num_map[0],
-			 0,
-			 *comm_);
-  node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(overlap_map)));
+  overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
+					     node_num_map.size(),
+					     &node_num_map[0],
+					     0,
+					     *comm_));
+  if( 1 == comm_->NumProc() ){
+    node_map_ = overlap_map_;
+  }else{
+    node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
+  }
+  importer_ = Teuchos::rcp(new Epetra_Import(*overlap_map_, *node_map_));
 
   ppvar_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
   std::string ystring="pp"+std::to_string(index_);
@@ -51,19 +56,26 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
 
 post_process::~post_process(){};
 
-void post_process::process(const int i,const double *u, const double *gradu, const double *xyz, const double &time)
+void post_process::process(const int i,const double *u, const double *gradu, const double &time)
 {
-  (*ppvar_)[i] = (*postprocfunc_)(u, gradu, xyz, time);
+  int gid_node = node_map_->GID(i);
+  int lid_overlap = overlap_map_->LID(gid_node); 
+  std::vector<double> xyz(3);
+  xyz[0]=mesh_->get_x(lid_overlap);
+  xyz[1]=mesh_->get_y(lid_overlap);
+  xyz[2]=mesh_->get_z(lid_overlap);
+  (*ppvar_)[i] = (*postprocfunc_)(u, gradu, &xyz[0], time);
 };
 
 void post_process::update_mesh_data(){
 
-  //int num_nodes = mesh_->get_node_num_map().size();
-  int num_nodes = node_map_->NumMyElements();
-  std::vector<double> ppvar(num_nodes);
+  Epetra_Vector *temp = new Epetra_Vector(*overlap_map_);
+  temp->Import(*ppvar_, *importer_, Insert);
+  int num_nodes = overlap_map_->NumMyElements();
+  std::vector<double> ppvar(num_nodes,0.);
 #pragma omp parallel for
   for (int nn=0; nn < num_nodes; nn++) {
-      ppvar[nn]=(*ppvar_)[nn];
+      ppvar[nn]=(*temp)[nn];
   }
   std::string ystring="pp"+std::to_string(index_);
   mesh_->update_nodal_data(ystring, &ppvar[0]);

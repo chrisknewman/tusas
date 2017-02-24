@@ -1453,17 +1453,18 @@ double ModelEvaluatorNEMESIS<Scalar>::psi(double &x,double &y,double &z) const
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
 {
-  //cn this code is failing in parallel for the uehara test case, 
-  //cn seems coords of nodes on proc boundary are wrong?
   for( int k = 0; k < numeqs_; k++ ){
 #pragma omp parallel for
     for (int nn=0; nn < num_my_nodes_; nn++) {
-      double x = mesh_->get_x(nn);
-      double y = mesh_->get_y(nn);
-      double z = mesh_->get_z(nn);
+
+      int gid_node = x_owned_map_->GID(nn*numeqs_);
+      int lid_overlap = (x_overlap_map_->LID(gid_node))/numeqs_; 
+
+      double x = mesh_->get_x(lid_overlap);
+      double y = mesh_->get_y(lid_overlap);
+      double z = mesh_->get_z(lid_overlap);
       
       (*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z);
-      //std::cout<<num_my_nodes_<<" "<<num_nodes_<<" "<<x<<" "<<y<<std::endl;
     }
 
   }
@@ -2720,7 +2721,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     post_proc.push_back(new post_process(comm_,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &farzadi::postproc_c_;
     post_proc.push_back(new post_process(comm_,mesh_,(int)1));
-    post_proc[0].postprocfunc_ = &farzadi::postproc_t_;
+    post_proc[1].postprocfunc_ = &farzadi::postproc_t_;
 						 
 
     //exit(0);
@@ -2831,7 +2832,6 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
 
   std::vector<double> uu(numeqs_);
   std::vector<double> ug(dim*numee);
-  std::vector<double> xyz(dim);
 
   //#pragma omp parallel for
   for (int nn=0; nn < num_my_nodes_; nn++) {
@@ -2842,13 +2842,11 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
       ug[k] = (*(Error_est[k].gradx_))[nn];
       ug[k+dim] = (*(Error_est[k].grady_))[nn];
     }
-    xyz[0] = mesh_->get_x(nn);
-    xyz[1] = mesh_->get_y(nn);
-    //xyz[2] = mesh_->get_z(nn);
 
     boost::ptr_vector<post_process>::iterator itp;
     for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      itp->process(nn,&uu[0],&ug[0],&xyz[0],time_);
+      itp->process(nn,&uu[0],&ug[0],time_);
+      //std::cout<<nn<<" "<<mesh_->get_local_id((x_owned_map_->GID(nn))/numeqs_)<<" "<<xyz[0]<<std::endl;
     }
 
   }//nn

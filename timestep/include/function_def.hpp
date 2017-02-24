@@ -685,18 +685,19 @@ namespace farzadi
   double D= 6.267;
   //double D_ = 3.e-9;//m^2/s
   //double D_ = .003;//mm^2/s
-  //double D_ = 3.e3;//um^2/s
-  double D_ = D;
+  double D_ = 3.e3;//um^2/s
+  //double D_ = D;
   //double m = -2.6;
   double tl = 925.2;//k
   double ts = 877.3;//k
   double G = .290900;//k/um
   double R = 3000.;//um/s
-  //double V = 3000.;//um/s
+  double V = R;//um/s
   double t0 = ts;
   //double t0 = 900.;//k
   double dt0 = tl-ts;
-
+  //double d0 = 5.e-9;//m
+  double d0 = 5.e-3;//um
 
 
 
@@ -733,7 +734,10 @@ double init_phase_farzadi_(const double &x,
 }
 double tscale_(const double &x, const double &time)
 {
-  double t = t0 + G*(x-R*time);
+  //x and time come in as nondimensional quantities here...
+  double xx = d0*x;
+  double tt = d0*d0/D_*time;
+  double t = t0 + G*(xx-V*tt);
   return (t-ts)/dt0;
 }
 
@@ -786,11 +790,11 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
   double phidel2 = gp1*test;
 
   double x = basis[0].xx;
-//   double t = t0 + G*(x-R*time);
-//   double t_scale = (t-ts)/dt0;
+  //double t = t0 + G*(x-R*time);
+  //double t_scale = (t-ts)/dt0;
   double t_scale = tscale_(x,time);
 
-  double hp1 = lambda*(1. - phi*phi)*(1. - phi*phi)*(0.*u+t_scale);
+  double hp1 = lambda*(1. - phi*phi)*(1. - phi*phi)*(u+t_scale);
   double phidel = hp1*test;
   //phidel = 0.;
   double rhs = divgradphi + curlgrad + phidel2 + phidel;
@@ -842,18 +846,19 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   double ut = (1.+k_)/2.*(u-uold)/dt_*test;
   //ut = (u-uold)/dt_*test;
-  double divgradu = D_*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);//(grad u,grad phi)
+  double divgradu = D*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);//(grad u,grad phi)
   //divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);
-  double divgradu_old = D_*(1.-phiold)/2*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy);//(grad u,grad phi)
+  double divgradu_old = D*(1.-phiold)/2*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy);//(grad u,grad phi)
 
   //j is antitrapping current
   // j grad test here... j1*dtestdx + j2*dtestdy 
   // what if dphidx*dphidx + dphidy*dphidy = 0?
 
   double norm = sqrt(dphidx*dphidx + dphidy*dphidy);
+  double small = 1.e-12;
   
   double j_coef = 0.;
-  if (1.e-8 < norm) {
+  if (small < norm) {
     j_coef = (1.+(1.-k_)*u)/sqrt(8.)/norm*(phi-phiold)/dt_;
   } 
   //j_coef = 0.;
@@ -865,7 +870,7 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
   double dphiolddy = basis[1].duolddy; 
   norm = sqrt(dphidx*dphidx + dphidy*dphidy);
   j_coef = 0.;
-  if (1.e-6 < norm) {
+  if (small < norm) {
     j_coef = (1.+(1.-k_)*uold)/sqrt(8.)/norm*(phiold-basis[1].uuoldold)/dt_; 
   }
   j1 = j_coef*dphidx;
@@ -961,8 +966,8 @@ double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
     +basis[0].dphideta[j]*basis[0].detadz
     +basis[0].dphidzta[j]*basis[0].dztadz;
   double test = basis[0].phi[i];
-  double divgrad = D_*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
-  //double divgrad = D_/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
+  double divgrad = D*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
+  //double divgrad = D/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
   double u_t =(1.+k_)/2.*test * basis[0].phi[j]/dt_;
   double phitu = -.5*(basis[1].uu-basis[1].uuold)/dt_*(1.+(1.-k_)*basis[0].phi[j])*test; 
   return u_t + t_theta_*divgrad + 0.*t_theta_*phitu;
@@ -977,11 +982,10 @@ double postproc_c_(const double *u, const double *gradu, const double *xyz, cons
 }
 double postproc_t_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
+  // x is in nondimensional space, tscale_ takes in um
+  double x = xyz[1];
 
-  double x = xyz[0];
-  double phi = u[1];
-
-  return 0.;
+  return x;//tscale_(x,time);
 }
 }//namespace farzadi
 

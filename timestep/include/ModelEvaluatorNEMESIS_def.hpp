@@ -416,7 +416,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     //amount to adjust delta by
     double delta_factor =paramList.get<double> (TusasdeltafactorNameString);
-
     if (nonnull(f_out)) {
       Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
       for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){//shared
@@ -610,6 +609,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	
 	set_basis(basis,elem_type);
 	
+	//   std::cout<<"DEBUG PROC="<<comm_->MyPID()<<std::endl;
+
+
+
 	for(int c = 0; c < num_color; c++){
 	  std::vector<int> elem_map = *mesh_->get_elem_num_map();
 	  int num_elem = elem_map.size();
@@ -880,13 +883,24 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 								&column[0]
 								) ;
 
-	    
+	      //cn we seem to get a garbage value for num_nodes out of here...
+	      //cn must mean this row is not on this proc?
+	      //std::cout<<comm_->MyPID()<<" "<<ns_id<<" "<<k<<" "<<num_nodes<<" "<<err<<std::endl;
+
+	      //cn this is an awful hack, this part of the code has been causing problems
+	      //cn forever. There has to be a better way.
+	      if(err < 0 ) num_nodes = 0;
 	      //num_nodes =P_-> NumGlobalEntries(row);
 
-	      column.resize(num_nodes);
+	      //column.resize(num_nodes);
+
+	      std::vector<int> column1(num_nodes);
+	      for(int ii = 0; ii<num_nodes; ii++) column1[ii]=column[ii];
+	    
 	      double d = 1.;
 	      std::vector<double> vals (num_nodes,0.);
-	      P_->ReplaceGlobalValues (row, num_nodes, &vals[0],&column[0] );
+	      //P_->ReplaceGlobalValues (row, num_nodes, &vals[0],&column[0] );
+	      P_->ReplaceGlobalValues (row, num_nodes, &vals[0],&column1[0] );
 	      P_->ReplaceGlobalValues (row, (int)1, &d ,&row );
 
 	    }//j
@@ -2461,8 +2475,12 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //  [variable index][nodeset index]						 
 //     (*dirichletfunc_)[1][1] = &uehara::dbc_;						 
 //     (*dirichletfunc_)[1][2] = &uehara::dbc_;
+
     (*dirichletfunc_)[2][3] = &dbc_zero_;
+    //cn failing in parallel for some wierd reason
     (*dirichletfunc_)[3][0] = &dbc_zero_;
+
+
     //(*dirichletfunc_)[4][1] = &dbc_zero_;
     
     // numeqs_ number of variables(equations) 

@@ -2127,6 +2127,7 @@ double prec_heat_(const boost::ptr_vector<Basis> &basis,
 						       0.));
   double divgrad = k*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t =rho*c*basis[1].phi[j]/dt_*test;
+ 
   return (u_t + t_theta_*divgrad + stress)/rho/c;
 }
 double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
@@ -2161,7 +2162,7 @@ double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
 
   double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E/dt_;//(grad u,grad phi)
   //double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E;//(grad u,grad phi)
- 
+  
   return divgradu;
 }
 double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
@@ -2198,7 +2199,7 @@ double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
   double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E/dt_;//(grad u,grad phi)
   //double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E;//(grad u,grad phi)
 
-
+  //std::cout<<divgradu<<std::endl;
   return divgradu;
 }
 double prec_stress_test_(const boost::ptr_vector<Basis> &basis, 

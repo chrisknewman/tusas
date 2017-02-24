@@ -88,8 +88,6 @@ int Mesh::read_exodus(const char * filename){
 	     <<" num_node_sets "<<num_node_sets<<std::endl
 	     <<" num_side_sets "<<num_side_sets<<std::endl<<std::endl;
 
-  //cn if nemesis, do we need different num_nodes for x,y,z?
-
   x.resize(num_nodes);
   y.resize(num_nodes);  
   z.resize(num_nodes);

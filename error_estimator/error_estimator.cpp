@@ -14,8 +14,12 @@
 
 #include <iostream>
 
+//#define TUSAS_HAVE_MKL
+
 #ifdef TUSAS_HAVE_ACML
 #include "acml.h"
+#elif defined TUSAS_HAVE_MKL
+#include "mkl.h"
 #else
 #include "clapack.h"
 #endif

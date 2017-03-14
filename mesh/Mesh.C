@@ -1524,3 +1524,13 @@ void Mesh::compute_elem_adj(){
   }
 
 }
+
+int Mesh::get_local_id(int gid)
+{
+  int lid = -999999999;
+  std::vector<int>::iterator it;
+  it = find (node_num_map.begin(), node_num_map.end(), gid);
+  lid = (int)(*it);
+  if (lid < 0) exit(0);
+  return lid;
+}

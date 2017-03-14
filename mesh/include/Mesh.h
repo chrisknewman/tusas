@@ -143,6 +143,8 @@ class Mesh
   std::string get_blk_elem_type(const int i){return blk_elem_type[i];}
   /// Set global_file_name to filename
   void set_global_file_name(std::string filename){global_file_name = filename;return;};
+  /// Get local id from global id
+  int get_local_id(int gid);
 
  private:
 

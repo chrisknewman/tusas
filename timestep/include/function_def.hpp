@@ -668,6 +668,10 @@ double init_neumann_test_(const double &x,
 namespace farzadi
 {
 
+  //it appears the mm mesh is in um
+  // 1m = 1e3 mm
+  // 1m = 1e6 um
+
   double pi = 3.141592653589793;
   double theta_0_ = 0.;
 
@@ -678,9 +682,22 @@ namespace farzadi
   double M_= 4.;
   double lambda = 10.;
   double c_inf = 3.;
+  double D= 6.267;
   //double D_ = 3.e-9;//m^2/s
-  double D_ = .003;//mm^2/s
-
+  //double D_ = .003;//mm^2/s
+  double D_ = 3.e3;//um^2/s
+  //double D_ = D;
+  //double m = -2.6;
+  double tl = 925.2;//k
+  double ts = 877.3;//k
+  double G = .290900;//k/um
+  double R = 3000.;//um/s
+  double V = R;//um/s
+  double t0 = ts;
+  //double t0 = 900.;//k
+  double dt0 = tl-ts;
+  //double d0 = 5.e-9;//m
+  double d0 = 5.e-3;//um
 
 
 
@@ -698,11 +715,13 @@ double init_phase_farzadi_(const double &x,
 			 const double &z)
 {
   //cn something wierd with greater than 8 procs here....
-  double val = phi_liq_;  
+  double val = phi_liq_;
+  int ri = rand()%(100);//random int between 0 and 100
+  double rd = (double)ri/40.;
+  //double r = 1.e-6+ 2.*abs(sin(y*7.*pi/36.));//cn this will be a perturbation
+  double r = .5+rd*abs(sin(y*14.*pi/36.));//cn this will be a perturbation
 
-  double r = 1.e-6;//+ 10.*abs(sin(y*7.*pi/636.408));//cn this will be a perturbation
-
-  r=.9;
+  //r=.9;
 
   if(x < r){
     val=phi_sol_;
@@ -713,6 +732,15 @@ double init_phase_farzadi_(const double &x,
   return val;
   //return 1.;
 }
+double tscale_(const double &x, const double &time)
+{
+  //x and time come in as nondimensional quantities here...
+  double xx = d0*x;
+  double tt = d0*d0/D_*time;
+  double t = t0 + G*(xx-V*tt);
+  return (t-ts)/dt0;
+}
+
 double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
 		      const double &time)
@@ -748,6 +776,7 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   //double phit = (t_theta_*m+(1.-t_theta_)*mold)*(phi-phiold)/dt_*test;
   //double phit = m*(phi-phiold)/dt_*test;
+
   double gs2 = gs2_cummins_(theta_, M_, eps_,0.);
   double divgradphi = gs2*(dphidx*dtestdx + dphidy*dtestdy);//(grad u,grad phi)
 
@@ -760,23 +789,15 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
   double gp1 = -(phi - phi*phi*phi);
   double phidel2 = gp1*test;
 
-  //double m = -2.6;
-  double tl = 925.2;
-  double ts = 877.3;
-  double G = 290900.;
-  double R = .003;
-  double V = .003;
-  double t0 = 0.;
   double x = basis[0].xx;
-  //double t = tl + G*(x-V*time);
-  double t = t0 + G*(x-V*time);
-  //t=900.;
-  double t_scale = 0.*(t-ts)/(tl-ts);
+  //double t = t0 + G*(x-R*time);
+  //double t_scale = (t-ts)/dt0;
+  double t_scale = tscale_(x,time);
 
   double hp1 = lambda*(1. - phi*phi)*(1. - phi*phi)*(u+t_scale);
   double phidel = hp1*test;
   //phidel = 0.;
-  double rhs = divgradphi + 0.*curlgrad + 0.*phidel2 + phidel;
+  double rhs = divgradphi + curlgrad + phidel2 + phidel;
 
 //   dphidx = basis[1].duolddx;
 //   dphidy = basis[1].duolddy;
@@ -825,21 +846,22 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   double ut = (1.+k_)/2.*(u-uold)/dt_*test;
   //ut = (u-uold)/dt_*test;
-  double divgradu = D_*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);//(grad u,grad phi)
+  double divgradu = D*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);//(grad u,grad phi)
   //divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);
-  double divgradu_old = D_*(1.-phiold)/2*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy);//(grad u,grad phi)
+  double divgradu_old = D*(1.-phiold)/2*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy);//(grad u,grad phi)
 
   //j is antitrapping current
   // j grad test here... j1*dtestdx + j2*dtestdy 
   // what if dphidx*dphidx + dphidy*dphidy = 0?
 
   double norm = sqrt(dphidx*dphidx + dphidy*dphidy);
+  double small = 1.e-12;
   
   double j_coef = 0.;
-  if (0 < norm) {
+  if (small < norm) {
     j_coef = (1.+(1.-k_)*u)/sqrt(8.)/norm*(phi-phiold)/dt_;
   } 
-  j_coef = 0.;
+  //j_coef = 0.;
   double j1 = j_coef*dphidx;
   double j2 = j_coef*dphidy;
   double divj = j1*dtestdx + j2*dtestdy;
@@ -848,7 +870,7 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
   double dphiolddy = basis[1].duolddy; 
   norm = sqrt(dphidx*dphidx + dphidy*dphidy);
   j_coef = 0.;
-  if (1.e-6 < norm) {
+  if (small < norm) {
     j_coef = (1.+(1.-k_)*uold)/sqrt(8.)/norm*(phiold-basis[1].uuoldold)/dt_; 
   }
   j1 = j_coef*dphidx;
@@ -868,7 +890,7 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
  
   //return ut*0.  + t_theta_*(divgradu + divj*0.) + (1.-t_theta_)*(divgradu_old + divj_old)*0. + t_theta_*phitu*0. + (1.-t_theta_)*phitu_old*0.;
 
-  return ut + t_theta_*divgradu  + 0.*t_theta_*divj + t_theta_*phitu;
+  return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
 }
 double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -917,7 +939,7 @@ double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   //return phit + t_theta_*divgrad + t_theta_*curlgrad;
 
-  return phit/m  + 0.*t_theta_*divgrad;
+  return phit  + t_theta_*divgrad;
 }
 double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
 			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -944,19 +966,26 @@ double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
     +basis[0].dphideta[j]*basis[0].detadz
     +basis[0].dphidzta[j]*basis[0].dztadz;
   double test = basis[0].phi[i];
-  double divgrad = D_*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
-  //double divgrad = D_/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
+  double divgrad = D*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
+  //double divgrad = D/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
   double u_t =(1.+k_)/2.*test * basis[0].phi[j]/dt_;
   double phitu = -.5*(basis[1].uu-basis[1].uuold)/dt_*(1.+(1.-k_)*basis[0].phi[j])*test; 
-  return u_t/((1.+k_)/2.) + 0.*t_theta_*divgrad + 0.*t_theta_*phitu;
+  return u_t + t_theta_*divgrad + 0.*t_theta_*phitu;
 }
-double postproc_c_(const double *u, const double *gradu)
+double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
 
   double uu = u[0];
   double phi = u[1];
 
-  return c_inf*(1.+k_-phi+k_*phi)*(-1.-uu+k_*uu)/2./k_;
+  return -c_inf*(1.+k_-phi+k_*phi)*(-1.-uu+k_*uu)/2./k_;
+}
+double postproc_t_(const double *u, const double *gradu, const double *xyz, const double &time)
+{
+  // x is in nondimensional space, tscale_ takes in um
+  double x = xyz[1];
+
+  return x;//tscale_(x,time);
 }
 }//namespace farzadi
 
@@ -2098,6 +2127,7 @@ double prec_heat_(const boost::ptr_vector<Basis> &basis,
 						       0.));
   double divgrad = k*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t =rho*c*basis[1].phi[j]/dt_*test;
+ 
   return (u_t + t_theta_*divgrad + stress)/rho/c;
 }
 double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
@@ -2132,7 +2162,7 @@ double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
 
   double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E/dt_;//(grad u,grad phi)
   //double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E;//(grad u,grad phi)
- 
+  
   return divgradu;
 }
 double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
@@ -2169,7 +2199,7 @@ double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
   double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E/dt_;//(grad u,grad phi)
   //double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E;//(grad u,grad phi)
 
-
+  //std::cout<<divgradu<<std::endl;
   return divgradu;
 }
 double prec_stress_test_(const boost::ptr_vector<Basis> &basis, 
@@ -2179,7 +2209,7 @@ double prec_stress_test_(const boost::ptr_vector<Basis> &basis,
 
   return test * basis[0].phi[j]/dt_*dt_/E;
 }
-double postproc_stress_x_(const double *u, const double *gradu)
+double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2196,7 +2226,7 @@ double postproc_stress_x_(const double *u, const double *gradu)
 
   return c1*strain[0] + c2*strain[1];
 }
-double postproc_stress_xd_(const double *u, const double *gradu)
+double postproc_stress_xd_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2213,7 +2243,7 @@ double postproc_stress_xd_(const double *u, const double *gradu)
 
   return c1*strain[0] + c2*strain[1];
 }
-double postproc_stress_y_(const double *u, const double *gradu)
+double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double strain[2];//x,y,z,yx,zy,zx
   double phi = u[0];
@@ -2227,7 +2257,7 @@ double postproc_stress_y_(const double *u, const double *gradu)
 
   return c2*strain[0] + c1*strain[1];
 }
-double postproc_stress_xy_(const double *u, const double *gradu)
+double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double phi = u[0];
   if(phi < 0.) phi = 0.;
@@ -2238,7 +2268,7 @@ double postproc_stress_xy_(const double *u, const double *gradu)
 
   return c3*strain;
 }
-double postproc_stress_eq_(const double *u, const double *gradu)
+double postproc_stress_eq_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2265,7 +2295,7 @@ double postproc_stress_eq_(const double *u, const double *gradu)
 	       + 3.*stress[2]*stress[2]
 	       );
 }
-double postproc_stress_eqd_(const double *u, const double *gradu)
+double postproc_stress_eqd_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2295,14 +2325,14 @@ double postproc_stress_eqd_(const double *u, const double *gradu)
 //   return (stress[0]+stress[1])/2.
 //     +sqrt((stress[0]-stress[1])*(stress[0]-stress[1])/4.+stress[3]*stress[3]);
 }
-double postproc_phi_(const double *u, const double *gradu)
+double postproc_phi_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double phi = u[0];
   if(phi < 0.) phi = 0.;
   if(phi > 1.) phi = 1.;
   return phi;
 }
-double postproc_strain_(const double *u, const double *gradu)
+double postproc_strain_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double phi = u[0];
   double uu = u[1];
@@ -2649,7 +2679,7 @@ double prec_stress_test_(const boost::ptr_vector<Basis> &basis,
 
   return test * basis[0].phi[j];
 }
-double postproc_stress_x_(const double *u, const double *gradu)
+double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   //u is u0,u1,...
   //gradu is d0dx,d0dy,d1dx...
@@ -2660,7 +2690,7 @@ double postproc_stress_x_(const double *u, const double *gradu)
 
   return c1*strain[0] + c2*strain[1];
 }
-double postproc_stress_y_(const double *u, const double *gradu)
+double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double strain[2];//x,y,z,yx,zy,zx
   strain[0] = gradu[0];//var 0 dx
@@ -2668,7 +2698,7 @@ double postproc_stress_y_(const double *u, const double *gradu)
 
   return c2*strain[0] + c1*strain[1];
 }
-double postproc_stress_xy_(const double *u, const double *gradu)
+double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
   double strain = gradu[1] + gradu[2];
 

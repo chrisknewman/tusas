@@ -19,6 +19,7 @@
 // Epetra support
 #include "Epetra_Vector.h"
 #include "Epetra_Map.h"
+#include "Epetra_Import.h"
 #include <Epetra_Comm.h>
 
 //template<class Scalar>
@@ -57,11 +58,14 @@ public:
   /// Compute the post process variable at node index \p i
   void process(const int i,///< index of vector entry
 	       const double *u, ///< solution array
-	       const double *gradu ///< solution derivative array
+	       const double *gradu, ///< solution derivative array
+	       const double &time ///< current time
 	       );
   /// typedef for post process function pointer
-  typedef double (*PPFUNC)(const double *u, //< solution array
-			   const double *gradu ///< solution derivative array
+  typedef double (*PPFUNC)(const double *u, ///< solution array
+			   const double *gradu, ///< solution derivative array
+			   const double *xyz, ///< node xyz array
+			   const double &time ///< current time
 			   );
   /// Pointer to the post process function.
   PPFUNC postprocfunc_;
@@ -76,6 +80,10 @@ private:
   const Teuchos::RCP<const Epetra_Comm>  comm_;
   /// Node map object.
   Teuchos::RCP<const Epetra_Map>   node_map_;
+  /// Node overlap map object.
+  Teuchos::RCP<const Epetra_Map>   overlap_map_;
+  /// Import object.
+  Teuchos::RCP<const Epetra_Import> importer_;
   /// Vector of the nodal values.
   Teuchos::RCP<Epetra_Vector> ppvar_;
   /// Scalar operator

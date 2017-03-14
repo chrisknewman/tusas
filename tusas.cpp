@@ -74,6 +74,9 @@ int main(int argc, char *argv[])
   print_disclaimer(mypid);
   print_copyright(mypid);
 
+  print_disclaimer(mypid);
+  print_copyright(mypid);
+
   Teuchos::ParameterList paramList;
 
   readParametersFromFile(argc, argv, paramList, mypid );

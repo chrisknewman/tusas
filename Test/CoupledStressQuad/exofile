@@ -1,3 +1,16 @@
-NODAL VARIABLES floor 1.E-16
+NODAL VARIABLES all relative 1.E-06 floor 1.e-17
+	pp0
+	pp1
 	pp2 floor 4.5e-13
-	xy_stress floor 1.e-16
+	grad0x 
+	grad0y
+	grad1x
+	grad1y
+	x_disp
+	y_disp
+	x_stress
+	y_stress
+	xy_stress floor 1.7.e-12
+ELEMENT VARIABLES all relative 1.E-06
+	error0
+	error1

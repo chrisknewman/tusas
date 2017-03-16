@@ -1,4 +1,4 @@
 #!/bin/bash
 rm -rf results.e
-../../tusas --input-file=tusas.xml
+$1/tusas --input-file=tusas.xml
 ../exodiff Gold.e results.e && diff goldpp0.dat pp0.dat && diff goldpp1.dat pp1.dat

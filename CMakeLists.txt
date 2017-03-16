@@ -93,5 +93,3 @@ SET( CMAKE_CXX_FLAGS "${Trilinos_CXX_COMPILER_FLAGS} ${TUSAS_CXX_FLAGS}" )
 
 FILE ( WRITE ${DIR_7}/tusas.h "std::string TRILINOS_DIR=\"${TRILINOS_DIR}\"; ")
 
-FILE ( COPY ${TRILINOS_DIR}/bin/exodiff DESTINATION ${DIR_7}/Test)
-

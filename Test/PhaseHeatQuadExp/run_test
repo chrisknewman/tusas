@@ -1,4 +1,4 @@
 #!/bin/bash
 rm -rf results.e
-../../tusas --input-file=tusas.xml
+$1/tusas --input-file=tusas.xml
 ../exodiff -Floor=1.e-16 Gold.e results.e

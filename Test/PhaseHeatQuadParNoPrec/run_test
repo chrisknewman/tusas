@@ -1,4 +1,4 @@
 #!/bin/bash
 rm -rf results.e
-mpirun -np 4 ../../tusas --input-file=tusas.xml
+mpirun -np 4 $1/tusas --input-file=tusas.xml
 ../exodiff -Floor=1e-17 Gold.e results.e

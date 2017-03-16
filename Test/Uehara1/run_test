@@ -1,6 +1,6 @@
 #!/bin/bash
 rm -rf results.e
-../../tusas --input-file=tusas.xml
+$1/tusas --input-file=tusas.xml
 if [[ $OSTYPE == "darwin15" ]]; then
     ../exodiff -maxnames 15 -file exofile Gold.e results.e
 else

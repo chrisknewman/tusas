@@ -1266,15 +1266,19 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
       <<"Average number of GMRES per Timestep:  "<<(float)ngmres/(float)(numstep)<<std::endl; 	
     outfile.close();
   }
-  int nt = 0; 
+  int nt = 0;
+  int ompmt = 0; 
 #pragma omp parallel reduction(+:nt)
   nt += 1;
   //nt = omp_get_num_threads();
+#ifdef _OPENMP
+  ompmt = omp_get_max_threads();
+#endif
   std::ofstream outfile;
   outfile.open("openmp.dat");
   outfile 	
     <<"mpirank :    "<<mypid<<" omp_get_num_threads() :    "<<nt
-    <<" omp_get_max_threads() :    "<<omp_get_max_threads()<<std::endl;
+    <<" omp_get_max_threads() :    "<<ompmt<<std::endl;
   outfile.close();
 
   std::ofstream timefile;
@@ -1467,6 +1471,7 @@ double ModelEvaluatorNEMESIS<Scalar>::psi(double &x,double &y,double &z) const
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
 {
+  srand(123);
   for( int k = 0; k < numeqs_; k++ ){
 #pragma omp parallel for
     for (int nn=0; nn < num_my_nodes_; nn++) {

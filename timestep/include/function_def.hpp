@@ -714,12 +714,12 @@ double init_phase_farzadi_(const double &x,
 			 const double &y,
 			 const double &z)
 {
-  //cn something wierd with greater than 8 procs here....
+  double pp = 36.;
+  pp = 360.;
   double val = phi_liq_;
   int ri = rand()%(100);//random int between 0 and 100
   double rd = (double)ri/40.;
-  //double r = 1.e-6+ 2.*abs(sin(y*7.*pi/36.));//cn this will be a perturbation
-  double r = .5+rd*abs(sin(y*14.*pi/36.));//cn this will be a perturbation
+  double r = .5+rd*abs(sin(y*14.*pi/pp));
 
   //r=.9;
 
@@ -982,10 +982,10 @@ double postproc_c_(const double *u, const double *gradu, const double *xyz, cons
 }
 double postproc_t_(const double *u, const double *gradu, const double *xyz, const double &time)
 {
-  // x is in nondimensional space, tscale_ takes in um
-  double x = xyz[1];
+  // x is in nondimensional space, tscale_ takes in nondimensional and converts to um
+  double x = xyz[0];
 
-  return x;//tscale_(x,time);
+  return tscale_(x,time);
 }
 }//namespace farzadi
 

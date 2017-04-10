@@ -7,7 +7,6 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
-
 #ifndef NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP
 
@@ -375,6 +374,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
   using Teuchos::rcp;
   using Teuchos::rcp_dynamic_cast;
 
+  Teuchos::ParameterList problemlist;//cn
+
   TEUCHOS_ASSERT(nonnull(inArgs.get_x()));
 
   const RCP<Thyra::VectorBase<Scalar> > f_out = outArgs.get_f();
@@ -414,8 +415,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     }
     int n_nodes_per_elem;//shared
 
-    //amount to adjust delta by
-    double delta_factor =paramList.get<double> (TusasdeltafactorNameString);
     if (nonnull(f_out)) {
       Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
       for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){//shared
@@ -423,13 +422,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
 	std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
 		
-	if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
-	  delta_factor = 2.*delta_factor;//shared
-	}
-	else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
-	  delta_factor = .5*delta_factor;//shared
-	}
-	
 #ifdef TUSAS_COLOR
 	int num_color = Elem_col->get_num_color();
 	for(int c = 0; c < num_color; c++){
@@ -490,32 +482,28 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      }//neq
 	    }//k
 	    
-	    double dx = 0.;
-	    for(int gp=0; gp < basis[0].ngp; gp++) {
+	    //  double dx = 0.;
+	    //  for(int gp=0; gp < basis[0].ngp; gp++) {
+	    //  
+	    //    basis[0].getBasis(gp, &xx[0], &yy[0], &zz[0]);
 	      
-	      basis[0].getBasis(gp, &xx[0], &yy[0], &zz[0]);
-	      
-	      dx += basis[0].jac*basis[0].wt;
-	    }
+	    //    dx += basis[0].jac*basis[0].wt;
+	    // }
 	    // 	if ( dx < 1e-16){
 	    // 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
 	    // 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
 	    // 	  exit(0);
 	    // 	}
 	    //cn should be cube root in 3d
-	    dx = sqrt(dx);	
+	    //dx = sqrt(dx);	
 	    
 	    for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
 	      
 	      // Calculate the basis function at the gauss point
 	      for( int neq = 0; neq < numeqs_; neq++ ){
 		basis[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
-	      }
-	      
-	      //double jacwt = basis[0].jac * basis[0].wt;
-	      //cn and should be adjusted for quadratic elements and tris
-	      double delta = dx*delta_factor;
-	      	      
+	      }	      	  
+    
 	      //srand(123);
 	      
 	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
@@ -526,7 +514,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		for( int k = 0; k < numeqs_; k++ ){
 		  int row1 = row + k;
 		  double jacwt = basis[0].jac * basis[0].wt;
-		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,delta,time_);
+		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_);
 
 #ifdef TUSAS_COLOR
 		  if(f_owned_map_->MyGID(row1)){
@@ -563,14 +551,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
 	std::string elem_type=mesh_->get_blk_elem_type(blk);
 	
-	
-	if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
-	  delta_factor = 2.*delta_factor;
-	}
-	else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
-	  delta_factor = .5*delta_factor;
-	}
-
 	//cn for now we will turn coloring for matrix fill off, until we get a good handle on residual fill
 #ifdef TUSAS_COLOR
 	int num_color = Elem_col->get_num_color();
@@ -634,32 +614,13 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		uu_old_old[neq][k] = (*u_old_old)[numeqs_*nodeid+neq];
 	      }//neq
 	    }//k
-	    
-	    double dx = 0.;
-	    for(int gp=0; gp < basis[0].ngp; gp++) {
-	      
-	      basis[0].getBasis(gp, &xx[0], &yy[0], &zz[0]);
-	      
-	      dx += basis[0].jac*basis[0].wt;
-	    }
-	    // 	if ( dx < 1e-16){
-	    // 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
-	    // 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
-	    // 	  exit(0);
-	    // 	}
-	    //cn should be cube root in 3d
-	    dx = sqrt(dx);	
-	    
+	    	
 	    for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
 	      
 	      // Calculate the basis function at the gauss point
 	      for( int neq = 0; neq < numeqs_; neq++ ){
 		basis[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
 	      }
-	      
-	      //double jacwt = basis[0].jac * basis[0].wt;
-	      //cn and should be adjusted for quadratic elements and tris
-	      double delta = dx*delta_factor;
 	      
 	      //srand(123);//note that if this is activated, we get a different random number in f and prec
 	      
@@ -678,7 +639,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		    int row1 = row + k;
 		    int column1 = column + k;
 		    double jacwt = basis[0].jac * basis[0].wt;
-		    double val = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,delta);
+		    double val = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_);
 		    
 #ifdef TUSAS_COLOR
 		    if(f_owned_map_->MyGID(row1) && f_owned_map_->MyGID(column1)){
@@ -1415,7 +1376,7 @@ template<class Scalar>
 const double ModelEvaluatorNEMESIS<Scalar>::R(const double &theta,const double &psi)
 {
 
-  double g = gs_cummins_(theta,M_,eps_,psi);
+  double g = cummins::gs_cummins_(theta,M_,eps_,psi);
   return R_0_*g;
 }
 
@@ -1472,6 +1433,14 @@ template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
 {
   srand(123);
+  Teuchos::ParameterList *problemList;
+  problemList = &paramList.sublist ( "ProblemParams", false );
+
+  if ( NULL != paramfunc_ ){
+    paramfunc_(problemList);
+  }
+
+
   for( int k = 0; k < numeqs_; k++ ){
 #pragma omp parallel for
     for (int nn=0; nn < num_my_nodes_; nn++) {
@@ -1487,26 +1456,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
     }
 
   }
-#if 0
-  int blk = 0;
-  for( int k = 0; k < numeqs_; k++ ){
-    for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
-      int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
-	for(int nn = 0; nn < n_nodes_per_elem; nn++){
-	  
-	  int nodeid = mesh_->get_node_id(blk, ne, nn);//cn appears this is the local id
-	  double x = mesh_->get_x(nodeid);
-	  double y = mesh_->get_y(nodeid);
-	  double z = mesh_->get_z(nodeid);
-	  
-	  (*u)[numeqs_*nodeid+k] = (*initfunc_)[k](x,y,z);
-	  
-	}
-	
-	
-    }
-  }
-#endif
+
 }
 
 template<class Scalar>
@@ -1976,10 +1926,12 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
   random_number_ =((double)rand()/(RAND_MAX)*2.-1.);
   random_number_old_ = 0.;
 
+  paramfunc_ = NULL;
+
   phi_sol_ = 1.;
   phi_liq_ = 0.;
 
-  dgs2_2dpsi_ = &dgs2_2dpsi_cummins_;
+  dgs2_2dpsi_ = &cummins::dgs2_2dpsi_cummins_;
 
   if("furtado" == paramList.get<std::string> (TusastestNameString)){
     exit(0);
@@ -2048,20 +2000,20 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //R_0_ =.1;
     
     //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
+    hp1_ = &cummins::hp1_cummins_;
+    hpp1_ = &cummins::hpp1_cummins_;
+    w_ = &cummins::w_cummins_;
+    m_ = &cummins::m_cummins_;
     //m_ = &m_furtado_;
     rand_phi_ = &rand_phi_furtado_;
     //rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
+    gp1_ = &cummins::gp1_cummins_;
+    gpp1_ = &cummins::gpp1_cummins_;
     //hp2_ = &hp2_cummins_;
     hp2_ = &hp2_furtado_;
 
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+    gs2_ = &cummins::gs2_cummins_;
+    dgs2_2dtheta_ = &cummins::dgs2_2dtheta_cummins_;
   
 
   }else if("branch" == paramList.get<std::string> (TusastestNameString)){
@@ -2079,62 +2031,38 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //R_0_ =.1;
     
     //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
+    hp1_ = &cummins::hp1_cummins_;
+    hpp1_ = &cummins::hpp1_cummins_;
+    w_ = &cummins::w_cummins_;
+    m_ = &cummins::m_cummins_;
     //m_ = &m_furtado_;
     rand_phi_ = &rand_phi_furtado_;
     //rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
+    gp1_ = &cummins::gp1_cummins_;
+    gpp1_ = &cummins::gpp1_cummins_;
     //hp2_ = &hp2_cummins_;
     hp2_ = &hp2_furtado_;
 
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+    gs2_ = &cummins::gs2_cummins_;
+    dgs2_2dtheta_ = &cummins::dgs2_2dtheta_cummins_;
   
 
   }else if("cummins" == paramList.get<std::string> (TusastestNameString)){
     
     numeqs_ = 2;
-#if 0
-    D_ = 4.;
-    T_m_ = 1.55;
-    T_inf_ = 1.;
-    alpha_ = 191.82;
-    eps_ = .05;
-    eps_0_ = 1.;
-    M_= 4.;
-    theta_0_ =0.;
-    R_0_ =.3;
-    
-    //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
-    rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
-    hp2_ = &hp2_cummins_;
-
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
-#endif
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &residual_heat_;
-    (*residualfunc_)[1] = &residual_phase_;
+    (*residualfunc_)[0] = &cummins::residual_heat_;
+    (*residualfunc_)[1] = &cummins::residual_phase_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &prec_heat_;
-    (*preconfunc_)[1] = &prec_phase_;
+    (*preconfunc_)[0] = &cummins::prec_heat_;
+    (*preconfunc_)[1] = &cummins::prec_phase_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &init_heat_;
-    //(*initfunc_)[0] = &init_heat_const_;
-    (*initfunc_)[1] = &init_phase_;
+    (*initfunc_)[0] = &cummins::init_heat_;
+    //(*initfunc_)[0] = &cummins::init_heat_const_;
+    (*initfunc_)[1] = &cummins::init_phase_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -2143,6 +2071,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     dirichletfunc_ = NULL;
 
     neumannfunc_ = NULL;
+
+    paramfunc_ = cummins::param_;
 
   }else if("heat" == paramList.get<std::string> (TusastestNameString)){
 
@@ -2761,17 +2691,17 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     R_0_ =.3;
     
     //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
+    hp1_ = &cummins::hp1_cummins_;
+    hpp1_ = &cummins::hpp1_cummins_;
+    w_ = &cummins::w_cummins_;
+    m_ = &cummins::m_cummins_;
     rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
-    hp2_ = &hp2_cummins_;
+    gp1_ = &cummins::gp1_cummins_;
+    gpp1_ = &cummins::gpp1_cummins_;
+    hp2_ = &cummins::hp2_cummins_;
 
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+    gs2_ = &cummins::gs2_cummins_;
+    dgs2_2dtheta_ = &cummins::dgs2_2dtheta_cummins_;
   }
 
   int mypid = comm_->MyPID();

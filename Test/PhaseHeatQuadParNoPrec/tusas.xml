@@ -11,4 +11,9 @@
   <Parameter name="method" type="string" value="nemesis"/>
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
 
+<!-- delta = .5 * dx for quads, = dx for tris, = .25 dx for quad9 --> 
+   <ParameterList name="ProblemParams">
+     <Parameter name="delta" type="double" value=".015"/>
+   </ParameterList>
+
 </ParameterList>

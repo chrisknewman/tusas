@@ -10,93 +10,51 @@
 
 #ifndef FUNCTION_DEF_HPP
 #define FUNCTION_DEF_HPP
+
 #include <boost/ptr_container/ptr_vector.hpp>
 #include "basis.hpp"
+	
+#include "Teuchos_ParameterList.hpp"
 
-//cummins
-double gs_cummins_(const double &theta, const double &M, const double &eps, const double &psi)
-{
-  double eps_0_ = 1.;
-  double g = eps_0_*(4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
-			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) 
-			     *(1.-2.*sin(psi)*sin(psi)*cos(psi)*cos(psi))
-			     ) -3.*eps +1.   );
-  return g;
+#define RES_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
+                                    const int &i,\
+                                    const double &dt_,\
+			            const double &t_theta_,\
+                                    const double &time)
 
-}
-double hp1_cummins_(const double &phi,const double &c)
-{
-  return -c*phi*phi*(1.-phi)*(1.-phi);
-}
-double hpp1_cummins_(const double &phi,const double &c)
-{
-  return -c* 2.* (1. -phi) *phi* (1. - 2. *phi);
-}
-double w_cummins_(const double &delta)
-{
-  return 1./delta/delta;
-}
-double m_cummins_(const double &theta,const double &M,const double &eps)
-{
+#define PRE_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
+                                    const int &i,\
+				    const int &j,\
+				    const double &dt_,\
+				    const double &t_theta_)
 
-  //double g = 1. + eps * (cos(M*(theta)));
-  double g = (4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
-			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) ) -3.*eps +1.   );
-  return g*g;
-}
+#define INI_FUNC(NAME)  double NAME(const double &x,\
+			            const double &y,\
+			            const double &z) 
+
+#define DBC_FUNC(NAME)  double NAME(const double &x,\
+			            const double &y,\
+			            const double &z,\
+			            const double &t) 
+
+#define NBC_FUNC(NAME)  double NAME(const Basis *basis,\
+				    const int &i,\
+				    const double &dt_,\
+				    const double &t_theta_,\
+				    const double &time)
+
+#define PPR_FUNC(NAME)  double NAME(const double *u,\
+				    const double *gradu,\
+				    const double *xyz,\
+				    const double &time)
+
+#define PARAM_FUNC(NAME) void NAME(Teuchos::ParameterList *plist) 
+
+
 double rand_phi_zero_(const double &phi, const double &random_number)
 {
   return 0.;
 }
-double gp1_cummins_(const double &phi)
-{
-  return phi*(1.-phi)*(1.-2.*phi);
-}
-double gpp1_cummins_(const double &phi)
-{
-  return 1. - 6.* phi + 6.* phi*phi;
-}
-double hp2_cummins_(const double &phi)
-{
-  return 1.;
-}
-double gs2_cummins_( const double &theta, const double &M, const double &eps, const double &psi)
-{ 
-  double eps_0_ = 1.;
-  //double g = eps_0_*(1. + eps * (cos(M*theta)));
-//   double g = eps_0_*(4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
-// 			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) ) -3.*eps +1.   );
-  double g =  gs_cummins_(theta,M,eps,psi);
-  return g*g;
-}
-double dgs2_2dtheta_cummins_(const double &theta, const double &M, const double &eps, const double &psi)
-{
-  double eps_0_ = 1.;
-  //return -1.*eps_0_*(eps*M*(1. + eps*cos(M*(theta)))*sin(M*(theta)));
-
-  double g = gs_cummins_(theta,M,eps,psi);
-
-  //double dg = 4.* eps* (-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 4.* cos(theta)*sin(theta)*sin(theta)*sin(theta));
-  double dg = 4.* eps* (-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 
-			4.* cos(theta)*sin(theta)*sin(theta)*sin(theta)*(1.-2.*cos(psi)*cos(psi)*sin(psi)*sin(psi)));
-
-  return g*dg;
-
-//   return eps_0_*4.*eps*(-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 4.*cos(theta)*sin(theta)*sin(theta)*sin(theta))
-//     *(1. - 3.*eps + 4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
-// 			    + sin(theta)*sin(theta)*sin(theta)*sin(theta)));
-}
-double dgs2_2dpsi_cummins_(const double &theta, const double &M, const double &eps, const double &psi)
-{
-  //4 eps (-4 Cos[psi]^3 Sin[psi] + 4 Cos[psi] Sin[psi]^3) Sin[theta]^4
-  double g = gs_cummins_(theta,M,eps,psi);
-  double dg = 4.* eps* (-4.*cos(psi)*cos(psi)*cos(psi)*sin(psi) + 4.*cos(psi)*sin(psi)*sin(psi)*sin(psi))*sin(theta)*sin(theta)*sin(theta)*sin(theta);
-
-  return g*dg;
-}
-
-
-
 
 //furtado
 double hp1_furtado_(const double &phi,const double &c)
@@ -212,15 +170,30 @@ double dgs2_2dtheta_karma_(const double &theta, const double &M, const double &e
   return g;
 }
 
-//cn some experimental stuff here
+namespace cummins
+{
 
-//double diffusivity_heat_(const double &theta, const double &M, const double &eps, const double &psi)
-double residual_heat_(const boost::ptr_vector<Basis> &basis, 
-		      const int &i, 
-		      const double &dt_, 
-		      const double &t_theta_, 
-		      const double &delta, 
-		      const double &time)
+  double delta_ = -9999.;
+
+  double m_cummins_(const double &theta,const double &M,const double &eps)
+  {
+    
+    //double g = 1. + eps * (cos(M*(theta)));
+    double g = (4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+			+ sin(theta)*sin(theta)*sin(theta)*sin(theta) ) -3.*eps +1.   );
+    return g*g;
+  }
+  double hp2_cummins_(const double &phi)
+  {
+    return 1.;
+  }
+// double residual_heat_(const boost::ptr_vector<Basis> &basis, 
+// 		      const int &i, 
+// 		      const double &dt_, 
+// 		      const double &t_theta_, 
+// 		      const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_heat_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -275,9 +248,74 @@ double theta(const double &x,const double &y)
 
   return t;
 }
-double residual_phase_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+double gs_cummins_(const double &theta, const double &M, const double &eps, const double &psi)
+{
+  double eps_0_ = 1.;
+  double g = eps_0_*(4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) 
+			     *(1.-2.*sin(psi)*sin(psi)*cos(psi)*cos(psi))
+			     ) -3.*eps +1.   );
+  return g;
+
+}
+double gs2_cummins_( const double &theta, const double &M, const double &eps, const double &psi)
+{ 
+  double eps_0_ = 1.;
+  //double g = eps_0_*(1. + eps * (cos(M*theta)));
+  //   double g = eps_0_*(4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+  // 			     + sin(theta)*sin(theta)*sin(theta)*sin(theta) ) -3.*eps +1.   );
+  double g =  gs_cummins_(theta,M,eps,psi);
+  return g*g;
+}
+double dgs2_2dtheta_cummins_(const double &theta, const double &M, const double &eps, const double &psi)
+{
+  double eps_0_ = 1.;
+  //return -1.*eps_0_*(eps*M*(1. + eps*cos(M*(theta)))*sin(M*(theta)));
+
+  double g = gs_cummins_(theta,M,eps,psi);
+
+  //double dg = 4.* eps* (-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 4.* cos(theta)*sin(theta)*sin(theta)*sin(theta));
+  double dg = 4.* eps* (-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 
+			4.* cos(theta)*sin(theta)*sin(theta)*sin(theta)*(1.-2.*cos(psi)*cos(psi)*sin(psi)*sin(psi)));
+
+  return g*dg;
+
+//   return eps_0_*4.*eps*(-4.*cos(theta)*cos(theta)*cos(theta)*sin(theta) + 4.*cos(theta)*sin(theta)*sin(theta)*sin(theta))
+//     *(1. - 3.*eps + 4.*eps*(cos(theta)*cos(theta)*cos(theta)*cos(theta) 
+// 			    + sin(theta)*sin(theta)*sin(theta)*sin(theta)));
+}
+double dgs2_2dpsi_cummins_(const double &theta, const double &M, const double &eps, const double &psi)
+{
+  //4 eps (-4 Cos[psi]^3 Sin[psi] + 4 Cos[psi] Sin[psi]^3) Sin[theta]^4
+  double g = gs_cummins_(theta,M,eps,psi);
+  double dg = 4.* eps* (-4.*cos(psi)*cos(psi)*cos(psi)*sin(psi) + 4.*cos(psi)*sin(psi)*sin(psi)*sin(psi))*sin(theta)*sin(theta)*sin(theta)*sin(theta);
+
+  return g*dg;
+}
+double w_cummins_(const double &delta)
+{
+  return 1./delta/delta;
+}
+double gp1_cummins_(const double &phi)
+{
+  return phi*(1.-phi)*(1.-2.*phi);
+}
+double hp1_cummins_(const double &phi,const double &c)
+{
+  return -c*phi*phi*(1.-phi)*(1.-phi);
+}
+double hpp1_cummins_(const double &phi,const double &c)
+{
+  return -c* 2.* (1. -phi) *phi* (1. - 2. *phi);
+}
+double gpp1_cummins_(const double &phi)
+{
+  return 1. - 6.* phi + 6.* phi*phi;
+}
+// double residual_phase_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_phase_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -320,7 +358,7 @@ double residual_phase_(const boost::ptr_vector<Basis> &basis,
   double dgdpsi = 0.;
   double curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy);//cn could be a wrong sign here!!!
   //+dgdpsi*(-dphidz*dtestdx + dphidx*dtestdz);
-  double w = w_cummins_(delta);
+  double w = w_cummins_(delta_);//cn_delta
   double gp1 = gp1_cummins_(phi);
   double phidel2 = gp1*w*test;
 
@@ -328,7 +366,7 @@ double residual_phase_(const boost::ptr_vector<Basis> &basis,
   double T_inf_ = 1.;
   double alpha_ = 191.82;
 
-  double hp1 = hp1_cummins_(phi,5.*alpha_/delta);
+  double hp1 = hp1_cummins_(phi,5.*alpha_/delta_);
   double phidel = hp1*(T_m_ - u)*test;
   double rhs = divgradphi + curlgrad + phidel2 + phidel;
 
@@ -349,7 +387,7 @@ double residual_phase_(const boost::ptr_vector<Basis> &basis,
   
   phidel2 = gp1*w*basis[1].phi[i];
   
-  hp1 = hp1_cummins_(phiold,5.*alpha_/delta);
+  hp1 = hp1_cummins_(phiold,5.*alpha_/delta_);
 
   phidel = hp1*(T_m_ - uold)*test;
 	      
@@ -358,8 +396,10 @@ double residual_phase_(const boost::ptr_vector<Basis> &basis,
   return phit + t_theta_*rhs + (1.-t_theta_)*rhs_old;
 
 }
-double prec_heat_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+// double prec_heat_(const boost::ptr_vector<Basis> &basis, 
+//		 const int &i
+//	  , const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_heat_)
 {
   //cn probably want to move each of these operations inside of getbasis
   //derivatives of the test function
@@ -388,8 +428,9 @@ double prec_heat_(const boost::ptr_vector<Basis> &basis,
   double u_t =test * basis[0].phi[j]/dt_;
   return u_t + t_theta_*divgrad;
 }
-double prec_phase_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+//double prec_phase_(const boost::ptr_vector<Basis> &basis, 
+//		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_phase_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -444,9 +485,10 @@ double R_cummins(const double &theta)
   double M_ = 4.;
   return R_0_*(1. + eps_ * cos(M_*(theta)));
 }
-double init_heat_(const double &x,
-			 const double &y,
-			 const double &z)
+//double init_heat_(const double &x,
+//		 const double &y,
+//		 const double &z)
+INI_FUNC(init_heat_)
 {
   double theta_0_ = 0.;
   double t = theta(x,y) - theta_0_;
@@ -465,18 +507,20 @@ double init_heat_(const double &x,
   }
   return val;
 }
-double init_heat_const_(const double &x,
-			 const double &y,
-			 const double &z)
+//double init_heat_const_(const double &x,
+//		 const double &y,
+//		 const double &z)
+INI_FUNC(init_heat_const_)
 {
 
   double T_inf_ = 1.;
 
   return T_inf_;
 }
-double init_phase_(const double &x,
-			 const double &y,
-			 const double &z)
+//double init_phase_(const double &x,
+//		 const double &y,
+//		 const double &z)
+INI_FUNC(init_phase_)
 {
   double theta_0_ = 0.;
   double t = theta(x,y) - theta_0_;
@@ -495,9 +539,18 @@ double init_phase_(const double &x,
   }
   return val;
 }
-double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+PARAM_FUNC(param_)
+{
+  delta_ = plist->get<double>("delta");
+}
+}//cummins
+
+
+
+// double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_heat_test_)
 {
 
   //u[x,y,t]=exp(-2 pi^2 t)sin(pi x)sin(pi y)
@@ -524,8 +577,9 @@ double residual_heat_test_(const boost::ptr_vector<Basis> &basis,
  
   return ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old;
 }
-double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+//double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
+//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_heat_test_)
 {
   //cn probably want to move each of these operations inside of getbasis
   //derivatives of the test function
@@ -553,66 +607,69 @@ double prec_heat_test_(const boost::ptr_vector<Basis> &basis,
   double u_t =test * basis[0].phi[j]/dt_;
   return u_t + t_theta_*divgrad;
 }
-double init_heat_test_(const double &x,
-			 const double &y,
-			 const double &z)
+//double init_heat_test_(const double &x,
+//		 const double &y,
+//		 const double &z)
+INI_FUNC(init_heat_test_)
 {
 
   double pi = 3.141592653589793;
 
   return sin(pi*x)*sin(pi*y);
 }
-double init_zero_(const double &x,
-			 const double &y,
-			 const double &z)
+//double init_zero_(const double &x,
+//		 const double &y,
+//		 const double &z)
+INI_FUNC(init_zero_)
 {
 
   return 0.;
 }
-double nbc_zero_(const Basis *basis,
-		 const int &i, 
-		 const double &dt_, 
-		 const double &t_theta_,
-		 const double &time)
+//double nbc_zero_(const Basis *basis,
+//	 const int &i, 
+//	 const double &dt_, 
+//	 const double &t_theta_,
+//	 const double &time)
+NBC_FUNC(nbc_zero_)
 {
   
   double phi = basis->phi[i];
   
   return 0.*phi;
 }
-double dbc_zero_(const double &x,
-		const double &y,
-		const double &z,
-		const double &t)
-{
-  
-  
+//double dbc_zero_(const double &x,
+//	const double &y,
+//	const double &z,
+//	const double &t)
+DBC_FUNC(dbc_zero_)
+{  
   return 0.;
 }
-double nbc_one_(const Basis *basis,
-		const int &i, 
-		const double &dt_, 
-		const double &t_theta_,
-		const double &time)
+//double nbc_one_(const Basis *basis,
+//	const int &i, 
+//	const double &dt_, 
+//	const double &t_theta_,
+//	const double &time)
+NBC_FUNC(nbc_one_)
 {
   
   double phi = basis->phi[i];
   
   return 1.*phi;
 }
-double dbc_one_(const double &x,
-	       const double &y,
-	       const double &z,
-	       const double &t)
-{
-  
-  
+//double dbc_one_(const double &x,
+//       const double &y,
+//       const double &z,
+//       const double &t)
+DBC_FUNC(dbc_one_)
+{ 
   return 1.;
 }
-double dbc_ten_(const double &x,
-	       const double &y,
-	       const double &z,
-	       const double &t)
+//double dbc_ten_(const double &x,
+//       const double &y,
+//       const double &z,
+//       const double &t)
+DBC_FUNC(dbc_ten_)
 {
   
   
@@ -621,36 +678,31 @@ double dbc_ten_(const double &x,
 	       z,
 	       t);
 }
-double nbc_mone_(const Basis *basis,
-		 const int &i, 
-		 const double &dt_, 
-		 const double &t_theta_,
-		 const double &time)
+//double nbc_mone_(const Basis *basis,
+//	 const int &i, 
+//	 const double &dt_, 
+//	 const double &t_theta_,
+//	 const double &time)
+NBC_FUNC(nbc_mone_)
 {
 
   double phi = basis->phi[i];
 
   return -1.*phi;
 }
-double dbc_mone_(const double &x,
-		const double &y,
-		const double &z,
-		const double &t)
+//double dbc_mone_(const double &x,
+//	const double &y,
+//	const double &z,
+//	const double &t)
+DBC_FUNC(dbc_mone_)
 {
-
-
   return -1.;
 }
 
-double postproc_null_(const double &u)
-{
-  return u;
-}
-
-
-double init_neumann_test_(const double &x,
-			 const double &y,
-			 const double &z)
+//double init_neumann_test_(const double &x,
+//		 const double &y,
+//		 const double &z)
+INI_FUNC(init_neumann_test_)
 {
 
   double pi = 3.141592653589793;
@@ -701,18 +753,20 @@ namespace farzadi
 
 
 
-double init_conc_farzadi_(const double &x,
-			 const double &y,
-			 const double &z)
+  //double init_conc_farzadi_(const double &x,
+  //		 const double &y,
+  //		 const double &z)
+INI_FUNC(init_conc_farzadi_)
 {
 
   double val = -1.;
 
   return val;
 }
-double init_phase_farzadi_(const double &x,
-			 const double &y,
-			 const double &z)
+  //double init_phase_farzadi_(const double &x,
+  //		 const double &y,
+  //		 const double &z)
+INI_FUNC(init_phase_farzadi_)
 {
   double pp = 36.;
   pp = 360.;
@@ -741,9 +795,10 @@ double tscale_(const double &x, const double &time)
   return (t-ts)/dt0;
 }
 
-double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_phase_farzadi_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -767,9 +822,9 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
   double dphidy = basis[1].dudy;
 
   //double theta_ = theta(basis[1].duolddx,basis[1].duolddy);
-  double theta_ = theta(basis[1].dudx,basis[1].dudy);
+  double theta_ = cummins::theta(basis[1].dudx,basis[1].dudy);
 
-  double m = (1+(1-k_)*u)*m_cummins_(theta_, M_, eps_);//cn we probably need u and uold here for CN...
+  double m = (1+(1-k_)*u)*cummins::m_cummins_(theta_, M_, eps_);//cn we probably need u and uold here for CN...
   //double m = m_cummins_(theta_, M_, eps_);//cn we probably need u and uold here for CN...
   //double theta_old = theta(dphidx,dphidy);
   //double mold = (1+(1-k_)*uold)*m_cummins_(theta_old, M_, eps_);
@@ -777,12 +832,12 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
   //double phit = (t_theta_*m+(1.-t_theta_)*mold)*(phi-phiold)/dt_*test;
   //double phit = m*(phi-phiold)/dt_*test;
 
-  double gs2 = gs2_cummins_(theta_, M_, eps_,0.);
+  double gs2 = cummins::gs2_cummins_(theta_, M_, eps_,0.);
   double divgradphi = gs2*(dphidx*dtestdx + dphidy*dtestdy);//(grad u,grad phi)
 
   double phit = (1.+(1.-k_)*u)*gs2*(phi-phiold)/dt_*test;
 
-  double dgdtheta = dgs2_2dtheta_cummins_(theta_, M_, eps_, 0.);	
+  double dgdtheta = cummins::dgs2_2dtheta_cummins_(theta_, M_, eps_, 0.);	
   double dgdpsi = 0.;
   double curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy);//farzadi paper has the sign changed here...
 
@@ -823,9 +878,10 @@ double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
 
 }
 
-double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_conc_farzadi_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -892,8 +948,9 @@ double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
 }
-double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
+  //			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_phase_farzadi_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -924,9 +981,9 @@ double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   double u = basis[0].uu;
 
-  double theta_ = theta(dphidx,dphidy)-theta_0_;
+  double theta_ = cummins::theta(dphidx,dphidy)-theta_0_;
 
-  double gs2 = gs2_cummins_(theta_, M_, eps_,0.);
+  double gs2 = cummins::gs2_cummins_(theta_, M_, eps_,0.);
 
   double m = (1.+(1.-k_)*u)*gs2;
   double phit = m*(basis[1].phi[j])/dt_*test;
@@ -934,15 +991,16 @@ double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis,
 
   double divgrad = gs2*dbasisdx * dtestdx + gs2*dbasisdy * dtestdy;// + gs2*dbasisdz * dtestdz;
 
-  double dg2 = dgs2_2dtheta_cummins_(theta_, M_, eps_,0.);
+  double dg2 = cummins::dgs2_2dtheta_cummins_(theta_, M_, eps_,0.);
   double curlgrad = -dg2*(dtestdy*dphidx -dtestdx*dphidy);
 
   //return phit + t_theta_*divgrad + t_theta_*curlgrad;
 
   return phit  + t_theta_*divgrad;
 }
-double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_conc_farzadi_)
 {
   //cn probably want to move each of these operations inside of getbasis
   //derivatives of the test function
@@ -972,7 +1030,8 @@ double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis,
   double phitu = -.5*(basis[1].uu-basis[1].uuold)/dt_*(1.+(1.-k_)*basis[0].phi[j])*test; 
   return u_t + t_theta_*divgrad + 0.*t_theta_*phitu;
 }
-double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_c_)
 {
 
   double uu = u[0];
@@ -980,7 +1039,8 @@ double postproc_c_(const double *u, const double *gradu, const double *xyz, cons
 
   return -c_inf*(1.+k_-phi+k_*phi)*(-1.-uu+k_*uu)/2./k_;
 }
-double postproc_t_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_t_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_t_)
 {
   // x is in nondimensional space, tscale_ takes in nondimensional and converts to um
   double x = xyz[0];
@@ -989,9 +1049,10 @@ double postproc_t_(const double *u, const double *gradu, const double *xyz, cons
 }
 }//namespace farzadi
 
-double residual_robin_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_robin_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_robin_test_)
 {
   //1-D robin bc test problem, steady state
   // -d^2 u/dx^2 + a^2 u = 0
@@ -1026,8 +1087,9 @@ double residual_robin_test_(const boost::ptr_vector<Basis> &basis,
   return divgradu + au;
 }
 
-double prec_robin_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+//double prec_robin_test_(const boost::ptr_vector<Basis> &basis, 
+//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_robin_test_)
 {
   //cn probably want to move each of these operations inside of getbasis
   //derivatives of the test function
@@ -1057,11 +1119,12 @@ double prec_robin_test_(const boost::ptr_vector<Basis> &basis,
   return u_t + t_theta_*divgrad;
 }
 
-double nbc_robin_test_(const Basis *basis,
-		 const int &i, 
-		 const double &dt_, 
-		 const double &t_theta_,
-		 const double &time)
+//double nbc_robin_test_(const Basis *basis,
+//	 const int &i, 
+//	 const double &dt_, 
+//	 const double &t_theta_,
+//	 const double &time)
+NBC_FUNC(nbc_robin_test_)
 {
 
   double test = basis->phi[i];
@@ -1074,9 +1137,10 @@ double nbc_robin_test_(const Basis *basis,
 
 namespace liniso
 {
-double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_liniso_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -1133,9 +1197,10 @@ double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
  
   return divgradu;
 }
-double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_liniso_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -1192,9 +1257,10 @@ double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
  
   return divgradu;
 }
-double residual_liniso_z_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_liniso_z_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_liniso_z_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -1254,8 +1320,9 @@ double residual_liniso_z_test_(const boost::ptr_vector<Basis> &basis,
 
 
 
-double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_liniso_x_test_)
 {
 
   //cn probably want to move each of these operations inside of getbasis
@@ -1329,8 +1396,9 @@ double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
  
   return divgradu;
 }
-double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_liniso_y_test_)
 {
 
   //cn probably want to move each of these operations inside of getbasis
@@ -1402,8 +1470,9 @@ double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
 
   return divgradu;
 }
-double prec_liniso_z_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_liniso_z_test_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_liniso_z_test_)
 {
 
   //cn probably want to move each of these operations inside of getbasis
@@ -1476,9 +1545,10 @@ double prec_liniso_z_test_(const boost::ptr_vector<Basis> &basis,
 
   return divgradu;
 }
-double residual_linisobodyforce_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_linisobodyforce_y_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_linisobodyforce_y_test_)
 {
   //this is taken from a test that had E=2e11; nu=.3 and body force -1e10 in the y direction;
   //we reuse the test case that has E=1e6 and scale the body force accordingly by 5e-6  
@@ -1488,14 +1558,15 @@ double residual_linisobodyforce_y_test_(const boost::ptr_vector<Basis> &basis,
 
   double bf = -1.e10*5.e-6;
 
-  double divgradu = residual_liniso_y_test_(basis,i,dt_,t_theta_,delta,time) + bf*test;
+  double divgradu = residual_liniso_y_test_(basis,i,dt_,t_theta_,time) + bf*test;
  
   return divgradu;
 }
 
-double residual_linisoheat_x_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_linisoheat_x_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_linisoheat_x_test_)
 {
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
     +basis[0].dphideta[i]*basis[0].detadx
@@ -1505,15 +1576,16 @@ double residual_linisoheat_x_test_(const boost::ptr_vector<Basis> &basis,
   double alpha = 1.e-4;;
   double E = 1.;
 
-  double divgradu = c*residual_liniso_x_test_(basis,i,dt_,t_theta_,delta,time) - alpha*E*gradu*dtestdx;
+  double divgradu = c*residual_liniso_x_test_(basis,i,dt_,t_theta_,time) - alpha*E*gradu*dtestdx;
  
   return divgradu;
 }
 
 
-double residual_linisoheat_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_linisoheat_y_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_linisoheat_y_test_)
 {
   //test function
   double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
@@ -1526,16 +1598,17 @@ double residual_linisoheat_y_test_(const boost::ptr_vector<Basis> &basis,
   double E = 1.;
 
 
-  double divgradu = c*residual_liniso_y_test_(basis,i,dt_,t_theta_,delta,time) - alpha*E*gradu*dtestdy;
+  double divgradu = c*residual_liniso_y_test_(basis,i,dt_,t_theta_,time) - alpha*E*gradu*dtestdy;
  
   return divgradu;
 }
 
 
 
-double residual_linisoheat_z_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_linisoheat_z_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_linisoheat_z_test_)
 {
   double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
     +basis[0].dphideta[i]*basis[0].detadz
@@ -1545,16 +1618,17 @@ double residual_linisoheat_z_test_(const boost::ptr_vector<Basis> &basis,
   double alpha = 1.e-4;
   double E = 1.;
 
-  double divgradu = c*residual_liniso_z_test_(basis,i,dt_,t_theta_,delta,time) - alpha*E*gradu*dtestdz;
+  double divgradu = c*residual_liniso_z_test_(basis,i,dt_,t_theta_,time) - alpha*E*gradu*dtestdz;
  
   return divgradu;
 }
 
 
 
-double residual_divgrad_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_divgrad_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_divgrad_test_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -1613,18 +1687,20 @@ namespace uehara
   double beta = 1.5e-3;
   //double beta = 0.;
   
-double init_heat_(const double &x,
-		   const double &y,
-		   const double &z)
+  //double init_heat_(const double &x,
+  //	   const double &y,
+  //	   const double &z)
+INI_FUNC(init_heat_)
 {
   double val = 400.;  
 
   return val;
 }
 
-double init_phase_(const double &x,
-		   const double &y,
-		   const double &z)
+  //double init_phase_(const double &x,
+  //	   const double &y,
+  //	   const double &z)
+INI_FUNC(init_phase_)
 {
 
   //this is not exactly symmetric on the fine mesh
@@ -1647,9 +1723,10 @@ double init_phase_(const double &x,
 
   return val;
 }
-double init_phase_c_(const double &x,
-		   const double &y,
-		   const double &z)
+  //double init_phase_c_(const double &x,
+  //	   const double &y,
+  //	   const double &z)
+INI_FUNC(init_phase_c_)
 {
 
   //this is not exactly symmetric on the fine mesh
@@ -1673,9 +1750,10 @@ double init_phase_c_(const double &x,
 
   return val;
 }
-double init_heat_seed_(const double &x,
-		   const double &y,
-		   const double &z)
+  //double init_heat_seed_(const double &x,
+  //	   const double &y,
+  //	   const double &z)
+INI_FUNC(init_heat_seed_)
 {
 
   //this is not exactly symmetric on the fine mesh
@@ -1698,9 +1776,10 @@ double init_heat_seed_(const double &x,
 
   return val;
 }
-double init_heat_seed_c_(const double &x,
-		   const double &y,
-		   const double &z)
+  //double init_heat_seed_c_(const double &x,
+  //	   const double &y,
+  //	   const double &z)
+INI_FUNC(init_heat_seed_c_)
 {
 
   //this is not exactly symmetric on the fine mesh
@@ -1725,13 +1804,12 @@ double init_heat_seed_c_(const double &x,
 
   return val;
 }
-double dbc_(const double &x,
-	       const double &y,
-	       const double &z,
-	       const double &t)
-{
-  
-  
+  //double dbc_(const double &x,
+  //       const double &y,
+  //       const double &z,
+  //       const double &t)
+DBC_FUNC(dbc_)
+{  
   return 300.;
 }
 double conv_bc_(const Basis *basis,
@@ -1748,20 +1826,22 @@ double conv_bc_(const Basis *basis,
   
   return h*(uw-u)*test/rho/c;
 }
-double nbc_stress_(const Basis *basis,
-		 const int &i, 
-		 const double &dt_, 
-		 const double &t_theta_,
-		 const double &time)
+  //double nbc_stress_(const Basis *basis,
+  //	 const int &i, 
+  //	 const double &dt_, 
+  //	 const double &t_theta_,
+  //	 const double &time)
+NBC_FUNC(nbc_stress_)
 {
 
   double test = basis->phi[i];
   
   return -alpha*300.*test;
 }
-double residual_phase_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_phase_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_phase_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -1803,9 +1883,10 @@ double residual_phase_(const boost::ptr_vector<Basis> &basis,
 }
 
 
-double residual_stress_x_dt_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_stress_x_dt_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_stress_x_dt_)
 {
   double strain[3];//x,y,yx
 
@@ -1816,9 +1897,10 @@ double residual_stress_x_dt_(const boost::ptr_vector<Basis> &basis,
 
   return stress;
 }
-double residual_stress_y_dt_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_stress_y_dt_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_stress_y_dt_)
 {
   double strain[3];//x,y,z,yx,zy,zx
 
@@ -1829,12 +1911,13 @@ double residual_stress_y_dt_(const boost::ptr_vector<Basis> &basis,
 
   return stress;
 }
-double residual_heat_(const boost::ptr_vector<Basis> &basis, 
-		      const int &i, 
-		      const double &dt_, 
-		      const double &t_theta_, 
-		      const double &delta, 
-		      const double &time)
+// double residual_heat_(const boost::ptr_vector<Basis> &basis, 
+// 		      const int &i, 
+// 		      const double &dt_, 
+// 		      const double &t_theta_, 
+// 		      const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_heat_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -1867,10 +1950,10 @@ double residual_heat_(const boost::ptr_vector<Basis> &basis,
   
   //thermal term
   double stress = test*alpha*u*(residual_stress_x_dt_(basis, 
-						      i, dt_, t_theta_, delta, 
+						      i, dt_, t_theta_,
 						      time)
 				+residual_stress_y_dt_(basis, 
-						       i, dt_, t_theta_, delta, 
+						       i, dt_, t_theta_,
 						       time));
   
 
@@ -1879,9 +1962,10 @@ double residual_heat_(const boost::ptr_vector<Basis> &basis,
   return (ut + rhs)/rho/c;
 
 }
-double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_liniso_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -1930,9 +2014,10 @@ double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
  
   return divgradu;
 }
-double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_liniso_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -1983,9 +2068,10 @@ double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
 
   return divgradu;
 }
-double residual_stress_x_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_stress_x_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_stress_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -2012,9 +2098,10 @@ double residual_stress_x_test_(const boost::ptr_vector<Basis> &basis,
 
   return (stress - sx)*test*dt_/E;
 }
-double residual_stress_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_stress_y_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_stress_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -2039,9 +2126,10 @@ double residual_stress_y_test_(const boost::ptr_vector<Basis> &basis,
 
   return (stress - sy)*test*dt_/E;//(grad u,grad phi)
 }
-double residual_stress_xy_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_stress_xy_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_stress_xy_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -2062,8 +2150,9 @@ double residual_stress_xy_test_(const boost::ptr_vector<Basis> &basis,
 
   return (stress - sxy)*test*dt_/E;//(grad u,grad phi)
 }
-double prec_phase_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_phase_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_phase_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -2093,8 +2182,9 @@ double prec_phase_(const boost::ptr_vector<Basis> &basis,
 
   return (phit + t_theta_*divgrad)/m;
 }
-double prec_heat_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_heat_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_heat_)
 {
   //cn probably want to move each of these operations inside of getbasis
   //derivatives of the test function
@@ -2120,18 +2210,19 @@ double prec_heat_(const boost::ptr_vector<Basis> &basis,
   double test = basis[0].phi[i];
 
   double stress = test*alpha*basis[1].phi[j]*(residual_stress_x_dt_(basis, 
-						      i, dt_, t_theta_, delta, 
+						      i, dt_, t_theta_,
 						      0.)
 				+residual_stress_y_dt_(basis, 
-						       i, dt_, t_theta_, delta, 
+						       i, dt_, t_theta_,
 						       0.));
   double divgrad = k*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t =rho*c*basis[1].phi[j]/dt_*test;
  
   return (u_t + t_theta_*divgrad + stress)/rho/c;
 }
-double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_liniso_x_test_)
 {
 
   //cn probably want to move each of these operations inside of getbasis
@@ -2165,8 +2256,9 @@ double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
   
   return divgradu;
 }
-double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_liniso_y_test_)
 {
 
   //cn probably want to move each of these operations inside of getbasis
@@ -2202,14 +2294,16 @@ double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
   //std::cout<<divgradu<<std::endl;
   return divgradu;
 }
-double prec_stress_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_stress_test_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_stress_test_)
 {
   double test = basis[0].phi[i];
 
   return test * basis[0].phi[j]/dt_*dt_/E;
 }
-double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_stress_x_)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2226,7 +2320,8 @@ double postproc_stress_x_(const double *u, const double *gradu, const double *xy
 
   return c1*strain[0] + c2*strain[1];
 }
-double postproc_stress_xd_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_stress_xd_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_stress_xd_)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2243,7 +2338,8 @@ double postproc_stress_xd_(const double *u, const double *gradu, const double *x
 
   return c1*strain[0] + c2*strain[1];
 }
-double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_stress_y_)
 {
   double strain[2];//x,y,z,yx,zy,zx
   double phi = u[0];
@@ -2257,7 +2353,8 @@ double postproc_stress_y_(const double *u, const double *gradu, const double *xy
 
   return c2*strain[0] + c1*strain[1];
 }
-double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_stress_xy_)
 {
   double phi = u[0];
   if(phi < 0.) phi = 0.;
@@ -2268,7 +2365,8 @@ double postproc_stress_xy_(const double *u, const double *gradu, const double *x
 
   return c3*strain;
 }
-double postproc_stress_eq_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_stress_eq_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_stress_eq_)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2295,7 +2393,8 @@ double postproc_stress_eq_(const double *u, const double *gradu, const double *x
 	       + 3.*stress[2]*stress[2]
 	       );
 }
-double postproc_stress_eqd_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_stress_eqd_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_stress_eqd_)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
@@ -2325,14 +2424,16 @@ double postproc_stress_eqd_(const double *u, const double *gradu, const double *
 //   return (stress[0]+stress[1])/2.
 //     +sqrt((stress[0]-stress[1])*(stress[0]-stress[1])/4.+stress[3]*stress[3]);
 }
-double postproc_phi_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_phi_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_phi_)
 {
   double phi = u[0];
   if(phi < 0.) phi = 0.;
   if(phi > 1.) phi = 1.;
   return phi;
 }
-double postproc_strain_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_strain_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_strain_)
 {
   double phi = u[0];
   double uu = u[1];
@@ -2346,9 +2447,10 @@ double postproc_strain_(const double *u, const double *gradu, const double *xyz,
 
 namespace uehara2
 {
-double init_phase_c_(const double &x,
-		   const double &y,
-		   const double &z)
+  //double init_phase_c_(const double &x,
+  //	   const double &y,
+  //	   const double &z)
+INI_FUNC(init_phase_c_)
 {
   double phi_sol_ = 1.;
   double phi_liq_ = 0.;
@@ -2374,20 +2476,22 @@ double init_phase_c_(const double &x,
   return val;
 }
 
-double init_heat_(const double &x,
-		   const double &y,
-		   const double &z)
+  //double init_heat_(const double &x,
+  //	   const double &y,
+  //	   const double &z)
+INI_FUNC(init_heat_)
 {
   double val = 300.;  
 
   return val;
 }
-double residual_heat_(const boost::ptr_vector<Basis> &basis, 
-		      const int &i, 
-		      const double &dt_, 
-		      const double &t_theta_, 
-		      const double &delta, 
-		      const double &time)
+// double residual_heat_(const boost::ptr_vector<Basis> &basis, 
+// 		      const int &i, 
+// 		      const double &dt_, 
+// 		      const double &t_theta_, 
+// 		      const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_heat_)
 {
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -2420,10 +2524,10 @@ double residual_heat_(const boost::ptr_vector<Basis> &basis,
   
   //thermal term
   double stress = test*uehara::alpha*u*(uehara::residual_stress_x_dt_(basis, 
-						      i, dt_, t_theta_, delta, 
+						      i, dt_, t_theta_, 
 						      time)
 				+uehara::residual_stress_y_dt_(basis, 
-						       i, dt_, t_theta_, delta, 
+						       i, dt_, t_theta_,
 						       time));
   
 
@@ -2457,9 +2561,10 @@ namespace coupledstress
   double c2 = c*nu;
   double c3 = c*(1.-2.*nu)/2.;
 
-double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_liniso_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -2494,9 +2599,10 @@ double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
  
   return divgradu;
 }
-double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_liniso_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -2530,9 +2636,10 @@ double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
 
   return divgradu;
 }
-double residual_stress_x_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_stress_x_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_stress_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -2555,9 +2662,10 @@ double residual_stress_x_test_(const boost::ptr_vector<Basis> &basis,
 
   return (sx - stress[0])*test;
 }
-double residual_stress_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_stress_y_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_stress_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -2579,9 +2687,10 @@ double residual_stress_y_test_(const boost::ptr_vector<Basis> &basis,
 
   return (sy - stress[1])*test;//(grad u,grad phi)
 }
-double residual_stress_xy_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_stress_xy_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_stress_xy_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
   //strong form: sigma = stress  eps = strain
@@ -2603,8 +2712,9 @@ double residual_stress_xy_test_(const boost::ptr_vector<Basis> &basis,
 
   return (sxy - stress[2])*test;//(grad u,grad phi)
 }
-double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_liniso_x_test_)
 {
 
   //cn probably want to move each of these operations inside of getbasis
@@ -2637,8 +2747,9 @@ double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis,
  
   return divgradu;
 }
-double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_liniso_y_test_)
 {
 
   //cn probably want to move each of these operations inside of getbasis
@@ -2672,14 +2783,16 @@ double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis,
 
   return divgradu;
 }
-double prec_stress_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+  //double prec_stress_test_(const boost::ptr_vector<Basis> &basis, 
+  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_stress_test_)
 {
   double test = basis[0].phi[i];
 
   return test * basis[0].phi[j];
 }
-double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_stress_x_)
 {
   //u is u0,u1,...
   //gradu is d0dx,d0dy,d1dx...
@@ -2690,7 +2803,8 @@ double postproc_stress_x_(const double *u, const double *gradu, const double *xy
 
   return c1*strain[0] + c2*strain[1];
 }
-double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_stress_y_)
 {
   double strain[2];//x,y,z,yx,zy,zx
   strain[0] = gradu[0];//var 0 dx
@@ -2698,7 +2812,8 @@ double postproc_stress_y_(const double *u, const double *gradu, const double *xy
 
   return c2*strain[0] + c1*strain[1];
 }
-double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
+//double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_stress_xy_)
 {
   double strain = gradu[1] + gradu[2];
 
@@ -2709,9 +2824,10 @@ double postproc_stress_xy_(const double *u, const double *gradu, const double *x
 
 namespace laplace
 {
-double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
-			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-		      const double &time)
+// double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+RES_FUNC(residual_heat_test_)
 {
 
   //u[x,y,t]=exp(-2 pi^2 t)sin(pi x)sin(pi y)

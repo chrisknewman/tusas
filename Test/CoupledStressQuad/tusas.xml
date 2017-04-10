@@ -9,7 +9,6 @@
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value=".5"/>
   <Parameter name="errorestimator" type="string" value = "{0,1}"/>
-<!--   <Parameter name="method" type="string" value="heat"/> -->
    <Parameter name="noxrelres" type="double" value="1.e-10"/>
    <ParameterList name="ML">
      <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/>

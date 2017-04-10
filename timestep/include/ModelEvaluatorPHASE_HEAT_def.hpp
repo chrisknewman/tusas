@@ -210,20 +210,20 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
     //R_0_ =.1;
     
     //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
+    hp1_ = &cummins::hp1_cummins_;
+    hpp1_ = &cummins::hpp1_cummins_;
+    w_ = &cummins::w_cummins_;
+    m_ = &cummins::m_cummins_;
     //m_ = &m_furtado_;
     rand_phi_ = &rand_phi_furtado_;
     //rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
+    gp1_ = &cummins::gp1_cummins_;
+    gpp1_ = &cummins::gpp1_cummins_;
     //hp2_ = &hp2_cummins_;
     hp2_ = &hp2_furtado_;
 
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+    gs2_ = &cummins::gs2_cummins_;
+    dgs2_2dtheta_ = &cummins::dgs2_2dtheta_cummins_;
   
 
   }else if("cummins" == paramList.get<std::string> (TusastestNameString)){
@@ -238,17 +238,17 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
     R_0_ =.3;
     
     //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
+    hp1_ = &cummins::hp1_cummins_;
+    hpp1_ = &cummins::hpp1_cummins_;
+    w_ = &cummins::w_cummins_;
+    m_ = &cummins::m_cummins_;
     rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
-    hp2_ = &hp2_cummins_;
+    gp1_ = &cummins::gp1_cummins_;
+    gpp1_ = &cummins::gpp1_cummins_;
+    hp2_ = &cummins::hp2_cummins_;
 
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+    gs2_ = &cummins::gs2_cummins_;
+    dgs2_2dtheta_ = &cummins::dgs2_2dtheta_cummins_;
   }else {
 
     D_ = 4.;
@@ -262,17 +262,17 @@ ModelEvaluatorPHASE_HEAT(const Teuchos::RCP<const Epetra_Comm>& comm,
     R_0_ =.3;
     
     //function pointers
-    hp1_ = &hp1_cummins_;
-    hpp1_ = &hpp1_cummins_;
-    w_ = &w_cummins_;
-    m_ = &m_cummins_;
+    hp1_ = &cummins::hp1_cummins_;
+    hpp1_ = &cummins::hpp1_cummins_;
+    w_ = &cummins::w_cummins_;
+    m_ = &cummins::m_cummins_;
     rand_phi_ = &rand_phi_zero_;
-    gp1_ = &gp1_cummins_;
-    gpp1_ = &gpp1_cummins_;
-    hp2_ = &hp2_cummins_;
+    gp1_ = &cummins::gp1_cummins_;
+    gpp1_ = &cummins::gpp1_cummins_;
+    hp2_ = &cummins::hp2_cummins_;
 
-    gs2_ = &gs2_cummins_;
-    dgs2_2dtheta_ = &dgs2_2dtheta_cummins_;
+    gs2_ = &cummins::gs2_cummins_;
+    dgs2_2dtheta_ = &cummins::dgs2_2dtheta_cummins_;
   }
 
 

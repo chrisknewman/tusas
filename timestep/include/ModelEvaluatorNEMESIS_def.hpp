@@ -2675,8 +2675,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     post_proc[0].postprocfunc_ = &farzadi::postproc_c_;
     post_proc.push_back(new post_process(comm_,mesh_,(int)1));
     post_proc[1].postprocfunc_ = &farzadi::postproc_t_;
-						 
 
+    paramfunc_ = farzadi::param_;
+						 
     //exit(0);
   }else {
 

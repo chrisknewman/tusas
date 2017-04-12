@@ -751,11 +751,20 @@ namespace farzadi
   //double d0 = 5.e-9;//m
   double d0 = 5.e-3;//um
 
-
+  //for the farzadiQuad1000x360mmr.e mesh...
+  double pp = 360.;
+  double ll = 40.;
+  double aa = 14.;
 
   //double init_conc_farzadi_(const double &x,
   //		 const double &y,
   //		 const double &z)
+PARAM_FUNC(param_)
+{
+  pp = plist->get<double>("pp");
+  ll = plist->get<double>("ll");
+  aa = plist->get<double>("aa");
+}
 INI_FUNC(init_conc_farzadi_)
 {
 
@@ -763,17 +772,35 @@ INI_FUNC(init_conc_farzadi_)
 
   return val;
 }
+double ff(const double y)
+{
+  return 2.+sin(y*aa*pi/pp);
+}
   //double init_phase_farzadi_(const double &x,
   //		 const double &y,
   //		 const double &z)
 INI_FUNC(init_phase_farzadi_)
 {
-  double pp = 36.;
-  pp = 360.;
+  double val = phi_liq_;
+  double r = ll*(1.+ff(y)*ff(y/2.)*ff(y/4.));
+
+  //r=.9;
+
+  if(x < r){
+    val=phi_sol_;
+  }
+  else {
+    val=phi_liq_;
+  }
+  return val;
+  //return 1.;
+}
+INI_FUNC(init_phase_rand_farzadi_)
+{
   double val = phi_liq_;
   int ri = rand()%(100);//random int between 0 and 100
-  double rd = (double)ri/40.;
-  double r = .5+rd*abs(sin(y*14.*pi/pp));
+  double rd = (double)ri/ll;
+  double r = .5+rd*abs(sin(y*aa*pi/pp));
 
   //r=.9;
 
@@ -839,7 +866,7 @@ RES_FUNC(residual_phase_farzadi_)
 
   double dgdtheta = cummins::dgs2_2dtheta_cummins_(theta_, M_, eps_, 0.);	
   double dgdpsi = 0.;
-  double curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy);//farzadi paper has the sign changed here...
+  double curlgrad = dgdtheta*(-dphidy*dtestdx + dphidx*dtestdy);
 
   double gp1 = -(phi - phi*phi*phi);
   double phidel2 = gp1*test;
@@ -980,23 +1007,26 @@ PRE_FUNC(prec_phase_farzadi_)
   double dphidz = basis[1].dudz;
 
   double u = basis[0].uu;
+  double phi = basis[1].uu;
+
 
   double theta_ = cummins::theta(dphidx,dphidy)-theta_0_;
 
   double gs2 = cummins::gs2_cummins_(theta_, M_, eps_,0.);
 
-  double m = (1.+(1.-k_)*u)*gs2;
+  double m = (1.+(1.-k_)*0.*u)*gs2;
   double phit = m*(basis[1].phi[j])/dt_*test;
-  //phit = (basis[1].phi[j])/dt_*test;
+  //phit = (basis[1].phi[j])*test;
 
   double divgrad = gs2*dbasisdx * dtestdx + gs2*dbasisdy * dtestdy;// + gs2*dbasisdz * dtestdz;
 
-  double dg2 = cummins::dgs2_2dtheta_cummins_(theta_, M_, eps_,0.);
-  double curlgrad = -dg2*(dtestdy*dphidx -dtestdx*dphidy);
+  //double dg2 = cummins::dgs2_2dtheta_cummins_(theta_, M_, eps_,0.);
+  //double curlgrad = dg2*(-dtestdx*dphidy + dtestdy*dphidx );
+  //double t1 = (-1.+3.*phi*phi)*basis[1].phi[j]*test;
+  //double t2 = -4.*lambda*(u + 0.)*(-phi+phi*phi*phi)*basis[1].phi[j]*test;
 
-  //return phit + t_theta_*divgrad + t_theta_*curlgrad;
-
-  return phit  + t_theta_*divgrad;
+  //return phit + t_theta_*(divgrad + 0.*curlgrad + 0.*t1 + 0.*t2);
+  return phit + t_theta_*(divgrad);
 }
   //double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
   //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -1025,10 +1055,29 @@ PRE_FUNC(prec_conc_farzadi_)
     +basis[0].dphidzta[j]*basis[0].dztadz;
   double test = basis[0].phi[i];
   double divgrad = D*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
-  //double divgrad = D/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy);
+
+
+  //double dphidx = basis[1].dudx;
+  //double dphidy = basis[1].dudy;
+  //double norm = sqrt(dphidx*dphidx + dphidy*dphidy);
+  //double small = 1.e-12;
+  //double phi = basis[1].uu;
+  //double phiold = basis[1].uuold;
+  //double j_coef = 0.;
+  //if (small < norm) {
+  // j_coef = (1.+(1.-k_)* basis[0].phi[j])/sqrt(8.)/norm*(phi-phiold)/dt_;
+  //} 
+  ////j_coef = 0.;
+  //double j1 = j_coef*dphidx;
+  //double j2 = j_coef*dphidy;
+  //double divj = j1*dtestdx + j2*dtestdy;
+
+
+
   double u_t =(1.+k_)/2.*test * basis[0].phi[j]/dt_;
-  double phitu = -.5*(basis[1].uu-basis[1].uuold)/dt_*(1.+(1.-k_)*basis[0].phi[j])*test; 
-  return u_t + t_theta_*divgrad + 0.*t_theta_*phitu;
+  //double phitu = -.5*(1.-k_)*basis[0].phi[j]*test*(phi-phiold)/dt_; 
+  //return u_t + t_theta_*(divgrad + 0.*divj + 0.*phitu);
+  return u_t + t_theta_*(divgrad);
 }
 //double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_c_)

@@ -1,0 +1,3 @@
+NODAL VARIABLES all floor 1.e-15
+	!phi relative 1.e-2 floor 1.e-7
+	u

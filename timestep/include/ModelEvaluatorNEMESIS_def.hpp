@@ -1268,15 +1268,20 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   }
   int nt = 0; 
 #pragma omp parallel reduction(+:nt)
+  
   nt += 1;
   //nt = omp_get_num_threads();
+#ifdef _OPENMP
+  int ompmt = 0;
+  ompmt = omp_get_max_threads();
   std::ofstream outfile;
   outfile.open("openmp.dat");
   outfile 	
     <<"mpirank :    "<<mypid<<" omp_get_num_threads() :    "<<nt
-    <<" omp_get_max_threads() :    "<<omp_get_max_threads()<<std::endl;
+    <<" omp_get_max_threads() :    "<<ompmt<<std::endl;
   outfile.close();
-
+#endif
+  
   std::ofstream timefile;
   timefile.open("time.dat");
   Teuchos::TimeMonitor::summarize(timefile);

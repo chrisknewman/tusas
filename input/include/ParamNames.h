@@ -70,10 +70,6 @@ std::string const TusasjfnkDocString = "over ride JFNK solver; probably should n
 std::string const TusasnlsNameString = "Nonlinear Solver";
 /// Nonlinear solver parameters list.
 std::string const TusasnlsDocString = "over ride nonlinear solver parameters";
-/// Delta factor for phasefield.
-std::string const TusasdeltafactorNameString = "deltafactor";
-/// Delta factor for phasefield.
-std::string const TusasdeltafactorDocString = "multiplicaton factor for delta (double): default 0.5";
 /// Create error estimator for this variable.
 std::string const TusaserrorestimatorNameString = "errorestimator";
 /// Create error estimator for this variable.

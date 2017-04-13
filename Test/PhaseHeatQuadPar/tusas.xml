@@ -15,5 +15,9 @@
     <Parameter name="smoother: sweeps" type="int" value="2"/>
   </ParameterList>
 
+   <ParameterList name="ProblemParams">
+     <Parameter name="delta" type="double" value=".015"/>
+   </ParameterList>
+
 </ParameterList>
 

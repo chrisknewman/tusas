@@ -52,8 +52,6 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasrestartNameString,(bool)false,TusasrestartDocString);
 
-  paramList.set(TusasdeltafactorNameString,(double) .5,TusasdtDocString);
-
   paramList.set(TusaserrorestimatorNameString,"{}",TusaserrorestimatorDocString);
 
   //ML parameters

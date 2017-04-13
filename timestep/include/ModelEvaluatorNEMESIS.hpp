@@ -193,7 +193,6 @@ private: // data members
 			    const int &i, 
 			    const double &dt_, 
 			    const double &t_theta_, 
-			    const double &delta, 
 			    const double &time);
 
   std::vector<RESFUNC> *residualfunc_;
@@ -202,8 +201,7 @@ private: // data members
 			    const int &i,  
 			    const int &j,
 			    const double &dt_, 
-			    const double &t_theta_, 
-			    const double &delta);
+			    const double &t_theta_);
 
   std::vector<PREFUNC> *preconfunc_;
 
@@ -229,6 +227,10 @@ private: // data members
 			    const double &time);
 
   std::vector<std::map<int,NBCFUNC>> *neumannfunc_;
+
+  typedef void (*PARAMFUNC)(Teuchos::ParameterList *plist);
+
+  PARAMFUNC paramfunc_;
   
   //post process stuff
   //cn need this to be a function of all variables eventually

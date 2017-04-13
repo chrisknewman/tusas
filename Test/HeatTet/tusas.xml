@@ -9,7 +9,6 @@
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="1."/>
   <Parameter name="outputfreq" type="int" value = "5"/>
-<!--    <Parameter name="method" type="string" value="heat"/>> -->
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
 
 </ParameterList>

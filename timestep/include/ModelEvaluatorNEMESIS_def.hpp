@@ -2678,6 +2678,38 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     paramfunc_ = farzadi::param_;
 						 
     //exit(0);
+  }else if("cahnhilliard" == paramList.get<std::string> (TusastestNameString)){
+    //std::cout<<"cahnhilliard"<<std::endl;
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cahnhilliard::init_c_;
+    (*initfunc_)[1] = &cahnhilliard::init_mu_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &cahnhilliard::residual_c_;
+    (*residualfunc_)[1] = &cahnhilliard::residual_mu_;
+
+    preconfunc_ = NULL;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "mu";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    (*dirichletfunc_)[0][1] = &dbc_zero_;
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+    (*dirichletfunc_)[1][1] = &dbc_zero_;
+    (*dirichletfunc_)[1][3] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+
+    //exit(0);
   }else {
 
     D_ = 4.;

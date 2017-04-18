@@ -1,0 +1,9 @@
+#!/bin/bash
+rm -rf results.e
+mpirun -np 4 $1/tusas --input-file=tusas.xml
+if [[ $OSTYPE == "darwin15" ]]; then
+    ../exodiff Gold.e results.e
+else
+    ###../exodiff Gold.e results.e
+    ../exodiff Gold.e results.e
+fi

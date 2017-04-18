@@ -1,0 +1,23 @@
+<ParameterList>
+	
+<!-- simulation parameters -->
+
+  <Parameter name="dt" type="double" value=".1"/>
+  <Parameter name="nt" type="int" value = "6"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/triQ96.e"/>
+  <Parameter name="testcase" type="string" value="cahnhilliard"/>
+  <Parameter name="preconditioner" type="bool" value = "false"/>
+  <Parameter name="theta" type="double" value="1.0"/>
+  <Parameter name="outputfreq" type="int" value = "3"/>
+  <Parameter name="noxrelres" type="double" value="1.e-7"/>
+  <ParameterList name="ML">
+     <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/>
+    <Parameter name="smoother: sweeps" type="int" value="2"/>
+  </ParameterList>
+
+<!--    <ParameterList name="ProblemParams"> -->
+<!--      <Parameter name="delta" type="double" value=".015"/> -->
+<!--    </ParameterList> -->
+
+</ParameterList>
+

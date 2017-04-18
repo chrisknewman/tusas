@@ -2904,4 +2904,95 @@ RES_FUNC(residual_heat_test_)
   return divgradu - 8.*test;
 }
 }//namespace laplace
+
+namespace cahnhilliard
+{
+  double M = 1.;
+  double Eps = 1.;
+  double alpha = 1.;//alpha >= 1
+  double pi = 3.141592653589793;
+
+double F(const double &x,const double &t)
+{
+// Sin(a*Pi*x) 
+//  - M*(Power(a,2)*Power(Pi,2)*(1 + t)*Sin(a*Pi*x) - Power(a,4)*Ep*Power(Pi,4)*(1 + t)*Sin(a*Pi*x) + 
+//       6*Power(a,2)*Power(Pi,2)*Power(1 + t,3)*Power(Cos(a*Pi*x),2)*Sin(a*Pi*x) - 
+//       3*Power(a,2)*Power(Pi,2)*Power(1 + t,3)*Power(Sin(a*Pi*x),3))
+
+  double a = alpha;
+  return sin(a*pi*x) 
+    - M*(std::pow(a,2)*std::pow(pi,2)*(1 + t)*sin(a*pi*x) - std::pow(a,4)*Eps*std::pow(pi,4)*(1 + t)*sin(a*pi*x) + 
+	 6*std::pow(a,2)*std::pow(pi,2)*std::pow(1 + t,3)*std::pow(cos(a*pi*x),2)*sin(a*pi*x) - 
+	 3*std::pow(a,2)*std::pow(pi,2)*std::pow(1 + t,3)*std::pow(sin(a*pi*x),3));
+}
+double fp(const double &u)
+{
+  return u*u*u - u;
+}
+
+INI_FUNC(init_c_)
+{
+  return sin(alpha*pi*x);
+}
+
+INI_FUNC(init_mu_)
+{
+  //-Sin[a \[Pi] x] + a^2 \[Pi]^2 Sin[a \[Pi] x] + Sin[a \[Pi] x]^3
+  return -sin(alpha*pi*x) + alpha*alpha*pi*pi*sin(alpha*pi*x) + sin(alpha*pi*x)*sin(alpha*pi*x)*sin(alpha*pi*x);
+}
+
+RES_FUNC(residual_c_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[0].phi[i];
+  double c = basis[0].uu;
+  double cold = basis[0].uuold;
+  double mu = basis[1].uu;
+  double x = basis[0].xx;
+
+  double ct = (c - cold)/dt_*test;
+  double divgradmu = M*t_theta_*(basis[1].dudx*dtestdx + basis[1].dudy*dtestdy + basis[1].dudz*dtestdz)
+    + M*(1.-t_theta_)*(basis[1].duolddx*dtestdx + basis[1].duolddy*dtestdy + basis[1].duolddz*dtestdz);
+  double f = t_theta_*F(x,time)*test + (1.-t_theta_)*F(x,time-dt_)*test;
+
+  return ct + divgradmu - f;
+}
+
+RES_FUNC(residual_mu_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[1].dphidxi[i]*basis[1].dxidx
+    +basis[1].dphideta[i]*basis[1].detadx
+    +basis[1].dphidzta[i]*basis[1].dztadx;
+  double dtestdy = basis[1].dphidxi[i]*basis[1].dxidy
+    +basis[1].dphideta[i]*basis[1].detady
+    +basis[1].dphidzta[i]*basis[1].dztady;
+  double dtestdz = basis[1].dphidxi[i]*basis[1].dxidz
+    +basis[1].dphideta[i]*basis[1].detadz
+    +basis[1].dphidzta[i]*basis[1].dztadz;
+  //test function
+  double test = basis[1].phi[i];
+  double c = basis[0].uu;
+  double mu = basis[1].uu;
+
+  double mut = mu*test;
+  double f = fp(c)*test;
+  double divgradc = Eps*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);
+
+  return mut - f - divgradc;
+}
+
+
+
+}//namespace cahnhilliard
 #endif

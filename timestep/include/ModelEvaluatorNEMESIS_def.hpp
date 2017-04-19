@@ -2708,6 +2708,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*dirichletfunc_)[1][3] = &dbc_zero_;
 
     neumannfunc_ = NULL;
+    paramfunc_ = cahnhilliard::param_;
 
     //exit(0);
   }else {

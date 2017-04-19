@@ -2911,6 +2911,7 @@ namespace cahnhilliard
   double Eps = 1.;
   double alpha = 1.;//alpha >= 1
   double pi = 3.141592653589793;
+  double fcoef_ = 0.;
 
 double F(const double &x,const double &t)
 {
@@ -2963,7 +2964,7 @@ RES_FUNC(residual_c_)
   double ct = (c - cold)/dt_*test;
   double divgradmu = M*t_theta_*(basis[1].dudx*dtestdx + basis[1].dudy*dtestdy + basis[1].dudz*dtestdz)
     + M*(1.-t_theta_)*(basis[1].duolddx*dtestdx + basis[1].duolddy*dtestdy + basis[1].duolddz*dtestdz);
-  double f = t_theta_*F(x,time)*test + (1.-t_theta_)*F(x,time-dt_)*test;
+  double f = t_theta_*fcoef_*F(x,time)*test + (1.-t_theta_)*fcoef_*F(x,time-dt_)*test;
 
   return ct + divgradmu - f;
 }
@@ -2990,6 +2991,10 @@ RES_FUNC(residual_mu_)
   double divgradc = Eps*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);
 
   return mut - f - divgradc;
+}
+PARAM_FUNC(param_)
+{
+  fcoef_ = plist->get<double>("fcoef");
 }
 
 

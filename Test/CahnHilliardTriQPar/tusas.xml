@@ -13,11 +13,11 @@
   <ParameterList name="ML">
      <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/>
     <Parameter name="smoother: sweeps" type="int" value="2"/>
+  </ParameterList>   
+  
+  <ParameterList name="ProblemParams">
+     <Parameter name="fcoef" type="double" value="1."/>
   </ParameterList>
-
-<!--    <ParameterList name="ProblemParams"> -->
-<!--      <Parameter name="delta" type="double" value=".015"/> -->
-<!--    </ParameterList> -->
 
 </ParameterList>
 

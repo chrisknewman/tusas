@@ -193,7 +193,8 @@ private: // data members
 			    const int &i, 
 			    const double &dt_, 
 			    const double &t_theta_, 
-			    const double &time);
+			    const double &time,
+			    const int &eqn_id);
 
   std::vector<RESFUNC> *residualfunc_;
 
@@ -201,13 +202,15 @@ private: // data members
 			    const int &i,  
 			    const int &j,
 			    const double &dt_, 
-			    const double &t_theta_);
+			    const double &t_theta_,
+			    const int &eqn_id);
 
   std::vector<PREFUNC> *preconfunc_;
 
   typedef double (*INITFUNC)(const double &x,
 			     const double &y,
-			     const double &z);
+			     const double &z,
+			     const int &eqn_id);
 
   std::vector<INITFUNC> *initfunc_;
 

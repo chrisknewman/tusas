@@ -512,7 +512,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		for( int k = 0; k < numeqs_; k++ ){
 		  int row1 = row + k;
 		  double jacwt = basis[0].jac * basis[0].wt;
-		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_);
+		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_,k);
 
 #ifdef TUSAS_COLOR
 		  if(f_owned_map_->MyGID(row1)){
@@ -637,7 +637,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		    int row1 = row + k;
 		    int column1 = column + k;
 		    double jacwt = basis[0].jac * basis[0].wt;
-		    double val = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_);
+		    double val = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,k);
 		    
 #ifdef TUSAS_COLOR
 		    if(f_owned_map_->MyGID(row1) && f_owned_map_->MyGID(column1)){
@@ -1451,7 +1451,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
       double y = mesh_->get_y(lid_overlap);
       double z = mesh_->get_z(lid_overlap);
       
-      (*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z);
+      (*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
     }
 
   }
@@ -2711,6 +2711,54 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     paramfunc_ = cahnhilliard::param_;
 
     //exit(0);
+  }else if("grain" == paramList.get<std::string> (TusastestNameString)){
+
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    numeqs_ = problemList->get<int>("numgrain");
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    for( int k = 0; k < numeqs_; k++ )(*initfunc_)[k] = &grain::init_;
+//     (*initfunc_)[0] = &grain::init_;
+//     (*initfunc_)[1] = &grain::init_;
+//     (*initfunc_)[2] = &grain::init_;
+//     (*initfunc_)[3] = &grain::init_;
+//     (*initfunc_)[4] = &grain::init_;
+//     (*initfunc_)[5] = &grain::init_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    for( int k = 0; k < numeqs_; k++ )(*residualfunc_)[k] = &grain::residual_;
+//     (*residualfunc_)[0] = &grain::residual_;
+//     (*residualfunc_)[1] = &grain::residual_;
+//     (*residualfunc_)[2] = &grain::residual_;
+//     (*residualfunc_)[3] = &grain::residual_;
+//     (*residualfunc_)[4] = &grain::residual_;
+//     (*residualfunc_)[5] = &grain::residual_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    for( int k = 0; k < numeqs_; k++ )(*preconfunc_)[k] = &grain::prec_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    for( int k = 0; k < numeqs_; k++ ) (*varnames_)[k] = "n"+std::to_string(k);
+
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &grain::postproc_;
+
+    paramfunc_ = grain::param_;
+
+
+
+
+
+
+
+
   }else {
 
     D_ = 4.;

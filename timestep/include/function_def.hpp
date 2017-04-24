@@ -20,17 +20,20 @@
                                     const int &i,\
                                     const double &dt_,\
 			            const double &t_theta_,\
-                                    const double &time)
+                                    const double &time,\
+				    const int &eqn_id)
 
 #define PRE_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
                                     const int &i,\
 				    const int &j,\
 				    const double &dt_,\
-				    const double &t_theta_)
+				    const double &t_theta_,\
+				    const int &eqn_id)
 
 #define INI_FUNC(NAME)  double NAME(const double &x,\
 			            const double &y,\
-			            const double &z) 
+			            const double &z,\
+				    const int &eqn_id) 
 
 #define DBC_FUNC(NAME)  double NAME(const double &x,\
 			            const double &y,\
@@ -196,15 +199,15 @@ namespace cummins
 RES_FUNC(residual_heat_)
 {
   //derivatives of the test function
-  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
-    +basis[0].dphideta[i]*basis[0].detadx
-    +basis[0].dphidzta[i]*basis[0].dztadx;
-  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
-    +basis[0].dphideta[i]*basis[0].detady
-    +basis[0].dphidzta[i]*basis[0].dztady;
-  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
-    +basis[0].dphideta[i]*basis[0].detadz
-    +basis[0].dphidzta[i]*basis[0].dztadz;
+  double dtestdx = basis[eqn_id].dphidxi[i]*basis[eqn_id].dxidx
+    +basis[eqn_id].dphideta[i]*basis[eqn_id].detadx
+    +basis[eqn_id].dphidzta[i]*basis[eqn_id].dztadx;
+  double dtestdy = basis[eqn_id].dphidxi[i]*basis[eqn_id].dxidy
+    +basis[eqn_id].dphideta[i]*basis[eqn_id].detady
+    +basis[eqn_id].dphidzta[i]*basis[eqn_id].dztady;
+  double dtestdz = basis[eqn_id].dphidxi[i]*basis[eqn_id].dxidz
+    +basis[eqn_id].dphideta[i]*basis[eqn_id].detadz
+    +basis[eqn_id].dphidzta[i]*basis[eqn_id].dztadz;
   //test function
   double test = basis[0].phi[i];
   //u, phi
@@ -1607,7 +1610,7 @@ RES_FUNC(residual_linisobodyforce_y_test_)
 
   double bf = -1.e10*5.e-6;
 
-  double divgradu = residual_liniso_y_test_(basis,i,dt_,t_theta_,time) + bf*test;
+  double divgradu = residual_liniso_y_test_(basis,i,dt_,t_theta_,time,eqn_id) + bf*test;
  
   return divgradu;
 }
@@ -1625,7 +1628,7 @@ RES_FUNC(residual_linisoheat_x_test_)
   double alpha = 1.e-4;;
   double E = 1.;
 
-  double divgradu = c*residual_liniso_x_test_(basis,i,dt_,t_theta_,time) - alpha*E*gradu*dtestdx;
+  double divgradu = c*residual_liniso_x_test_(basis,i,dt_,t_theta_,time,eqn_id) - alpha*E*gradu*dtestdx;
  
   return divgradu;
 }
@@ -1647,7 +1650,7 @@ RES_FUNC(residual_linisoheat_y_test_)
   double E = 1.;
 
 
-  double divgradu = c*residual_liniso_y_test_(basis,i,dt_,t_theta_,time) - alpha*E*gradu*dtestdy;
+  double divgradu = c*residual_liniso_y_test_(basis,i,dt_,t_theta_,time,eqn_id) - alpha*E*gradu*dtestdy;
  
   return divgradu;
 }
@@ -1667,7 +1670,7 @@ RES_FUNC(residual_linisoheat_z_test_)
   double alpha = 1.e-4;
   double E = 1.;
 
-  double divgradu = c*residual_liniso_z_test_(basis,i,dt_,t_theta_,time) - alpha*E*gradu*dtestdz;
+  double divgradu = c*residual_liniso_z_test_(basis,i,dt_,t_theta_,time,eqn_id) - alpha*E*gradu*dtestdz;
  
   return divgradu;
 }
@@ -2000,10 +2003,10 @@ RES_FUNC(residual_heat_)
   //thermal term
   double stress = test*alpha*u*(residual_stress_x_dt_(basis, 
 						      i, dt_, t_theta_,
-						      time)
+						      time, eqn_id)
 				+residual_stress_y_dt_(basis, 
 						       i, dt_, t_theta_,
-						       time));
+						       time, eqn_id));
   
 
   double rhs = divgradu + phitu + stress;
@@ -2260,10 +2263,10 @@ PRE_FUNC(prec_heat_)
 
   double stress = test*alpha*basis[1].phi[j]*(residual_stress_x_dt_(basis, 
 						      i, dt_, t_theta_,
-						      0.)
+								    0.,0)
 				+residual_stress_y_dt_(basis, 
 						       i, dt_, t_theta_,
-						       0.));
+						       0.,0));
   double divgrad = k*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t =rho*c*basis[1].phi[j]/dt_*test;
  
@@ -2574,10 +2577,10 @@ RES_FUNC(residual_heat_)
   //thermal term
   double stress = test*uehara::alpha*u*(uehara::residual_stress_x_dt_(basis, 
 						      i, dt_, t_theta_, 
-						      time)
+						      time, eqn_id)
 				+uehara::residual_stress_y_dt_(basis, 
 						       i, dt_, t_theta_,
-						       time));
+						       time, eqn_id));
   
 
   double rhs = divgradu + phitu + stress;
@@ -3000,4 +3003,98 @@ PARAM_FUNC(param_)
 
 
 }//namespace cahnhilliard
+
+namespace grain
+{
+  double L = 1.;
+  double alpha = 1.;
+  double beta = 1.;
+  double gamma = 1.;
+  double kappa = 2.;
+
+  int N = 6;
+
+  double pi = 3.141592653589793;
+
+  double r(const double &x,const int &n){
+    return sin(64./512.*x*n*pi);
+  }
+
+PARAM_FUNC(param_)
+{
+  N = plist->get<int>("numgrain");
+}
+
+INI_FUNC(init_)
+{
+  //  return .001*r(x,eqn_id)*r(x,N-eqn_id)*(y,eqn_id)*r(y,N-eqn_id);
+  return ((rand() % 100)/50.-1.)*.001;
+}
+RES_FUNC(residual_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+
+  double u = basis[eqn_id].uu;
+  double uold = basis[eqn_id].uuold;
+
+  double divgradu = kappa*(basis[eqn_id].dudx*dtestdx + basis[eqn_id].dudy*dtestdy + basis[eqn_id].dudz*dtestdz);
+
+  double s = 0.;
+  for(int j = 0; j < N; j++){
+    s = s + basis[j].uu*basis[j].uu;
+  }
+  s = s - u*u;
+
+  return (u-uold)/dt_ + L* (-alpha*u + beta*u*u*u +2.*gamma*u*s)*test + divgradu; 
+
+}
+PRE_FUNC(prec_)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  double divgrad = L*kappa*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  double u_t =test * basis[0].phi[j]/dt_;
+  double alphau = -test*L*alpha*basis[0].phi[j];
+  return u_t + 0.*alphau + divgrad;
+}
+PPR_FUNC(postproc_)
+{
+  double s =0.;
+  for(int j = 0; j < N; j++){
+    s = s + u[j]*u[j];
+  }
+
+  return s;
+}
+}//namespace grain
 #endif

@@ -3055,7 +3055,7 @@ RES_FUNC(residual_)
   }
   s = s - u*u;
 
-  return (u-uold)/dt_ + L* (-alpha*u + beta*u*u*u +2.*gamma*u*s)*test + divgradu; 
+  return (u-uold)/dt_ + L* ((-alpha*u + beta*u*u*u +2.*gamma*u*s)*test +  divgradu); 
 
 }
 PRE_FUNC(prec_)

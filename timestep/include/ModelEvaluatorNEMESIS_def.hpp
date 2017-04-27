@@ -1432,13 +1432,6 @@ template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
 {
   srand(123);
-  Teuchos::ParameterList *problemList;
-  problemList = &paramList.sublist ( "ProblemParams", false );
-
-  if ( NULL != paramfunc_ ){
-    paramfunc_(problemList);
-  }
-
 
   for( int k = 0; k < numeqs_; k++ ){
 #pragma omp parallel for
@@ -2853,6 +2846,16 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     std::cout<<"set_test_case ended"<<std::endl;
   }
+    
+  //set the params in the test case now...
+  Teuchos::ParameterList *problemList;
+  problemList = &paramList.sublist ( "ProblemParams", false );
+  
+  if ( NULL != paramfunc_ ){
+    
+    paramfunc_(problemList);
+  }
+  
 
 }
 template<class Scalar>

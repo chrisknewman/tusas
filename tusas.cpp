@@ -139,6 +139,8 @@ int main(int argc, char *argv[])
 
   model->finalize();
   
+  Comm.Barrier();
+
   if(1 != numproc ) join(mypid, numproc);
 
   Teuchos::TimeMonitor::summarize();

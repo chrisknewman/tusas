@@ -1,0 +1,6 @@
+#!/bin/bash
+rm -rf results.e
+rm -rf decomp
+cp -r decomp_gold decomp
+mpirun -np 4 $1/tusas --input-file=tusas.xml --restart
+../exodiff Gold.e results.e

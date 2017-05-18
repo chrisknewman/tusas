@@ -1,0 +1,19 @@
+<ParameterList>
+	
+<!-- simulation parameters -->
+
+  <Parameter name="dt" type="double" value=".001"/>
+  <Parameter name="nt" type="int" value = "10"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/dendquad300_q.e"/>
+  <Parameter name="testcase" type="string" value="cummins"/>
+  <Parameter name="preconditioner" type="bool" value = "true"/>
+  <Parameter name="theta" type="double" value="0.5"/>
+  <Parameter name="outputfreq" type="int" value = "1"/>   
+  <ParameterList name="ProblemParams">
+    <Parameter name="delta" type="double" value=".015"/>
+  </ParameterList>
+
+<!--   <Parameter name="method" type="string" value="nemesis"/> -->
+<!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+
+</ParameterList>

@@ -1087,7 +1087,7 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   time_ +=dt_;
   //update_mesh_data();
   //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
-  if((paramList.get<std::string> (TusastestNameString)=="cummins")){
+  if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1== comm_->NumProc())){
     find_vtip();
   }
 
@@ -1103,7 +1103,7 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
 }
 
 template<class Scalar>
-void ModelEvaluatorNEMESIS<Scalar>::initialize()
+  void ModelEvaluatorNEMESIS<Scalar>::initialize()
 {
   if( 0 == comm_->MyPID()) std::cout<<std::endl<<"inititialize started"<<std::endl<<std::endl;
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
@@ -1163,7 +1163,7 @@ void ModelEvaluatorNEMESIS<Scalar>::initialize()
     write_exodus();
     
     //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
-    if((paramList.get<std::string> (TusastestNameString)=="cummins") ){
+    if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1== comm_->NumProc()) ){
       init_vtip();
     }
   }
@@ -1188,7 +1188,8 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   int mypid = comm_->MyPID();
   int numproc = comm_->NumProc();
 
- 
+  bool dorestart = paramList.get<bool> (TusasrestartNameString);
+
   //update_mesh_data();
    
   //mesh_->write_exodus(ex_id_,2,time_);
@@ -1204,8 +1205,8 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
        .getEntryPtr("Total Number of Linear Iterations") != NULL)
     ngmres = ((solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
 	      .getEntry("Total Number of Linear Iterations")).getValue(&ngmres);
-  if( 0 == mypid){
-    int numstep = paramList.get<int> (TusasntNameString);
+  if( 0 == mypid ){
+    int numstep = paramList.get<int> (TusasntNameString) - this->start_step;
     std::cout<<std::endl
 	     <<"Total number of Newton iterations:     "<<nnewt_<<std::endl
 	     <<"Total number of GMRES iterations:      "<<ngmres<<std::endl 
@@ -1213,7 +1214,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
 	     <<"Average number of Newton per Timestep: "<<(float)nnewt_/(float)(numstep)<<std::endl
 	     <<"Average number of GMRES per Newton:    "<<(float)ngmres/(float)nnewt_<<std::endl
 	     <<"Average number of GMRES per Timestep:  "<<(float)ngmres/(float)(numstep)<<std::endl;
-    
+    if( dorestart ) std::cout<<"============THIS IS A RESTARTED RUN============"<<std::endl;
     std::ofstream outfile;
     outfile.open("jfnk.dat");
     outfile 
@@ -1222,7 +1223,8 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
       <<"Total number of Timesteps:             "<<numstep<<std::endl
       <<"Average number of Newton per Timestep: "<<(float)nnewt_/(float)(numstep)<<std::endl
       <<"Average number of GMRES per Newton:    "<<(float)ngmres/(float)nnewt_<<std::endl
-      <<"Average number of GMRES per Timestep:  "<<(float)ngmres/(float)(numstep)<<std::endl; 	
+      <<"Average number of GMRES per Timestep:  "<<(float)ngmres/(float)(numstep)<<std::endl; 
+    if( dorestart ) outfile<<"============THIS IS A RESTARTED RUN============"<<std::endl;	
     outfile.close();
   }
   int nt = 0;
@@ -1246,7 +1248,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   Teuchos::TimeMonitor::summarize(timefile);
   
   //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
-  if((paramList.get<std::string> (TusastestNameString)=="cummins") ){
+  if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1== comm_->NumProc())){
     finalize_vtip();
   }
 
@@ -1770,14 +1772,6 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
     //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
     
     std::string mypidstring;
-#if 0
-    if ( numproc > 9 && mypid < 10 ){
-      mypidstring = std::to_string(0)+std::to_string(mypid);
-    }
-    else{
-      mypidstring = std::to_string(mypid);
-    }
-#endif
 
     if( numproc < 10 ){
       mypidstring = std::to_string(mypid);
@@ -1808,15 +1802,14 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
 	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
 	}
 	else if ( mypid > 99 && mypid < 1000 ){
-      mypidstring = std::to_string(0)+std::to_string(mypid);
+	  mypidstring = std::to_string(0)+std::to_string(mypid);
 	}
 	else{
 	  mypidstring = std::to_string(mypid);
 	}
       }
     }
-    
-    
+     
     std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
     ex_id_ = mesh_->open_exodus(pfile.c_str());
     
@@ -1847,6 +1840,8 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
     std::cout<<"Error obtaining restart last time"<<std::endl;
     exit(0);
   }
+
+#if 0
   int step_old = step - 1;
   double time_old = -99.99;
   error = mesh_->read_time_exodus(ex_id_, step_old, time_old);
@@ -1863,21 +1858,24 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
     std::cout<<"Error dt_ = "<<dt_<<"; time - time_old = "<<time - time_old<<std::endl;
     //exit(0);
   }
+#endif
 
-  double inputu[num_nodes_];
-  double inputphi[num_nodes_];
+  std::vector<std::vector<double>> inputu(numeqs_,std::vector<double>(num_nodes_));
 
-  error = mesh_->read_nodal_data_exodus(ex_id_,step,1,inputu);
-  if( 0 > error ) {
-    std::cout<<"Error reading u at step "<<step<<std::endl;
-    exit(0);
-  }
-  error = mesh_->read_nodal_data_exodus(ex_id_,step,2,inputphi);
-  if( 0 > error ) {
-    std::cout<<"Error reading phi at step "<<step<<std::endl;
-    exit(0);
+  for( int k = 0; k < numeqs_; k++ ){
+    int ex_index = k+1;
+    error = mesh_->read_nodal_data_exodus(ex_id_,step,ex_index,&inputu[k][0]);
+    if( 0 > error ) {
+      std::cout<<"Error reading u at step "<<step<<std::endl;
+      exit(0);
+    }
   }
 
+  //cn for now just put current values into old values, 
+  //cn ie just start with an initial condition
+
+  //cn lets not worry about two different time steps for normal simulations
+#if 0
   for (int nn=0; nn < num_nodes_; nn++) {
     (*u)[numeqs_*nn] = inputu[nn];
     (*u)[numeqs_*nn+1] = inputphi[nn];
@@ -1893,18 +1891,21 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
     std::cout<<"Error reading phi at step "<<step_old<<std::endl;
     exit(0);
   }
+#endif
 
-  for (int nn=0; nn < num_nodes_; nn++) {
-    (*u_old)[numeqs_*nn] = inputu[nn];
-    (*u_old)[numeqs_*nn+1] = inputphi[nn];
+  //cn do we need node id here????
+  for( int k = 0; k < numeqs_; k++ ){
+    for (int nn=0; nn < num_my_nodes_; nn++) {
+      (*u)[numeqs_*nn+k] = inputu[k][nn];//cn this is currently segfaulting
+      (*u_old)[numeqs_*nn+k] = inputu[k][nn];
+    }
   }
-
   this->start_time = time;
   this->start_step = step-1;
   time_=time;
   output_step_ = step+1;
-  //u->Print(std::cout);
-
+  //   u->Print(std::cout);
+  //   exit(0);
   if( 0 == mypid ){
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }

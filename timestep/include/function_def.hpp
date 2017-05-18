@@ -3050,8 +3050,8 @@ RES_FUNC(residual_)
   double divgradu = kappa*(basis[eqn_id].dudx*dtestdx + basis[eqn_id].dudy*dtestdy + basis[eqn_id].dudz*dtestdz);
 
   double s = 0.;
-  for(int j = 0; j < N; j++){
-    s = s + basis[j].uu*basis[j].uu;
+  for(int k = 0; k < N; k++){
+    s = s + basis[k].uu*basis[k].uu;
   }
   s = s - u*u;
 
@@ -3081,11 +3081,24 @@ PRE_FUNC(prec_)
   double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
     +basis[0].dphideta[j]*basis[0].detadz
     +basis[0].dphidzta[j]*basis[0].dztadz;
+
+  double u = basis[eqn_id].uu;
+  
   double test = basis[0].phi[i];
   double divgrad = L*kappa*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t =test * basis[0].phi[j]/dt_;
   double alphau = -test*L*alpha*basis[0].phi[j];
-  return u_t + 0.*alphau + divgrad;
+  double betau = 3.*u*u*basis[0].phi[j]*test*L*beta;
+
+  double s = 0.;
+  for(int k = 0; k < N; k++){
+    s = s + basis[k].uu*basis[k].uu;
+  }
+  s = s - u*u;
+
+  double gammau = 2.*gamma*L*basis[0].phi[j]*s*test;
+
+  return u_t + divgrad + betau + gammau;// + alphau ;
 }
 PPR_FUNC(postproc_)
 {

@@ -1,5 +1,0 @@
-Input FEM file		= ../../meshes/dendquad300_q.e
-LB file         	= decomp/tusas_nemesis.nemI
-Restart Time list	= off
-Parallel Disk Info	= number=4
-Parallel file location	= root=./decomp/, subdir=.

@@ -14,8 +14,6 @@
 
 #include <iostream>
 
-//#define TUSAS_HAVE_MKL
-
 #ifdef TUSAS_HAVE_ACML
 #include "acml.h"
 #elif defined TUSAS_HAVE_MKL
@@ -42,11 +40,13 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 {
   int blk = 0;
   std::string elem_type=mesh_->get_blk_elem_type(blk);
-  bool quad_type = (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad"));
-  bool tri_type= (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"));
+  bool quad_type = (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) 
+    || (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9"));
+  bool tri_type= (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3")) || (0==elem_type.compare("tri")); 
+//     || (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6"));
  
   if( !(quad_type || tri_type) ){ // linear quad
-    if( 0 == comm_->MyPID() )std::cout<<"Error estimator only supports bilinear quad and tri element types at this time."<<std::endl
+    if( 0 == comm_->MyPID() )std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl
 	     <<elem_type<<" not supported."<<std::endl;
     exit(0);
   }
@@ -97,13 +97,13 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_grad= Teuchos::TimeMonitor::getNewTimer("Total Gradient Est Time");
   ts_time_error= Teuchos::TimeMonitor::getNewTimer("Total Error Est Time");
   //exit(0);
-};
+}
 
 
 error_estimator::~error_estimator()
 {
   delete mesh_;
-};
+}
 
 void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in){
 
@@ -121,6 +121,38 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   //the vector coming in is dimensioned to numeqs_*num_nodes, hence we need to rethink the import here
   //the maps created above assume output of one variable
   //hack a copy/import for now....
+
+
+
+  //also, currently working in 2D means a mesh in the x-y plane.
+  //what do we do about a 2D mesh in the general x-y-z plane?
+  //need to address this-- probably map x y z into a canonical 2d elem
+  //similar to what is done for Neumann BCs
+  //it is possible that this is already handled correctly within the basis class
+
+
+  //also right now, with quadratic tris, it seems the midside nodes are getting garbage,
+  //while the vertex nodes are correct
+  //it looks like reasonable numbers are provided to lapack, but the solution is way off...
+  //this corresponds to a square 6 x 6 matrix, could it be ill conditioned?--according to matlab
+  //a significant number of these matrices have full rank
+  //seems as though lapack is fucking up?
+  //on QuadQ mesh, node 224:
+  //a= [1 0.499429 0.458333 0.228905 0.249429 0.210069] b=[0.999963 -1.81203e-07] x=[7.04542  2.45351e+08]
+  //   [1 0.454993 0.395833 0.180102 0.207019 0.156684]   [0.99996 -8.17299e-08]    [-20.7964  -8.44006e+08]
+  //   [1 0.544074 0.395833 0.215362 0.296016 0.156684]   [0.999965 -1.77881e-07]   [-4.7735  -1.93729e+08]
+  //   [1 0.499588 0.291667 0.145713 0.249589 0.0850694]  [0.999962 -1.51674e-07]   [0.0399212  1.62017e+06]
+  //   [ 1 0.544114 0.354167 0.192707 0.29606 0.125434]   [0.999965 -1.95127e-08]   [20.8001  8.44152e+08]
+  //   [1 0.455033 0.354167 0.161158 0.207055 0.125434]   [0.99996 -2.66636e-07]    [6.33808  2.57226e+08]
+  // x(:,1) solves the system while x(:,2) is not even close
+
+  //it could be that we need to call
+  //dgesv_(integer *n, integer *nrhs, doublereal *a, integer 
+  //	*lda, integer *ipiv, doublereal *b, integer *ldb, integer *info)
+  //when n = m ?
+  //or possibly use more than 3 guass pts for Qtri?
+
+
 
   Teuchos::TimeMonitor GradEstTimer(*ts_time_grad);  
 
@@ -160,8 +192,18 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     num_q_pts = 3;
     basis=new BasisLTri(3);
   }
+  else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad 
+    dimp = 9;
+    num_q_pts = 9;
+    basis = new BasisQQuad();
+  }
+  else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6"))) { // quadratic triangle
+    dimp = 6;
+    num_q_pts = 3;
+    basis=new BasisQTri();
+  }
   else{
-    std::cout<<"Error estimator only supports bilinear quad and tri element types at this time."<<std::endl;
+    std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl;
     std::cout<<elem_type<<" not supported."<<std::endl;
     exit(0);
   }
@@ -177,13 +219,20 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
     int q = num_q_pts*num_elem_in_patch;//the matrix p will be q rows x dimp cols, 
     //the rows of p will be the basis evaluated at quadrature pts
+//     if ( q < 3 || q > 18 )
+    //std::cout<<"nn = "<<nn<<" q = "<<q<<" num_elem_in_patch = "<<num_elem_in_patch<<std::endl<<std::endl<<std::endl;
 
     std::vector<std::vector<double>> p(q);//q rows
 
     for(int i = 0; i < q; i++) p[i].resize(dimp);//dimp cols
     //the vector b will be q rows and 2 cols, grad u evaluated at the quadrature points
 
-    double * b = new double[q*nrhs];
+    int m = q;
+    int n = dimp;
+    int lda = q;
+    int ldb = q;//b needs to hold the solution on return
+    if ( n > m ) {ldb = n;}//cn need to really figure out what ldb is
+    double * b = new double[ldb*nrhs];
 
     int row = 0;
     std::vector<int> n_patch(mesh_->get_nodal_patch(nn));
@@ -232,25 +281,37 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 	basis->getBasis(gp, xx, yy, zz, uu);
 	double x = basis->xx;
 	double y = basis->yy;
-	//double z = ubasis->zz;
-	p[row][0] = 1.;
-	p[row][1] = x;
-	p[row][2] = y;
+	//double z = basis->zz;
+	p[row][0] = 1.;            //tri3 || quad4 || tri6 || quad9
+	p[row][1] = x;             //tri3 || quad4 || tri6 || quad9
+	p[row][2] = y;             //tri3 || quad4 || tri6 || quad9
 	//cn we would skip this for tris. However we compute it, but this column is not copied to a below
 	//cn we need something better for quadratic and 3d
-	if(4 ==dimp) p[row][3] = x*y;
+	if(3 < dimp) p[row][3] = x*y;      //quad4 || tri6 || quad9
+	if(5 < dimp) {
+	  p[row][4] = x*x;             //tri6 || quad9
+	  p[row][5] = y*y;             //tri6 || quad9
+	}
+	if(8 < dimp) {
+	  p[row][6] = x*x*y;                   //quad9
+	  p[row][7] = x*y*y;                   //quad9
+	  p[row][8] = x*x*y*y;                 //quad9
+	}
 	b[row] = basis->dudx;// du/dx
-	b[row+q]  = basis->dudy;// du/dy
-//  	std::cout<<comm_->MyPID()<<" "<<row<<" "<<row+q<<" : "<<p[row][0]<<" "<<p[row][1]<<" "<<p[row][2]<<" "<<p[row][3]
-//  		 <<" : "<<b[row]<<" "<<b[row+q]<<std::endl;
+	b[row+ldb]  = basis->dudy;// du/dy
+	//b[row+2*q]  = basis->dudz;// du/dz, ie in 3d => nrhs = 3 cols of b
+// 	if(224==nn){
+// 	  std::cout<<nn<<" "<<row<<" "<<row+ldb<<" : "<<p[row][0]<<" "<<p[row][1]<<" "<<p[row][2]<<" "<<p[row][3]
+// 		   <<" "<<p[row][4]<<" "<<p[row][5]
+// 		   <<" : "<<b[row]<<" "<<b[row+ldb]<<std::endl;
+// 	}
+
+
 	row++;
       }//gp
       delete xx, yy, zz, uu;
     }//ne
   
-    int m = q;
-    int n = dimp;
-    int lda = q;
 
     //cn there is definitely something weird at domain corners and tris with one quass pt,
     //cn this corresponds with ldb = q = 1 and the lapack error,
@@ -259,8 +320,6 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
     //cn when changing  tris to 3 gauss pts above, it seems fixed
 
-    int ldb = q;//b needs to hold the solution on return
-    //if ( n > m ) ldb = n;//cn need to really figure out what ldb is
     int info, lwork;
     
     double wkopt;
@@ -270,7 +329,6 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     
     //note that we fill a by column
     a = new double[lda*n];
-    
 #pragma omp parallel for collapse(2)
     for(int j = 0; j < n; j++){
       for(int i = 0; i < m; i++){
@@ -281,6 +339,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     //the first call queries the workspace
     lwork = -1;
     char msg[] = "No transpose";
+    //char msg[] = "N";
 #if TUSAS_HAVE_ACML
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info,0 );
@@ -288,12 +347,19 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info );
 #endif
-    //std::cout<<"info 1 = "<<info<<" ldb = "<<ldb<<std::endl;    
 
+    //std::cout<<"info 1 = "<<info<<std::endl<<std::endl;
     lwork = (int)wkopt;
     work = new double[lwork];
     //second call does the solve
 
+//     std::cout<<std::endl;
+//     if(224==nn){
+//       for(int i = 0; i < ldb*nrhs; i++){
+// 	std::cout<<b[i]<<" ";
+//       }
+//     }
+//     std::cout<<std::endl;
 #if TUSAS_HAVE_ACML
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info,0 );
@@ -301,13 +367,19 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info );
 #endif
+    if( info < 0 ) exit(0);
+    //std::cout<<"info 2 = "<<info<<std::endl<<std::endl;
     //std::cout<<"info 2 = "<<info<<" ldb = "<<ldb<<std::endl; cout<<std::endl;
       
     delete work;
-//     for(int i = 0; i < n; i++){
-//       std::cout<<b[i]<<" ";
-//     }
-//     std::
+
+    if(224==nn){
+      for(int i = 0; i < ldb*nrhs; i++){
+	std::cout<<nn<<" "<<i<<":"<<b[i]<<" ";
+      }
+      std::cout<<std::endl;
+    }
+
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);
     p[0][0] = 1.;
@@ -315,12 +387,22 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     p[0][2] = y;
     //cn this would be skipped for tris as well; however it does not get summed in below
     //cn we only dimension p to 3 cols for tris and 4 cols for quad earlier
-    if(4 == dimp) p[0][3] = x*y;
+    if(3 < dimp) p[0][3] = x*y;
+    if(5 < dimp) {
+      p[0][4] = x*x;
+      p[0][5] = y*y;
+    }
+    if(8 < dimp) {
+      p[0][6] = x*x*y;
+      p[0][7] = x*y*y;
+      p[0][8] = x*x*y*y;
+    }
     double gradx = 0.;
     double grady = 0.;
-    for(int i = 0; i < n; i++){
+    for(int i = 0; i < n; i++){//cn could we use dimp rather than n here?
       gradx = gradx + p[0][i]*b[i];
-      grady = grady + p[0][i]*b[i+q];
+      //grady = grady + p[0][i]*b[i+q];
+      grady = grady + p[0][i]*b[i+ldb];
     }
     //std::cout<<nn<<" "<<x<<" "<<y<<" "<<gradx<<" "<<grady<<std::endl;
     //std::cout<<x<<"   "<<y<<"            "<<gradx<<std::endl;
@@ -341,7 +423,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 #endif
   //gradx_->Print(std::cout);
   //exit(0);
-};
+}
 
 void error_estimator::test_lapack(){
 
@@ -431,7 +513,6 @@ void error_estimator::test_lapack(){
   delete a,b;
 
   exit(0);
-
 };
 
 void error_estimator::update_mesh_data(){
@@ -467,7 +548,7 @@ void error_estimator::update_mesh_data(){
   mesh_->update_elem_data(estring, &error[0]);
 
   delete tempx, tempy;
-};
+}
 
 void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   
@@ -509,8 +590,14 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))) { // linear triangle
     basis = new BasisLTri();
   }
+  else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad 
+    basis = new BasisQQuad();
+  }
+  else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6"))) { // quadratic triangle
+    basis=new BasisQTri();
+  }
   else{
-    std::cout<<"Error estimator only supports bilinear quad and tri element types at this time."<<std::endl;
+    std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl;
     std::cout<<elem_type<<" not supported."<<std::endl;
     exit(0);
   }
@@ -571,10 +658,10 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   //elem_error_->Print(std::cout);
   //std::cout<<estimate_global_error()<<std::endl;
   //   exit(0);
-};
+}
 
 double error_estimator::estimate_global_error(){
   elem_error_->Norm2(&global_error_);
   return global_error_;
-};
+}
 

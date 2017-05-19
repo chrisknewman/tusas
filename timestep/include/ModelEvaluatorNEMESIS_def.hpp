@@ -1893,7 +1893,6 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   }
 #endif
 
-  //cn do we need node id here????
   for( int k = 0; k < numeqs_; k++ ){
     for (int nn=0; nn < num_my_nodes_; nn++) {
       (*u)[numeqs_*nn+k] = inputu[k][nn];//cn this is currently segfaulting

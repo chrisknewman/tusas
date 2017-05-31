@@ -152,6 +152,9 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   //when n = m ?
   //or possibly use more than 3 guass pts for Qtri?
 
+  //5-22-2017 cn thinks the best approach 
+  //would check for gtri && m==n, then use dgesv_ instead of dgels_
+
 
 
   Teuchos::TimeMonitor GradEstTimer(*ts_time_grad);  
@@ -277,6 +280,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
       //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<num_elem_in_patch<<std::endl;
 
+      //we could loop over dimension of p here to avoid if statements....
       for(int gp=0; gp < basis->ngp; gp++) {// Loop Over Gauss Points 
 	basis->getBasis(gp, xx, yy, zz, uu);
 	double x = basis->xx;
@@ -313,12 +317,12 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     }//ne
   
 
-    //cn there is definitely something weird at domain corners and tris with one quass pt,
+    //cn there is definitely something weird at domain corners and ltris with one quass pt,
     //cn this corresponds with ldb = q = 1 and the lapack error,
     //cn probably because there is only one guass pt per tri
     //cn on quads there are 4 guass pts
 
-    //cn when changing  tris to 3 gauss pts above, it seems fixed
+    //cn when changing  ltris to 3 gauss pts above, it seems fixed
 
     int info, lwork;
     
@@ -373,12 +377,12 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
       
     delete work;
 
-    if(224==nn){
-      for(int i = 0; i < ldb*nrhs; i++){
-	std::cout<<nn<<" "<<i<<":"<<b[i]<<" ";
-      }
-      std::cout<<std::endl;
-    }
+//     if(224==nn){
+//       for(int i = 0; i < ldb*nrhs; i++){
+// 	std::cout<<nn<<" "<<i<<":"<<b[i]<<" ";
+//       }
+//       std::cout<<std::endl;
+//     }
 
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);

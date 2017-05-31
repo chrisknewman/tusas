@@ -234,6 +234,9 @@ private: // data members
   typedef void (*PARAMFUNC)(Teuchos::ParameterList *plist);
 
   PARAMFUNC paramfunc_;
+
+  //cn std::vector<std::map<int,std::pair<int,int>>> *periodicbc_; is probably better here
+  std::vector<std::vector<std::pair<int,int>>> *periodicbc_;
   
   //post process stuff
   //cn need this to be a function of all variables eventually

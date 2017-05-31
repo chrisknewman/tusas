@@ -1534,3 +1534,50 @@ int Mesh::get_local_id(int gid)
   if (lid < 0) exit(0);
   return lid;
 }
+
+void Mesh::create_sorted_nodelists()
+{
+//   std::cout<<"Mesh::create_sorted_nodelists()"<<std::endl;
+//   std::cout<<"int num_node_sets "<<num_node_sets<<std::endl;
+//   std::cout<<"num_nodes_per_ns[0] "<<num_nodes_per_ns[0]<<std::endl;
+
+  sorted_ns_node_list.resize(num_node_sets);
+
+  for ( int i = 0; i < num_node_sets; i++ ){
+    sorted_ns_node_list[i].resize(num_nodes_per_ns[i]);
+    
+    std::vector<std::tuple<int, double, double, double>> sns(num_nodes_per_ns[i]);
+
+    for (int n = 0; n < num_nodes_per_ns[i]; n++){
+      int lid = ns_node_list[i][n];
+      double x = get_x(lid);
+      double y = get_y(lid);
+      double z = get_z(lid);
+//       std::cout<<n<<" "<<lid<<" :"<<x<<" "<<y<<" "<<z<<std::endl;
+      sns[n] = std::make_tuple(lid,x,y,z);
+    }
+    
+    std::stable_sort(begin(sns), end(sns), 
+		     [](std::tuple<int, double, double, double> const &t1, std::tuple<int, double, double, double> const &t2) {
+		       return std::get<1>(t1) < std::get<1>(t2);
+		     }
+		     );
+    std::stable_sort(begin(sns), end(sns), 
+		     [](std::tuple<int, double, double, double> const &t1, std::tuple<int, double, double, double> const &t2) {
+		       return std::get<2>(t1) < std::get<2>(t2);
+		     }
+		     );
+    std::stable_sort(begin(sns), end(sns), 
+		     [](std::tuple<int, double, double, double> const &t1, std::tuple<int, double, double, double> const &t2) {
+		       return std::get<3>(t1) < std::get<3>(t2);
+		     }
+		     );
+        
+//     std::cout<<"++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
+    for (int n = 0; n < num_nodes_per_ns[i]; n++){
+//       std::cout<<std::get<0>(sns[n])<<" :"<<std::get<1>(sns[n])<<" "<<std::get<2>(sns[n])<<" "<<std::get<3>(sns[n])<<std::endl;
+      sorted_ns_node_list[i][n] = std::get<0>(sns[n]);
+    }
+  }
+//   exit(0);
+}

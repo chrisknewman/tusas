@@ -145,6 +145,12 @@ class Mesh
   void set_global_file_name(std::string filename){global_file_name = filename;return;};
   /// Get local id from global id
   int get_local_id(int gid);
+  /// Creates sorted nodelists based on increasing x, y and z. Used for periodic BCs.
+  void create_sorted_nodelists();
+  /// Return sorted node set with id i
+  std::vector<int> get_sorted_node_set(int i){return sorted_ns_node_list[i];}
+  /// Return node id of sorted node j in node set with id i, by local id
+  int get_sorted_node_set_entry(int i, int j){return sorted_ns_node_list[i][j];}
 
  private:
 
@@ -224,6 +230,7 @@ class Mesh
   std::vector<int> num_nodes_per_ns;
   std::vector<int> num_df_per_ns;
   std::vector<std::vector<int> > ns_node_list;
+  std::vector<std::vector<int> > sorted_ns_node_list;
   //std::vector<std::vector<int> > ns_ctr_list;
 
   std::vector<std::vector<int> > nodal_adj; //cn we may only need this for epetra

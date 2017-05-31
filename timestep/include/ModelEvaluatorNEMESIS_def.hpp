@@ -668,6 +668,55 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 
+      if (nonnull(f_out) && NULL != periodicbc_) {
+ 	f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
+	std::vector<int> node_num_map(mesh_->get_node_num_map());
+	//f_fe.Print(std::cout);
+
+
+
+	//cn there is alot going on here, this should be implemented into a class
+	//cn especially when unstructured meshes are used...
+	//cn see:
+	// http://www.kurims.kyoto-u.ac.jp/~kyodo/kokyuroku/contents/pdf/0836-11.pdf
+	// and similar to
+	// https://orbi.ulg.ac.be/bitstream/2268/100283/1/2012_COMMAT_PBC.pdf
+
+	std::vector<std::pair<int,int>>::iterator it;
+
+        for( int k = 0; k < numeqs_; k++ ){
+	  for(it = (*periodicbc_)[k].begin();it != (*periodicbc_)[k].end(); ++it){
+	    int ns_id1 = it->first;
+	    int ns_id2 = it->second;
+	    std::vector<int> ns1 = mesh_->get_sorted_node_set(ns_id1);
+	    std::vector<int> ns2 = mesh_->get_sorted_node_set(ns_id2);
+	    int ns_size1 = ns1.size();
+	    //int ns_size2 = ns2.size();
+	    
+	    //cn the first step is add all of the ns1 equations to the ns2 equations
+	    //cn then replace all the ns1 eqns with u(ns1)-u(ns2)
+	    for ( int j = 0; j < ns_size1; j++ ){
+	      int lid1 = mesh_->get_sorted_node_set_entry(ns_id1, j);
+	      int lid2 = mesh_->get_sorted_node_set_entry(ns_id2, j);
+	      int gid1 = node_num_map[lid1];
+	      int gid2 = node_num_map[lid2];
+	      int row1 = numeqs_*gid1;//global row
+	      int row2 = numeqs_*gid2;
+	      
+	      int row1k = row1 + k;
+	      int row2k = row2 + k;
+	      double val1 = f_fe[0][lid1];
+	      //std::cout<<gid1<<" "<<lid1<<" "<<val1<<std::endl;
+	      f_fe.SumIntoGlobalValues ((int) 1, &row2k, &val1);
+	      val1 = (*u)[numeqs_*lid2 + k];
+	      double val = (*u)[numeqs_*lid1 + k]  - val1;
+	      f_fe.ReplaceGlobalValue (row1k, (int)0, val);	      
+	      
+	    }//j
+	  }//it
+	}//k
+      }//if
+      //exit(0);
       if (nonnull(f_out) && NULL != dirichletfunc_) {
 	f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
 	
@@ -1269,6 +1318,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   delete initfunc_;
   delete varnames_;
   if( NULL != dirichletfunc_) delete dirichletfunc_;
+  if( NULL != periodicbc_) delete periodicbc_;
   //if( NULL != postprocfunc_) delete postprocfunc_;
 }
 
@@ -1919,6 +1969,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
   random_number_old_ = 0.;
 
   paramfunc_ = NULL;
+  periodicbc_ = NULL;
 
   phi_sol_ = 1.;
   phi_liq_ = 0.;
@@ -2747,6 +2798,32 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 
 
+  }else if("periodic" == paramList.get<std::string> (TusastestNameString)){
+    //std::cout<<"periodic"<<std::endl;
+    
+    numeqs_ = 1;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &init_zero_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &periodic::residual_;
+
+    preconfunc_ = NULL;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+    periodicbc_ = new std::vector<std::vector<std::pair<int,int>>>(numeqs_);
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][bc number][nodeset id 1][nodeset id 2]
+    (*periodicbc_)[0].push_back(std::make_pair(1,3));
+
+    //exit(0);
 
 
 
@@ -2843,6 +2920,36 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
       std::cout<<"  post_proc with size "<<post_proc.size()<<" found."<<std::endl;
     }
 
+    if(NULL != periodicbc_){
+      if(1 != comm_->NumProc()){
+	std::cout<<"Periodic bc only implemented in serial at this time."<<std::endl;
+	exit(0);
+      }
+
+      mesh_->create_sorted_nodelists();
+
+      std::cout<<"  periodicbc_ with size "<<periodicbc_->size()<<" found."<<std::endl;
+      
+      std::vector<std::pair<int,int>>::iterator it;
+      
+      for( int k = 0; k < numeqs_; k++ ){
+ 	for(it = (*periodicbc_)[k].begin();it != (*periodicbc_)[k].end(); ++it){
+ 	  int ns_id1 = it->first;
+ 	  int ns_id2 = it->second;
+ 	  //int ns_id1 = (*periodicbc_)[k][0].first;
+ 	  //int ns_id2 = (*periodicbc_)[k][0].second;
+	  int ns_size1 = mesh_->get_sorted_node_set(ns_id1).size();
+	  int ns_size2 = mesh_->get_sorted_node_set(ns_id2).size();
+ 	  std::cout<<"    Equation: "<<k<<" nodeset 1: "<<ns_id1<<" size: "<<ns_size1<<std::endl
+		   <<"                nodeset 2: "<<ns_id2<<" size: "<<ns_size2<<std::endl;
+	  if(ns_size1 != ns_size2 ){
+	    std::cout<<"Incompatible nodeset sizes found."<<std::endl;
+	    exit(0);
+	  }
+ 	}
+      }
+
+    }
 
     std::cout<<"set_test_case ended"<<std::endl;
   }

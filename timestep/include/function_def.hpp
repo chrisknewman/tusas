@@ -3055,7 +3055,7 @@ RES_FUNC(residual_)
   }
   s = s - u*u;
 
-  return (u-uold)/dt_ + L* ((-alpha*u + beta*u*u*u +2.*gamma*u*s)*test +  divgradu); 
+  return (u-uold)/dt_*test + L* ((-alpha*u + beta*u*u*u +2.*gamma*u*s)*test +  divgradu); 
 
 }
 PRE_FUNC(prec_)
@@ -3110,4 +3110,36 @@ PPR_FUNC(postproc_)
   return s;
 }
 }//namespace grain
+
+namespace periodic
+{
+
+RES_FUNC(residual_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+
+  double u = basis[0].uu;
+  double uold = basis[0].uuold;
+  double x = basis[0].xx;
+
+  double f = sin(11.*x);
+
+  double divgradu = basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz;
+
+  return (u-uold)/dt_*test + divgradu - f*test; 
+
+}
+
+
+}//namespace periodic
 #endif

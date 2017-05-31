@@ -1,0 +1,15 @@
+<ParameterList>
+	
+<!-- simulation parameters -->
+
+  <Parameter name="dt" type="double" value="1."/>
+  <Parameter name="nt" type="int" value = "1"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/quad256.e"/>
+  <Parameter name="testcase" type="string" value="periodic"/>
+  <Parameter name="preconditioner" type="bool" value = "false"/>
+  <Parameter name="theta" type="double" value="1."/>
+<!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+
+<!--   <Parameter name="errorestimator" type="string" value = "{0}"/> -->
+
+</ParameterList>

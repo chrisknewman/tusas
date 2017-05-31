@@ -705,7 +705,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      
 	      int row1k = row1 + k;
 	      int row2k = row2 + k;
-	      double val1 = f_fe[0][lid1];
+	      //double val1 = f_fe[0][lid1];
+	      double val1 = f_fe[0][row1k];
 	      //std::cout<<gid1<<" "<<lid1<<" "<<val1<<std::endl;
 	      f_fe.SumIntoGlobalValues ((int) 1, &row2k, &val1);
 	      val1 = (*u)[numeqs_*lid2 + k];
@@ -2795,6 +2796,57 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     post_proc[0].postprocfunc_ = &grain::postproc_;
 
     paramfunc_ = grain::param_;
+
+
+  }else if("grainp" == paramList.get<std::string> (TusastestNameString)){
+
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    numeqs_ = problemList->get<int>("numgrain");
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    for( int k = 0; k < numeqs_; k++ )(*initfunc_)[k] = &grain::init_;
+//     (*initfunc_)[0] = &grain::init_;
+//     (*initfunc_)[1] = &grain::init_;
+//     (*initfunc_)[2] = &grain::init_;
+//     (*initfunc_)[3] = &grain::init_;
+//     (*initfunc_)[4] = &grain::init_;
+//     (*initfunc_)[5] = &grain::init_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    for( int k = 0; k < numeqs_; k++ )(*residualfunc_)[k] = &grain::residual_;
+//     (*residualfunc_)[0] = &grain::residual_;
+//     (*residualfunc_)[1] = &grain::residual_;
+//     (*residualfunc_)[2] = &grain::residual_;
+//     (*residualfunc_)[3] = &grain::residual_;
+//     (*residualfunc_)[4] = &grain::residual_;
+//     (*residualfunc_)[5] = &grain::residual_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    for( int k = 0; k < numeqs_; k++ )(*preconfunc_)[k] = &grain::prec_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    for( int k = 0; k < numeqs_; k++ ) (*varnames_)[k] = "n"+std::to_string(k);
+
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &grain::postproc_;
+
+    paramfunc_ = grain::param_;
+
+    periodicbc_ = new std::vector<std::vector<std::pair<int,int>>>(numeqs_);
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][bc number][nodeset id 1][nodeset id 2]
+    for( int k = 0; k < numeqs_; k++ ){
+      (*periodicbc_)[k].push_back(std::make_pair(0,2));
+      (*periodicbc_)[k].push_back(std::make_pair(1,3));
+    }
+
 
 
 

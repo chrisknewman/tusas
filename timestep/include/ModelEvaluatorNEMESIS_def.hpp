@@ -676,7 +676,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 
 	//cn there is alot going on here, this should be implemented into a class
-	//cn especially when unstructured meshes are used...
+	//cn especially when unstructured meshes are used...and parallel
 	//cn see:
 	// http://www.kurims.kyoto-u.ac.jp/~kyodo/kokyuroku/contents/pdf/0836-11.pdf
 	// and similar to
@@ -688,14 +688,18 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  for(it = (*periodicbc_)[k].begin();it != (*periodicbc_)[k].end(); ++it){
 	    int ns_id1 = it->first;
 	    int ns_id2 = it->second;
+	    //cn the ids in sorted_node_set are local
 	    std::vector<int> ns1 = mesh_->get_sorted_node_set(ns_id1);
-	    std::vector<int> ns2 = mesh_->get_sorted_node_set(ns_id2);
-	    int ns_size1 = ns1.size();
+	    //std::vector<int> ns2 = mesh_->get_sorted_node_set(ns_id2);
+	    int ns_size1 = mesh_->get_sorted_node_set(ns_id1).size();
 	    //int ns_size2 = ns2.size();
 	    
 	    //cn the first step is add all of the ns1 equations to the ns2 equations
 	    //cn then replace all the ns1 eqns with u(ns1)-u(ns2)
 	    for ( int j = 0; j < ns_size1; j++ ){
+	      //cn the ids in sorted_node_set are local
+	      //cn we will want to create the comm maps with global ids
+	      //cn we could do this before sending to the periodicbc constructor
 	      int lid1 = mesh_->get_sorted_node_set_entry(ns_id1, j);
 	      int lid2 = mesh_->get_sorted_node_set_entry(ns_id2, j);
 	      int gid1 = node_num_map[lid1];
@@ -705,8 +709,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      
 	      int row1k = row1 + k;
 	      int row2k = row2 + k;
-	      //double val1 = f_fe[0][lid1];
-	      double val1 = f_fe[0][row1k];
+	      //we are retrieving globally here? should it be local? ie
+	      double val1 = f_fe[0][numeqs_*lid1 + k];
+	      //instead of
+	      //double val1 = f_fe[0][row1k];
 	      //std::cout<<gid1<<" "<<lid1<<" "<<val1<<std::endl;
 	      f_fe.SumIntoGlobalValues ((int) 1, &row2k, &val1);
 	      val1 = (*u)[numeqs_*lid2 + k];
@@ -2875,6 +2881,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 //               [numeq][bc number][nodeset id 1][nodeset id 2]
     (*periodicbc_)[0].push_back(std::make_pair(1,3));
 
+    periodic_bc_ = new periodic_bc(1,3,0,numeqs_,mesh_,comm_);
     //exit(0);
 
 

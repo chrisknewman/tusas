@@ -22,6 +22,7 @@
 #include "error_estimator.h"
 #include "elem_color.h"
 #include "post_process.h"
+#include "periodic_bc.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
@@ -237,6 +238,7 @@ private: // data members
 
   //cn std::vector<std::map<int,std::pair<int,int>>> *periodicbc_; is probably better here
   std::vector<std::vector<std::pair<int,int>>> *periodicbc_;
+  periodic_bc * periodic_bc_;
   
   //post process stuff
   //cn need this to be a function of all variables eventually

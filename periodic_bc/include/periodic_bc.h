@@ -20,8 +20,12 @@
 #include <Epetra_Comm.h>
 #include "Epetra_Map.h"
 #include "Epetra_Import.h"
+#include "Epetra_Vector.h"
+#include "Epetra_FEVector.h"
 
-/// Creates a periodic bc pair 
+#define PERIODIC_BC
+
+/// Creates a periodic bc and executes communication 
 class periodic_bc
 {
 public:
@@ -38,6 +42,15 @@ public:
 
   /// Destructor.
   ~periodic_bc();
+  /// Import data.
+  void import_data(const Epetra_FEVector &f_full, ///< f vector (input)
+		   const Teuchos::RCP<Epetra_Vector>& u_full ///< u vector (input)
+		   ) const;
+
+  /// Replicated vector.
+  Teuchos::RCP<Epetra_Vector> f_rep_;
+  /// Replicated vector.
+  Teuchos::RCP<Epetra_Vector> u_rep_;
 
 private:
   ///Mesh object
@@ -62,7 +75,9 @@ private:
   Teuchos::RCP<const Epetra_Import> importer2_;
   /// Node overlap map object.
   Teuchos::RCP<const Epetra_Map>   overlap_map_;
-
+  /// Node map object.
+  Teuchos::RCP<const Epetra_Map>   node_map_;
+  /// Sets up the communication maps for nodeset id.
   Teuchos::RCP<const Epetra_Map> get_replicated_map(const int id);
 
 

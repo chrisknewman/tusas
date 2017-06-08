@@ -3027,7 +3027,7 @@ PARAM_FUNC(param_)
 
 INI_FUNC(init_)
 {
-  //  return .001*r(x,eqn_id)*r(x,N-eqn_id)*(y,eqn_id)*r(y,N-eqn_id);
+  //return .001*r(x,eqn_id)*r(x,N-eqn_id)*(y,eqn_id)*r(y,N-eqn_id);
   return ((rand() % 100)/50.-1.)*.001;
 }
 RES_FUNC(residual_)

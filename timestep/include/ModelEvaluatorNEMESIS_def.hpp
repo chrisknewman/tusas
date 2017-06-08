@@ -36,7 +36,6 @@
 #include "Epetra_FECrsGraph.h"
 #include "Epetra_FECrsMatrix.h"
 #include "EpetraExt_VectorOut.h"
-#include "Epetra_FEVector.h"
 
 //teuchos support
 #include <Teuchos_RCP.hpp>	
@@ -668,7 +667,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
 
+#ifdef PERIODIC_BC
+      if (nonnull(f_out) && 0 != periodic_bc_.size()) {
+#else
       if (nonnull(f_out) && NULL != periodicbc_) {
+#endif
  	f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	//f_fe.Print(std::cout);
@@ -682,17 +685,101 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	// and similar to
 	// https://orbi.ulg.ac.be/bitstream/2268/100283/1/2012_COMMAT_PBC.pdf
 
-	std::vector<std::pair<int,int>>::iterator it;
 
         for( int k = 0; k < numeqs_; k++ ){
+#ifdef PERIODIC_BC
+	  for(boost::ptr_vector<periodic_bc>::const_iterator it = periodic_bc_[k].begin();it != periodic_bc_[k].end();++it){
+	  
+	    it->import_data(f_fe,u);
+
+	    int ns_size = it->u_rep_->Map().NumMyElements ();
+
+	    //f_rep_(ns1); u_rep_(ns2)
+
+	    //first we will add f(ns1) to f(ns2) by looping over nodeset 2
+	    //ie f(ns2) = f(ns2) + f_rep_(ns1)
+	    
+	    for ( int j = 0; j < ns_size; j++ ){
+
+	      //this is the gid for ns2
+	      int gid2 = it->u_rep_->Map().GID(j);
+
+	      //this is the local id in the matrix
+	      //lid1 is only used in parallel to test if we are on this proc
+	      int lid2 = (x_owned_map_->LID(numeqs_*gid2 + k) - k)/numeqs_;
+
+	      //if lid == -1, it does not live on this proc
+	      if(lid2 > -1) {
+
+		//global row in ns2 on this proc
+		int row2 = numeqs_*gid2;	      
+		int row2k = row2 + k;
+		
+		//this is the gid for ns1
+		int gid1 = it->f_rep_->Map().GID(j);
+		
+		//this is the lid for ns1
+		int rlid1 = it->f_rep_->Map().LID(gid1);
+		//f_rep_(ns1)
+		double val1 = (*(it->f_rep_))[rlid1];
+		
+		//f(ns2) = f(ns2) + f_rep_(ns1)
+// 		std::cout<<"k: "<<k<<std::endl;
+// 		std::cout<<"l: "<<rlid1<<" "<<lid2<<std::endl;
+// 		std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
+// 		std::cout<<"f: "<<row2k<<" "<<val1<<std::endl;
+		f_fe.SumIntoGlobalValues ((int) 1, &row2k, &val1);
+	      }//if
+	    }//j
+	    //loop over ns1
+	    for ( int j = 0; j < ns_size; j++ ){
+
+	      //this is the gid for ns1
+	      int gid1 = it->f_rep_->Map().GID(j);//this is the mesh gid
+	      //lid1 is only used in parallel to test if we are on this proc
+	      int lid1 = (x_owned_map_->LID(numeqs_*gid1 + k) - k)/numeqs_;//x_owned_map is map for linear system
+
+	      //if lid == -1, it does not live on this proc
+	      if(lid1 > -1) {
+
+		//this is the gid for ns2
+		int gid2 = it->u_rep_->Map().GID(j);
+		
+		int row1 = numeqs_*gid1;//global row
+		int row1k = row1 + k;
+		
+		
+		int rlid2 = it->u_rep_->Map().LID(gid2);
+		// u(ns2)
+		double val1 = (*(it->u_rep_))[rlid2];
+		
+		//but is mostly working in parallel, there are some weird values where
+		//periodic bc nodesets intersect processor boundaries,
+		//to be looked at
+
+		// u(ns1) - u(ns2)
+		double val = (*u)[numeqs_*lid1 + k]  - val1;
+
+		// f(ns1) = u(ns1) - u(ns2)
+// 		std::cout<<"k: "<<k<<std::endl;
+// 		std::cout<<"l: "<<lid1<<" "<<rlid2<<std::endl;
+// 		std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
+// 		std::cout<<"u: "<<row1k<<" "<<val1<<std::endl;
+		f_fe.ReplaceGlobalValue (row1k, (int)0, val);
+	      }//if
+	    }//j
+	  }//it
+
+#else
+	  std::vector<std::pair<int,int>>::iterator it;
 	  for(it = (*periodicbc_)[k].begin();it != (*periodicbc_)[k].end(); ++it){
+
 	    int ns_id1 = it->first;
 	    int ns_id2 = it->second;
 	    //cn the ids in sorted_node_set are local
-	    std::vector<int> ns1 = mesh_->get_sorted_node_set(ns_id1);
-	    //std::vector<int> ns2 = mesh_->get_sorted_node_set(ns_id2);
+	    //std::vector<int> ns1 = mesh_->get_sorted_node_set(ns_id1);
+
 	    int ns_size1 = mesh_->get_sorted_node_set(ns_id1).size();
-	    //int ns_size2 = ns2.size();
 	    
 	    //cn the first step is add all of the ns1 equations to the ns2 equations
 	    //cn then replace all the ns1 eqns with u(ns1)-u(ns2)
@@ -704,23 +791,25 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      int lid2 = mesh_->get_sorted_node_set_entry(ns_id2, j);
 	      int gid1 = node_num_map[lid1];
 	      int gid2 = node_num_map[lid2];
+
 	      int row1 = numeqs_*gid1;//global row
 	      int row2 = numeqs_*gid2;
 	      
 	      int row1k = row1 + k;
 	      int row2k = row2 + k;
-	      //we are retrieving globally here? should it be local? ie
+ 	      //std::cout<<"k: "<<k<<std::endl;
+ 	      //std::cout<<"l: "<<lid1<<" "<<lid2<<std::endl;
+	      //std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
 	      double val1 = f_fe[0][numeqs_*lid1 + k];
-	      //instead of
-	      //double val1 = f_fe[0][row1k];
-	      //std::cout<<gid1<<" "<<lid1<<" "<<val1<<std::endl;
+ 	      //std::cout<<"f: "<<row2k<<" "<<val1<<std::endl;
 	      f_fe.SumIntoGlobalValues ((int) 1, &row2k, &val1);
 	      val1 = (*u)[numeqs_*lid2 + k];
 	      double val = (*u)[numeqs_*lid1 + k]  - val1;
-	      f_fe.ReplaceGlobalValue (row1k, (int)0, val);	      
-	      
+  	      //std::cout<<"u: "<<row1k<<" "<<val1<<std::endl;
+	      f_fe.ReplaceGlobalValue (row1k, (int)0, val);
 	    }//j
 	  }//it
+#endif
 	}//k
       }//if
       //exit(0);
@@ -1325,7 +1414,10 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   delete initfunc_;
   delete varnames_;
   if( NULL != dirichletfunc_) delete dirichletfunc_;
+#ifdef PERIODIC_BC
+#else
   if( NULL != periodicbc_) delete periodicbc_;
+#endif
   //if( NULL != postprocfunc_) delete postprocfunc_;
 }
 
@@ -1952,7 +2044,7 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
 
   for( int k = 0; k < numeqs_; k++ ){
     for (int nn=0; nn < num_my_nodes_; nn++) {
-      (*u)[numeqs_*nn+k] = inputu[k][nn];//cn this is currently segfaulting
+      (*u)[numeqs_*nn+k] = inputu[k][nn];
       (*u_old)[numeqs_*nn+k] = inputu[k][nn];
     }
   }
@@ -1976,7 +2068,10 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
   random_number_old_ = 0.;
 
   paramfunc_ = NULL;
+#ifdef PERIODIC_BC
+#else
   periodicbc_ = NULL;
+#endif
 
   phi_sol_ = 1.;
   phi_liq_ = 0.;
@@ -2845,6 +2940,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     paramfunc_ = grain::param_;
 
+#ifdef PERIODIC_BC
+    periodic_bc_.resize(numeqs_);
+    for( int k = 0; k < numeqs_; k++ ){
+      periodic_bc_[k].push_back(new periodic_bc(0,2,k,numeqs_,mesh_,comm_));
+      periodic_bc_[k].push_back(new periodic_bc(1,3,k,numeqs_,mesh_,comm_));
+    }
+#else
     periodicbc_ = new std::vector<std::vector<std::pair<int,int>>>(numeqs_);
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][bc number][nodeset id 1][nodeset id 2]
@@ -2852,6 +2954,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
       (*periodicbc_)[k].push_back(std::make_pair(0,2));
       (*periodicbc_)[k].push_back(std::make_pair(1,3));
     }
+#endif
 
 
 
@@ -2876,13 +2979,65 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     neumannfunc_ = NULL;
 
+#ifdef PERIODIC_BC
+    periodic_bc_.resize(numeqs_);
+    periodic_bc_[0].push_back(new periodic_bc(1,3,0,numeqs_,mesh_,comm_));
+
+#else
     periodicbc_ = new std::vector<std::vector<std::pair<int,int>>>(numeqs_);
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][bc number][nodeset id 1][nodeset id 2]
     (*periodicbc_)[0].push_back(std::make_pair(1,3));
-
-    periodic_bc_ = new periodic_bc(1,3,0,numeqs_,mesh_,comm_);
+#endif
     //exit(0);
+
+
+
+
+
+  }else if("periodicdbg" == paramList.get<std::string> (TusastestNameString)){
+    //std::cout<<"periodic"<<std::endl;
+    
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    numeqs_ = problemList->get<int>("numgrain");
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &init_zero_;
+    if(2==numeqs_) (*initfunc_)[1] = &init_zero_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &periodic::residual_;
+    //if(2==numeqs_) (*residualfunc_)[1] = &residual_heat_test_;
+    if(2==numeqs_) (*residualfunc_)[1] = &periodic::residual_;
+
+    preconfunc_ = NULL;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    if(2==numeqs_) (*varnames_)[1] = "v";
+
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+#ifdef PERIODIC_BC
+    periodic_bc_.resize(numeqs_);
+    periodic_bc_[0].push_back(new periodic_bc(1,3,0,numeqs_,mesh_,comm_));
+    if(2==numeqs_) periodic_bc_[1].push_back(new periodic_bc(1,3,1,numeqs_,mesh_,comm_));
+
+#else
+    periodicbc_ = new std::vector<std::vector<std::pair<int,int>>>(numeqs_);
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][bc number][nodeset id 1][nodeset id 2]
+    (*periodicbc_)[0].push_back(std::make_pair(1,3));
+    if(2==numeqs_) (*periodicbc_)[1].push_back(std::make_pair(1,3));
+#endif
+    //exit(0);
+
+
+
 
 
 
@@ -2978,7 +3133,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     if(post_proc.size() > 0 ){
       std::cout<<"  post_proc with size "<<post_proc.size()<<" found."<<std::endl;
     }
-
+#ifdef PERIODIC_BC
+#else
     if(NULL != periodicbc_){
       if(1 != comm_->NumProc()){
 	std::cout<<"Periodic bc only implemented in serial at this time."<<std::endl;
@@ -3004,12 +3160,12 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 	  if(ns_size1 != ns_size2 ){
 	    std::cout<<"Incompatible nodeset sizes found."<<std::endl;
 	    exit(0);
-	  }
- 	}
-      }
+	  }//if
+ 	}//it
+      }//k
 
-    }
-
+    }//if
+#endif
     std::cout<<"set_test_case ended"<<std::endl;
   }
     

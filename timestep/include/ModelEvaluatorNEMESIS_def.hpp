@@ -754,8 +754,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		double val1 = (*(it->u_rep_))[rlid2];
 		
 		//but is mostly working in parallel, there are some weird values where
-		//periodic bc nodesets intersect processor boundaries,
-		//to be looked at
+		//periodic bc nodesets intersect processor boundaries
+		//to be looked at-- run test problem on 8 procs shows this
 
 		// u(ns1) - u(ns2)
 		double val = (*u)[numeqs_*lid1 + k]  - val1;

@@ -187,7 +187,7 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
     std::string sliceStr = trilinosPath+"/bin/nem_slice";//+" -e -m mesh="+std::to_string(numproc)+" -l inertial -o "+nemFile+" "+infile;
     char * sliceArg[] = {(char*)"nem_slice",(char*)"-e",(char*)"-m",const_cast<char*>(("mesh="+std::to_string(numproc)).c_str()),
 			 (char*)"-l inertial",const_cast<char*>(("-o "+nemFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
-    std::cout<<"  Running nemslice command: "<<sliceStr <<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<" "<<sliceArg[4]<<" "<<sliceArg[5]<<std::endl;
+    std::cout<<"  Running nemslice command: "<<sliceStr <<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<" "<<sliceArg[4]<<" "<<sliceArg[5]<<" "<<sliceArg[6]<<std::endl;
     //if(-1 == system(sliceStr.c_str()) ){
     if(-1 == do_sys_call(sliceStr.c_str(),sliceArg) ){
       std::cout<<"Error running nemslice: "<<sliceStr<<std::endl;

@@ -279,7 +279,7 @@ int join(const int mypid, const int numproc)
 }
 int do_sys_call(const char* command, char * const arg[] )
 {
-  int status;
+  int status = -99;
   int pid = fork();
   if( 0 == pid ) {
     execvp(command,arg);

@@ -132,6 +132,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   clp.setOption( "input-file", &inputFileName, "The XML file to read into a parameter list" );
   bool restart = false;
   clp.setOption( "restart","norestart", &restart );
+  bool skipdecomp = false;
+  clp.setOption( "skipdecomp","noskipdecomp", &skipdecomp );
   clp.setDocString( "Document string for this program. Right now, not much going on here." );
   Teuchos::CommandLineProcessor::EParseCommandLineReturn parse_return = clp.parse(argc,argv);
 
@@ -158,6 +160,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 //     paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
 
   paramList.set(TusasrestartNameString,restart,TusasrestartDocString);
+  paramList.set(TusasskipdecompNameString,skipdecomp,TusasskipdecompDocString);
+
 
   if( 0 == mypid ){
     paramList.print(std::cout, 2, true, true );

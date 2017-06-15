@@ -80,5 +80,9 @@ std::string const TusaserrorestimatorDocString = "variables to estimate error fo
 std::string const TusasrestartNameString = "restart";
 /// Restart.
 std::string const TusasrestartDocString = "restart (bool): false (default); true";
+/// Skip mesh decomposition.
+std::string const TusasskipdecompNameString = "skipdecomp";
+/// Skip mesh decomposition.
+std::string const TusasskipdecompDocString = "skipdecomp (bool): false (default); true";
 
 #endif

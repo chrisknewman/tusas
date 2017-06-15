@@ -281,6 +281,7 @@ int join(const int mypid, const int numproc)
 int do_sys_call(const char* command, char * const arg[] )
 {
   int status = -99;
+  int * s = &status;
   int pid = fork();
   int err = 0;
   if( 0 == pid ) {
@@ -288,7 +289,7 @@ int do_sys_call(const char* command, char * const arg[] )
     exit(0);
   }
   else {
-    wait(&status);
+    wait(s);
   }
   return err;
 }

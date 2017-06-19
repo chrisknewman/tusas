@@ -248,6 +248,8 @@ int decomp(const int mypid,
 	<<"Parallel Disk Info	= number="<<std::to_string(numproc)<<std::endl 
 	<<"Parallel file location	= root=./"<<decompPath<<", subdir=.";
       spreadfile.close();
+      std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
+      char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>(spreadFile.c_str()),(char*)NULL};
 
       decompfile
 	<<"mv ./nem_spread.inp "<<decompPath<<std::endl

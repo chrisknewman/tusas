@@ -250,10 +250,10 @@ int decomp(const int mypid,
 	<<"Parallel file location	= root=./"<<decompPath<<", subdir=.";
       spreadfile.close();
       std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
-      char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>((decompPath+"nem_spread.inp").c_str()),(char*)NULL};
+      char * spreadArg[] = {(char*)"nem_spread",(char*)"nem_spread.inp",(char*)NULL};
 
       decompfile
-	<<"mv ./nem_spread.inp "<<decompPath<<std::endl
+	//<<"mv ./nem_spread.inp "<<decompPath<<std::endl
 	<<spreadStr<<" "<<spreadArg[1]<<std::endl;
     }
     else {

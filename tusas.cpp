@@ -249,7 +249,7 @@ int decomp(const int mypid,
 	<<"Parallel file location	= root=./"<<decompPath<<", subdir=.";
       spreadfile.close();
       std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
-      char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>(spreadFile.c_str()),(char*)NULL};
+      char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>((decompPath+"nem_spread.inp").c_str()),(char*)NULL};
 
       decompfile
 	<<"mv ./nem_spread.inp "<<decompPath<<std::endl
@@ -349,7 +349,7 @@ int do_sys_call(const char* command, char * const arg[] )
 {
   int status = -99;
   int * s = &status;
-  int pid = fork();
+  int pid = vfork();
   int err = 0;
   if( 0 == pid ) {
     err = execvp(command,arg);

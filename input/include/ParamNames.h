@@ -84,5 +84,9 @@ std::string const TusasrestartDocString = "restart (bool): false (default); true
 std::string const TusasskipdecompNameString = "skipdecomp";
 /// Skip mesh decomposition.
 std::string const TusasskipdecompDocString = "skipdecomp (bool): false (default); true";
+/// Write the decomposition script.
+std::string const TusaswritedecompNameString = "writedecomp";
+/// Write the decomposition script.
+std::string const TusaswritedecompDocString = "writedecomp (bool): false (default); true";
 
 #endif

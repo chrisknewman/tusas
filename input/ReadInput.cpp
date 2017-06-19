@@ -134,6 +134,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   clp.setOption( "restart","norestart", &restart );
   bool skipdecomp = false;
   clp.setOption( "skipdecomp","noskipdecomp", &skipdecomp );
+  bool writedecomp = false;
+  clp.setOption( "writedecomp","nowritedecomp", &writedecomp );
   clp.setDocString( "Document string for this program. Right now, not much going on here." );
   Teuchos::CommandLineProcessor::EParseCommandLineReturn parse_return = clp.parse(argc,argv);
 
@@ -161,6 +163,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasrestartNameString,restart,TusasrestartDocString);
   paramList.set(TusasskipdecompNameString,skipdecomp,TusasskipdecompDocString);
+  paramList.set(TusaswritedecompNameString,writedecomp,TusaswritedecompDocString);
 
 
   if( 0 == mypid ){

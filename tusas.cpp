@@ -49,7 +49,7 @@
 
 using namespace std;
 
-int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const bool skipdecomp, const Epetra_Comm * comm);
+int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const bool skipdecomp, const bool writedecomp, const Epetra_Comm * comm);
 int do_sys_call(const char* command, char * const arg[] = NULL );
 int join(const int mypid, const int numproc);
 void print_disclaimer(const int mypid);
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
       exit(0);
     }
     std::string pfile;
-    decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString), paramList.get<bool> (TusasskipdecompNameString),&Comm);
+    decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString), paramList.get<bool> (TusasskipdecompNameString), paramList.get<bool> (TusaswritedecompNameString),&Comm);
     Comm.Barrier();
     
     in_mesh->read_exodus(pfile.c_str());
@@ -148,9 +148,26 @@ int main(int argc, char *argv[])
   delete in_mesh;
 }
 
-int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const bool skipdecomp, const Epetra_Comm * comm){
+int decomp(const int mypid, 
+	   const int numproc, 
+	   const std::string& infile, 
+	   std::string& outfile, 
+	   const bool restart, 
+	   const bool skipdecomp, 
+	   const bool writedecomp, 
+	   const Epetra_Comm * comm){
+
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
+
+  std::ofstream decompfile;
+  if( writedecomp ){
+    std::string decompFile="./decompscript";
+    decompfile.open(decompFile.c_str());
+    decompfile
+      <<"#!/bin/bash"<<std::endl;
+  }
+
   if( 0 == mypid && !restart && !skipdecomp){
     std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
 
@@ -161,12 +178,20 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
       std::cout<<"Error removing directory: "<<decompPath<<std::endl;
       exit(0);
     }
+    if( writedecomp ){
+      decompfile
+	<<rmdirArg[0]<<" "<<rmdirArg[1]<<" "<<rmdirArg[2]<<std::endl;
+    }
 
     std::string comStr = "mkdir";//+decompPath;
     char * comArg[] = {(char*)"mkdir",const_cast<char*>((decompPath).c_str()),(char*)NULL};
     if(-1 == do_sys_call(comStr.c_str(), comArg) ){
       std::cout<<"Error creating directory: "<<decompPath<<std::endl;
       exit(0);
+    }
+    if( writedecomp ){
+      decompfile
+	<<comArg[0]<<" "<<comArg[1]<<std::endl;
     }
     std::cout<<"  Creating decomp dir: "<<comStr<<" "<<comArg[1]<<std::endl;
 
@@ -178,6 +203,10 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
       if(-1 == do_sys_call(mkdirStr.c_str(), mkdirArg) ){
 	std::cout<<"Error creating directory: "<<numStr<<std::endl;
 	exit(0);
+      }
+      if( writedecomp ){
+	decompfile
+	  <<mkdirArg[0]<<" "<<mkdirArg[1]<<std::endl;
       }
       std::cout<<"  Creating decomp dirs: "<<mkdirStr<<" "<<mkdirArg[1]<<std::endl;
     }
@@ -194,7 +223,11 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
       std::cout<<"Error running nemslice: "<<sliceStr<<std::endl;
       exit(0);
     }
-
+    if( writedecomp ){
+      decompfile
+	<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]
+	<<" "<<sliceArg[4]<<" "<<sliceArg[5]<<" "<<sliceArg[6]<<" "<<sliceArg[7]<<" "<<sliceArg[8]<<std::endl;
+    }
     std::string spreadFile=decompPath+"nem_spread.inp";
     std::ofstream spreadfile;
     spreadfile.open(spreadFile.c_str());
@@ -213,7 +246,29 @@ int decomp(const int mypid, const int numproc, const std::string& infile, std::s
       std::cout<<"Error running nemspread: "<<spreadStr<<std::endl;
       exit(0);
     }
+
+    if( writedecomp ){
+      std::string spreadFile="./nem_spread.inp";
+      std::ofstream spreadfile;
+      spreadfile.open(spreadFile.c_str());
+      spreadfile 
+	<<"Input FEM file		= "<<infile<<std::endl 
+	<<"LB file         	= "<<nemFile<<std::endl 
+	<<"Restart Time list	= off"<<std::endl 
+	<<"Parallel Disk Info	= number="<<std::to_string(numproc)<<std::endl 
+	<<"Parallel file location	= root=./"<<decompPath<<", subdir=.";
+      spreadfile.close();
+
+      decompfile
+	<<"mv ./nem_spread.inp "<<decompPath<<std::endl
+	<<spreadStr<<" "<<spreadArg[1]<<std::endl;
+    }
+
   }//if( 0 == mypid && !restart)
+  if( writedecomp ){
+    decompfile.close();
+    exit(0);
+  }
   comm->Barrier();
   std::string mypidstring;
 

@@ -88,6 +88,7 @@ int main(int argc, char *argv[])
       exit(0);
     }
     std::string pfile;
+    Comm.Barrier();
     decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString), paramList.get<bool> (TusasskipdecompNameString), paramList.get<bool> (TusaswritedecompNameString),&Comm);
     Comm.Barrier();
     
@@ -160,17 +161,17 @@ int decomp(const int mypid,
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
 
-  std::ofstream decompfile;
-  if( writedecomp ){
-    std::string decompFile="./decompscript";
-    decompfile.open(decompFile.c_str());
-    decompfile
-      <<"#!/bin/bash"<<std::endl;
-  }
-
   if( 0 == mypid && !restart && !skipdecomp){
     std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
 
+    std::ofstream decompfile;
+    if( writedecomp ){
+      std::string decompFile="./decompscript";
+      decompfile.open(decompFile.c_str());
+      decompfile
+	<<"#!/bin/bash"<<std::endl;
+    }
+    
     std::string rmdirStr = "rm";//+" -r "+decompPath;//+";mkdir "+decompPath;
     char * rmdirArg[] = {(char*)"rm",(char*)"-rf",const_cast<char*>((decompPath).c_str()),(char*)NULL};
     if( writedecomp ){
@@ -276,11 +277,11 @@ int decomp(const int mypid,
       }
     }
 
+    if( writedecomp ){
+      decompfile.close();
+      exit(0);
+    }
   }//if( 0 == mypid && !restart)
-  if( writedecomp ){
-    decompfile.close();
-    exit(0);
-  }
   comm->Barrier();
   std::string mypidstring;
 
@@ -353,7 +354,7 @@ int do_sys_call(const char* command, char * const arg[] )
   int err = 0;
   if( 0 == pid ) {
     err = execvp(command,arg);
-    exit(0);
+    _exit(0);
   }
   else {
     wait(s);

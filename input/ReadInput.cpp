@@ -127,7 +127,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   //read/overwrite here
 
   // read parameters from xml file
-  std::string inputFileName = "";
+  std::string inputFileName = "tusas.xml";
   Teuchos::CommandLineProcessor  clp(false); // Don't throw exceptions
   clp.setOption( "input-file", &inputFileName, "The XML file to read into a parameter list" );
   bool restart = false;
@@ -136,6 +136,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   clp.setOption( "skipdecomp","noskipdecomp", &skipdecomp );
   bool writedecomp = false;
   clp.setOption( "writedecomp","nowritedecomp", &writedecomp );
+
   clp.setDocString( "Document string for this program. Right now, not much going on here." );
   Teuchos::CommandLineProcessor::EParseCommandLineReturn parse_return = clp.parse(argc,argv);
 

@@ -3039,6 +3039,71 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 
 
+  }else if("kundin" == paramList.get<std::string> (TusastestNameString)){
+    //std::cout<<"kundin"<<std::endl;
+    //Teuchos::ParameterList *problemList;
+    //problemList = &paramList.sublist ( "ProblemParams", false );
+
+    numeqs_ = 7;
+  
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &kundin::cinit_;
+    (*initfunc_)[1] = &kundin::cinit_;
+    (*initfunc_)[2] = &kundin::cinit_;
+    (*initfunc_)[3] = &kundin::cinit_;
+    (*initfunc_)[4] = &kundin::cinit_;
+    (*initfunc_)[5] = &kundin::cinit_;
+    (*initfunc_)[6] = &kundin::phiinit_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &kundin::cresidual_;
+    (*residualfunc_)[1] = &kundin::cresidual_;
+    (*residualfunc_)[2] = &kundin::cresidual_;
+    (*residualfunc_)[3] = &kundin::cresidual_;
+    (*residualfunc_)[4] = &kundin::cresidual_;
+    (*residualfunc_)[5] = &kundin::cresidual_;
+    (*residualfunc_)[6] = &kundin::phiresidual_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &kundin::cprec_;
+    (*preconfunc_)[1] = &kundin::cprec_;
+    (*preconfunc_)[2] = &kundin::cprec_;
+    (*preconfunc_)[3] = &kundin::cprec_;
+    (*preconfunc_)[4] = &kundin::cprec_;
+    (*preconfunc_)[5] = &kundin::cprec_;
+    (*preconfunc_)[6] = &kundin::phiprec_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "cr";
+    (*varnames_)[1] = "fe";
+    (*varnames_)[2] = "mo";
+    (*varnames_)[3] = "nb";
+    (*varnames_)[4] = "ti";
+    (*varnames_)[5] = "al";
+    (*varnames_)[6] = "phi";
+
+    //dirichletfunc_ = NULL;
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    (*dirichletfunc_)[0][2] = &kundin::dbc0_;
+    (*dirichletfunc_)[1][2] = &kundin::dbc1_;
+    (*dirichletfunc_)[2][2] = &kundin::dbc2_;
+    (*dirichletfunc_)[3][2] = &kundin::dbc3_;
+    (*dirichletfunc_)[4][2] = &kundin::dbc4_;
+    (*dirichletfunc_)[5][2] = &kundin::dbc5_;
+    (*dirichletfunc_)[6][2] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+
+
+    //exit(0);
+
+
+
+
+
 
 
 

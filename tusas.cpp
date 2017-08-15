@@ -147,6 +147,8 @@ int main(int argc, char *argv[])
 
   delete model;
   delete in_mesh;
+
+  return 0;
 }
 
 int decomp(const int mypid, 

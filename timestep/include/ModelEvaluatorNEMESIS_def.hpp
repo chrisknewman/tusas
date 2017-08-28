@@ -707,6 +707,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //this is the local id in the matrix
 	      //lid1 is only used in parallel to test if we are on this proc
 	      int lid2 = (x_owned_map_->LID(numeqs_*gid2 + k) - k)/numeqs_;
+	      //int lid2 = (x_overlap_map_->LID(numeqs_*gid2 + k) - k)/numeqs_;
 
 	      //if lid == -1, it does not live on this proc
 	      if(lid2 > -1) {
@@ -727,9 +728,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 // 		std::cout<<"k: "<<k<<std::endl;
 // 		std::cout<<"l: "<<rlid1<<" "<<lid2<<std::endl;
 // 		std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
-// 		std::cout<<"f: "<<row2k<<" "<<val1<<std::endl;
+// 		std::cout<<"f: "<<row2k<<" "<<val1<<" "<<comm_->MyPID()<<std::endl;
 		f_fe.SumIntoGlobalValues ((int) 1, &row2k, &val1);
 	      }//if
+	      //f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
 	    }//j
 	    //loop over ns1
 	    for ( int j = 0; j < ns_size; j++ ){
@@ -753,18 +755,24 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		// u(ns2)
 		double val1 = (*(it->u_rep_))[rlid2];
 		
+		// u(ns1) - u(ns2)
+		double val = (*u)[numeqs_*lid1 + k]  - val1;
+
 		//but is mostly working in parallel, there are some weird values where
 		//periodic bc nodesets intersect processor boundaries
 		//to be looked at-- run test problem on 8 procs shows this
 
-		// u(ns1) - u(ns2)
-		double val = (*u)[numeqs_*lid1 + k]  - val1;
+		//8-16-17 i think the problem is in periodic_bc::import_data
+		//or periodic_bc::import_data is right and
+		//probably also has to do with ghosted nodes
+		//ie these values on ghost nodes are only added in once
+		//the problems are at gid 276 and 280 ?
 
 		// f(ns1) = u(ns1) - u(ns2)
 // 		std::cout<<"k: "<<k<<std::endl;
 // 		std::cout<<"l: "<<lid1<<" "<<rlid2<<std::endl;
 // 		std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
-// 		std::cout<<"u: "<<row1k<<" "<<val1<<std::endl;
+// 		std::cout<<"u: "<<row1k<<" "<<val<<" "<<val1<<" "<<comm_->MyPID()<<std::endl;
 		f_fe.ReplaceGlobalValue (row1k, (int)0, val);
 	      }//if
 	    }//j

@@ -13,6 +13,7 @@ SET( DIR_8 "error_estimator/include" )
 SET( DIR_9 "post_process/include" )
 SET( DIR_10 "elem_color/include" )
 SET( DIR_11 "periodic_bc/include" )
+SET( DIR_12 "projection/include" )
 SET( DIR_6 ${TRILINOS_DIR}lib )
 SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 
@@ -28,8 +29,8 @@ INCLUDE( ${DIR_6}/cmake/Trilinos/TrilinosConfig.cmake )
 #---------------------------------------------------------------------------------
 
 INCLUDE_DIRECTORIES( ${Trilinos_TPL_INCLUDE_DIRS} ${DIR_1} ${DIR_2} ${DIR_3} 
-  ${DIR_4} ${DIR_5} ${DIR_8} ${DIR_9} ${DIR_10} ${DIR_11} ${DIR_1}/.. ${DIR_2}/.. 
-  ${DIR_3}/.. ${DIR_4}/.. ${DIR_5}/.. ${DIR_8}/.. ${DIR_10}/.. ${DIR_11}/..  )
+  ${DIR_4} ${DIR_5} ${DIR_8} ${DIR_9} ${DIR_10} ${DIR_11} ${DIR_12} ${DIR_1}/.. ${DIR_2}/.. 
+  ${DIR_3}/.. ${DIR_4}/.. ${DIR_5}/.. ${DIR_8}/.. ${DIR_10}/.. ${DIR_11}/.. ${DIR_12}/.. )
 
 #---------------------------------------------------------------------------------
 # Change compiler. This must be done before PROJECT() specification
@@ -61,6 +62,8 @@ ${DIR_7}/post_process/include/post_process.h
 ${DIR_7}/elem_color/elem_color.cpp 
 ${DIR_7}/periodic_bc/include/periodic_bc.h 
 ${DIR_7}/periodic_bc/periodic_bc.cpp 
+${DIR_7}/projection/include/projection.h 
+${DIR_7}/projection/projection.cpp 
 )
 
 

@@ -665,6 +665,7 @@ int Mesh::write_exodus(const int ex_id){
    write_nodal_coordinates_exodus(ex_id);
    write_element_blocks_exodus(ex_id);
    write_nodal_data_exodus(ex_id);
+   //ex_put_node_num_map(ex_id,&node_num_map[0]);
 
    return 0;
 
@@ -1535,7 +1536,7 @@ int Mesh::get_local_id(int gid)
   return lid;
 }
 
-void Mesh::create_sorted_nodelists()
+void Mesh::create_sorted_nodesetlists()
 {
 //   std::cout<<"Mesh::create_sorted_nodelists()"<<std::endl;
 //   std::cout<<"int num_node_sets "<<num_node_sets<<std::endl;
@@ -1577,7 +1578,103 @@ void Mesh::create_sorted_nodelists()
     for (int n = 0; n < num_nodes_per_ns[i]; n++){
 //       std::cout<<std::get<0>(sns[n])<<" :"<<std::get<1>(sns[n])<<" "<<std::get<2>(sns[n])<<" "<<std::get<3>(sns[n])<<std::endl;
       sorted_ns_node_list[i][n] = std::get<0>(sns[n]);
-    }
-  }
+    }//n
+  }//i
 //   exit(0);
 }
+
+void Mesh::create_sorted_nodelist()
+{
+  sorted_node_num_map.resize(num_nodes);
+
+  //typedef std::tuple<int, double, double, double> tuple_t;
+  typedef std::tuple<double, double> tuple_t;
+
+  typedef std::pair<double,double> pair_t;
+
+  std::vector<pair_t> psns(num_nodes);
+
+  std::vector<tuple_t> sns;//(num_nodes);
+  
+  for (int n = 0; n < num_nodes; n++){
+    int gid = node_num_map[n];
+    //int lid = n;
+    int lid = gid;
+    double x = get_x(n);
+    double y = get_y(n);
+    double z = get_z(n);
+    std::cout<<n<<" "<<lid<<" :"<<x<<" "<<y<<" "<<z<<std::endl;
+    //sns[n] = std::make_tuple(lid,x,y,z);
+    //sns.push_back( std::make_tuple(lid,x,y,z));
+    sns.push_back( std::make_tuple(x,y));
+
+    pair_t p(x,y);
+    psns[n]=p;
+  }
+  
+  std::sort(begin(sns), end(sns), 
+		   [](tuple_t const &t1, tuple_t const &t2) {	     		     
+		     return (std::get<1>(t1) < std::get<1>(t2)
+			     || (!(std::get<1>(t2) < std::get<1>(t1)) && std::get<0>(t1) < std::get<0>(t2) ));
+		   }
+ 		   );
+//   std::stable_sort(begin(psns), end(psns), 
+// 		   [](pair_t const &t1, pair_t const &t2) {	     		     
+// 	      return (t1.second < t2.second
+// 		      || (!(t2.second < t1.second) && t1.first < t2.first ));
+// 		   }
+
+// 	    );
+//   std::stable_sort(begin(psns), end(psns));
+  std::stable_sort(begin(psns), end(psns), 
+		   [](pair_t const &t1, pair_t const &t2) {	     		     
+		     return (t1.first < t2.first);
+		   }
+		   );
+  std::stable_sort(begin(psns), end(psns), 
+		   [](pair_t const &t1, pair_t const &t2) {	     		     
+		     return (t1.second < t2.second)||(!(t1.second < t2.second)&&(t1.first < t2.first));
+		   }
+		   );
+
+//   std::stable_sort(begin(sns), end(sns), 
+// 		   [](tuple_t const &t1, tuple_t const &t2) {
+// 		     return std::get<0>(t1) < std::get<0>(t2);
+// 		   }
+// 		   );
+//   std::stable_sort(begin(sns), end(sns), 
+// 		   [](tuple_t const &t1, tuple_t const &t2) {
+// 		     return std::get<1>(t1) < std::get<1>(t2);
+// 		   }
+// 		   );
+//   std::stable_sort(begin(sns), end(sns), 
+// 		   [](tuple_t const &t1, tuple_t const &t2) {
+// 		     return  std::get<2>(t1) < std::get<2>(t2);
+// 		   }
+// 		   );
+//   std::stable_sort(begin(sns), end(sns), 
+// 		   [](std::tuple<int, double, double, double> const &t1, std::tuple<int, double, double, double> const &t2) {
+// 		     return std::get<3>(t1) < std::get<3>(t2);
+// 		   }
+// 		   );
+  
+  //     std::cout<<"++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
+  for (int n = 0; n < num_nodes; n++){
+//     std::cout<<std::get<0>(sns[n])<<" :"<<std::get<1>(sns[n])
+//       //<<" "<<std::get<2>(sns[n])<<" "<<std::get<3>(sns[n])
+// 	     <<std::endl;
+    std::cout<<psns[n].first<<" "<<psns[n].second<<std::endl;
+    sorted_node_num_map[n] = std::get<0>(sns[n]);
+  }//n
+
+
+//   std::cout<<std::endl;
+//   std::vector<std::tuple<int, double, double, double>>::iterator it;
+
+//   for (it=sns.begin(); it!=sns.end(); ++it){
+//     std::cout<<std::get<0>(*it)<<" :"<<std::get<1>(*it)<<" "<<std::get<2>(*it)<<" "<<std::get<3>(*it)<<std::endl;
+//   }
+
+  //exit(0);
+}
+

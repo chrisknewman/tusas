@@ -46,7 +46,6 @@
 #include "ReadInput.h"
 #include "tusas.h"
 
-
 using namespace std;
 
 int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const bool skipdecomp, const bool writedecomp, const Epetra_Comm * comm);

@@ -145,12 +145,16 @@ class Mesh
   void set_global_file_name(std::string filename){global_file_name = filename;return;};
   /// Get local id from global id
   int get_local_id(int gid);
-  /// Creates sorted nodelists based on increasing x, y and z. Used for periodic BCs.
-  void create_sorted_nodelists();
+  /// Creates sorted nodesetlists based on increasing x, y and z. Used for periodic BCs.
+  void create_sorted_nodesetlists();
   /// Return sorted node set with id i
   std::vector<int> get_sorted_node_set(int i){return sorted_ns_node_list[i];}
   /// Return node id of sorted node j in node set with id i, by local id
   int get_sorted_node_set_entry(int i, int j){return sorted_ns_node_list[i][j];}
+  /// Creates sorted nodelist based on increasing x, y and z. Used for projection method.
+  void create_sorted_nodelist();
+  /// Return sorted node list
+  std::vector<int> get_sorted_node_num_map(){return sorted_node_num_map;}
 
  private:
 
@@ -288,6 +292,7 @@ class Mesh
 
   bool is_global_node_local(int i);
   bool is_global_elem_local(int i);
+  std::vector<int> sorted_node_num_map;
   //#endif
 
 };

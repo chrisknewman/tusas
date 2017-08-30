@@ -57,6 +57,8 @@
 
 #include "elem_color.h"
 
+#include "projection.h"
+
 //#define TUSAS_OMP
 
 // Nonmember constuctors
@@ -90,7 +92,13 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 {
   dt_ = paramList.get<double> (TusasdtNameString);
   t_theta_ = paramList.get<double> (TusasthetaNameString);
+
   set_test_case();
+
+#ifdef TUSAS_PROJECTION
+  projection proj(comm_);
+#endif
+
 
   using Teuchos::RCP;
   using Teuchos::rcp;
@@ -3214,7 +3222,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 	exit(0);
       }
 
-      mesh_->create_sorted_nodelists();
+      mesh_->create_sorted_nodesetlists();
 
       std::cout<<"  periodicbc_ with size "<<periodicbc_->size()<<" found."<<std::endl;
       

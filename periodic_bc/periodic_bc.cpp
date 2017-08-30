@@ -40,7 +40,7 @@ periodic_bc::periodic_bc(const int ns_id1,
 
   //this sorts all nodelists, we don't want to do this everytime so we need
   //to pass it the nodeset ids eventually
-  mesh_->create_sorted_nodelists();
+  mesh_->create_sorted_nodesetlists();
   ns1_map_ = get_replicated_map(ns_id1_);
   //ns1_map_->Print(std::cout);
   ns2_map_ = get_replicated_map(ns_id2_);

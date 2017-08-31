@@ -22,7 +22,7 @@ projection::projection(const Teuchos::RCP<const Epetra_Comm>& comm) :
   int numproc = comm_->NumProc();
   sourcemesh_ = new Mesh(mypid,numproc,false);
   //std::string meshNameString = "source2d.e";
-  std::string meshNameString = "../../meshes/hex8.e";
+  std::string meshNameString = "../../meshes/hex64.e";
 
   if( 1 != numproc ) exit(0);
 

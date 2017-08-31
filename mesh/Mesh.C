@@ -13,6 +13,7 @@
 #include <algorithm>
 #include "string.h"
 #include <cmath>
+#include <iomanip>
 
 #include "exodusII.h"
 
@@ -1626,20 +1627,37 @@ void Mesh::create_sorted_nodelist()
   //cn the following works for 2d.....
 //   std::stable_sort(begin(sns), end(sns), 
 // 		   [](tuple_t const &t1, tuple_t const &t2) {
-// 		     if(approxEqual(std::get<2>(t1),std::get<2>(t2),1e-10)) return (std::get<1>(t1) < std::get<1>(t2));	
-// 		     if(std::get<2>(t1)<std::get<2>(t2)) return true;     		     
+
+// 		     if(approxEqual(std::get<2>(t1),std::get<2>(t2),1e-10)) {
+// 		       return (std::get<1>(t1) < std::get<1>(t2));
+// 		     }	
+ 
+// 		     if(std::get<2>(t1)<std::get<2>(t2)) {
+// 		       return true;     		  
+// 		     }   
 // 		     return false;
 // 		   }
 //  		   );
 
   std::stable_sort(begin(sns), end(sns), 
 		   [](tuple_t const &t1, tuple_t const &t2) {
-		     if(approxEqual(std::get<2>(t1),std::get<2>(t2),1e-10)) {
-		       return (std::get<1>(t1) < std::get<1>(t2));
+
+		     if(approxEqual(std::get<3>(t1),std::get<3>(t2),1e-10)) {
+
+		       if(approxEqual(std::get<2>(t1),std::get<2>(t2),1e-10)) {
+			 return (std::get<1>(t1) < std::get<1>(t2));
+		       }
+		       
+
+		       return (std::get<2>(t1) < std::get<2>(t2));
 		     }	
-		     if(std::get<2>(t1)<std::get<2>(t2)) {
+
+
+		     if(std::get<3>(t1)<std::get<3>(t2)) {
 		       return true; 
-		     }    		     
+		     } 
+		     
+ 		     
 		     return false;
 		   }
  		   );
@@ -1655,12 +1673,12 @@ void Mesh::create_sorted_nodelist()
 // 	     <<std::endl;
     sorted_node_num_map[n] = std::get<0>(sns[n]);
   }//n
-  std::cout<<std::endl;
+  std::cout<<std::endl<<std::fixed;
   for (std::vector<std::tuple<int, double, double, double>>::iterator it=sns.begin(); it!=sns.end(); ++it){
     //std::cout<<std::get<0>(*it)<<" :"<<std::get<1>(*it)<<" "<<std::get<2>(*it)<<" "<<std::get<3>(*it)<<std::endl;
-    std::cout<<std::get<1>(*it)<<" "<<std::get<2>(*it)<<" "<<std::get<3>(*it)<<std::endl;
+    std::cout<<std::get<1>(*it)<<"    "<<std::get<2>(*it)<<"    "<<std::get<3>(*it)<<std::endl;
   }
 
-  //exit(0);
+  exit(0);
 }
 

@@ -21,7 +21,7 @@
 
 #include "Mesh.h"
 
-#define TUSAS_PROJECTION
+//#define TUSAS_PROJECTION
 
 class projection
 {

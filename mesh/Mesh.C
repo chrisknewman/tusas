@@ -1679,6 +1679,6 @@ void Mesh::create_sorted_nodelist()
     std::cout<<std::get<1>(*it)<<"    "<<std::get<2>(*it)<<"    "<<std::get<3>(*it)<<std::endl;
   }
 
-  exit(0);
+  //exit(0);
 }
 

@@ -21,7 +21,8 @@ projection::projection(const Teuchos::RCP<const Epetra_Comm>& comm) :
   int mypid = comm_->MyPID();
   int numproc = comm_->NumProc();
   sourcemesh_ = new Mesh(mypid,numproc,false);
-  std::string meshNameString = "source2d.e";
+  //std::string meshNameString = "source2d.e";
+  std::string meshNameString = "../../meshes/hex8.e";
 
   if( 1 != numproc ) exit(0);
 
@@ -68,14 +69,14 @@ void projection::read_file()
     data.push_back(num);
   }
   sourcemesh_->create_sorted_nodelist();
-  exit(0);
+  //exit(0);
   std::vector<int> node_num_map(sourcemesh_->get_sorted_node_num_map());
 
   //std::cout<<data.size()<<" "<<sourcemesh_->get_num_nodes()<<std::endl;
 
   //if(sourcemesh_->get_num_nodes() != data.size()) exit(0);
   for( int i = 0; i < data.size(); i++){
-    std::cout<<i<<" "<<data[i]<<" "<<source_map_->GID(i)<<" "<<node_num_map[i]<<std::endl;
+    //std::cout<<i<<" "<<data[i]<<" "<<source_map_->GID(i)<<" "<<node_num_map[i]<<std::endl;
     //(*source_)[node_num_map[i]] = data[i];
     double val = data[i];
     int gid = node_num_map[i];
@@ -85,7 +86,7 @@ void projection::read_file()
 				 &gid 
 				 ) ;	
   }
-  source_->Print(std::cout);
+  //source_->Print(std::cout);
   return;
 }
 void projection::update_mesh_data()

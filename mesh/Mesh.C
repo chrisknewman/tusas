@@ -12,6 +12,7 @@
 #include <iostream>
 #include <algorithm>
 #include "string.h"
+#include <cmath>
 
 #include "exodusII.h"
 
@@ -485,8 +486,7 @@ int Mesh::read_exodus(const char * filename){
     std::cout<<"=== End ExodusII Read Info ==="<<std::endl<<std::endl;
     
   }
-  
-  
+  //create_sorted_nodelist();
   return 0;
   
 }
@@ -1583,18 +1583,34 @@ void Mesh::create_sorted_nodesetlists()
 //   exit(0);
 }
 
+bool const essEqual(const double a, const double b, const double epsilon)
+{
+    return std::fabs(a - b) <= ( (std::fabs(a) > std::fabs(b) ? std::fabs(b) : std::fabs(a)) * epsilon);
+}
+
+bool defGreaterThan(const double a, const double b, const double epsilon)
+{
+    return (a - b) > ( (std::fabs(a) < std::fabs(b) ? std::fabs(b) : std::fabs(a)) * epsilon);
+}
+
+bool defLessThan(const double a, const double b, const double epsilon)
+{
+    return (b - a) > ( (std::fabs(a) < std::fabs(b) ? std::fabs(b) : std::fabs(a)) * epsilon);
+}
+bool const approxEqual(const double a, const double b, const double epsilon)
+{
+  return std::fabs(a - b) <= ( (std::fabs(a) < std::fabs(b) ? std::fabs(b) : std::fabs(a)) * epsilon);
+}
+
+
 void Mesh::create_sorted_nodelist()
 {
   sorted_node_num_map.resize(num_nodes);
 
-  //typedef std::tuple<int, double, double, double> tuple_t;
-  typedef std::tuple<double, double> tuple_t;
+  typedef std::tuple<int, double, double, double> tuple_t;
+  //typedef std::tuple<double, double> tuple_t;
 
-  typedef std::pair<double,double> pair_t;
-
-  std::vector<pair_t> psns(num_nodes);
-
-  std::vector<tuple_t> sns;//(num_nodes);
+  std::vector<tuple_t> sns(num_nodes);
   
   for (int n = 0; n < num_nodes; n++){
     int gid = node_num_map[n];
@@ -1603,77 +1619,47 @@ void Mesh::create_sorted_nodelist()
     double x = get_x(n);
     double y = get_y(n);
     double z = get_z(n);
-    std::cout<<n<<" "<<lid<<" :"<<x<<" "<<y<<" "<<z<<std::endl;
-    //sns[n] = std::make_tuple(lid,x,y,z);
-    //sns.push_back( std::make_tuple(lid,x,y,z));
-    sns.push_back( std::make_tuple(x,y));
-
-    pair_t p(x,y);
-    psns[n]=p;
+    //std::cout<<n<<" "<<lid<<" :"<<x<<" "<<y<<" "<<z<<std::endl;
+    sns[n] = std::make_tuple(lid,x,y,z);
   }
   
-  std::sort(begin(sns), end(sns), 
-		   [](tuple_t const &t1, tuple_t const &t2) {	     		     
-		     return (std::get<1>(t1) < std::get<1>(t2)
-			     || (!(std::get<1>(t2) < std::get<1>(t1)) && std::get<0>(t1) < std::get<0>(t2) ));
+  //cn the following works for 2d.....
+//   std::stable_sort(begin(sns), end(sns), 
+// 		   [](tuple_t const &t1, tuple_t const &t2) {
+// 		     if(approxEqual(std::get<2>(t1),std::get<2>(t2),1e-10)) return (std::get<1>(t1) < std::get<1>(t2));	
+// 		     if(std::get<2>(t1)<std::get<2>(t2)) return true;     		     
+// 		     return false;
+// 		   }
+//  		   );
+
+  std::stable_sort(begin(sns), end(sns), 
+		   [](tuple_t const &t1, tuple_t const &t2) {
+		     if(approxEqual(std::get<2>(t1),std::get<2>(t2),1e-10)) {
+		       return (std::get<1>(t1) < std::get<1>(t2));
+		     }	
+		     if(std::get<2>(t1)<std::get<2>(t2)) {
+		       return true; 
+		     }    		     
+		     return false;
 		   }
  		   );
-//   std::stable_sort(begin(psns), end(psns), 
-// 		   [](pair_t const &t1, pair_t const &t2) {	     		     
-// 	      return (t1.second < t2.second
-// 		      || (!(t2.second < t1.second) && t1.first < t2.first ));
-// 		   }
 
-// 	    );
-//   std::stable_sort(begin(psns), end(psns));
-  std::stable_sort(begin(psns), end(psns), 
-		   [](pair_t const &t1, pair_t const &t2) {	     		     
-		     return (t1.first < t2.first);
-		   }
-		   );
-  std::stable_sort(begin(psns), end(psns), 
-		   [](pair_t const &t1, pair_t const &t2) {	     		     
-		     return (t1.second < t2.second)||(!(t1.second < t2.second)&&(t1.first < t2.first));
-		   }
-		   );
 
-//   std::stable_sort(begin(sns), end(sns), 
-// 		   [](tuple_t const &t1, tuple_t const &t2) {
-// 		     return std::get<0>(t1) < std::get<0>(t2);
-// 		   }
-// 		   );
-//   std::stable_sort(begin(sns), end(sns), 
-// 		   [](tuple_t const &t1, tuple_t const &t2) {
-// 		     return std::get<1>(t1) < std::get<1>(t2);
-// 		   }
-// 		   );
-//   std::stable_sort(begin(sns), end(sns), 
-// 		   [](tuple_t const &t1, tuple_t const &t2) {
-// 		     return  std::get<2>(t1) < std::get<2>(t2);
-// 		   }
-// 		   );
-//   std::stable_sort(begin(sns), end(sns), 
-// 		   [](std::tuple<int, double, double, double> const &t1, std::tuple<int, double, double, double> const &t2) {
-// 		     return std::get<3>(t1) < std::get<3>(t2);
-// 		   }
-// 		   );
-  
-  //     std::cout<<"++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
+
   for (int n = 0; n < num_nodes; n++){
-//     std::cout<<std::get<0>(sns[n])<<" :"<<std::get<1>(sns[n])
-//       //<<" "<<std::get<2>(sns[n])<<" "<<std::get<3>(sns[n])
+//     bool r =(psns[n].second==psns[n-1].second)?(psns[n].first < psns[n-1].first) : (true);
+//     std::cout<<psns[n].first<<" "<<psns[n].second
+// 	     <<" "<<!(psns[n].second<psns[n-1].second)//s = s
+// 	     <<" "<<approxEqual(psns[n].second,psns[n-1].second,1e-10)//s = s
+// 	     <<" : "<<r
 // 	     <<std::endl;
-    std::cout<<psns[n].first<<" "<<psns[n].second<<std::endl;
     sorted_node_num_map[n] = std::get<0>(sns[n]);
   }//n
-
-
-//   std::cout<<std::endl;
-//   std::vector<std::tuple<int, double, double, double>>::iterator it;
-
-//   for (it=sns.begin(); it!=sns.end(); ++it){
-//     std::cout<<std::get<0>(*it)<<" :"<<std::get<1>(*it)<<" "<<std::get<2>(*it)<<" "<<std::get<3>(*it)<<std::endl;
-//   }
+  std::cout<<std::endl;
+  for (std::vector<std::tuple<int, double, double, double>>::iterator it=sns.begin(); it!=sns.end(); ++it){
+    //std::cout<<std::get<0>(*it)<<" :"<<std::get<1>(*it)<<" "<<std::get<2>(*it)<<" "<<std::get<3>(*it)<<std::endl;
+    std::cout<<std::get<1>(*it)<<" "<<std::get<2>(*it)<<" "<<std::get<3>(*it)<<std::endl;
+  }
 
   //exit(0);
 }

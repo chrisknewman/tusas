@@ -362,6 +362,100 @@ BasisLQuad::~BasisLQuad() {
   delete xi, eta, nwt;
 }
 
+bool BasisLQuad::evalBasis(const double *x,  const double *y, const double *z, const double *u, const double xx_, const double yy_, const double zz_, double &val)
+{
+  //for each direction we solve the a nonlinear least squares system for the barycentric coords
+
+  // F1(xi,eta) = -xx + sum_k x(k)*phi(k) == 0
+  // The Newton system gives J(v) dv = -F(v) is reformulated as:
+  // J(v)^T J(v) dv = -J(v)^T F(v), where inv(J^T J) is calculated explicitly 
+
+  const int niter = 3;
+  const int nnode = 4;
+
+  //initial iterate 
+  double xi_ = 0.;
+  double eta_ = 0.;
+
+  for(int i = 0; i < niter; i++){
+    // Calculate basis function and derivatives at iterate
+    phi[0]=(1.0-xi_)*(1.0-eta_)/4.0;
+    phi[1]=(1.0+xi_)*(1.0-eta_)/4.0;
+    phi[2]=(1.0+xi_)*(1.0+eta_)/4.0;
+    phi[3]=(1.0-xi_)*(1.0+eta_)/4.0;
+    
+    dphidxi[0]=-(1.0-eta_)/4.0;
+    dphidxi[1]= (1.0-eta_)/4.0;
+    dphidxi[2]= (1.0+eta_)/4.0;
+    dphidxi[3]=-(1.0+eta_)/4.0;
+    
+    dphideta[0]=-(1.0-xi_)/4.0;
+    dphideta[1]=-(1.0+xi_)/4.0;
+    dphideta[2]= (1.0+xi_)/4.0;
+    dphideta[3]= (1.0-xi_)/4.0;    
+    
+    double f0 = -xx_;
+    double f1 = -yy_;
+    double f2 = -zz_;
+    double j00 = 0.;
+    double j01 = 0.;
+    double j10 = 0.;
+    double j11 = 0.;
+    double j20 = 0.;
+    double j21 = 0.;
+
+    //residual F and elements of J
+    for(int k = 0; k < nnode; k++){
+      f0 = f0 +x[k]*phi[k];
+      f1 = f1 +y[k]*phi[k];
+      f2 = f2 +z[k]*phi[k];
+      j00=j00 +x[k]*dphidxi[k];
+      j01=j01+x[k]*dphideta[k];
+      j10=j10+y[k]*dphidxi[k];
+      j11=j11+y[k]*dphideta[k];
+      j20=j20+z[k]*dphidxi[k];
+      j21=j21+z[k]*dphideta[k];
+    }//k
+    
+    //J(v)^T F(v)
+    double jtf0=j00*f0+j10*f1+j20*f2;
+    double jtf1=j01*f0+j11*f1+j21*f2;
+    
+    // inv(J^T J)
+    double a=j00*j00+j10*j10+j20*j20;
+    double b=j00*j01+j10*j11+j20*j21;
+    double d=j01*j01+j11*j11+j21*j21;
+    double deti=a*d-b*b;
+
+    // inv(J^T J) * -J(v)^T F(v)
+    double dxi=-(d/deti*jtf0-b/deti*jtf1);
+    double deta=-(-b/deti*jtf0+a/deti*jtf1);
+
+    xi_=dxi+xi_;
+    eta_=deta+eta_;
+    
+  }//i
+  //std::cout<<xi_<<" "<<eta_<<std::endl<<std::endl;
+
+  //cn hack here, need to think about a reasonable number here
+  double small = 1e-8;
+
+  if( (std::fabs(xi_) > (1.+small))||(std::fabs(eta_) > (1.+small)) ) return false;
+  
+  phi[0]=(1.0-xi_)*(1.0-eta_)/4.0;
+  phi[1]=(1.0+xi_)*(1.0-eta_)/4.0;
+  phi[2]=(1.0+xi_)*(1.0+eta_)/4.0;
+  phi[3]=(1.0-xi_)*(1.0+eta_)/4.0;
+
+  val = 0.;
+  for(int k = 0; k < nnode; k++){
+    val = val + u[k]*phi[k];
+  }//k
+
+  return true;
+};
+
+
 void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
 
   // Calculate basis function and derivatives at nodal pts
@@ -1021,6 +1115,136 @@ void BasisLHex::getBasis(const int gp, const double *x, const double *y) {
   std::cout<<"BasisLHex::getBasis(int gp, double *x, double *y) is not implemented"<<std::endl;
   exit(0);
 }
+
+bool BasisLHex::evalBasis(const double *x,  const double *y, const double *z, const double *u, const double xx_, const double yy_, const double zz_, double &val)
+{
+  //for each direction we solve the a nonlinear system for the barycentric coords
+
+  // F1(xi,eta) = -xx + sum_k x(k)*phi(k) == 0
+  // The Newton system gives J(v) dv = -F(v) , where inv(J) is calculated explicitly 
+
+  const int niter = 3;
+  const int nnode = 8;
+
+  //initial iterate 
+  double xi_ = 0.0;
+  double eta_ = 0.0;
+  double zta_ = 0.0;
+
+  for(int i = 0; i < niter; i++){
+    // Calculate basis function and derivatives at iterate
+    phi[0]   =  0.125 * (1.0 - xi_) * (1.0 - eta_) * (1.0 - zta_);
+    phi[1]   =  0.125 * (1.0 + xi_) * (1.0 - eta_) * (1.0 - zta_);
+    phi[2]   =  0.125 * (1.0 + xi_) * (1.0 + eta_) * (1.0 - zta_);
+    phi[3]   =  0.125 * (1.0 - xi_) * (1.0 + eta_) * (1.0 - zta_);
+    phi[4]   =  0.125 * (1.0 - xi_) * (1.0 - eta_) * (1.0 + zta_);
+    phi[5]   =  0.125 * (1.0 + xi_) * (1.0 - eta_) * (1.0 + zta_);
+    phi[6]   =  0.125 * (1.0 + xi_) * (1.0 + eta_) * (1.0 + zta_);
+    phi[7]   =  0.125 * (1.0 - xi_) * (1.0 + eta_) * (1.0 + zta_);
+    
+    dphidxi[0] = -0.125 * (1.0 - eta_) * (1.0 - zta_);
+    dphidxi[1] =  0.125 * (1.0 - eta_) * (1.0 - zta_);
+    dphidxi[2] =  0.125 * (1.0 + eta_) * (1.0 - zta_);
+    dphidxi[3] = -0.125 * (1.0 + eta_) * (1.0 - zta_);
+    dphidxi[4] = -0.125 * (1.0 - eta_) * (1.0 + zta_);
+    dphidxi[5] =  0.125 * (1.0 - eta_) * (1.0 + zta_);
+    dphidxi[6] =  0.125 * (1.0 + eta_) * (1.0 + zta_);
+    dphidxi[7] = -0.125 * (1.0 + eta_) * (1.0 + zta_);
+    
+    dphideta[0] = -0.125 * (1.0 - xi_) * (1.0 - zta_);
+    dphideta[1] = -0.125 * (1.0 + xi_) * (1.0 - zta_);
+    dphideta[2] =  0.125 * (1.0 + xi_) * (1.0 - zta_);
+    dphideta[3] =  0.125 * (1.0 - xi_) * (1.0 - zta_);
+    dphideta[4] = -0.125 * (1.0 - xi_) * (1.0 + zta_);
+    dphideta[5] = -0.125 * (1.0 + xi_) * (1.0 + zta_);
+    dphideta[6] =  0.125 * (1.0 + xi_) * (1.0 + zta_);
+    dphideta[7] =  0.125 * (1.0 - xi_) * (1.0 + zta_);
+    
+    dphidzta[0] = -0.125 * (1.0 - xi_) * (1.0 - eta_);
+    dphidzta[1] = -0.125 * (1.0 + xi_) * (1.0 - eta_);
+    dphidzta[2] = -0.125 * (1.0 + xi_) * (1.0 + eta_);
+    dphidzta[3] = -0.125 * (1.0 - xi_) * (1.0 + eta_);
+    dphidzta[4] =  0.125 * (1.0 - xi_) * (1.0 - eta_);
+    dphidzta[5] =  0.125 * (1.0 + xi_) * (1.0 - eta_);
+    dphidzta[6] =  0.125 * (1.0 + xi_) * (1.0 + eta_);
+    dphidzta[7] =  0.125 * (1.0 - xi_) * (1.0 + eta_);
+  
+    double f0 = -xx_;
+    double f1 = -yy_;
+    double f2 = -zz_;
+    double j00 = 0.;
+    double j01 = 0.;
+    double j02 = 0.;
+    double j10 = 0.;
+    double j11 = 0.;
+    double j12 = 0.;
+    double j20 = 0.;
+    double j21 = 0.;
+    double j22 = 0.;
+
+    //residual F and elements of J
+    for(int k = 0; k < nnode; k++){
+      f0 = f0 +x[k]*phi[k];
+      f1 = f1 +y[k]*phi[k];
+      f2 = f2 +z[k]*phi[k];
+      j00=j00 +x[k]*dphidxi[k];
+      j01=j01 +x[k]*dphideta[k];
+      j02=j02 +x[k]*dphidzta[k];
+      j10=j10 +y[k]*dphidxi[k];
+      j11=j11 +y[k]*dphideta[k];
+      j12=j12 +y[k]*dphidzta[k];
+      j20=j20 +z[k]*dphidxi[k];
+      j21=j21 +z[k]*dphideta[k];
+      j22=j22 +z[k]*dphidzta[k];
+    }//k
+
+    double deti=j00*j11*j22 + j10*j21*j02 + j20*j01*j12 - j00*j21*j12 - j20*j11*j02 - j10*j01*j22;
+    
+    double a00=j11*j22-j12*j21;
+    double a01=j02*j21-j01*j22;
+    double a02=j01*j12-j02*j11;
+    
+    double a10=j12*j20-j10*j22;
+    double a11=j00*j22-j02*j20;
+    double a12=j02*j10-j00*j12;
+    
+    double a20=j10*j21-j11*j20;
+    double a21=j01*j20-j00*j21;
+    double a22=j00*j11-j01*j10;
+    
+    double dxi= -(a00*f0+a01*f1+a02*f2)/deti;
+    double deta= -(a10*f0+a11*f1+a12*f2)/deti;
+    double dzta= -(a20*f0+a21*f1+a22*f2)/deti;
+    
+    xi_=dxi+xi_;
+    eta_=deta+eta_;
+    zta_=dzta+zta_;
+    
+  }//i
+  //std::cout<<xi_<<" "<<eta_<<" "<<zta_<<std::endl;
+
+  //cn hack here, need to think about a reasonable number here
+  double small = 1e-8;
+
+  if( (std::fabs(xi_) > (1.+small))||(std::fabs(eta_) > (1.+small))||(std::fabs(zta_) > (1.+small)) ) return false;
+
+  phi[0]   =  0.125 * (1.0 - xi_) * (1.0 - eta_) * (1.0 - zta_);
+  phi[1]   =  0.125 * (1.0 + xi_) * (1.0 - eta_) * (1.0 - zta_);
+  phi[2]   =  0.125 * (1.0 + xi_) * (1.0 + eta_) * (1.0 - zta_);
+  phi[3]   =  0.125 * (1.0 - xi_) * (1.0 + eta_) * (1.0 - zta_);
+  phi[4]   =  0.125 * (1.0 - xi_) * (1.0 - eta_) * (1.0 + zta_);
+  phi[5]   =  0.125 * (1.0 + xi_) * (1.0 - eta_) * (1.0 + zta_);
+  phi[6]   =  0.125 * (1.0 + xi_) * (1.0 + eta_) * (1.0 + zta_);
+  phi[7]   =  0.125 * (1.0 - xi_) * (1.0 + eta_) * (1.0 + zta_);
+    
+  val = 0.;
+  for(int k = 0; k < nnode; k++){
+    val = val + u[k]*phi[k];
+  }//k
+
+  return true;
+}
+
 
 void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
 

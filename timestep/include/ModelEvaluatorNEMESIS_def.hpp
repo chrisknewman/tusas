@@ -95,11 +95,6 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   set_test_case();
 
-#ifdef TUSAS_PROJECTION
-  projection proj(comm_);
-#endif
-
-
   using Teuchos::RCP;
   using Teuchos::rcp;
   using ::Thyra::VectorBase;
@@ -1600,8 +1595,15 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
 {
   srand(123);
 
+#ifdef TUSAS_PROJECTION
+  projection proj(comm_,"target3d.e","temperature.txt");
+  //projection proj(comm_,"target2d.e","test_v2.txt");
+#endif
   for( int k = 0; k < numeqs_; k++ ){
+#ifdef TUSAS_PROJECTION
+#else
 #pragma omp parallel for
+#endif
     for (int nn=0; nn < num_my_nodes_; nn++) {
 
       int gid_node = x_owned_map_->GID(nn*numeqs_);
@@ -1611,7 +1613,14 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
       double y = mesh_->get_y(lid_overlap);
       double z = mesh_->get_z(lid_overlap);
       
+#ifdef TUSAS_PROJECTION
+      double val = 0.;
+      //      std::cout<<x<<" "<<y<<" "<<z<<std::endl;
+      proj.get_source_value(x,y,z,val);
+      (*u)[numeqs_*nn+k] = val;
+#else
       (*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+#endif
     }
 
   }
@@ -3115,6 +3124,40 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 
     //exit(0);
+
+
+  }else if("truchas" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &laplace::residual_heat_test_;
+
+//     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+//     (*preconfunc_)[0] = &prec_heat_test_;
+    preconfunc_ = NULL;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &init_zero_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = NULL; 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+//     (*dirichletfunc_)[0][1] = &dbc_zero_;
+    
+    //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
+//     (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+
 
 
 

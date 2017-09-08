@@ -63,6 +63,17 @@ class Basis {
 			 const double *uold, ///< uold (solution)  array (input) 
 			 const double *uoldold///< uoldold (solution)  array (input)
 			 ){exit(0);};
+  /// Evaluate the basis functions at the specified at point xx, yy ,zz
+  /** Evaluate the 3D basis functions at  xx, yy, zz and interpolate u.  True if xx, yy, zz is in this element. Returns val = u(xx,yy,zz)*/
+  virtual bool evalBasis( const double *x,  ///< x array (input) 
+			  const double *y, ///< y array (input)  
+			  const double *z, ///< z array (input)  
+			  const double *u, ///< u (solution)  array (input)  
+			  const double xx_, ///< xx 
+			  const double yy_,///< yy
+			  const double zz_,///< zz
+			  double &val ///< return val
+			 ){exit(0);};
 
   /// Set the number of Gauss points.
   void setN(const int N, ///< number of Gauss points (input)
@@ -219,6 +230,18 @@ class BasisLQuad : public Basis {
 		 const double *uoldold ///< uoldold (solution)  array (input)
 		 );
 
+  /// Evaluate the basis functions at the specified at point xx, yy ,zz
+  /** Evaluate the 3D basis functions at  xx, yy, zz and interpolate u.  True if xx, yy, zz is in this element. Returns val = u(xx,yy,zz)*/
+  bool evalBasis( const double *x,  ///< x array (input) 
+		  const double *y, ///< y array (input)  
+		  const double *z, ///< z array (input)  
+		  const double *u, ///< u (solution)  array (input)  
+		  const double xx_, ///< xx 
+		  const double yy_,///< yy
+		  const double zz_,///< zz
+		  double &val ///< return val
+		  );
+
   BasisLQuad* clone() const{ return new BasisLQuad(*this); }
   char type() { return 1; }
 
@@ -308,8 +331,20 @@ class BasisLHex : public Basis {
 		 const double *u,  ///< u (solution)  array (input)  
 		 const double *uold,  ///< uold (solution)  array (input)  
 		 const double *uoldold ///< uoldold (solution)  array (input)
-		 );  
+		 ); 
 
+  /// Evaluate the basis functions at the specified at point xx, yy ,zz
+  /** Evaluate the 3D basis functions at  xx, yy, zz and interpolate u.  True if xx, yy, zz is in this element. Returns val = u(xx,yy,zz)*/
+  bool evalBasis( const double *x,  ///< x array (input) 
+		  const double *y, ///< y array (input)  
+		  const double *z, ///< z array (input)  
+		  const double *u, ///< u (solution)  array (input)  
+		  const double xx_, ///< xx 
+		  const double yy_,///< yy
+		  const double zz_,///< zz
+		  double &val ///< return val
+		  );
+ 
   BasisLHex* clone() const{ return new BasisLHex(*this); }
   char type() { return 1; }
 

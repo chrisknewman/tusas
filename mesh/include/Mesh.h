@@ -155,6 +155,10 @@ class Mesh
   void create_sorted_nodelist();
   /// Return sorted node list
   std::vector<int> get_sorted_node_num_map(){return sorted_node_num_map;}
+  /// Creates sorted elemlist based on increasing x, y and z. Used for projection method.
+  void create_sorted_elemlist();
+  /// Return sorted node list
+  std::vector<int> get_sorted_elem_num_map(){return sorted_elem_num_map;}
 
  private:
 
@@ -254,6 +258,7 @@ class Mesh
   int write_nodal_data_exodus(int ex_id);
   int write_nodal_data_exodus(int ex_id, int counter);
   int write_elem_data_exodus(int ex_id, int counter);
+  int write_elem_data_exodus(int ex_id);
   int close_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
   int get_nodal_field_index(std::string name);
@@ -293,6 +298,7 @@ class Mesh
   bool is_global_node_local(int i);
   bool is_global_elem_local(int i);
   std::vector<int> sorted_node_num_map;
+  std::vector<int> sorted_elem_num_map;
   //#endif
 
 };

@@ -27,21 +27,31 @@ class projection
 {
 public:
   /// Constructor.
-  projection(const Teuchos::RCP<const Epetra_Comm>& comm);
+  projection(const Teuchos::RCP<const Epetra_Comm>& comm, 
+	     const std::string meshNameString, 
+	     const std::string dataNameString );
 
   /// Destructor.
   ~projection();
+
+  bool get_source_value(const double x, const double y, const double z, double &val);
 
 private:
   ///Source mesh object
   Mesh *sourcemesh_;
 
   const Teuchos::RCP<const Epetra_Comm>  comm_;
-  Teuchos::RCP<const Epetra_Map>   source_map_;
-  Teuchos::RCP<Epetra_Vector> source_;
+  Teuchos::RCP<const Epetra_Map>   source_node_map_;
+  Teuchos::RCP<Epetra_Vector> source_node_;
+  Teuchos::RCP<const Epetra_Map>   source_elem_map_;
+  Teuchos::RCP<Epetra_Vector> source_elem_;
 
   void read_file();
   void update_mesh_data();
+  void elem_to_node_avg();
+
+  std::string meshNameString_;
+  std::string dataNameString_;
 
 };
 #endif

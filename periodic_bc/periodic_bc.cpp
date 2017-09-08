@@ -117,6 +117,9 @@ void periodic_bc::import_data(const Epetra_FEVector &f_full,
     exit(0);
   }
   //f_rep_->Print(std::cout);
+  //f_rep_->Reduce();
+  //u_rep_->Reduce();
+  //f_rep_->Print(std::cout);
   //exit(0);
 }
 

@@ -666,8 +666,9 @@ int Mesh::write_exodus(const int ex_id){
    write_nodal_coordinates_exodus(ex_id);
    write_element_blocks_exodus(ex_id);
    write_nodal_data_exodus(ex_id);
+   write_elem_data_exodus(ex_id);
    //ex_put_node_num_map(ex_id,&node_num_map[0]);
-
+   //ex_put_elem_num_map(ex_id,&elem_num_map[0]);
    return 0;
 
 }
@@ -972,6 +973,51 @@ int Mesh::write_nodal_data_exodus(int ex_id, int counter){
   return ex_err;
 
 }
+
+int Mesh::write_elem_data_exodus(int ex_id){
+  int ex_err;
+  char **var_names;
+
+
+  if(verbose)
+
+    std::cout<<"=== Write Nodal Data Exodus ==="<<std::endl
+	     <<" num_nodal_fields "<<num_nodal_fields<<std::endl;
+
+  if(num_elem_fields == 0) return 0;
+
+  ex_err = ex_put_var_param (ex_id, "E", num_elem_fields);
+
+  var_names = new char*[num_elem_fields];
+
+  for(int i = 0; i < num_elem_fields; i++){
+
+    var_names[i] = (char *)&elem_field_names[i][0];
+
+    if(verbose)
+
+      std::cout<<" name  "<<var_names[i]<<std::endl<<std::endl;
+
+  }
+
+  int blk = 1; //hack
+  ex_err = ex_put_var_names (ex_id, "E", num_elem_fields, var_names);
+
+  for(int i = 0; i < num_elem_fields; i++){
+
+    ex_err = ex_put_elem_var (ex_id, 1, i + 1, blk,num_elem, &elem_fields[i][0]);
+
+    //(exoid,time_step,elem_var_index,elem_blk_id,num_elem_this_blk,elem_var_vals)
+    //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<nodal_fields[i][j]<<std::endl;
+  
+  }
+
+  delete [] var_names;
+
+  return ex_err;
+
+}
+
 
 int Mesh::write_elem_data_exodus(int ex_id, int counter){
   int ex_err;
@@ -1537,53 +1583,6 @@ int Mesh::get_local_id(int gid)
   return lid;
 }
 
-void Mesh::create_sorted_nodesetlists()
-{
-//   std::cout<<"Mesh::create_sorted_nodelists()"<<std::endl;
-//   std::cout<<"int num_node_sets "<<num_node_sets<<std::endl;
-//   std::cout<<"num_nodes_per_ns[0] "<<num_nodes_per_ns[0]<<std::endl;
-
-  sorted_ns_node_list.resize(num_node_sets);
-
-  for ( int i = 0; i < num_node_sets; i++ ){
-    sorted_ns_node_list[i].resize(num_nodes_per_ns[i]);
-    
-    std::vector<std::tuple<int, double, double, double>> sns(num_nodes_per_ns[i]);
-
-    for (int n = 0; n < num_nodes_per_ns[i]; n++){
-      int lid = ns_node_list[i][n];
-      double x = get_x(lid);
-      double y = get_y(lid);
-      double z = get_z(lid);
-//       std::cout<<n<<" "<<lid<<" :"<<x<<" "<<y<<" "<<z<<std::endl;
-      sns[n] = std::make_tuple(lid,x,y,z);
-    }
-    
-    std::stable_sort(begin(sns), end(sns), 
-		     [](std::tuple<int, double, double, double> const &t1, std::tuple<int, double, double, double> const &t2) {
-		       return std::get<1>(t1) < std::get<1>(t2);
-		     }
-		     );
-    std::stable_sort(begin(sns), end(sns), 
-		     [](std::tuple<int, double, double, double> const &t1, std::tuple<int, double, double, double> const &t2) {
-		       return std::get<2>(t1) < std::get<2>(t2);
-		     }
-		     );
-    std::stable_sort(begin(sns), end(sns), 
-		     [](std::tuple<int, double, double, double> const &t1, std::tuple<int, double, double, double> const &t2) {
-		       return std::get<3>(t1) < std::get<3>(t2);
-		     }
-		     );
-        
-//     std::cout<<"++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
-    for (int n = 0; n < num_nodes_per_ns[i]; n++){
-//       std::cout<<std::get<0>(sns[n])<<" :"<<std::get<1>(sns[n])<<" "<<std::get<2>(sns[n])<<" "<<std::get<3>(sns[n])<<std::endl;
-      sorted_ns_node_list[i][n] = std::get<0>(sns[n]);
-    }//n
-  }//i
-//   exit(0);
-}
-
 bool const essEqual(const double a, const double b, const double epsilon)
 {
     return std::fabs(a - b) <= ( (std::fabs(a) > std::fabs(b) ? std::fabs(b) : std::fabs(a)) * epsilon);
@@ -1603,6 +1602,63 @@ bool const approxEqual(const double a, const double b, const double epsilon)
   return std::fabs(a - b) <= ( (std::fabs(a) < std::fabs(b) ? std::fabs(b) : std::fabs(a)) * epsilon);
 }
 
+
+void Mesh::create_sorted_nodesetlists()
+{
+//   std::cout<<"Mesh::create_sorted_nodelists()"<<std::endl;
+//   std::cout<<"int num_node_sets "<<num_node_sets<<std::endl;
+//   std::cout<<"num_nodes_per_ns[0] "<<num_nodes_per_ns[0]<<std::endl;
+
+  sorted_ns_node_list.resize(num_node_sets);
+  
+  typedef std::tuple<int, double, double, double> tuple_t;
+
+  for ( int i = 0; i < num_node_sets; i++ ){
+    sorted_ns_node_list[i].resize(num_nodes_per_ns[i]);
+    
+    std::vector<tuple_t> sns(num_nodes_per_ns[i]);
+
+    for (int n = 0; n < num_nodes_per_ns[i]; n++){
+      int lid = ns_node_list[i][n];
+      double x = get_x(lid);
+      double y = get_y(lid);
+      double z = get_z(lid);
+//       std::cout<<n<<" "<<lid<<" :"<<x<<" "<<y<<" "<<z<<std::endl;
+      sns[n] = std::make_tuple(lid,x,y,z);
+    }
+
+    std::stable_sort(begin(sns), end(sns), 
+		     [](tuple_t const &t1, tuple_t const &t2) {
+		       
+		       if(approxEqual(std::get<3>(t1),std::get<3>(t2),1e-10)) {
+			 
+			 if(approxEqual(std::get<2>(t1),std::get<2>(t2),1e-10)) {
+			   return (std::get<1>(t1) < std::get<1>(t2));
+			 }
+			 
+			 
+			 return (std::get<2>(t1) < std::get<2>(t2));
+		       }	
+		       
+
+		       if(std::get<3>(t1)<std::get<3>(t2)) {
+			 return true; 
+		       } 
+		       
+		       
+		       return false;
+		     }
+		     );
+    
+    
+    //     std::cout<<"++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
+    for (int n = 0; n < num_nodes_per_ns[i]; n++){
+      //       std::cout<<std::get<0>(sns[n])<<" :"<<std::get<1>(sns[n])<<" "<<std::get<2>(sns[n])<<" "<<std::get<3>(sns[n])<<std::endl;
+      sorted_ns_node_list[i][n] = std::get<0>(sns[n]);
+    }//n
+  }//i
+  //   exit(0);
+}
 
 void Mesh::create_sorted_nodelist()
 {
@@ -1665,20 +1721,71 @@ void Mesh::create_sorted_nodelist()
 
 
   for (int n = 0; n < num_nodes; n++){
-//     bool r =(psns[n].second==psns[n-1].second)?(psns[n].first < psns[n-1].first) : (true);
-//     std::cout<<psns[n].first<<" "<<psns[n].second
-// 	     <<" "<<!(psns[n].second<psns[n-1].second)//s = s
-// 	     <<" "<<approxEqual(psns[n].second,psns[n-1].second,1e-10)//s = s
-// 	     <<" : "<<r
-// 	     <<std::endl;
     sorted_node_num_map[n] = std::get<0>(sns[n]);
   }//n
-  std::cout<<std::endl<<std::fixed;
-  for (std::vector<std::tuple<int, double, double, double>>::iterator it=sns.begin(); it!=sns.end(); ++it){
-    //std::cout<<std::get<0>(*it)<<" :"<<std::get<1>(*it)<<" "<<std::get<2>(*it)<<" "<<std::get<3>(*it)<<std::endl;
-    std::cout<<std::get<1>(*it)<<"    "<<std::get<2>(*it)<<"    "<<std::get<3>(*it)<<std::endl;
-  }
+}
+void Mesh::create_sorted_elemlist()
+{
+  sorted_elem_num_map.resize(num_elem);
 
+  typedef std::tuple<int, double, double, double> tuple_t;
+
+  std::vector<tuple_t> sns(num_elem);
+
+  int blk = 0;//cn for now
+  int n_nodes_per_elem = get_num_nodes_per_elem_in_blk(blk);
+  for (int ne = 0; ne < get_num_elem_in_blk(blk); ne++){
+    
+    double x_avg = 0;
+    double y_avg = 0;
+    double z_avg = 0;
+    
+    for(int k = 0; k < n_nodes_per_elem; k++){
+      int nodeid = get_node_id(blk, ne, k);
+      
+      double x = get_x(nodeid);
+      double y = get_y(nodeid);
+      double z = get_z(nodeid);
+      
+      x_avg += x;
+      y_avg += y;
+      z_avg += z;
+      
+    }//k
+    int elemid = get_global_elem_id(ne);
+    x_avg = x_avg/n_nodes_per_elem;
+    y_avg = y_avg/n_nodes_per_elem;
+    z_avg = z_avg/n_nodes_per_elem;
+    sns[ne] = std::make_tuple(elemid,x_avg,y_avg,z_avg);
+
+    //std::cout<<elemid<<" "<<x_avg<<std::endl;
+  }//ne
+  std::stable_sort(begin(sns), end(sns), 
+		   [](tuple_t const &t1, tuple_t const &t2) {
+
+		     if(approxEqual(std::get<3>(t1),std::get<3>(t2),1e-10)) {
+
+		       if(approxEqual(std::get<2>(t1),std::get<2>(t2),1e-10)) {
+			 return (std::get<1>(t1) < std::get<1>(t2));
+		       }
+		       
+
+		       return (std::get<2>(t1) < std::get<2>(t2));
+		     }	
+
+
+		     if(std::get<3>(t1)<std::get<3>(t2)) {
+		       return true; 
+		     } 
+		     
+ 		     
+		     return false;
+		   }
+ 		   );
+
+  for (int ne = 0; ne < get_num_elem_in_blk(blk); ne++){
+    sorted_elem_num_map[ne] = std::get<0>(sns[ne]);
+  }
   //exit(0);
 }
 

@@ -57,7 +57,9 @@
 
 #include "elem_color.h"
 
+#include "interpfluxavg.h"
 #include "projection.h"
+
 
 //#define TUSAS_OMP
 
@@ -3127,6 +3129,19 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 
   }else if("truchas" == paramList.get<std::string> (TusastestNameString)){
+
+    //std::cout<<"truchas"<<std::endl;
+
+#ifdef TUSAS_INTERPFLUXAVG
+    interpfluxavg ifa(comm_,"flux_thist.txt");
+    double val = 0.;
+    ifa.get_source_value(4.e-4, (int)0, val);
+    std::cout<<val<<std::endl;
+    ifa.get_source_value(2.8e-3, (int)2, val);
+    std::cout<<val<<std::endl;
+    exit(0);
+#endif 
+
 
     numeqs_ = 1;
 

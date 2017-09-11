@@ -94,8 +94,6 @@ void projection::read_file()
 
   if(mypid == 0) {
     std::vector<double> data;
-    //dataNameString_ = "temperature.txt";
-    //std::ifstream ifile("test_v2.txt", std::ios::in);
     std::ifstream ifile(dataNameString_, std::ios::in);
     
     

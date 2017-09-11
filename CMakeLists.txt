@@ -64,6 +64,8 @@ ${DIR_7}/periodic_bc/include/periodic_bc.h
 ${DIR_7}/periodic_bc/periodic_bc.cpp 
 ${DIR_7}/projection/include/projection.h 
 ${DIR_7}/projection/projection.cpp 
+${DIR_7}/projection/include/interpfluxavg.h 
+${DIR_7}/projection/interpfluxavg.cpp 
 )
 
 

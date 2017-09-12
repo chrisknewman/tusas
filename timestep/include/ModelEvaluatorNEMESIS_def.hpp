@@ -58,6 +58,7 @@
 #include "elem_color.h"
 
 #include "interpfluxavg.h"
+#include "interpflux.h"
 #include "projection.h"
 
 
@@ -1598,7 +1599,8 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
   srand(123);
 
 #ifdef TUSAS_PROJECTION
-  projection proj(comm_,"target3d.e","temperature.txt");
+  projection proj(comm_,"v2/target3d.e","v2/temperature.txt");
+  proj.fill_initial_values();
   //projection proj(comm_,"target2d.e","test_v2.txt");
 #endif
   for( int k = 0; k < numeqs_; k++ ){
@@ -3133,7 +3135,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //std::cout<<"truchas"<<std::endl;
 
 #ifdef TUSAS_INTERPFLUXAVG
-    interpfluxavg ifa(comm_,"flux_thist.txt");
+    interpfluxavg ifa(comm_,"v2/flux_thist.txt");
     double val = 0.;
     ifa.get_source_value(4.e-4, (int)0, val);
     std::cout<<val<<std::endl;
@@ -3141,6 +3143,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     std::cout<<val<<std::endl;
     exit(0);
 #endif 
+
+#ifdef TUSAS_INTERPFLUX
+    interpflux ifa(comm_,"v2/flux_time.txt");
+    projection proj(comm_,"v2/side0.e","v2/flux_0.txt");
+    ifa.interp_time(2.8e-3);
+    proj.fill_time_interp_values(ifa.timeindex_,ifa.theta_);
+#endif
 
 
     numeqs_ = 1;

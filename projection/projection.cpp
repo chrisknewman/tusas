@@ -18,7 +18,8 @@ projection::projection(const Teuchos::RCP<const Epetra_Comm>& comm,
 		       const std::string dataNameString ) :
   comm_(comm),
   meshNameString_(meshNameString),
-  dataNameString_(dataNameString)
+  dataNameString_(dataNameString),
+  stride_(100)
 {
 
   using Teuchos::rcp;
@@ -72,6 +73,25 @@ projection::projection(const Teuchos::RCP<const Epetra_Comm>& comm,
   source_elem_ = Teuchos::rcp(new Epetra_Vector(*source_elem_map_));
   //source_elem_->Print(std::cout);
   
+  //source_node_->Print(std::cout);
+  //exit(0);
+}
+
+void projection::fill_time_interp_values(const int timeindex, const double theta)
+{
+  int mypid = comm_->MyPID();
+  if(mypid == 0) {
+    read_file_time_interp(timeindex, theta);
+    sourcemesh_->compute_nodal_patch_old();
+    elem_to_node_avg();
+    update_mesh_data();
+  }
+  source_node_->Reduce();
+  exit(0);
+}
+void projection::fill_initial_values()
+{
+  int mypid = comm_->MyPID();
   if(mypid == 0) {
     read_file();
     sourcemesh_->compute_nodal_patch_old();
@@ -79,15 +99,66 @@ projection::projection(const Teuchos::RCP<const Epetra_Comm>& comm,
     update_mesh_data();
   }
   source_node_->Reduce();
-  //source_node_->Print(std::cout);
-  //exit(0);
 }
-
 projection::~projection()
 {
   delete sourcemesh_;
 }
 
+void projection::read_file_time_interp(const int timeindex, const double theta)
+{
+  int mypid = comm_->MyPID();
+
+  if(mypid == 0) {
+    std::vector<double> data;
+    std::vector<double> data1;
+    std::ifstream ifile(dataNameString_, std::ios::in);
+    
+    int i = 0;
+    
+    //cn this ignores comments
+    std::string line;
+    while (std::getline(ifile, line))
+      {
+	if (line[0] != '#' )
+	  {
+	    std::istringstream iss(line);
+	    float num; // The number in the line
+	    
+	    //while the iss is a number 
+	    while ((iss >> num))
+	      {
+		//std::cout<<i<<" "<<num<<" "<<theta<<std::endl;
+		//look at the number
+		if( (i >= timeindex*stride_) && (i < (timeindex+1)*stride_))
+		  data.push_back(num);
+		if( (i >= (timeindex+1)*stride_) && (i < (timeindex+2)*stride_))
+		  data1.push_back(num);
+		i = i+1;
+		if(i > (timeindex+2)*stride_) break;
+	      }
+	  }
+      }
+    //std::cout<<data1.size()<<std::endl;
+    if(data1.size() != data.size() ){
+      std::cout<<"projection::read_file_time_interp: data1.size() != data.size()"<<std::endl<<std::endl<<std::endl;
+      exit(0);
+    }
+
+    sourcemesh_->create_sorted_elemlist();
+    std::vector<int> elem_num_map(sourcemesh_->get_sorted_elem_num_map());
+    
+    for( int i = 0; i < data.size(); i++){
+      double val = (1.+theta)*data1[i]+theta*data[i];
+      int gid = elem_num_map[i];
+      source_elem_->ReplaceGlobalValues((int)1,
+					&val,
+					&gid 
+					) ;	
+    }
+  }
+  return;
+}
 void projection::read_file()
 {
   int mypid = comm_->MyPID();
@@ -115,15 +186,6 @@ void projection::read_file()
 	  }
       }
     
-    //cn this is the old way
-#if 0
-    double num = 0.0;
-    //keep storing values from the text file so long as data exists:
-    while (ifile >> num) {
-      //if (std::line[0] != "#" )
-      data.push_back(num);
-    }
-#endif
     sourcemesh_->create_sorted_elemlist();
     std::vector<int> elem_num_map(sourcemesh_->get_sorted_elem_num_map());
     

@@ -35,6 +35,8 @@ public:
   ~projection();
 
   bool get_source_value(const double x, const double y, const double z, double &val);
+  void fill_initial_values();
+  void fill_time_interp_values(const int timeindex, const double theta);
 
 private:
   ///Source mesh object
@@ -47,11 +49,14 @@ private:
   Teuchos::RCP<Epetra_Vector> source_elem_;
 
   void read_file();
+  void read_file_time_interp(const int timeindex, const double theta);
   void update_mesh_data();
   void elem_to_node_avg();
 
   std::string meshNameString_;
   std::string dataNameString_;
+
+  const int stride_;
 
 };
 #endif

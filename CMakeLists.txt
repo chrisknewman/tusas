@@ -66,6 +66,8 @@ ${DIR_7}/projection/include/projection.h
 ${DIR_7}/projection/projection.cpp 
 ${DIR_7}/projection/include/interpfluxavg.h 
 ${DIR_7}/projection/interpfluxavg.cpp 
+${DIR_7}/projection/include/interpflux.h 
+${DIR_7}/projection/interpflux.cpp 
 )
 
 

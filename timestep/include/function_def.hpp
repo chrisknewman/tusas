@@ -3480,4 +3480,71 @@ INI_FUNC(phiinit_)
 }
 
 }//namespace kundin
+
+
+namespace truchas
+{
+  // time is ms space is mm
+  double rho_ = 7.57e-3;   // g/mm^3
+  double cp_ = 750.65;    // (g-mm^2/ms^2)/g-K
+  double k_ = .0213; //(g-mm^2/ms^3)/mm-K  
+  
+RES_FUNC(residual_heat_)
+{
+
+  //u[x,y,t]=exp(-2 pi^2 t)sin(pi x)sin(pi y)
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  double u = basis[0].uu;
+  double uold = basis[0].uuold;
+
+  double ut = rho_*cp_*(u-uold)/dt_*test;
+  double divgradu = k_*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+  double divgradu_old = k_*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
+ 
+ 
+  return ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old;
+}
+//double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
+//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_heat_)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  double divgrad = k_*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  double u_t =rho_*cp_*test * basis[0].phi[j]/dt_;
+  return u_t + t_theta_*divgrad;
+}
+}//namespace truchas
 #endif

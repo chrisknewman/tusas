@@ -921,6 +921,13 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	std::map<int,NBCFUNC>::iterator it;
       
         for( int k = 0; k < numeqs_; k++ ){
+#ifdef TUSAS_INTERPFLUXAVG
+	  interpfluxavg ifa(comm_,"v2/flux_thist.txt");
+#endif
+#ifdef TUSAS_INTERPFLUX
+	  interpflux ifa(comm_,"v2/flux_time.txt");
+#endif
+
 	  for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
 	    //std::cout<<k<<std::endl;
 	    int ss_id = it->first;
@@ -931,6 +938,27 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    zz = new double[num_node_per_side];
 	    uu = new double[num_node_per_side];
 
+#ifdef TUSAS_INTERPFLUXAVG
+	    double avgval = 0.;
+	    ifa.get_source_value(time_, ss_id, avgval);
+#endif
+#ifdef TUSAS_INTERPFLUX
+	    if(0 == ssid)
+	      projection proj(comm_,"v2/side0.e","v2/flux_0.txt");
+	    if(1 == ssid)
+	      projection proj(comm_,"v2/side1.e","v2/flux_1.txt");
+	    if(2 == ssid)
+	      projection proj(comm_,"v2/side2.e","v2/flux_2.txt");
+	    if(3 == ssid)
+	      projection proj(comm_,"v2/side3.e","v2/flux_3.txt");
+	    if(4 == ssid)
+	      projection proj(comm_,"v2/side4.e","v2/flux_4.txt");
+	    if(5 == ssid)
+	      projection proj(comm_,"v2/side5.e","v2/flux_5.txt");
+
+	    ifa.interp_time(time_);
+	    proj.fill_time_interp_values(ifa.timeindex_,ifa.theta_);
+#endif
 	    for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces
 
 	      for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
@@ -956,7 +984,18 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  int row1 = row + k;
 
 		  double val = -jacwt*(it->second)(basis,i,dt_,t_theta_,time_);//the function pointer eval
-		  
+
+#ifdef TUSAS_INTERPFLUXAVG
+		  double test = basis->phi[i];
+		  val = -jacwt*test*avgval;
+#endif
+#ifdef TUSAS_INTERPFLUX
+		  double test = basis->phi[i];
+		  double gval = 0.;
+		  proj.get_source_value(basis->xx,basis->yy,basis->zz,gval);
+		  val = -jacwt*test*gval;
+#endif		  
+
 		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
 		}//i
 
@@ -3134,33 +3173,34 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     //std::cout<<"truchas"<<std::endl;
 
-#ifdef TUSAS_INTERPFLUXAVG
-    interpfluxavg ifa(comm_,"v2/flux_thist.txt");
-    double val = 0.;
-    ifa.get_source_value(4.e-4, (int)0, val);
-    std::cout<<val<<std::endl;
-    ifa.get_source_value(2.8e-3, (int)2, val);
-    std::cout<<val<<std::endl;
-    exit(0);
-#endif 
+// #ifdef TUSAS_INTERPFLUXAVG
+//     interpfluxavg ifa(comm_,"v2/flux_thist.txt");
+//     double val = 0.;
+//     ifa.get_source_value(4.e-4, (int)0, val);
+//     std::cout<<val<<std::endl;
+//     ifa.get_source_value(2.8e-3, (int)2, val);
+//     std::cout<<val<<std::endl;
+//     exit(0);
+// #endif 
 
-#ifdef TUSAS_INTERPFLUX
-    interpflux ifa(comm_,"v2/flux_time.txt");
-    projection proj(comm_,"v2/side0.e","v2/flux_0.txt");
-    ifa.interp_time(2.8e-3);
-    proj.fill_time_interp_values(ifa.timeindex_,ifa.theta_);
-#endif
+// #ifdef TUSAS_INTERPFLUX
+//     interpflux ifa(comm_,"v2/flux_time.txt");
+//     projection proj(comm_,"v2/side0.e","v2/flux_0.txt");
+//     ifa.interp_time(2.8e-3);
+//     proj.fill_time_interp_values(ifa.timeindex_,ifa.theta_);
+//     //proj.get_source_value(x,y,z,val);
+// #endif
 
 
     numeqs_ = 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &laplace::residual_heat_test_;
+    (*residualfunc_)[0] = &truchas::residual_heat_;
 
-//     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-//     (*preconfunc_)[0] = &prec_heat_test_;
-    preconfunc_ = NULL;
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &truchas::prec_heat_;
 
+    //dummy for now we will overide this
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &init_zero_;
 
@@ -3180,15 +3220,16 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
 //     (*dirichletfunc_)[0][3] = &dbc_zero_;
 
-    neumannfunc_ = NULL;
-
-
-
-
-
-
-
-
+    //dummy for now we will overide this
+    //neumannfunc_ = NULL;
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    (*neumannfunc_)[0][0] = &nbc_zero_;							 
+    (*neumannfunc_)[0][1] = &nbc_zero_;						 
+    (*neumannfunc_)[0][2] = &nbc_zero_;						 
+    (*neumannfunc_)[0][3] = &nbc_zero_;					 
+    (*neumannfunc_)[0][4] = &nbc_zero_;						 
+    (*neumannfunc_)[0][5] = &nbc_zero_;
 
 
   }else {

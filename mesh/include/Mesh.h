@@ -157,6 +157,8 @@ class Mesh
   std::vector<int> get_sorted_node_num_map(){return sorted_node_num_map;}
   /// Creates sorted elemlist based on increasing x, y and z. Used for projection method.
   void create_sorted_elemlist();
+  /// Creates sorted elemlist based on increasing y, x and z. Used for projection method.
+  void create_sorted_elemlist_yxz();
   /// Return sorted node list
   std::vector<int> get_sorted_elem_num_map(){return sorted_elem_num_map;}
 
@@ -290,6 +292,8 @@ class Mesh
   std::vector<std::vector<int> > nodal_patch;//[nodeid][elemnt ids in patch
 
   int proc_id, nprocs, nprocs_infile;
+
+  int exid;
 
   char filetype;
 

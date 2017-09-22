@@ -87,7 +87,7 @@ void projection::fill_time_interp_values(const int timeindex, const double theta
     update_mesh_data();
   }
   source_node_->Reduce();
-  exit(0);
+  //exit(0);
 }
 void projection::fill_initial_values()
 {
@@ -145,7 +145,7 @@ void projection::read_file_time_interp(const int timeindex, const double theta)
       exit(0);
     }
 
-    sourcemesh_->create_sorted_elemlist();
+    sourcemesh_->create_sorted_elemlist_yxz();
     std::vector<int> elem_num_map(sourcemesh_->get_sorted_elem_num_map());
     
     for( int i = 0; i < data.size(); i++){
@@ -185,8 +185,12 @@ void projection::read_file()
 	      }
 	  }
       }
-    
-    sourcemesh_->create_sorted_elemlist();
+
+    //cn the file is y across, x down then z    
+    //cn not x across, y down
+
+
+    sourcemesh_->create_sorted_elemlist_yxz();
     std::vector<int> elem_num_map(sourcemesh_->get_sorted_elem_num_map());
     
     for( int i = 0; i < data.size(); i++){
@@ -226,10 +230,12 @@ void projection::update_mesh_data()
     std::string estring_="esource";
     sourcemesh_->add_elem_field(estring_);
     sourcemesh_->update_elem_data(estring_, &edata[0]);
-    
+#if 0    
     const char *outfilename = "sourcedata.e";
     int ex_id_ = sourcemesh_->create_exodus(outfilename);
     sourcemesh_->write_exodus(ex_id_);
+    sourcemesh_->close_exodus(ex_id_);
+#endif
   }
 }
 

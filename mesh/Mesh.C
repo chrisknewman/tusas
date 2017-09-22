@@ -33,7 +33,10 @@ Mesh::Mesh( const int pid, const bool v ):
   verbose(v) {}
 //#endif
 
-Mesh::~Mesh(){};
+Mesh::~Mesh(){
+  //close_exodus(exid);
+  ex_close(exid);
+}
 
 int Mesh::read_exodus(const char * filename){
 
@@ -49,6 +52,7 @@ int Mesh::read_exodus(const char * filename){
 		      &comp_ws,
 		      &io_ws,
 		      &exodus_version);
+  exid = ex_id;
 
   if(ex_id < 0){
 
@@ -1726,6 +1730,9 @@ void Mesh::create_sorted_nodelist()
 }
 void Mesh::create_sorted_elemlist()
 {
+
+  //this function sorts in increasing x, y, z
+
   sorted_elem_num_map.resize(num_elem);
 
   typedef std::tuple<int, double, double, double> tuple_t;
@@ -1788,4 +1795,73 @@ void Mesh::create_sorted_elemlist()
   }
   //exit(0);
 }
+
+void Mesh::create_sorted_elemlist_yxz()
+{
+
+  //this function sorts in increasing y, x, z
+
+  sorted_elem_num_map.resize(num_elem);
+
+  typedef std::tuple<int, double, double, double> tuple_t;
+
+  std::vector<tuple_t> sns(num_elem);
+
+  int blk = 0;//cn for now
+  int n_nodes_per_elem = get_num_nodes_per_elem_in_blk(blk);
+  for (int ne = 0; ne < get_num_elem_in_blk(blk); ne++){
+    
+    double x_avg = 0;
+    double y_avg = 0;
+    double z_avg = 0;
+    
+    for(int k = 0; k < n_nodes_per_elem; k++){
+      int nodeid = get_node_id(blk, ne, k);
+      
+      double x = get_x(nodeid);
+      double y = get_y(nodeid);
+      double z = get_z(nodeid);
+      
+      x_avg += x;
+      y_avg += y;
+      z_avg += z;
+      
+    }//k
+    int elemid = get_global_elem_id(ne);
+    x_avg = x_avg/n_nodes_per_elem;
+    y_avg = y_avg/n_nodes_per_elem;
+    z_avg = z_avg/n_nodes_per_elem;
+    sns[ne] = std::make_tuple(elemid,y_avg,x_avg,z_avg);
+
+    //std::cout<<elemid<<" "<<x_avg<<std::endl;
+  }//ne
+  std::stable_sort(begin(sns), end(sns), 
+		   [](tuple_t const &t1, tuple_t const &t2) {
+
+		     if(approxEqual(std::get<3>(t1),std::get<3>(t2),1e-10)) {
+
+		       if(approxEqual(std::get<2>(t1),std::get<2>(t2),1e-10)) {
+			 return (std::get<1>(t1) < std::get<1>(t2));
+		       }
+		       
+
+		       return (std::get<2>(t1) < std::get<2>(t2));
+		     }	
+
+
+		     if(std::get<3>(t1)<std::get<3>(t2)) {
+		       return true; 
+		     } 
+		     
+ 		     
+		     return false;
+		   }
+ 		   );
+
+  for (int ne = 0; ne < get_num_elem_in_blk(blk); ne++){
+    sorted_elem_num_map[ne] = std::get<0>(sns[ne]);
+  }
+  //exit(0);
+}
+
 

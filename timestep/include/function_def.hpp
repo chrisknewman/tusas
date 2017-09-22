@@ -3511,10 +3511,10 @@ RES_FUNC(residual_heat_)
 
   double ut = rho_*cp_*(u-uold)/dt_*test;
   double divgradu = k_*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
-  double divgradu_old = k_*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
+  //double divgradu_old = k_*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
  
  
-  return ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old;
+  return ut + t_theta_*divgradu;// + (1.-t_theta_)*divgradu_old;
 }
 //double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
 //			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)

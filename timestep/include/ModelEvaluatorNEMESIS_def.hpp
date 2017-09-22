@@ -922,10 +922,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       
         for( int k = 0; k < numeqs_; k++ ){
 #ifdef TUSAS_INTERPFLUXAVG
-	  interpfluxavg ifa(comm_,"v2/flux_thist.txt");
+	  interpfluxavg ifa(comm_,"v3/flux_thist.txt");
 #endif
 #ifdef TUSAS_INTERPFLUX
-	  interpflux ifa(comm_,"v2/flux_time.txt");
+	  interpflux ifa(comm_,"v3/flux_time.txt");
 #endif
 
 	  for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
@@ -943,21 +943,24 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    ifa.get_source_value(time_, ss_id, avgval);
 #endif
 #ifdef TUSAS_INTERPFLUX
-	    if(0 == ssid)
-	      projection proj(comm_,"v2/side0.e","v2/flux_0.txt");
-	    if(1 == ssid)
-	      projection proj(comm_,"v2/side1.e","v2/flux_1.txt");
-	    if(2 == ssid)
-	      projection proj(comm_,"v2/side2.e","v2/flux_2.txt");
-	    if(3 == ssid)
-	      projection proj(comm_,"v2/side3.e","v2/flux_3.txt");
-	    if(4 == ssid)
-	      projection proj(comm_,"v2/side4.e","v2/flux_4.txt");
-	    if(5 == ssid)
-	      projection proj(comm_,"v2/side5.e","v2/flux_5.txt");
 
+	    //cn seems like there may be some issues in parallel here, need to track down...
+	    //maybe some memory issues too.  Seems also that ex_close is not cleanly operating
+	    projection *proj1;
+	    if(0 == ss_id)
+	      proj1 = new projection(comm_,"v3/side0.e","v3/flux_0.txt");
+	    if(1 == ss_id)
+	      proj1 = new projection(comm_,"v3/side1.e","v3/flux_1.txt");
+	    if(2 == ss_id)
+	      proj1 = new projection(comm_,"v3/side2.e","v3/flux_2.txt");
+	    if(3 == ss_id)
+	      proj1 = new projection(comm_,"v3/side3.e","v3/flux_3.txt");
+	    if(4 == ss_id)
+	       proj1 = new projection(comm_,"v3/side4.e","v3/flux_4.txt");
+	    if(5 == ss_id)
+	      proj1 = new projection(comm_,"v3/side5.e","v3/flux_5.txt");
 	    ifa.interp_time(time_);
-	    proj.fill_time_interp_values(ifa.timeindex_,ifa.theta_);
+	    proj1->fill_time_interp_values(ifa.timeindex_,ifa.theta_);
 #endif
 	    for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces
 
@@ -985,15 +988,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 		  double val = -jacwt*(it->second)(basis,i,dt_,t_theta_,time_);//the function pointer eval
 
+		  //here we have the convention that -k(lap u,phi) = k (grad u, grad phi) - <n.k grad u, phi>
+		  //I believe the truchas convention is that flux g = -n.k grad u
+		  //hence we have the minus sign below, ie -k(lap u,phi) = k (grad u, grad phi) - <-g, phi>
+
+		  // also it is not that hard to do crank-nicolson here.  We could store a vector of vals
+		  // at the previous step
 #ifdef TUSAS_INTERPFLUXAVG
 		  double test = basis->phi[i];
-		  val = -jacwt*test*avgval;
+		  val = -jacwt*test*(-avgval);
 #endif
 #ifdef TUSAS_INTERPFLUX
 		  double test = basis->phi[i];
 		  double gval = 0.;
-		  proj.get_source_value(basis->xx,basis->yy,basis->zz,gval);
-		  val = -jacwt*test*gval;
+		  proj1->get_source_value(basis->xx,basis->yy,basis->zz,gval);
+		  val = -jacwt*test*(-gval);
 #endif		  
 
 		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
@@ -1002,6 +1011,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      }//gp
 	    }//j
 	    delete xx,yy,zz,uu;
+#ifdef TUSAS_INTERPFLUX
+		  delete proj1;
+#endif		  
 	  }//it
 	}//k
 	delete basis;
@@ -1638,7 +1650,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
   srand(123);
 
 #ifdef TUSAS_PROJECTION
-  projection proj(comm_,"v2/target3d.e","v2/temperature.txt");
+  projection proj(comm_,"v3/target3d.e","v3/temperature.txt");
   proj.fill_initial_values();
   //projection proj(comm_,"target2d.e","test_v2.txt");
 #endif
@@ -3172,25 +3184,6 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
   }else if("truchas" == paramList.get<std::string> (TusastestNameString)){
 
     //std::cout<<"truchas"<<std::endl;
-
-// #ifdef TUSAS_INTERPFLUXAVG
-//     interpfluxavg ifa(comm_,"v2/flux_thist.txt");
-//     double val = 0.;
-//     ifa.get_source_value(4.e-4, (int)0, val);
-//     std::cout<<val<<std::endl;
-//     ifa.get_source_value(2.8e-3, (int)2, val);
-//     std::cout<<val<<std::endl;
-//     exit(0);
-// #endif 
-
-// #ifdef TUSAS_INTERPFLUX
-//     interpflux ifa(comm_,"v2/flux_time.txt");
-//     projection proj(comm_,"v2/side0.e","v2/flux_0.txt");
-//     ifa.interp_time(2.8e-3);
-//     proj.fill_time_interp_values(ifa.timeindex_,ifa.theta_);
-//     //proj.get_source_value(x,y,z,val);
-// #endif
-
 
     numeqs_ = 1;
 

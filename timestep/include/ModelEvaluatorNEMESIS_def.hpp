@@ -945,7 +945,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #ifdef TUSAS_INTERPFLUX
 
 	    //cn seems like there may be some issues in parallel here, need to track down...
-	    //maybe some memory issues too.  Seems also that ex_close is not cleanly operating
+	    //some memory issues too. seems memory is steadily increasing over the run
+	    //could make this a smart pointer
+	    //or a smart pointer to a container would probably be best
 	    projection *proj1;
 	    if(0 == ss_id)
 	      proj1 = new projection(comm_,"v3/side0.e","v3/flux_0.txt");
@@ -956,7 +958,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    if(3 == ss_id)
 	      proj1 = new projection(comm_,"v3/side3.e","v3/flux_3.txt");
 	    if(4 == ss_id)
-	       proj1 = new projection(comm_,"v3/side4.e","v3/flux_4.txt");
+	      proj1 = new projection(comm_,"v3/side4.e","v3/flux_4.txt");
 	    if(5 == ss_id)
 	      proj1 = new projection(comm_,"v3/side5.e","v3/flux_5.txt");
 	    ifa.interp_time(time_);
@@ -992,17 +994,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  //I believe the truchas convention is that flux g = -n.k grad u
 		  //hence we have the minus sign below, ie -k(lap u,phi) = k (grad u, grad phi) - <-g, phi>
 
-		  // also it is not that hard to do crank-nicolson here.  We could store a vector of vals
-		  // at the previous step
+		  // also to do crank-nicolson here.  We could store a vector of vals
+		  // at the previous step, ie it is hard to get a gradient on the surface
 #ifdef TUSAS_INTERPFLUXAVG
-		  double test = basis->phi[i];
-		  val = -jacwt*test*(-avgval);
+		  if(0 == k){
+		    double test = basis->phi[i];
+		    val = -jacwt*test*(-avgval);
+		  }
 #endif
 #ifdef TUSAS_INTERPFLUX
-		  double test = basis->phi[i];
-		  double gval = 0.;
-		  proj1->get_source_value(basis->xx,basis->yy,basis->zz,gval);
-		  val = -jacwt*test*(-gval);
+		  if(0 == k){
+		    double test = basis->phi[i];
+		    double gval = 0.;
+		    proj1->get_source_value(basis->xx,basis->yy,basis->zz,gval);
+		    val = -jacwt*test*(-gval);
+		  }
 #endif		  
 
 		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
@@ -1012,7 +1018,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    }//j
 	    delete xx,yy,zz,uu;
 #ifdef TUSAS_INTERPFLUX
-		  delete proj1;
+	    delete proj1;
 #endif		  
 	  }//it
 	}//k
@@ -1669,10 +1675,15 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
       double z = mesh_->get_z(lid_overlap);
       
 #ifdef TUSAS_PROJECTION
-      double val = 0.;
-      //      std::cout<<x<<" "<<y<<" "<<z<<std::endl;
-      proj.get_source_value(x,y,z,val);
-      (*u)[numeqs_*nn+k] = val;
+      if(0 == k){
+	double val = 0.;
+	//      std::cout<<x<<" "<<y<<" "<<z<<std::endl;
+	proj.get_source_value(x,y,z,val);
+	(*u)[numeqs_*nn+k] = val;
+      }
+      else{
+	(*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+      }
 #else
       (*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
 #endif
@@ -2129,12 +2140,13 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
     }
   }
   this->start_time = time;
-  this->start_step = step-1;
+  this->start_step = step-1;//cn is this right?
   time_=time;
   output_step_ = step+1;
   //   u->Print(std::cout);
   //   exit(0);
   if( 0 == mypid ){
+    std::cout<<"Restarting at time = "<<time" and step = "<<step<<std::endl;
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
 }

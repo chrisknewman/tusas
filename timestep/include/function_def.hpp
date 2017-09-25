@@ -3485,14 +3485,18 @@ INI_FUNC(phiinit_)
 namespace truchas
 {
   // time is ms space is mm
-  double rho_ = 7.57e-3;   // g/mm^3
-  double cp_ = 750.65;    // (g-mm^2/ms^2)/g-K
-  double k_ = .0213; //(g-mm^2/ms^3)/mm-K  
+  double rho_ = 7.57e-3;   // g/mm^3   density
+  double cp_ = 750.65;    // (g-mm^2/ms^2)/g-K   specific heat
+  double k_ = .0213; //(g-mm^2/ms^3)/mm-K    thermal diffusivity
+  double l_ = 2.1754e5; //g-mm^2/ms^2/g       latent heat
+  double w_ =  8.; //mm   interface width
+  double eps_ = .001;//       anisotropy strength
+  double m_ = 333.;//
+  double t_m_ = 1678.;
   
 RES_FUNC(residual_heat_)
 {
 
-  //u[x,y,t]=exp(-2 pi^2 t)sin(pi x)sin(pi y)
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
     +basis[0].dphideta[i]*basis[0].detadx
@@ -3544,6 +3548,60 @@ PRE_FUNC(prec_heat_)
   double test = basis[0].phi[i];
   double divgrad = k_*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t =rho_*cp_*test * basis[0].phi[j]/dt_;
+  return u_t + t_theta_*divgrad;
+}
+RES_FUNC(residual_phase_)
+{
+
+  //derivatives of the test function
+  double dtestdx = basis[1].dphidxi[i]*basis[1].dxidx
+    +basis[1].dphideta[i]*basis[1].detadx
+    +basis[1].dphidzta[i]*basis[1].dztadx;
+  double dtestdy = basis[1].dphidxi[i]*basis[1].dxidy
+    +basis[1].dphideta[i]*basis[1].detady
+    +basis[1].dphidzta[i]*basis[1].dztady;
+  double dtestdz = basis[1].dphidxi[i]*basis[1].dxidz
+    +basis[1].dphideta[i]*basis[1].detadz
+    +basis[1].dphidzta[i]*basis[1].dztadz;
+  //test function
+  double test = basis[1].phi[i];
+  //u, phi
+  double u = basis[1].uu;
+  double uold = basis[1].uuold;
+
+  double ut = (u-uold)/dt_*test;
+  double divgradu = m_*eps_*eps_*(basis[1].dudx*dtestdx + basis[1].dudy*dtestdy + basis[1].dudz*dtestdz);//(grad u,grad phi)
+  double g = 2.*m_*w_*u*(1.-u)*(1.-2.*u);
+  double p = 30.*m_*l_*(t_m_-basis[0].uu)/t_m_*u*u*(1.-u)*(1.-u);
+ 
+  return ut + t_theta_*divgradu+ t_theta_*g + t_theta_*p;
+}
+PRE_FUNC(prec_phase_)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[1].dphidxi[i]*basis[1].dxidx
+    +basis[1].dphideta[i]*basis[1].detadx
+    +basis[1].dphidzta[i]*basis[1].dztadx;
+  double dtestdy = basis[1].dphidxi[i]*basis[1].dxidy
+    +basis[1].dphideta[i]*basis[1].detady
+    +basis[1].dphidzta[i]*basis[1].dztady;
+  double dtestdz = basis[1].dphidxi[i]*basis[1].dxidz
+    +basis[1].dphideta[i]*basis[1].detadz
+    +basis[1].dphidzta[i]*basis[1].dztadz;
+
+  double dbasisdx = basis[1].dphidxi[j]*basis[1].dxidx
+    +basis[1].dphideta[j]*basis[1].detadx
+    +basis[1].dphidzta[j]*basis[1].dztadx;
+  double dbasisdy = basis[1].dphidxi[j]*basis[1].dxidy
+    +basis[1].dphideta[j]*basis[1].detady
+    +basis[1].dphidzta[j]*basis[1].dztady;
+  double dbasisdz = basis[1].dphidxi[j]*basis[1].dxidz
+    +basis[1].dphideta[j]*basis[1].detadz
+    +basis[1].dphidzta[j]*basis[1].dztadz;
+  double test = basis[1].phi[i];
+  double divgrad = m_*eps_*eps_*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  double u_t = test * basis[1].phi[j]/dt_;
   return u_t + t_theta_*divgrad;
 }
 }//namespace truchas

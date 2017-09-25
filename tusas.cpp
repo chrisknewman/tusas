@@ -115,8 +115,12 @@ int main(int argc, char *argv[])
   }
 
   model->initialize();
-  double curTime = model->get_start_time(); 
+
+  //cn these values are not updated correctly during a restart
+  double curTime = model->get_start_time();
+  //cn these values are not updated correctly during a restart
   int elapsedSteps = model->get_start_step();
+  //cn these values are not updated correctly during a restart
   double endTime = curTime + ((double)numSteps-elapsedSteps)*dt;
 
   while ( ( curTime <= endTime ) && ( elapsedSteps < numSteps ) ) {

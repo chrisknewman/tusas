@@ -2128,13 +2128,17 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
       (*u_old)[numeqs_*nn+k] = inputu[k][nn];
     }
   }
+
   this->start_time = time;
-  this->start_step = step-1;
+  int ntstep = (int)(time/dt_);
+  //this->start_step = step-1;//this corresponds to the output frequency, not the actual timestep
+  this->start_step = ntstep;
   time_=time;
   output_step_ = step+1;
   //   u->Print(std::cout);
   //   exit(0);
   if( 0 == mypid ){
+    std::cout<<"Restart at time = "<<time<<"; step = "<<step<<std::endl<<std::endl;
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
 }

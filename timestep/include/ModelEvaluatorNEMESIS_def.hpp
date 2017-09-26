@@ -920,6 +920,16 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	std::map<int,NBCFUNC>::iterator it;
       
+#ifdef TUSAS_INTERPFLUX
+	boost::ptr_vector<projection> proj;
+	proj.push_back(new projection(comm_,"v3/side0.e","v3/flux_0.txt"));
+	proj.push_back(new projection(comm_,"v3/side1.e","v3/flux_1.txt"));
+	proj.push_back(new projection(comm_,"v3/side2.e","v3/flux_2.txt"));
+	proj.push_back(new projection(comm_,"v3/side3.e","v3/flux_3.txt"));
+	proj.push_back(new projection(comm_,"v3/side4.e","v3/flux_4.txt"));
+	proj.push_back(new projection(comm_,"v3/side5.e","v3/flux_5.txt"));
+#endif
+
         for( int k = 0; k < numeqs_; k++ ){
 #ifdef TUSAS_INTERPFLUXAVG
 	  interpfluxavg ifa(comm_,"v3/flux_thist.txt");
@@ -943,26 +953,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    ifa.get_source_value(time_, ss_id, avgval);
 #endif
 #ifdef TUSAS_INTERPFLUX
-
-	    //cn seems like there may be some issues in parallel here, need to track down...
-	    //some memory issues too. seems memory is steadily increasing over the run
-	    //could make this a smart pointer
-	    //or a smart pointer to a container would probably be best
-	    projection *proj1;
-	    if(0 == ss_id)
-	      proj1 = new projection(comm_,"v3/side0.e","v3/flux_0.txt");
-	    if(1 == ss_id)
-	      proj1 = new projection(comm_,"v3/side1.e","v3/flux_1.txt");
-	    if(2 == ss_id)
-	      proj1 = new projection(comm_,"v3/side2.e","v3/flux_2.txt");
-	    if(3 == ss_id)
-	      proj1 = new projection(comm_,"v3/side3.e","v3/flux_3.txt");
-	    if(4 == ss_id)
-	      proj1 = new projection(comm_,"v3/side4.e","v3/flux_4.txt");
-	    if(5 == ss_id)
-	      proj1 = new projection(comm_,"v3/side5.e","v3/flux_5.txt");
 	    ifa.interp_time(time_);
-	    proj1->fill_time_interp_values(ifa.timeindex_,ifa.theta_);
+	    proj[ss_id].fill_time_interp_values(ifa.timeindex_,ifa.theta_);
 #endif
 	    for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces
 
@@ -1006,22 +998,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  if(0 == k){
 		    double test = basis->phi[i];
 		    double gval = 0.;
-		    proj1->get_source_value(basis->xx,basis->yy,basis->zz,gval);
+		    proj[ss_id].get_source_value(basis->xx,basis->yy,basis->zz,gval);
 		    val = -jacwt*test*(-gval);
 		  }
 #endif		  
 
 		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
 		}//i
-
 	      }//gp
 	    }//j
 	    delete xx,yy,zz,uu;
-#ifdef TUSAS_INTERPFLUX
-	    delete proj1;
-#endif		  
 	  }//it
 	}//k
+#ifdef TUSAS_INTERPFLUX
+	proj.clear();
+#endif		  
 	delete basis;
       }//if
 
@@ -3200,19 +3191,24 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //std::cout<<"truchas"<<std::endl;
 
     numeqs_ = 1;
+    //numeqs_ = 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &truchas::residual_heat_;
+    if(2 == numeqs_) (*residualfunc_)[1] = &truchas::residual_phase_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &truchas::prec_heat_;
+    if(2 == numeqs_) (*preconfunc_)[1] = &truchas::prec_phase_;
 
     //dummy for now we will overide this
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &init_zero_;
+    if(2 == numeqs_) (*initfunc_)[1] = &truchas::init_phase_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
+    if(2 == numeqs_) (*varnames_)[1] = "phi";
 
     // numeqs_ number of variables(equations) 
     dirichletfunc_ = NULL; 
@@ -3237,6 +3233,14 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*neumannfunc_)[0][3] = &nbc_zero_;					 
     (*neumannfunc_)[0][4] = &nbc_zero_;						 
     (*neumannfunc_)[0][5] = &nbc_zero_;
+    if(2 == numeqs_){
+      (*neumannfunc_)[1][0] = &nbc_zero_;							 
+      (*neumannfunc_)[1][1] = &nbc_zero_;						 
+      (*neumannfunc_)[1][2] = &nbc_zero_;						 
+      (*neumannfunc_)[1][3] = &nbc_zero_;					 
+      (*neumannfunc_)[1][4] = &nbc_zero_;						 
+      (*neumannfunc_)[1][5] = &nbc_zero_;
+    }
 
 
   }else {

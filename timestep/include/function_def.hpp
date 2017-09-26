@@ -3489,10 +3489,15 @@ namespace truchas
   double cp_ = 750.65;    // (g-mm^2/ms^2)/g-K   specific heat
   double k_ = .0213; //(g-mm^2/ms^3)/mm-K    thermal diffusivity
   double l_ = 2.1754e5; //g-mm^2/ms^2/g       latent heat
-  double w_ =  8.; //mm   interface width
-  double eps_ = .001;//       anisotropy strength
-  double m_ = 333.;//
-  double t_m_ = 1678.;
+  double w_ =  2.4; 
+  //double eps_ = .001;//       anisotropy strength
+  double eps_ = 000547723;
+  double m_ = .002149;// K ms/mm
+  //double t_m_ = 1678.;
+  double t_m_ = 1450.;
+
+  double zmin_ = -.036;
+  double dz_ = .0002;
   
 RES_FUNC(residual_heat_)
 {
@@ -3518,7 +3523,7 @@ RES_FUNC(residual_heat_)
   //double divgradu_old = k_*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
  
  
-  return ut + t_theta_*divgradu;// + (1.-t_theta_)*divgradu_old;
+  return (ut + t_theta_*divgradu);// /rho_/cp_;// + (1.-t_theta_)*divgradu_old;
 }
 //double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
 //			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
@@ -3548,7 +3553,7 @@ PRE_FUNC(prec_heat_)
   double test = basis[0].phi[i];
   double divgrad = k_*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t =rho_*cp_*test * basis[0].phi[j]/dt_;
-  return u_t + t_theta_*divgrad;
+  return (u_t + t_theta_*divgrad);// /rho_/cp_;;
 }
 RES_FUNC(residual_phase_)
 {
@@ -3574,7 +3579,7 @@ RES_FUNC(residual_phase_)
   double g = 2.*m_*w_*u*(1.-u)*(1.-2.*u);
   double p = 30.*m_*l_*(t_m_-basis[0].uu)/t_m_*u*u*(1.-u)*(1.-u);
  
-  return ut + t_theta_*divgradu+ t_theta_*g + t_theta_*p;
+  return (ut + t_theta_*divgradu+ t_theta_*g + t_theta_*p)/eps_/eps_/m_;
 }
 PRE_FUNC(prec_phase_)
 {
@@ -3602,7 +3607,26 @@ PRE_FUNC(prec_phase_)
   double test = basis[1].phi[i];
   double divgrad = m_*eps_*eps_*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t = test * basis[1].phi[j]/dt_;
-  return u_t + t_theta_*divgrad;
+  return (u_t + t_theta_*divgrad)/eps_/eps_/m_;
 }
+INI_FUNC(init_phase_)
+{
+
+  double phi_sol_ = 1.;
+  double phi_liq_ = 0.;
+
+  double val = phi_liq_;  
+
+  double c = 1.5;//1.1;
+
+  if ( z < zmin_ + c*dz_) {
+    val = ((rand() % 100)/50.-1.)*1.5;
+    if (val < 0.) val =0.;
+    if (val > 1.) val =1.;
+  }
+
+  return val;
+}
+
 }//namespace truchas
 #endif

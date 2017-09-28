@@ -921,6 +921,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	std::map<int,NBCFUNC>::iterator it;
       
 #ifdef TUSAS_INTERPFLUX
+	//cn we need to move this to private data and initialize just once
 	boost::ptr_vector<projection> proj;
 	proj.push_back(new projection(comm_,"v3/side0.e","v3/flux_0.txt"));
 	proj.push_back(new projection(comm_,"v3/side1.e","v3/flux_1.txt"));
@@ -928,14 +929,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	proj.push_back(new projection(comm_,"v3/side3.e","v3/flux_3.txt"));
 	proj.push_back(new projection(comm_,"v3/side4.e","v3/flux_4.txt"));
 	proj.push_back(new projection(comm_,"v3/side5.e","v3/flux_5.txt"));
+	interpflux ifa(comm_,"v3/flux_time.txt");
 #endif
 
         for( int k = 0; k < numeqs_; k++ ){
 #ifdef TUSAS_INTERPFLUXAVG
 	  interpfluxavg ifa(comm_,"v3/flux_thist.txt");
-#endif
-#ifdef TUSAS_INTERPFLUX
-	  interpflux ifa(comm_,"v3/flux_time.txt");
 #endif
 
 	  for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
@@ -951,6 +950,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #ifdef TUSAS_INTERPFLUXAVG
 	    double avgval = 0.;
 	    ifa.get_source_value(time_, ss_id, avgval);
+	    //avgval = avgval*100.;
+	    //cn we need to check with Matt and see for sure what this valus is.  If it
+	    //is the integrated value, we should probably divide by the area here
+	    //9-27-17 it is the average data, ie sum of all fluxes divided by 100
+	    //so we probably need to multiply by N here?
+
 #endif
 #ifdef TUSAS_INTERPFLUX
 	    ifa.interp_time(time_);
@@ -991,7 +996,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #ifdef TUSAS_INTERPFLUXAVG
 		  if(0 == k){
 		    double test = basis->phi[i];
+		    //std::cout<<avgval<<" "<<test<<std::endl;
 		    val = -jacwt*test*(-avgval);
+	    //cn we need to check with Matt and see for sure what this valus is.  If it
+	    //is the integrated value, we should probably divide by the area here
 		  }
 #endif
 #ifdef TUSAS_INTERPFLUX

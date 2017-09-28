@@ -3487,6 +3487,8 @@ namespace truchas
   // time is ms space is mm
   double rho_ = 7.57e-3;   // g/mm^3   density
   double cp_ = 750.65;    // (g-mm^2/ms^2)/g-K   specific heat
+
+  //we can interp this as in truchas
   double k_ = .0213; //(g-mm^2/ms^3)/mm-K    thermal diffusivity
   double l_ = 2.1754e5; //g-mm^2/ms^2/g       latent heat
   double w_ =  2.4; 
@@ -3498,6 +3500,21 @@ namespace truchas
 
   double zmin_ = -.036;
   double dz_ = .0002;
+
+  double get_k_liq_(const double temp){
+    double c1 = 8.92e-3;
+    double c2 = 1.474e-5;
+    double r =273;
+    return c1+c2*(temp-r);
+    //return k_;
+  }
+  double get_k_sol_(const double temp){
+    double c1 = 12.3e-3;
+    double c2 = 1.472e-5;
+    double r =273;
+    return c1+c2*(temp-r);
+    //return k_;
+  }
   
 RES_FUNC(residual_heat_)
 {
@@ -3519,7 +3536,7 @@ RES_FUNC(residual_heat_)
   double uold = basis[0].uuold;
 
   double ut = rho_*cp_*(u-uold)/dt_*test;
-  double divgradu = k_*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+  double divgradu = get_k_liq_(basis[0].uu)*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
   //double divgradu_old = k_*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
  
  
@@ -3551,7 +3568,7 @@ PRE_FUNC(prec_heat_)
     +basis[0].dphideta[j]*basis[0].detadz
     +basis[0].dphidzta[j]*basis[0].dztadz;
   double test = basis[0].phi[i];
-  double divgrad = k_*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  double divgrad = get_k_liq_(basis[0].uu)*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t =rho_*cp_*test * basis[0].phi[j]/dt_;
   return (u_t + t_theta_*divgrad);// /rho_/cp_;;
 }

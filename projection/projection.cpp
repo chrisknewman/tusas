@@ -301,6 +301,13 @@ bool projection::get_source_value(const double x, const double y, const double z
   //source_node_->Print(std::cout);
   //exit(0);
 
+
+  //cn we need to save the results of the search here so we don't do it everytime
+  //we could feed in the compute mesh elemid here and create an std::map with
+  // compute mesh elemid and source mesh elemid 
+
+
+
   int n_nodes_per_elem = sourcemesh_->get_num_nodes_per_elem_in_blk(blk);
   for (int ne = 0; ne < sourcemesh_->get_num_elem_in_blk(blk); ne++){
     std::vector<double> xx(n_nodes_per_elem);

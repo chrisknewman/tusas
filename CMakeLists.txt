@@ -23,6 +23,8 @@ SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 
 INCLUDE( ${DIR_6}/cmake/Trilinos/TrilinosConfig.cmake )
 
+LIST( REMOVE_DUPLICATES Trilinos_LIBRARIES )
+LIST( REMOVE_DUPLICATES Trilinos_TPL_LIBRARIES )
 
 #---------------------------------------------------------------------------------
 # Give access to all subdirectories ( basis, basis/include, etc. )
@@ -84,7 +86,7 @@ ADD_EXECUTABLE( tusas ${SOURCES} )
 
 INCLUDE_DIRECTORIES( ${Trilinos_INCLUDE_DIRS} )
 
-TARGET_LINK_LIBRARIES( tusas ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} )
+TARGET_LINK_LIBRARIES( tusas ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} ${Trilinos_EXTRA_LD_FLAGS} )
 
 
   # Include Trilinos_INCLUDE_DIRS because many header files    #

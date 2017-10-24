@@ -226,7 +226,7 @@ void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  con
 // Constructor
 BasisLQuad::BasisLQuad(int n) :sngp(n){
   //sngp = 2;// number of Gauss points
-  if ( 2 != sngp ){
+  if ( !(2 == sngp || 3 == sngp ) ){
     std::cout<<"BasisLQuad only supported for n = 2 at this time"<<std::endl<<std::endl<<std::endl;
     exit(0);
   }
@@ -247,26 +247,10 @@ BasisLQuad::BasisLQuad(int n) :sngp(n){
   nwt  = new double[ngp];
 
 
-  if(4 == ngp){
-#if 0
-    if(0 == gp){
-      xi = abscissa[0];
-      eta = abscissa[0];
-      wt = weight[0] * weight[0];
-    }else if (1 == gp){
-      xi = abscissa[1];
-      eta = abscissa[0];
-      wt = weight[0] * weight[1];
-    }else if (2 == gp){
-      xi = abscissa[1];
-      eta = abscissa[1];
-      wt = weight[1] * weight[1];
-    }else if (3 == gp){
-      xi = abscissa[0];
-      eta = abscissa[1];
-      wt = weight[0] * weight[1];
-    }
-#endif
+  if(2 == sngp){
+
+    //cn right now, changing the order when ngp = 4 breaks all the quad tests
+    //cn so we leave it for now...
     xi[0]  = abscissa[0];
     eta[0] = abscissa[0];
     nwt[0]  = weight[0] * weight[0];
@@ -283,8 +267,8 @@ BasisLQuad::BasisLQuad(int n) :sngp(n){
     eta[3] = abscissa[1];
     nwt[3]  = weight[0] * weight[1];
   }
+  else{ 
 #if 0
-  if(9 == ngp){ 
     double ab[3];// = new double[3];
     ab[0] = abscissa[0];
     ab[1] = abscissa[2];
@@ -343,8 +327,54 @@ BasisLQuad::BasisLQuad(int n) :sngp(n){
     default :
       printf("gp = %d\n", gp);
     }
-  }
+    xi[0]  = abscissa[0];
+    eta[0] = abscissa[0];
+    nwt[0]  = weight[0] * weight[0];
+
+    xi[1]  = abscissa[1];
+    eta[1] = abscissa[0];
+    nwt[1]  = weight[0] * weight[1];
+
+    xi[2]  = abscissa[1];
+    eta[2] = abscissa[1];
+    nwt[2]  = weight[1] * weight[1];
+
+    xi[3]  = abscissa[0];
+    eta[3] = abscissa[1];
+    nwt[3]  = weight[0] * weight[1];
+
+    xi[4]  = abscissa[2];
+    eta[4] = abscissa[0];
+    nwt[4]  = weight[0] * weight[2];
+
+    xi[5]  = abscissa[1];
+    eta[5] = abscissa[2];
+    nwt[5]  = weight[1] * weight[2];
+
+    xi[6]  = abscissa[2];
+    eta[6] = abscissa[1];
+    nwt[6]  = weight[1] * weight[2];
+
+    xi[7]  = abscissa[0];
+    eta[7] = abscissa[2];
+    nwt[7]  = weight[0] * weight[2];
+
+    xi[8]  = abscissa[2];
+    eta[8] = abscissa[2];
+    nwt[8]  = weight[2] * weight[2];
 #endif
+    int c = 0;
+    for( int i = 0; i < sngp; i++ ){
+      for( int j = 0; j < sngp; j++ ){
+	xi[i+j+c]  = abscissa[i];
+	eta[i+j+c] = abscissa[j];
+	nwt[i+j+c]  = weight[i] * weight[j];
+	//std::cout<<i+j+c<<" "<<xi[i+j+c]<<" "<< eta[i+j+c]<<" "<< nwt[i+j+c] <<std::endl;
+      }
+      c = c + sngp - 1;
+    }
+  }
+  //exit(0);
 }
 
 // Destructor
@@ -993,24 +1023,19 @@ void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  co
 //  3D basis...
 
 // Constructor
-BasisLHex::BasisLHex(int n) : sngp(n){
-  ngp = 8;
+BasisLHex::BasisLHex(int n): sngp(n){
+  //sngp = 2;//2 in each direction
+  //ngp = 8;
+  if ( !(2 == sngp || 3 == sngp) ){
+    std::cout<<"BasisLHex only supported for n = 2 at this time"<<std::endl<<std::endl<<std::endl;
+    exit(0);
+  }
+  ngp = sngp*sngp*sngp;
   phi = new double[ngp];
-  dphidxi = new double[ngp];
-  dphideta = new double[ngp];
-  dphidzta = new double[ngp];
-  abscissa = new double[sngp];
-  weight = new double[sngp];
-  setN(sngp, abscissa, weight);
-}
+  dphidxi = new double[8];
+  dphideta = new double[8];
+  dphidzta = new double[8];
 
-BasisLHex::BasisLHex(){
-  sngp = 2;//2 in each direction
-  ngp = 8;
-  phi = new double[ngp];
-  dphidxi = new double[ngp];
-  dphideta = new double[ngp];
-  dphidzta = new double[ngp];
   abscissa = new double[sngp];
   weight = new double[sngp];
   setN(sngp, abscissa, weight);
@@ -1062,40 +1087,56 @@ BasisLHex::BasisLHex(){
     zta = abscissa[1];
     wt = weight[0] * weight[1] * weight[1];
   }
-#endif    
-  xi[0] = abscissa[0];  // 0, 0, 0
-  eta[0] = abscissa[0];
-  zta[0] = abscissa[0];
-  nwt[0] = weight[0] * weight[0] * weight[0];
-  xi[1] = abscissa[1]; // 1, 0, 0
-  eta[1] = abscissa[0];
-  zta[1] = abscissa[0];
-  nwt[1] = weight[0] * weight[1] * weight[0];
-  xi[2] = abscissa[1]; // 1, 1, 0
-  eta[2] = abscissa[1];
-  zta[2] = abscissa[0];
-  nwt[2] = weight[1] * weight[1] * weight[0];
-  xi[3] = abscissa[0];  //0, 1, 0
-  eta[3] = abscissa[1];
-  zta[3] = abscissa[0];
-  nwt[3] = weight[0] * weight[1] * weight[0];
-  xi[4] = abscissa[0];  // 0, 0, 1
-  eta[4] = abscissa[0];
-  zta[4] = abscissa[1];
-  nwt[4] = weight[0] * weight[0] * weight[1];
-  xi[5] = abscissa[1]; // 1, 0, 1
-  eta[5] = abscissa[0];
-  zta[5] = abscissa[1];
-  nwt[5] = weight[0] * weight[1] * weight[1];
-  xi[6] = abscissa[1]; // 1, 1, 1
-  eta[6] = abscissa[1];
-  zta[6] = abscissa[1];
-  nwt[6] = weight[1] * weight[1] * weight[1];
-  xi[7] = abscissa[0];  //0, 1, 1
-  eta[7] = abscissa[1];
-  zta[7] = abscissa[1];
-  nwt[7] = weight[0] * weight[1] * weight[1];
- 
+#endif 
+  if ( 2 == sngp ){
+    xi[0] = abscissa[0];  // 0, 0, 0
+    eta[0] = abscissa[0];
+    zta[0] = abscissa[0];
+    nwt[0] = weight[0] * weight[0] * weight[0];
+    xi[1] = abscissa[1]; // 1, 0, 0
+    eta[1] = abscissa[0];
+    zta[1] = abscissa[0];
+    nwt[1] = weight[0] * weight[1] * weight[0];
+    xi[2] = abscissa[1]; // 1, 1, 0
+    eta[2] = abscissa[1];
+    zta[2] = abscissa[0];
+    nwt[2] = weight[1] * weight[1] * weight[0];
+    xi[3] = abscissa[0];  //0, 1, 0
+    eta[3] = abscissa[1];
+    zta[3] = abscissa[0];
+    nwt[3] = weight[0] * weight[1] * weight[0];
+    xi[4] = abscissa[0];  // 0, 0, 1
+    eta[4] = abscissa[0];
+    zta[4] = abscissa[1];
+    nwt[4] = weight[0] * weight[0] * weight[1];
+    xi[5] = abscissa[1]; // 1, 0, 1
+    eta[5] = abscissa[0];
+    zta[5] = abscissa[1];
+    nwt[5] = weight[0] * weight[1] * weight[1];
+    xi[6] = abscissa[1]; // 1, 1, 1
+    eta[6] = abscissa[1];
+    zta[6] = abscissa[1];
+    nwt[6] = weight[1] * weight[1] * weight[1];
+    xi[7] = abscissa[0];  //0, 1, 1
+    eta[7] = abscissa[1];
+    zta[7] = abscissa[1];
+    nwt[7] = weight[0] * weight[1] * weight[1];
+  }
+  else{
+    int c = 0;
+    for( int i = 0; i < sngp; i++ ){
+      for( int j = 0; j < sngp; j++ ){
+	for( int k = 0; k < sngp; k++ ){
+	  xi[i+j+k+c]  = abscissa[i];
+	  eta[i+j+k+c] = abscissa[j];
+	  zta[i+j+k+c] = abscissa[k];
+	  nwt[i+j+k+c]  = weight[i] * weight[j] * weight[k]; 
+	}   
+	c = c + sngp - 1;
+      }
+      c = c + sngp - 1;
+    }
+  }
 }
 
 // Destructor
@@ -1579,8 +1620,8 @@ void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  con
 // Constructor
 BasisLBar::BasisLBar(int n) :sngp(n){
   //sngp = 2;// number of Gauss points
-  if ( 2 != sngp ){
-    std::cout<<"BasisLBar only supported for n = 2 at this time"<<std::endl<<std::endl<<std::endl;
+  if ( !(2 == sngp || 3 == sngp) ){
+    std::cout<<"BasisLBar only supported for n = 2, 3 at this time"<<std::endl<<std::endl<<std::endl;
     exit(0);
   }
   ngp = sngp;
@@ -1598,20 +1639,9 @@ BasisLBar::BasisLBar(int n) :sngp(n){
   xi  = new double[ngp];
   nwt  = new double[ngp];
 
-  if(2 == ngp){
-#if 0
-    if(0 == gp){
-      xi = abscissa[0];
-      wt = weight[0];
-    }else if (1 == gp){
-      xi = abscissa[1];
-      wt = weight[0];
-    }
-#endif  
-    xi[0] = abscissa[0];
-    nwt[0] = weight[0];
-    xi[1] = abscissa[1];
-    nwt[1] = weight[0];
+  for(int i = 0; i < sngp; i++){
+    xi[i] = abscissa[i];
+    nwt[i] = weight[i];
   }
 }
 

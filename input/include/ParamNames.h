@@ -74,6 +74,11 @@ std::string const TusasnlsDocString = "over ride nonlinear solver parameters";
 std::string const TusaserrorestimatorNameString = "errorestimator";
 /// Create error estimator for this variable.
 std::string const TusaserrorestimatorDocString = "variables to estimate error for, {} corrsponds to none, {0,3} corresponds to 1 and 3 (string): default none";
+/// Quadrature order.
+std::string const TusasltpquadordNameString = "ltpquadord";
+/// Quadrature order.
+std::string const TusasltpquadordDocString = "quadrature order for bilinear tensor product family (int): default 2";
+
 
 //other parameters not in the input file
 /// Restart.

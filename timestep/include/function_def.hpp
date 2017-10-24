@@ -3146,29 +3146,30 @@ RES_FUNC(residual_)
 
 namespace kundin
 {
-  double dx = 0.00000046;
-  //double r = .000005;
-  double r = 10.7*dx;
-  double x0 = .00023;
+  double length_factor = 1.;//m/m
+  //double length_factor = 1000.;//mm/m
+  double dx = 0.000000032; //m
+  double lx = dx*320.; //m
 
   int N = 6;
-  double W = 5.e-9;//m
+  double W = 0.00000007;//m
   double a_1 = sqrt(2.)/3.;
   double a_2 = 1.175;
-  double sigma = 0.161;//J/m^2
-  double eps_4 = .018;
-  double x_fact = 1.e-5;
+  double sigma = 0.12;//J/m^2
+  double eps_4 = .05;
+  double x_fact = 1.e5;// (J/m^3)/(J/mol-at)
   double XA_L [6] = { 1.2*x_fact, 1.3*x_fact, .9*x_fact, 3.*x_fact, 3.*x_fact, 3.*x_fact };//J/mol-at/mf^2
-  double deltaA_SLT0 [6] = {.01645, .034356, -.0098313, -.0412, -.00545, .00005};//mf
-  double CAeq_ST0 [6] = {.20645, .219356, .0201687, .0098, .00355, .00505};//mf
-  double CAeq_LT0 [6] = {.19, .185, .03, .051, .009, .005};//mf
-  double kA_L [6] = {3.48, 1.48, 1.48, 2.48, 1.51, 11.21};
-  double mA_Sp [6] = {9118., 4365.8, -15257.4, -3640.8, -27522.9, 3700000.};//K/mf
-  double mA_Lp [6] = {2620., 2936., -10309.,-1468.7, -18131.3, 330000.};//K/mf
-  double T0 = 1635.15;//K
-  double d_fact = 1.e10;
+  double deltaA_SLT0 [6] = {.01645, .034356, -.0098313, -.0412, -.00545,  .00005};//mf
+  double CAeq_ST0 [6] =    {.20645, .219356,  .0201687,  .0098,  .00355,  .00505};//mf
+  double CAeq_LT0 [6] =    {.19,    .185,     .03,       .051,   .009,    .005};//mf
+  double kA_L [6] =        {3.48,   1.48,     1.48,      2.48,   1.51,    11.21};
+  double mA_Sp [6] =       {9118.,  4365.8,  -15257.4,  -3640.8,-27522.9, 3700000.};//K/mf
+  double mA_Lp [6] =       {2620.,  2936.,   -10309.,   -1468.7,-18131.3, 330000.};//K/mf
+  //double T0 = 1635.15;//K
+  double T0 = 1362.;//C
+  double d_fact = 1.e-10;
   double DA_L [6] = {8.9843*d_fact, 9.0398*d_fact, 10.759*d_fact, 10.526*d_fact, 10.992*d_fact, 11.092*d_fact};//m^2/s
-  double tau = 8.12e8;//s
+  double tau = 8.12e-8;//s
 
 
 double df(const double p)
@@ -3187,15 +3188,18 @@ double CAeq_S(const int i,const double T){
 }
 double deltaA_SL(const int i,const double T){
   double k_S = 1./kA_L[i];
-  return deltaA_SLT0[i] + (T0-T)*(1.-k_S)/mA_Lp[i];
+  //return deltaA_SLT0[i] + (T0-T)*(1.-k_S)/mA_Lp[i];
+  return CAeq_S(i,T) - CAeq_L(i,T);
 }
 double temp(const double time){
-  return T0 - 1150.*.1;
+  double tdot = 1e4;// K/s
+  return T0 - tdot*time;
+  //return T0/2.;
 }
-double deltaG_ch(const double * CA, const double p)
+double deltaG_ch(const double * CA, const double p, const double T)
 {
 
-  double T = temp(0.);
+  //double T = temp(0.);
 
   double s = 0.;
   for (int i = 0; i < N; i++){
@@ -3249,6 +3253,9 @@ double theta(const double &x,const double &y)
 double a_s_(const double theta, const double m, const double eps){
   return 1.+ eps*cos(m*theta);
 }
+double a_sp_(const double theta, const double m, const double eps){
+  return -m*eps*sin(m*theta);
+}
 RES_FUNC(phiresidual_)
 {
   //derivatives of the test function
@@ -3263,37 +3270,49 @@ RES_FUNC(phiresidual_)
     +basis[0].dphidzta[i]*basis[0].dztadz;
   double test = basis[0].phi[i];
 
-  int phi_id = 6;
-  double phi = basis[phi_id].uu;
-  double phiold = basis[phi_id].uuold;
-  double phi_x = basis[phi_id].dudx;
-  double phi_y = basis[phi_id].dudy;
-  double phi_z = basis[phi_id].dudz;
+  int phi_id = eqn_id;
+  double phi[2] = {basis[phi_id].uu, basis[phi_id].uuold};
+  double phi_x[2] = {basis[phi_id].dudx, basis[phi_id].duolddx};
+  double phi_y[2] = {basis[phi_id].dudy, basis[phi_id].duolddy};
+  double phi_z[2] = {basis[phi_id].dudz, basis[phi_id].duolddz};
 
-  double CA[6];
-  for (int i = 0; i < N; i++) CA[i] =  basis[i].uu;
+  double theta_[2] = {theta(phi_x[0],phi_y[0]), theta(phi_x[1],phi_y[1])};//cn this is 2d right now...
 
-  double theta_ = theta(phi_x,phi_y);//cn this is 2d right now...
-
-  double a_s = a_s_(theta_, (double)4., eps_4);
-  a_s=1.;
+  double a_s[2] = {a_s_(theta_[0], (double)4., eps_4), a_s_(theta_[1], (double)4., eps_4)};
+  //double a_s=1.;
+  double a_sp[2] = {a_sp_(theta_[0], (double)4., eps_4), a_sp_(theta_[1], (double)4., eps_4)};
+  //double as_p= 0.;
 
   //tau = tau_(phi,temp(0.));
-  double phit = tau*a_s*(phi-phiold)/dt_*test;
+  double phit = tau*(phi[0]-phi[1])/dt_*test;
 
-  double divgrad = W*W*a_s*a_s*(phi_x*dtestdx + phi_y*dtestdy + phi_z*dtestdz);
+  double divgrad = t_theta_*(W*W*a_s[0]*a_s[0]*(phi_x[0]*dtestdx + phi_y[0]*dtestdy + phi_z[0]*dtestdz))
+    +(1.-t_theta_)*(W*W*a_s[1]*a_s[1]*(phi_x[1]*dtestdx + phi_y[1]*dtestdy + phi_z[1]*dtestdz));
  
-  double normphi2 = phi_x*phi_x + phi_y*phi_y + phi_z*phi_z;
-  //double dgdtheta = cummins::dgs2_2dtheta_cummins_(theta_, (double)4., eps_4, 0.);
-  double dgdtheta = 1.;
-  double curlgrad = W*W*normphi2*dgdtheta*(-phi_y*dtestdx + phi_x*dtestdy);
+  double normphi2[2] = {phi_x[0]*phi_x[0] + phi_y[0]*phi_y[0] + phi_z[0]*phi_z[0],
+			phi_x[1]*phi_x[1] + phi_y[1]*phi_y[1] + phi_z[1]*phi_z[1]};
+  normphi2[0] = 1.;
+  normphi2[1] = 1.;
+  double curlgrad = t_theta_*(W*W*normphi2[0]*a_s[0]*a_sp[0]*(-phi_y[0]*dtestdx + phi_x[0]*dtestdy))
+    +(1.-t_theta_)*(W*W*normphi2[1]*a_s[1]*a_sp[1]*(-phi_y[1]*dtestdx + phi_x[1]*dtestdy));
 
-  double dfdp = df(phi)*test;
+  double dfdp = t_theta_*df(phi[0])*test+(1.-t_theta_)*df(phi[1])*test;
 
-  double deltaG_ch_ = deltaG_ch(CA,phi);
-  double dgdp = -a_1*W/sigma*dg(phi)*deltaG_ch_*test;
-  //std::cout<<phit<<" "<<divgrad<<" "<<curlgrad<<" "<<dfdp<<" "<<dgdp<<std::endl;
-  return (phit + divgrad + 0.*curlgrad + dfdp + dgdp)*dt_;// /tau;
+  double CA[6];
+  double deltaG_ch_[2];
+  for (int i = 0; i < N; i++) CA[i] =  basis[i].uu;
+  double T = temp(time);
+  deltaG_ch_[0] = deltaG_ch(CA,phi[0],T);
+
+  for (int i = 0; i < N; i++) CA[i] =  basis[i].uuold;
+  T = temp(time - dt_);
+  deltaG_ch_[1] = deltaG_ch(CA,phi[1],T);
+
+  double dgdp = -a_1*W/sigma*(t_theta_*dg(phi[0])*deltaG_ch_[0]
+			      +(1.-t_theta_)*dg(phi[1])*deltaG_ch_[1])*test;
+
+  //return (phit + divgrad + curlgrad + dfdp + 0.*dgdp)*dt_/tau;// /tau;
+  return (phit/tau + divgrad/W/W + 0.*curlgrad + 0.*dfdp);//*dt_/tau;
 
 }
 PRE_FUNC(phiprec_)
@@ -3321,13 +3340,18 @@ PRE_FUNC(phiprec_)
 
   int phi_id = 6;
   double phi =  basis[6].uu;
+  double phi_x = basis[phi_id].dudx;
+  double phi_y = basis[phi_id].dudy;
+  double phi_z = basis[phi_id].dudz;
 
   //tau = tau_(phi,temp(0.));
   double phit = tau*basis[phi_id].phi[j]/dt_*test;
+  double theta_ = theta(phi_x,phi_y);//cn this is 2d right now...
+  //double a_s = a_s_(theta_, (double)4., eps_4);
   double a_s = 1.;
   double divgrad = W*W*a_s*a_s*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
 
-  return (phit + divgrad)*dt_;// /tau;
+  return (phit + divgrad);// /tau;
 }
 RES_FUNC(cresidual_)
 {
@@ -3343,8 +3367,7 @@ RES_FUNC(cresidual_)
     +basis[0].dphidzta[i]*basis[0].dztadz;
   double test = basis[0].phi[i];
 
-  double CA = basis[eqn_id].uu;
-  double CAold = basis[eqn_id].uuold;
+  double CA[2] = {basis[eqn_id].uu, basis[eqn_id].uuold};
   double CA_x = basis[eqn_id].dudx;
   double CA_y = basis[eqn_id].dudy;
   double CA_z = basis[eqn_id].dudz;
@@ -3353,38 +3376,35 @@ RES_FUNC(cresidual_)
   double phi_y = basis[6].dudy;
   double phi_z = basis[6].dudz; 
 
-  double T = temp(0.);
+  double T = temp(time);
   double D_L = DA_L[eqn_id];
-  double D_S = 0.;
-  //double D_S = D_L;
+  //double D_S = 0.;
+  double D_S = D_L;
   double k_L =kA_L[eqn_id];
 
-  double CAt = (CA - CAold)/dt_*test;
+  double CAt = (CA[0] - CA[1])/dt_*test;
 
-  double den = 1./(phi + (1. - phi)*k_L);
-  //double den = 1.;
-  double dend = -(1.-k_L)/(k_L + (1.-k_L)*phi)/(k_L + (1.-k_L)*phi);
-  double den_x = dend*phi_x;
-  double den_y = dend*phi_y;
-  double den_z = dend*phi_z;
+  double den = (phi + (1. - phi)*k_L);
+  double den_x = phi_x - k_L*phi_x;
+  double den_y = phi_y - k_L*phi_y;
+  double den_z = phi_z - k_L*phi_z;
 
   double CAeq = CAeq_S(eqn_id,T)*phi + CAeq_L(eqn_id,T)*(1.- phi);
+  double num = CA[0] - CAeq;
   double CAeq_x = (CAeq_S(eqn_id,T)*phi_x + CAeq_L(eqn_id,T)*(- phi_x));//*den;// + CAeq*den_x;
   double CAeq_y = (CAeq_S(eqn_id,T)*phi_y + CAeq_L(eqn_id,T)*(- phi_y));//*den;// + CAeq*den_y;
   double CAeq_z = (CAeq_S(eqn_id,T)*phi_z + CAeq_L(eqn_id,T)*(- phi_z));//*den;// + CAeq*den_z;
 
-  double CA_xd = CA_x;//*den;// + CA*den_x;
-  double CA_yd = CA_y;//*den;// + CA*den_y;
-  double CA_zd = CA_z;//*den;// + CA*den_z;
+  double num_x = CA_x - CAeq_x;
+  double num_y = CA_y - CAeq_y;
+  double num_z = CA_z - CAeq_z;
 
-  //double CAeq_x = CAeq_S(eqn_id,T)*phi_x + CAeq_L(eqn_id,T)*(- phi_x)*den;//cn this needs to be a gradient here, and depents on T
-  //double CAeq_y = CAeq_S(eqn_id,T)*phi_y + CAeq_L(eqn_id,T)*(- phi_y)*den;
-  //double CAeq_z = CAeq_S(eqn_id,T)*phi_z + CAeq_L(eqn_id,T)*(- phi_z)*den;
+  double CA_xd = (num_x*den - num*den_x)/den/den;
+  double CA_yd = (num_y*den - num*den_y)/den/den;
+  double CA_zd = (num_z*den - num*den_z)/den/den;
 
-  double coef = (D_S*phi + D_L*(1.-phi)*k_L)*den;
-  //double coef = (D_S*phi + D_L*(1.-phi));
-  //double divgrad = coef*((CA_x - CAeq_x)*dtestdx + (CA_y - CAeq_y)*dtestdy + (CA_z - CAeq_z)*dtestdz);
-  double divgrad = coef*((CA_xd - CAeq_x)*dtestdx + (CA_yd - 0.*CAeq_y)*dtestdy + (CA_zd - 0.*CAeq_z)*dtestdz);
+  double coef = (D_S*phi + D_L*(1.-phi)*k_L);
+  double divgrad = coef*(CA_xd*dtestdx + CA_yd*dtestdy + CA_zd*dtestdz);
 
   double delta_SL = deltaA_SL(eqn_id,T);
   double normphi = sqrt(phi_x*phi_x + phi_y*phi_y + phi_z*phi_z);
@@ -3394,9 +3414,10 @@ RES_FUNC(cresidual_)
   if (normphi > small) coef2 = W/sqrt(2.)*delta_SL*phit;
   double trap = coef2*(phi_x*dtestdx + phi_y*dtestdy + phi_z*dtestdz);
 
-
-  return (CAt + divgrad + 0.*trap)*dt_;
-  //return CA-CAeq_LT0[eqn_id];
+  //std::cout<<CAt<<" "<<divgrad<<"     :   "
+  //std::cout<<CA<<" "<<CAold<<" "<<CA-CAold<<" "<<eqn_id<<" "<<basis[eqn_id].uu<<std::endl;
+  //return (CAt + divgrad + 0.*trap)*dt_;
+  return CA[0]-CAeq_ST0[eqn_id];
 }
 PRE_FUNC(cprec_)
 {
@@ -3420,27 +3441,50 @@ PRE_FUNC(cprec_)
     +basis[eqn_id].dphideta[j]*basis[eqn_id].detadz
     +basis[eqn_id].dphidzta[j]*basis[eqn_id].dztadz;
   double test = basis[0].phi[i];
-  double phi = basis[6].uu;
-  //double phi_x = basis[6].dudx;
-  //double phi_y = basis[6].dudy;
-  //double phi_z = basis[6].dudz; 
 
   double CAt = basis[eqn_id].phi[j]/dt_*test;
+  double CA = basis[eqn_id].phi[j];
+  double CA_x = dbasisdx;
+  double CA_y = dbasisdy;
+  double CA_z = dbasisdz;
+  double phi = basis[6].uu;
+  double phi_x = basis[6].dudx;
+  double phi_y = basis[6].dudy;
+  double phi_z = basis[6].dudz;
 
-  double T = temp(0.);
+  //double T = temp(0.);
   double D_L = DA_L[eqn_id];
-  double D_S = 0.;
-  //double D_S = D_L;
-  //double coef = (D_S*phi + D_L*(1.-phi)*k_L)/(phi + (1. - phi)*k_L);
-  double coef =  D_S*phi+D_L*(1.-phi);
-  double divgrad = coef*((dbasisdx) *dtestdx+ (dbasisdy) * dtestdy + (dbasisdz) * dtestdz);
+  double k_L = kA_L[eqn_id];
+  double den = (phi + (1. - phi)*k_L);
+  double den_x = phi_x - k_L*phi_x;
+  double den_y = phi_y - k_L*phi_y;
+  double den_z = phi_z - k_L*phi_z;
+  double num = CA;
+  double num_x = CA_x;
+  double num_y = CA_y;
+  double num_z = CA_z;
 
-  return (CAt + divgrad)*dt_;
+  double CA_xd = (num_x*den - num*den_x)/den/den;
+  double CA_yd = (num_y*den - num*den_y)/den/den;
+  double CA_zd = (num_z*den - num*den_z)/den/den;
+  //double D_S = 0.;
+  double D_S = D_L;
+  double coef = (D_S*phi + D_L*(1.-phi)*k_L);
+  double divgrad = coef*(CA_xd*dtestdx + CA_yd*dtestdy + CA_zd*dtestdz);
+
+  return (CAt + divgrad);
+}
+double init(const double x)
+{
+  double pi = 3.141592653589793;
+  double val = lx/7.*sin(7.*pi*x/lx);
+  return abs(val);
 }
 INI_FUNC(cinit_)
 {
   double val = CAeq_LT0[eqn_id];
-  if((x-x0)*(x-x0)+y*y+z*z < r*r) val=CAeq_ST0[eqn_id];
+  if(y < init(x)) val=CAeq_ST0[eqn_id];
+  //std::cout<<eqn_id<<" "<<val<<std::endl;
   return val;
 }
 DBC_FUNC(dbc0_)
@@ -3475,7 +3519,7 @@ INI_FUNC(phiinit_)
 
   double val = phi_liq_;  
 
-  if((x-x0)*(x-x0)+y*y+z*z < r*r) val=phi_sol_;
+  if(y < init(x)) val=phi_sol_;
   return val;
 }
 

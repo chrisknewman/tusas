@@ -315,11 +315,8 @@ class BasisLHex : public Basis {
  public:
 
   /// Constructor
-  /** Default constructor with 8 Gauss points). */
-  BasisLHex();
-  /// Constructor
   /** Number of Gauss points = sngp (sngp refers to 1 dimension of a tensor product, ie sngp = 2 is really 8 Gauss points). */
-  BasisLHex(int sngp);
+  BasisLHex(int sngp = 2);
 
   /// Destructor
   ~BasisLHex();

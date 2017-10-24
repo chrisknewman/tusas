@@ -518,6 +518,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  int row1 = row + k;
 		  double jacwt = basis[0].jac * basis[0].wt;
 		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_,k);
+		  //std::cout<<val<<" "<<jacwt<<std::endl;
 
 #ifdef TUSAS_COLOR
 		  if(f_owned_map_->MyGID(row1)){
@@ -3186,12 +3187,45 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*dirichletfunc_)[3][2] = &kundin::dbc3_;
     (*dirichletfunc_)[4][2] = &kundin::dbc4_;
     (*dirichletfunc_)[5][2] = &kundin::dbc5_;
-    (*dirichletfunc_)[6][2] = &dbc_zero_;
+    //(*dirichletfunc_)[6][2] = &dbc_zero_;
 
     neumannfunc_ = NULL;
 
 
     //exit(0);
+
+
+  }else if("kundinphi" == paramList.get<std::string> (TusastestNameString)){
+    //std::cout<<"kundin"<<std::endl;
+    //Teuchos::ParameterList *problemList;
+    //problemList = &paramList.sublist ( "ProblemParams", false );
+
+    numeqs_ = 1;
+  
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &kundin::phiinit_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &kundin::phiresidual_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &kundin::phiprec_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "phi";
+
+    dirichletfunc_ = NULL;
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    //(*dirichletfunc_)[6][2] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+
+
+    //exit(0);
+
 
 
   }else if("truchas" == paramList.get<std::string> (TusastestNameString)){
@@ -3426,9 +3460,11 @@ void ModelEvaluatorNEMESIS<Scalar>::set_basis( boost::ptr_vector<Basis> &basis, 
 {
       basis.resize(0);
 
+      int L_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+
       if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
 	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisLQuad());
+	  basis.push_back(new BasisLQuad(L_quadrature_order));
       }
       else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
 	for ( int nb = 0; nb < numeqs_; nb++ )
@@ -3436,7 +3472,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_basis( boost::ptr_vector<Basis> &basis, 
       }
       else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){ // linear hex
 	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisLHex());
+	  basis.push_back(new BasisLHex(L_quadrature_order));
       } 
       else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra")) ){ // linear tet
 	for ( int nb = 0; nb < numeqs_; nb++ )

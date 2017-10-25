@@ -257,7 +257,7 @@ class BasisQTri : public Basis {
  public:
 
   /// Constructor
-  BasisQTri();
+  BasisQTri(int ngp = 3);
 
   /// Destructor
   ~BasisQTri();
@@ -285,7 +285,7 @@ class BasisQQuad : public Basis {
  public:
 
   /// Constructor
-  BasisQQuad();
+  BasisQQuad(int sngp = 3);
 
   /// Destructor
   ~BasisQQuad();

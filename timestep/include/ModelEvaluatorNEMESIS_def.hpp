@@ -518,7 +518,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  int row1 = row + k;
 		  double jacwt = basis[0].jac * basis[0].wt;
 		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_,k);
-		  //std::cout<<val<<" "<<jacwt<<std::endl;
 
 #ifdef TUSAS_COLOR
 		  if(f_owned_map_->MyGID(row1)){
@@ -3460,19 +3459,22 @@ void ModelEvaluatorNEMESIS<Scalar>::set_basis( boost::ptr_vector<Basis> &basis, 
 {
       basis.resize(0);
 
-      int L_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+      int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+      int QTP_quadrature_order = paramList.get<int> (TusasqtpquadordNameString);
+      int LTri_quadrature_order = paramList.get<int> (TusasltriquadordNameString);
+      int QTri_quadrature_order = paramList.get<int> (TusasqtriquadordNameString);
 
       if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad
 	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisLQuad(L_quadrature_order));
+	  basis.push_back(new BasisLQuad(LTP_quadrature_order));
       }
       else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){ // linear triangle
 	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisLTri());
+	  basis.push_back(new BasisLTri(LTri_quadrature_order));
       }
       else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){ // linear hex
 	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisLHex(L_quadrature_order));
+	  basis.push_back(new BasisLHex(LTP_quadrature_order));
       } 
       else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra")) ){ // linear tet
 	for ( int nb = 0; nb < numeqs_; nb++ )
@@ -3480,15 +3482,15 @@ void ModelEvaluatorNEMESIS<Scalar>::set_basis( boost::ptr_vector<Basis> &basis, 
       } 
       else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad
 	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisQQuad());
+	  basis.push_back(new BasisQQuad(QTP_quadrature_order));
       }
       else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){ // quadratic triangle
 	for ( int nb = 0; nb < numeqs_; nb++ )
-	  basis.push_back(new BasisQTri());
+	  basis.push_back(new BasisQTri(QTri_quadrature_order));
       } 
       else if( (0==elem_type.compare("HEX27")) || (0==elem_type.compare("hex27")) ){ // quadratic hex
 	for ( int nb = 0; nb < numeqs_; nb++ )
-	  {//basis.push_back(new BasisQHex());
+	  {//basis.push_back(new BasisQHex(QTP_quadrature_order));
 	  }
 	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
 	exit(0);

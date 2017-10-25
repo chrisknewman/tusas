@@ -78,7 +78,18 @@ std::string const TusaserrorestimatorDocString = "variables to estimate error fo
 std::string const TusasltpquadordNameString = "ltpquadord";
 /// Quadrature order.
 std::string const TusasltpquadordDocString = "quadrature order for bilinear tensor product family (int): default 2";
-
+/// Quadrature order.
+std::string const TusasqtpquadordNameString = "qtpquadord";
+/// Quadrature order.
+std::string const TusasqtpquadordDocString = "quadrature order for biquadratic tensor product family (int): default 3";
+/// Quadrature order.
+std::string const TusasltriquadordNameString = "ltriquadord";
+/// Quadrature order.
+std::string const TusasltriquadordDocString = "quadrature order for bilinear tri family (int): default 1";
+/// Quadrature order.
+std::string const TusasqtriquadordNameString = "qtriquadord";
+/// Quadrature order.
+std::string const TusasqtriquadordDocString = "quadrature order for biquadratic tri family (int): default 3";
 
 //other parameters not in the input file
 /// Restart.

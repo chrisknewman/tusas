@@ -150,7 +150,6 @@ int main(int argc, char *argv[])
 
   delete model;
   delete in_mesh;
-
   return 0;
 }
 
@@ -171,6 +170,7 @@ int decomp(const int mypid,
 
     std::ofstream decompfile;
     if( writedecomp ){
+      std::cout<<"writedecomp started."<<std::endl<<std::endl;
       std::string decompFile="./decompscript";
       decompfile.open(decompFile.c_str());
       decompfile
@@ -284,10 +284,19 @@ int decomp(const int mypid,
 
     if( writedecomp ){
       decompfile.close();
-      exit(0);
     }
   }//if( 0 == mypid && !restart)
+  //if(  0 == mypid  && writedecomp ){
   comm->Barrier();
+  if( writedecomp ){
+#ifdef HAVE_MPI
+  (void) MPI_Finalize ();
+#endif
+    if( 0 == mypid ){
+      std::cout<<"writedecomp completed."<<std::endl<<std::endl;
+    }
+    exit(0);
+  }
   std::string mypidstring;
 
   if( numproc < 10 ){

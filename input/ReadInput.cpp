@@ -131,7 +131,6 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Alpha", 1.5);
   NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Gamma", .9);
 
-
   //read/overwrite here
 
   // read parameters from xml file
@@ -174,7 +173,11 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   paramList.set(TusasskipdecompNameString,skipdecomp,TusasskipdecompDocString);
   paramList.set(TusaswritedecompNameString,writedecomp,TusaswritedecompDocString);
 
-
+  if( 0 !=(LSList->get<std::string>("Linear Solver Type")).compare("AztecOO") ) {
+    //LSList->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").remove("Output Frequency");
+    LSList->sublist("Linear Solver Types").remove("AztecOO");
+  }
+ 
   if( 0 == mypid ){
     paramList.print(std::cout, 2, true, true );
     std::cout<<std::endl<<"Initial parameter list completed."<<std::endl<<std::endl<<std::endl;

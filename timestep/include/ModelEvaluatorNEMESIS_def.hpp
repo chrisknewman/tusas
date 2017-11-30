@@ -3180,15 +3180,29 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][2] = &kundin::dbc0_;
-    (*dirichletfunc_)[1][2] = &kundin::dbc1_;
-    (*dirichletfunc_)[2][2] = &kundin::dbc2_;
-    (*dirichletfunc_)[3][2] = &kundin::dbc3_;
-    (*dirichletfunc_)[4][2] = &kundin::dbc4_;
-    (*dirichletfunc_)[5][2] = &kundin::dbc5_;
-    //(*dirichletfunc_)[6][2] = &dbc_zero_;
+//     (*dirichletfunc_)[0][2] = &kundin::dbc0_;
+//     (*dirichletfunc_)[1][2] = &kundin::dbc1_;
+//     (*dirichletfunc_)[2][2] = &kundin::dbc2_;
+//     (*dirichletfunc_)[3][2] = &kundin::dbc3_;
+//     (*dirichletfunc_)[4][2] = &kundin::dbc4_;
+//     (*dirichletfunc_)[5][2] = &kundin::dbc5_;
+//     (*dirichletfunc_)[6][2] = &dbc_zero_;
+//     (*dirichletfunc_)[6][0] = &dbc_one_;
 
     neumannfunc_ = NULL;
+
+#ifdef PERIODIC_BC
+//     periodic_bc_.resize(6);
+//     periodic_bc_[0].push_back(new periodic_bc(1,3,0,numeqs_,mesh_,comm_));
+//     periodic_bc_[1].push_back(new periodic_bc(1,3,1,numeqs_,mesh_,comm_));
+//     periodic_bc_[2].push_back(new periodic_bc(1,3,2,numeqs_,mesh_,comm_));
+//     periodic_bc_[3].push_back(new periodic_bc(1,3,3,numeqs_,mesh_,comm_));
+//     periodic_bc_[4].push_back(new periodic_bc(1,3,4,numeqs_,mesh_,comm_));
+//     periodic_bc_[5].push_back(new periodic_bc(1,3,5,numeqs_,mesh_,comm_));
+#else
+#endif
+//      post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+//      post_proc[0].postprocfunc_ = &kundin::postproc_;
 
 
     //exit(0);

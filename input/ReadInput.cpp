@@ -118,11 +118,11 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   //searchParams.set("Method", "Quadratic");
   //searchParams.set("Method", "More'-Thuente");
 
-  Teuchos::ParameterList& btParams = NLSList->sublist("Backtrack");
-  btParams.set("Default Step",1.0);
-  btParams.set("Max Iters",20);
-  btParams.set("Minimum Step",1e-6);
-  btParams.set("Recovery Step",1e-3);
+  //Teuchos::ParameterList& btParams = NLSList->sublist("Backtrack");
+  //btParams.set("Default Step",1.0);
+  //btParams.set("Max Iters",20);
+  //btParams.set("Minimum Step",1e-6);
+  //btParams.set("Recovery Step",1e-3);
 
   NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Method", "Type 2");
   NLSList->sublist("Direction").sublist("Newton").set("Forcing Term Initial Tolerance", 1.0e-1);

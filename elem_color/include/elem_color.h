@@ -26,10 +26,11 @@
 #include "Epetra_SerialComm.h"
 #endif
 
-//#define TUSAS_COLOR
+//#define TUSAS_COLOR_CPU
+//#define TUSAS_COLOR_GPU
 
 /// Element coloring for residual and preconditioner fill with OpenMP.
-/** To enable <code>\#define TUSAS_COLOR</code>. */
+/** To enable <code>\#define TUSAS_COLOR_CPU</code>. */
 class elem_color
 {
 public:

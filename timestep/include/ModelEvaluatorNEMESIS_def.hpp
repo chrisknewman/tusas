@@ -203,7 +203,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
 
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
   Elem_col = rcp(new elem_color(comm_,mesh_));
 #endif
 
@@ -425,7 +425,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
 	std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
 		
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
 	int num_color = Elem_col->get_num_color();
 	for(int c = 0; c < num_color; c++){
 	  std::vector<int> elem_map = Elem_col->get_color(c);
@@ -450,7 +450,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    set_basis(basis,elem_type);//cn really want this out at the block level
 #else
 #endif		
-#ifdef TUSAS_COLOR		
+#ifdef TUSAS_COLOR_CPU		
 #else
 	int num_color = 1;
 	std::vector<double> xx(n_nodes_per_elem);
@@ -519,11 +519,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  double jacwt = basis[0].jac * basis[0].wt;
 		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_,k);
 
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
 		  if(f_owned_map_->MyGID(row1)){
 #endif
 		    f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
 		  }else{
 		    //std::cout<<comm_->MyPID()<<":"<<row<<std::endl;
 		    offrows.push_back(row);
@@ -534,7 +534,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      }//i
 	    }//gp
 	  }//ne	
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
 	  f_fe.SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
 #endif
 	}//c	
@@ -555,7 +555,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	std::string elem_type=mesh_->get_blk_elem_type(blk);
 	
 	//cn for now we will turn coloring for matrix fill off, until we get a good handle on residual fill
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
 	int num_color = Elem_col->get_num_color();
 	for(int c = 0; c < num_color; c++){
 	  std::vector<int> elem_map = Elem_col->get_color(c);
@@ -644,11 +644,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		    double jacwt = basis[0].jac * basis[0].wt;
 		    double val = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,k);
 		    
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
 		    if(f_owned_map_->MyGID(row1) && f_owned_map_->MyGID(column1)){
 #endif
 		      P_->SumIntoGlobalValues(row1, 1, &val, &column1);
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
 		    }else{
 		      offrows.push_back(row1);
 		      offcols.push_back(column1);
@@ -660,7 +660,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      }//i
 	    }//gp	    
 	  }//ne
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
 	  for( int k = 0; k < offrows.size(); k++ ){
 	    P_->SumIntoGlobalValues(offrows[k], (int)1, &offvals[k], offcols[k]);
 	  }//k	    
@@ -1927,7 +1927,7 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
     itp->update_scalar_data(time_);
   }
 
-#ifdef TUSAS_COLOR
+#ifdef TUSAS_COLOR_CPU
   Elem_col->update_mesh_data();
 #endif
 
@@ -3201,8 +3201,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 //     periodic_bc_[5].push_back(new periodic_bc(1,3,5,numeqs_,mesh_,comm_));
 #else
 #endif
-//      post_proc.push_back(new post_process(comm_,mesh_,(int)0));
-//      post_proc[0].postprocfunc_ = &kundin::postproc_;
+     post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+     post_proc[0].postprocfunc_ = &kundin::postproc_;
 
 
     //exit(0);

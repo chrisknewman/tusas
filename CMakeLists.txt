@@ -96,18 +96,18 @@ TARGET_LINK_LIBRARIES( tusas ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} ${T
 # Hack for test coverage flags
 #---------------------------------------------------------------------------------
 
-SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
-SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov -fprofile-arcs")
-SET( CMAKE_C_FLAGS "${Trilinos_C_COMPILER_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
-SET( CMAKE_CXX_FLAGS "${Trilinos_CXX_COMPILER_FLAGS} ${TUSAS_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
-SET(GCC_COVERAGE_LINK_FLAGS    "${GCC_COVERAGE_LINK_FLAGS}")
+#SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
+#SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov -fprofile-arcs")
+#SET( CMAKE_C_FLAGS "${Trilinos_C_COMPILER_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
+#SET( CMAKE_CXX_FLAGS "${Trilinos_CXX_COMPILER_FLAGS} ${TUSAS_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
+#SET(GCC_COVERAGE_LINK_FLAGS    "${GCC_COVERAGE_LINK_FLAGS}")
 
 #---------------------------------------------------------------------------------
 # Change compiler flags. This must be done after  PROJECT() specification
 #---------------------------------------------------------------------------------
 
-#SET( CMAKE_C_FLAGS ${Trilinos_C_COMPILER_FLAGS} )
-#SET( CMAKE_CXX_FLAGS "${Trilinos_CXX_COMPILER_FLAGS} ${TUSAS_CXX_FLAGS}" )
+SET( CMAKE_C_FLAGS ${Trilinos_C_COMPILER_FLAGS} )
+SET( CMAKE_CXX_FLAGS "${Trilinos_CXX_COMPILER_FLAGS} ${TUSAS_CXX_FLAGS}" )
 
 
 #---------------------------------------------------------------------------------

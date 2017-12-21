@@ -33,6 +33,9 @@ void elem_color::compute_graph()
   //will need to get this working in parallel
 
   int mypid = comm_->MyPID();
+  if( 0 == mypid )
+    std::cout<<std::endl<<"elem_color::compute_graph() started."<<std::endl<<std::endl;
+
   //std::cout<<mypid<<" "<<mesh_->get_num_elem()<<" "<<mesh_->get_num_elem_in_blk(0)<<std::endl;
   using Teuchos::rcp;
 
@@ -46,7 +49,11 @@ void elem_color::compute_graph()
 
   graph_ = rcp(new Epetra_CrsGraph(Copy, *elem_map_, 0));
 
+  if( 0 == mypid )
+    std::cout<<std::endl<<"Mesh::compute_elem_adj() started."<<std::endl<<std::endl;
   mesh_->compute_elem_adj();
+  if( 0 == mypid )
+    std::cout<<std::endl<<"Mesh::compute_elem_adj() ended."<<std::endl<<std::endl;
 
   for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
     
@@ -58,18 +65,23 @@ void elem_color::compute_graph()
 
     }
   }
+  //if (graph_->GlobalAssemble() != 0){
   if (graph_->FillComplete() != 0){
     std::cout<<"error graph_->GlobalAssemble()"<<std::endl;
     exit(0);
   } 
   //graph_->Print(std::cout);
   //exit(0);
+  if( 0 == mypid )
+    std::cout<<std::endl<<"elem_color::compute_graph() ended."<<std::endl<<std::endl;
 }
 
 void elem_color::create_colorer()
 {
   using Teuchos::rcp;
   int mypid = comm_->MyPID();
+  if( 0 == mypid )
+    std::cout<<std::endl<<"elem_color::create_colorer() started."<<std::endl<<std::endl;
 
   //cn looks like the default is a distance-2 coloring,
   //   we need a distance-1 coloring
@@ -119,6 +131,8 @@ void elem_color::create_colorer()
 //   }
 
 
+  if( 0 == mypid )
+    std::cout<<std::endl<<"elem_color::create_colorer() ended."<<std::endl<<std::endl;
   //exit(0);
 }
 void elem_color::init_mesh_data()

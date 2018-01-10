@@ -394,6 +394,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     RCP<Epetra_Vector> f;
     Epetra_FEVector f_fe(*f_owned_map_);//shared
     f_fe.PutScalar(0.0);
+    Epetra_FEVector * f_fe_p = &f_fe;
     if (nonnull(f_out)) {
       f = Thyra::get_Epetra_Vector(*f_owned_map_,outArgs.get_f());//f_out?
       //f->Print(std::cout);
@@ -424,6 +425,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
    
 	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
 	std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
+	std::string * elem_type_p = &elem_type;
 		
 	//#ifdef TUSAS_COLOR_CPU
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
@@ -450,7 +452,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
 	    boost::ptr_vector<Basis> basis;//private
 	    
-	    set_basis(basis,elem_type);//cn really want this out at the block level
+	    set_basis(basis,*elem_type_p);//cn really want this out at the block level
 #else
 #endif		
 	    //#ifdef TUSAS_COLOR_CPU
@@ -527,7 +529,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 		  if(f_owned_map_->MyGID(row1)){
 #endif
-		    f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
+		    f_fe_p->SumIntoGlobalValues ((int) 1, &row1, &val);
 		    //#ifdef TUSAS_COLOR_CPU
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 		  }else{
@@ -542,7 +544,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  }//ne	
 	  //#ifdef TUSAS_COLOR_CPU
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
-	  f_fe.SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
+	  f_fe_p->SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
 #endif
 	}//c	
 	  //exit(0);	

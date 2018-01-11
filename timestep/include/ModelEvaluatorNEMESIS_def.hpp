@@ -430,8 +430,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	//#ifdef TUSAS_COLOR_CPU
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 	int num_color = Elem_col->get_num_color();
+	std::vector< std::vector< int > > colors = Elem_col->get_colors();
 	for(int c = 0; c < num_color; c++){
 	  std::vector<int> elem_map = Elem_col->get_color(c);
+	  //std::vector<int> elem_map = colors[c];
 	  int num_elem = elem_map.size();
 	
 #pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))

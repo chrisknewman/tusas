@@ -17,6 +17,7 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
   comm_(comm),
   mesh_(mesh)
 {
+  //ts_time_elemadj= Teuchos::TimeMonitor::getNewTimer("Total Elem Adj Fill Time");
   compute_graph();
   create_colorer();
   init_mesh_data();
@@ -51,7 +52,10 @@ void elem_color::compute_graph()
 
   if( 0 == mypid )
     std::cout<<std::endl<<"Mesh::compute_elem_adj() started."<<std::endl<<std::endl;
+  {
+    //Teuchos::TimeMonitor ElemadjTimer(*ts_time_elemadj); 
   mesh_->compute_elem_adj();
+  }
   if( 0 == mypid )
     std::cout<<std::endl<<"Mesh::compute_elem_adj() ended."<<std::endl<<std::endl;
 

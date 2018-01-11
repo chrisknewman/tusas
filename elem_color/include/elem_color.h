@@ -16,6 +16,7 @@
 //teuchos support
 #include <Teuchos_RCP.hpp>
 #include "Epetra_CrsGraph.h"
+//#include <Teuchos_TimeMonitor.hpp>
 
 #include <Isorropia_EpetraColorer.hpp>
 
@@ -45,6 +46,7 @@ public:
   /// Return a std::vector of elements in the i-th color.
   std::vector<int> get_color(int i ///<color index
 			     ){return elem_LIDS_[i];}
+  std::vector< std::vector< int > > get_colors(){return elem_LIDS_;}
   /// Return the number of colors.
   int get_num_color(){return num_color_;}
   /// Output element color to exodus file.
@@ -76,6 +78,8 @@ private:
   int num_color_;
   /// Initializes element color variable in mesh.
   void init_mesh_data();
+
+  //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
 
 };
 #endif

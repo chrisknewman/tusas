@@ -3257,6 +3257,24 @@ inline const double a_s_(const double px, const double py, const double pz, cons
     //return 1.-3.*ep + 4.*ep*(px2*px2 + py2*py2 + pz2*pz2)/norm4;
     return 1.;
   }
+//t0 is rotation in x-y plane (wrt to z axis) only
+//there is no derivative coded at this time
+//note that to rotate around the x or y axis, is more complicated;
+//requiring a rotation matrix in cartesian coordinates to be applied
+const double a_s_(const double px, const double py, const double pz, const double ep, const double t0){
+    // in 2d, equivalent to: a_s = 1 + ep cos 4 (theta - t0)
+    double nn = sqrt(px*px + py*py + pz*pz );
+    double small = 5.e-3;//   => px < 1e-9
+    //double small = a_small;
+    if( nn < small*small ) return 1. + ep;
+
+    double xx = px/nn;
+    double yy = py/nn;
+    double zz = pz/nn;
+    double aa = .75 + (xx*xx*xx*xx + yy*yy*yy*yy -.75)*cos(4.*t0) + (xx*xx*xx*yy-yy*yy*yy*xx)*sin(4.*t0);
+
+    return 1.-3.*ep + 4.*ep*(aa + zz*zz*zz*zz);
+  }
 inline const double da_s_dpx(const double px, const double py, const double pz, const double ep){
     // (16 ep x (-y^4 - z^4 + x^2 y^2 + x^2 z^2))/(x^2 + y^2 + z^2)^3
     double px2 = px*px;

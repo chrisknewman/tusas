@@ -1525,10 +1525,9 @@ void Mesh::compute_elem_adj(){
     else if( (0==elem_type.compare("HEX8")) || 
 	     (0==elem_type.compare("HEX")) || 
 	     (0==elem_type.compare("hex8")) || 
-	     (0==elem_type.compare("hex"))  
-	     //||
-	     //(0==elem_type.compare("HEX27")) || 
-	     //(0==elem_type.compare("hex27")) 
+	     (0==elem_type.compare("hex"))  ||
+	     (0==elem_type.compare("HEX27")) || 
+	     (0==elem_type.compare("hex27")) 
 	     ){ 
       num_vertices_in_elem = 8;
       num_elem_in_patch = 8;

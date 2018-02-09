@@ -394,6 +394,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     RCP<Epetra_Vector> f;
     Epetra_FEVector f_fe(*f_owned_map_);//shared
     f_fe.PutScalar(0.0);
+    Epetra_FEVector * f_fe_p = &f_fe;
     if (nonnull(f_out)) {
       f = Thyra::get_Epetra_Vector(*f_owned_map_,outArgs.get_f());//f_out?
       //f->Print(std::cout);
@@ -416,6 +417,15 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       u_old->Import(*u_old_, *importer_, Insert);
       u_old_old->Import(*u_old_old_, *importer_, Insert);
     }
+
+    int alen = u->MyLength () ;
+    double *ua;
+    u->ExtractView(&ua);
+    double *u_olda;
+    u_old->ExtractView(&u_olda);
+    double *u_old_olda;
+    u_old_old->ExtractView(&u_old_olda);
+
     int n_nodes_per_elem;//shared
 
     if (nonnull(f_out)) {
@@ -424,20 +434,45 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
    
 	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
 	std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
-		
+	std::string * elem_type_p = &elem_type;
+	//Mesh * mesh_p = mesh_;
+	//elem_color * Elem_col_p = Elem_col.get();
+	std::vector< std::vector< int > > colors = Elem_col->get_colors();
 	//#ifdef TUSAS_COLOR_CPU
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 	int num_color = Elem_col->get_num_color();
+
+#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+
+#ifdef TUSAS_COLOR_GPU
+#pragma omp target device(0)
+#pragma omp data map(to:ua[0:alen] u_olda[0:alen] u_old_olda[0:alen])
+	//#pragma omp target device(0)
+	//#pragma omp enter data device(0) map(to:mesh_) map(to:Elem_col)
+	//#pragma omp data map(tofrom:f_fe_p) map(to:u) map(to:u_old) map(to:u_old_old) map(to:colors) 
+	//	{
+#endif
+
+#pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end())) //initializer (omp_priv(omp_orig))
+
 	for(int c = 0; c < num_color; c++){
-	  std::vector<int> elem_map = Elem_col->get_color(c);
+	  std::vector<int> elem_map = colors[c];
 	  int num_elem = elem_map.size();
-	
-#pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-     
+
+#ifdef TUSAS_COLOR_GPU
+	  //#pragma omp target teams map(tofrom:f_fe_p) map(to:u) map(to:u_old) map(to:u_old_old) map(to:elem_map) map(to:mesh_p)
+	  //#pragma omp data map(tofrom:f_fe_p) //map(to:u) map(to:u_old) map(to:u_old_old) map(to:elem_map) map(to:mesh_p)
+#pragma omp teams //map(tofrom:f_fe_p) map(to:u) map(to:u_old) map(to:u_old_old) map(to:elem_map) map(to:mesh_p)
+	  {
+#endif
+#if 0	     
 	  std::vector<int> offrows;
 	  std::vector<double> offvals;
+#endif
 #ifdef TUSAS_COLOR_CPU
 #pragma omp parallel for reduction(merge: offrows, offvals)
+#endif
+#ifdef TUSAS_COLOR_GPU
+#pragma omp distribute parallel for //cn reduction(merge: offrows, offvals)
 #endif	
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
 	    int elem = elem_map[ne];//private
@@ -450,9 +485,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));//private
 	    boost::ptr_vector<Basis> basis;//private
 	    
-	    set_basis(basis,elem_type);//cn really want this out at the block level
+	    set_basis(basis,*elem_type_p);//cn really want this out at the block level
 #else
-#endif		
+#endif  //defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)		
 	    //#ifdef TUSAS_COLOR_CPU
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)		
 #else
@@ -476,16 +511,20 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #endif
 	    for(int k = 0; k < n_nodes_per_elem; k++){
 	      
+	      //cn these calls to mesh methods need to be fixed
 	      int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
-	      
+
 	      xx[k] = mesh_->get_x(nodeid);
 	      yy[k] = mesh_->get_y(nodeid);
 	      zz[k] = mesh_->get_z(nodeid);
 	      
 	      for( int neq = 0; neq < numeqs_; neq++ ){
-		uu[neq][k] = (*u)[numeqs_*nodeid+neq]; 
-		uu_old[neq][k] = (*u_old)[numeqs_*nodeid+neq];
-		uu_old_old[neq][k] = (*u_old_old)[numeqs_*nodeid+neq];
+		//uu[neq][k] = (*u)[numeqs_*nodeid+neq]; 
+		uu[neq][k] = ua[numeqs_*nodeid+neq]; 
+		//uu_old[neq][k] = (*u_old)[numeqs_*nodeid+neq];
+		uu_old[neq][k] = u_olda[numeqs_*nodeid+neq];
+		//uu_old_old[neq][k] = (*u_old_old)[numeqs_*nodeid+neq];
+		uu_old_old[neq][k] = u_old_olda[numeqs_*nodeid+neq];
 	      }//neq
 	    }//k
 	    
@@ -515,6 +554,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      
 	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
 		
+	      //cn these calls to mesh methods need to be fixed
 		int row = numeqs_*(
 				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
 				   );				
@@ -524,11 +564,14 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_,k);
 
 		  //#ifdef TUSAS_COLOR_CPU
+#if 0
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 		  if(f_owned_map_->MyGID(row1)){
 #endif
-		    f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
+#endif
+		    f_fe_p->SumIntoGlobalValues ((int) 1, &row1, &val);
 		    //#ifdef TUSAS_COLOR_CPU
+#if 0
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 		  }else{
 		    //std::cout<<comm_->MyPID()<<":"<<row<<std::endl;
@@ -536,15 +579,24 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		    offvals.push_back(val);
 		  }//if
 #endif
+#endif
 		}//k
 	      }//i
 	    }//gp
 	  }//ne	
 	  //#ifdef TUSAS_COLOR_CPU
+#if 0
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
-	  f_fe.SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
+	  f_fe_p->SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
+#endif	    
 #endif
-	}//c	
+#ifdef TUSAS_COLOR_GPU
+	}
+#endif
+	}//c
+	  //#ifdef TUSAS_COLOR_GPU
+	  //	  }
+	  //#endif	
 	  //exit(0);	
       }//blk
     }//if f

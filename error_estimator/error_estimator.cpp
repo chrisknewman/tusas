@@ -19,7 +19,7 @@
 #elif defined TUSAS_HAVE_MKL
 #include "mkl.h"
 #else
-#include "clapack.h"
+//cn #include "clapack.h"
 #endif
 
 #ifdef HAVE_MPI
@@ -348,8 +348,8 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info,0 );
 #else
-    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
-	    &info );
+    //cn    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+    //cn    &info );
 #endif
 
     //std::cout<<"info 1 = "<<info<<std::endl<<std::endl;
@@ -368,8 +368,8 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info,0 );
 #else
-    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
-	    &info );
+    //cn    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
+    //cn	    &info );
 #endif
     if( info < 0 ) exit(0);
     //std::cout<<"info 2 = "<<info<<std::endl<<std::endl;
@@ -493,8 +493,8 @@ void error_estimator::test_lapack(){
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	  &info,0 );
 #else
-  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
-	 &info );
+  //cn  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+  //cn	 &info );
 #endif
   lwork = (int)wkopt;
   work = new double[lwork];
@@ -504,8 +504,8 @@ void error_estimator::test_lapack(){
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	  &info,0 );
 #else
-  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
-                        &info );
+  //cn  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
+  //cn                        &info );
 #endif
   delete work;
 

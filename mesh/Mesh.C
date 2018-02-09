@@ -684,7 +684,9 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
   error = write_element_blocks_exodus(ex_id);
   //std::cout<<error<<std::endl;
   error = write_nodal_data_exodus(ex_id,counter);
+#ifndef TUSAS_COLOR_GPU
   error = write_elem_data_exodus(ex_id,counter);
+#endif
   //std::cout<<error<<std::endl;
   error = ex_put_time(ex_id,counter,&time);
   //std::cout<<error<<std::endl;
@@ -1489,7 +1491,7 @@ void Mesh::compute_elem_adj(){
 
   //at the end we have a
   //std::vector<std::vector<int>> elem_connect indexed by local elemid
-  //where elem_connect[ne] is a vector of global elemids icluding and surrounding ne
+  //where elem_connect[ne] is a vector of global elemids including and surrounding ne
 
   //we have also made blk = 0 assumption
 
@@ -1503,27 +1505,38 @@ void Mesh::compute_elem_adj(){
  
     int num_vertices_in_elem = 3;
 
+    int num_elem_in_patch = 4;
+
     if( (0==elem_type.compare("QUAD4")) || 
 	(0==elem_type.compare("QUAD")) || 
 	(0==elem_type.compare("quad4")) || 
 	(0==elem_type.compare("quad")) || 
 	(0==elem_type.compare("quad9")) || 
-	(0==elem_type.compare("QUAD9")) || 
-	(0==elem_type.compare("TETRA4")) || 
-	(0==elem_type.compare("TETRA")) || 
-	(0==elem_type.compare("tetra4")) || 
-	(0==elem_type.compare("tetra")) ||
-	(0==elem_type.compare("TETRA10")) || 
-	(0==elem_type.compare("tetra10")) ){ 
+	(0==elem_type.compare("QUAD9")) 
+	//|| 
+	//(0==elem_type.compare("TETRA4")) || 
+	//(0==elem_type.compare("TETRA")) || 
+	//(0==elem_type.compare("tetra4")) || 
+	//(0==elem_type.compare("tetra")) ||
+	//(0==elem_type.compare("TETRA10")) || 
+	//(0==elem_type.compare("tetra10")) 
+	){ 
       num_vertices_in_elem = 4;
+      num_elem_in_patch = 4;
     }
     else if( (0==elem_type.compare("HEX8")) || 
 	     (0==elem_type.compare("HEX")) || 
 	     (0==elem_type.compare("hex8")) || 
-	     (0==elem_type.compare("hex"))  ||
+	     (0==elem_type.compare("hex")) ||
 	     (0==elem_type.compare("HEX27")) || 
-	     (0==elem_type.compare("hex27")) ){ 
+	     (0==elem_type.compare("hex27")) 
+	     ){ 
       num_vertices_in_elem = 8;
+      num_elem_in_patch = 8;
+    }
+    else{
+      std::cout<<"Mesh::compute_elem_adj() unsupported element at this time"<<std::endl<<std::endl<<std::endl;
+      exit(0);
     }
 
 //     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
@@ -1533,10 +1546,11 @@ void Mesh::compute_elem_adj(){
 
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
       int elemid = get_global_elem_id(ne);
+      int cnt = 0;
       for(int k = 0; k < num_vertices_in_elem; k++){
 
 	int nodeid = get_node_id(blk, ne, k);//local node id
-	int gnodeid = node_num_map[nodeid];
+	//int gnodeid = node_num_map[nodeid];
 	//std::cout<<proc_id<<" "<<ne<<" "<<elemid<<" "<<nodeid<<" "<<gnodeid<<std::endl;
 
 	for(int ne2=0; ne2 < get_num_elem_in_blk(blk); ne2++){
@@ -1544,13 +1558,19 @@ void Mesh::compute_elem_adj(){
 	    //std::cout<<ne<<" "<<ne2<<std::endl;
 	    int nodeid2 = get_node_id(blk, ne2, k2);//local node id
 	    //if(nodeid == nodeid2) elem_connect[elemid].push_back(get_global_elem_id(ne2));
-	    if(nodeid == nodeid2) elem_connect[ne].push_back(get_global_elem_id(ne2));
-	  }
-	}
+	    if(nodeid == nodeid2) {
+	      elem_connect[ne].push_back(get_global_elem_id(ne2));
+	      cnt++;
+	      break;
+	    }
+	  }//k2
+	  //std::cout<<ne<<" "<<elem_connect[ne].size()<<" "<<cnt<<std::endl;
+	  if( cnt > num_elem_in_patch - 1) break;
+	}//ne2
 
-      }
-    }
-  }
+      }//k
+    }//ne
+  }//blk
 
 
   if(verbose)
@@ -1576,6 +1596,7 @@ void Mesh::compute_elem_adj(){
   }
 
 }
+
 
 int Mesh::get_local_id(int gid)
 {

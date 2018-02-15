@@ -359,6 +359,7 @@ int join(const int mypid, const int numproc)
       exit(0);
     }
   }
+  return 0;
 }
 int do_sys_call(const char* command, char * const arg[] )
 {

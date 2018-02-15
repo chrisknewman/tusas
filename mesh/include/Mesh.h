@@ -162,6 +162,12 @@ class Mesh
   /// Return sorted node list
   std::vector<int> get_sorted_elem_num_map(){return sorted_elem_num_map;}
 
+  std::vector<double> x;               // x locations of node points
+  std::vector<double> y;               // y locations of node points
+  std::vector<double> z;               // z locations of node points
+  std::vector<int> node_num_map;
+  std::vector<std::vector<int> > connect;
+
  private:
 
   /// Return the number of nodes in side set with id i   !!! is this global or local !!!
@@ -200,7 +206,6 @@ class Mesh
   int get_node_set_value(int i){ return node_set_map[i]; }
   /// !!! have no idea !!!
   int get_side_set_node_value(int i){ return side_set_node_map[i]; }
-  std::vector<int> node_num_map;
 
   bool verbose;
   std::string title;
@@ -217,15 +222,10 @@ class Mesh
   int num_vertices;
   int num_my_nodes;
 
-  std::vector<double> x;               // x locations of node points
-  std::vector<double> y;               // y locations of node points
-  std::vector<double> z;               // z locations of node points
-
   std::vector<int> blk_ids;
   std::vector<int> num_elem_in_blk;
   std::vector<std::string> blk_elem_type;
   std::vector<int> num_node_per_elem_in_blk;
-  std::vector<std::vector<int> > connect;
   std::vector< std::vector <int> > elem_connect;      
 
   std::vector<int> ss_ids;

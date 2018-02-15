@@ -269,6 +269,9 @@ private: // data members
   Teuchos::RCP<elem_color> Elem_col;
 
   void set_basis( boost::ptr_vector<Basis> &basis, const std::string elem_type) const;
+
+  double *testptr;
+
 };
 
 

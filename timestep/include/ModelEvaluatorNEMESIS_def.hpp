@@ -217,6 +217,19 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
     int error_index = *it;
     Error_est.push_back(new error_estimator(comm_,mesh_,numeqs_,error_index));
   }
+#if 0
+#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+  int xlen = (mesh_->x).size();
+  //meshx = new double[xlen];//need to alloc this
+  //std::copy((mesh_->x).begin(),(mesh_->x).end(),meshx);
+  double *xxx = (mesh_->x).data();
+#pragma omp target enter data map(alloc:xxx[0:xlen])
+#endif
+#endif
+//   int xlen = (mesh_->x).size();
+//   testptr = (mesh_->x).data();
+//   double *xxx = testptr;
+// #pragma omp target enter data map(alloc:xxx[0:xlen])
 
   //exit(0);
 
@@ -250,10 +263,6 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
 	    W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
 
 	  }
-// 	  W_graph->InsertGlobalIndices((int)1,&row, (int)1, &column);
-// 	  int row1 = row + 1;
-// 	  int column1 = column + 1;
-// 	  W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
 	}
       }
     }
@@ -418,14 +427,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       u_old_old->Import(*u_old_old_, *importer_, Insert);
     }
 
-    int alen = u->MyLength () ;
-    double *ua;
-    u->ExtractView(&ua);
-    double *u_olda;
-    u_old->ExtractView(&u_olda);
-    double *u_old_olda;
-    u_old_old->ExtractView(&u_old_olda);
-
     int n_nodes_per_elem;//shared
 
     if (nonnull(f_out)) {
@@ -435,47 +436,66 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
 	std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
 	std::string * elem_type_p = &elem_type;
-	//Mesh * mesh_p = mesh_;
-	//elem_color * Elem_col_p = Elem_col.get();
+
+#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+#pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end())) //initializer (omp_priv(omp_orig))
+
+
 	std::vector< std::vector< int > > colors = Elem_col->get_colors();
 	//#ifdef TUSAS_COLOR_CPU
 	int num_color = Elem_col->get_num_color();
 
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+	int alen = u->MyLength () ;
+	double *ua;
+	u->ExtractView(&ua);
+	double *u_olda;
+	u_old->ExtractView(&u_olda);
+	double *u_old_olda;
+	u_old_old->ExtractView(&u_old_olda);
+
+	int xlen = (mesh_->x).size();
+	double *meshx = (mesh_->x).data();
+	double *meshy = (mesh_->y).data();
+	double *meshz = (mesh_->z).data();
+
+	int clen = ((mesh_->connect)[blk]).size();
+	int *meshc = ((mesh_->connect)[blk]).data();
+
+	int nlen = (mesh_->node_num_map).size();
+	int *meshn = (mesh_->node_num_map).data();
 
 #ifdef TUSAS_COLOR_GPU
-#pragma omp target device(0)
+#pragma omp target// device(0)
 #pragma omp data map(to:ua[0:alen] u_olda[0:alen] u_old_olda[0:alen])
-	//#pragma omp target device(0)
-	//#pragma omp enter data device(0) map(to:mesh_) map(to:Elem_col)
-	//#pragma omp data map(tofrom:f_fe_p) map(to:u) map(to:u_old) map(to:u_old_old) map(to:colors) 
-	//	{
+#pragma omp data map(to:meshx[0:xlen] to:meshy[0:xlen] to:meshz[0:xlen] to:meshc[0:clen] to:meshn[0:nlen] to:testptr[0:xlen])
+	{
 #endif
-
-#pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end())) //initializer (omp_priv(omp_orig))
 
 	for(int c = 0; c < num_color; c++){
-	  std::vector<int> elem_map = colors[c];
-	  int num_elem = elem_map.size();
+	  std::vector<int> elem_map = colors[c];//cn this should be mapped also
+	  //int num_elem = elem_map.size();
+	  int num_elem = colors[c].size();
 
-#ifdef TUSAS_COLOR_GPU
-	  //#pragma omp target teams map(tofrom:f_fe_p) map(to:u) map(to:u_old) map(to:u_old_old) map(to:elem_map) map(to:mesh_p)
-	  //#pragma omp data map(tofrom:f_fe_p) //map(to:u) map(to:u_old) map(to:u_old_old) map(to:elem_map) map(to:mesh_p)
-#pragma omp teams //map(tofrom:f_fe_p) map(to:u) map(to:u_old) map(to:u_old_old) map(to:elem_map) map(to:mesh_p)
-	  {
-#endif
 #if 0	     
 	  std::vector<int> offrows;
 	  std::vector<double> offvals;
 #endif
+
 #ifdef TUSAS_COLOR_CPU
-#pragma omp parallel for reduction(merge: offrows, offvals)
+	  int * elem_mapc = (colors[c]).data();
+#pragma omp parallel for //reduction(merge: offrows, offvals)
+	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
 #endif
 #ifdef TUSAS_COLOR_GPU
-#pragma omp distribute parallel for //cn reduction(merge: offrows, offvals)
-#endif	
+	  int * elem_mapc = (colors[c]).data();
+#pragma omp data map(to:elem_mapc[0:num_elem])
+	  //#pragma omp teams 
+#pragma omp teams distribute parallel for //cn reduction(merge: offrows, offvals)
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
-	    int elem = elem_map[ne];//private
+#endif	
+	    //int elem = elem_map[ne];//private
+	    //int elem = (colors[c].data())[ne];//private
+	    int elem = elem_mapc[ne];//private
 	    std::vector<double> xx(n_nodes_per_elem);//private
 	    std::vector<double> yy(n_nodes_per_elem);//private
 	    std::vector<double> zz(n_nodes_per_elem);//private
@@ -489,7 +509,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #else
 #endif  //defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)		
 	    //#ifdef TUSAS_COLOR_CPU
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)		
+#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 #else
 	int num_color = 1;
 	std::vector<double> xx(n_nodes_per_elem);
@@ -499,6 +519,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	std::vector<std::vector<double>> uu(numeqs_,std::vector<double>(n_nodes_per_elem));
 	std::vector<std::vector<double>> uu_old(numeqs_,std::vector<double>(n_nodes_per_elem));
 	std::vector<std::vector<double>> uu_old_old(numeqs_,std::vector<double>(n_nodes_per_elem));
+	
 	boost::ptr_vector<Basis> basis;
 	
 	set_basis(basis,elem_type);
@@ -512,11 +533,16 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    for(int k = 0; k < n_nodes_per_elem; k++){
 	      
 	      //cn these calls to mesh methods need to be fixed
-	      int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
+	      //int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
+	      int nodeid = meshc[elem*n_nodes_per_elem+k];
 
-	      xx[k] = mesh_->get_x(nodeid);
-	      yy[k] = mesh_->get_y(nodeid);
-	      zz[k] = mesh_->get_z(nodeid);
+	      //xx[k] = mesh_->get_x(nodeid);
+	      //xx[k] = ((mesh_->x).data())[nodeid];
+	      xx[k] = meshx[nodeid];
+	      //yy[k] = ((mesh_->y).data())[nodeid];
+	      yy[k] = meshy[nodeid];
+	      //zz[k] = ((mesh_->z).data())[nodeid];
+	      zz[k] = meshz[nodeid];
 	      
 	      for( int neq = 0; neq < numeqs_; neq++ ){
 		//uu[neq][k] = (*u)[numeqs_*nodeid+neq]; 
@@ -527,21 +553,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		uu_old_old[neq][k] = u_old_olda[numeqs_*nodeid+neq];
 	      }//neq
 	    }//k
-	    
-	    //  double dx = 0.;
-	    //  for(int gp=0; gp < basis[0].ngp; gp++) {
-	    //  
-	    //    basis[0].getBasis(gp, &xx[0], &yy[0], &zz[0]);
-	      
-	    //    dx += basis[0].jac*basis[0].wt;
-	    // }
-	    // 	if ( dx < 1e-16){
-	    // 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
-	    // 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
-	    // 	  exit(0);
-	    // 	}
-	    //cn should be cube root in 3d
-	    //dx = sqrt(dx);	
 	    
 	    for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
 	      
@@ -555,9 +566,15 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
 		
 	      //cn these calls to mesh methods need to be fixed
-		int row = numeqs_*(
-				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
-				   );				
+// 		int row = numeqs_*(
+// 				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
+// 				   );
+		//int nid = (((mesh_->connect)[blk]).data())[elem*n_nodes_per_elem+i];
+		int nid = meshc[elem*n_nodes_per_elem+i];
+		//int row = numeqs_*(
+		//		   ((mesh_->node_num_map).data())[nid]
+		//		   );
+		int row = numeqs_*(meshn[nid]);				
 		for( int k = 0; k < numeqs_; k++ ){
 		  int row1 = row + k;
 		  double jacwt = basis[0].jac * basis[0].wt;
@@ -565,20 +582,20 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 		  //#ifdef TUSAS_COLOR_CPU
 #if 0
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+  #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 		  if(f_owned_map_->MyGID(row1)){
-#endif
+  #endif
 #endif
 		    f_fe_p->SumIntoGlobalValues ((int) 1, &row1, &val);
 		    //#ifdef TUSAS_COLOR_CPU
 #if 0
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+  #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 		  }else{
 		    //std::cout<<comm_->MyPID()<<":"<<row<<std::endl;
 		    offrows.push_back(row);
 		    offvals.push_back(val);
 		  }//if
-#endif
+  #endif
 #endif
 		}//k
 	      }//i
@@ -586,20 +603,20 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  }//ne	
 	  //#ifdef TUSAS_COLOR_CPU
 #if 0
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+  #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 	  f_fe_p->SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
-#endif	    
+  #endif	    
 #endif
-#ifdef TUSAS_COLOR_GPU
-	}
-#endif
+// #ifdef TUSAS_COLOR_GPU
+// 	}
+// #endif
 	}//c
-	  //#ifdef TUSAS_COLOR_GPU
-	  //	  }
-	  //#endif	
-	  //exit(0);	
+#ifdef TUSAS_COLOR_GPU
+	  }
+#endif	
+	  //exit(0);
       }//blk
-    }//if f
+    }//if f_out
 
     if (nonnull(W_prec_out)) {
       Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);  

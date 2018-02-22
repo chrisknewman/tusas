@@ -3308,6 +3308,46 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
       (*neumannfunc_)[1][5] = &nbc_zero_;
     }
 
+  }else if("takaki" == paramList.get<std::string> (TusastestNameString)){
+    //farzadi test
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &takaki::init_conc_;
+    (*initfunc_)[1] = &takaki::init_phase_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &takaki::residual_conc_;
+    (*residualfunc_)[1] = &takaki::residual_phase_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &farzadi::prec_conc_farzadi_;
+    (*preconfunc_)[1] = &farzadi::prec_phase_farzadi_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+//     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    //(*dirichletfunc_)[0][1] = &dbc_mone_;	
+    //(*dirichletfunc_)[0][3] = &dbc_zero_;
+    //(*dirichletfunc_)[1][1] = &dbc_mone_;
+    //(*dirichletfunc_)[1][3] = &dbc_one_;
+
+    neumannfunc_ = NULL;
+
+    //post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &farzadi::postproc_c_;
+    //post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    //post_proc[1].postprocfunc_ = &farzadi::postproc_t_;
+
+    //paramfunc_ = farzadi::param_;
+						 
+    //exit(0);
+
 
   }else {
 

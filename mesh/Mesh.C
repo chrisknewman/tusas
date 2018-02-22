@@ -1361,6 +1361,8 @@ void Mesh::compute_nodal_patch(){
   //we really want to search by global id
   num_my_nodes = my_node_num_map.size();
 
+  if( num_my_nodes == nodal_patch.size() ) return;
+
   //std::cout<<"compute_nodal_patch() started on proc_id: "<<proc_id<<" with num_my_nodes "<<num_my_nodes<<std::endl;
 
   nodal_patch.resize(num_my_nodes);
@@ -1420,6 +1422,8 @@ void Mesh::compute_nodal_patch(){
   //exit(0);
 
   delete global_mesh;
+
+  return;
 }
 
 bool Mesh::is_global_node_local(int i){
@@ -1450,6 +1454,9 @@ void Mesh::compute_nodal_patch_old(){
   num_my_nodes = my_node_num_map.size();
 
   //std::cout<<"compute_nodal_patch() started on proc_id: "<<proc_id<<" with num_my_nodes "<<num_my_nodes<<std::endl;
+
+  //if( num_my_nodes == nodal_patch.size() ) return;
+  //exit(0);
 
   nodal_patch.resize(num_my_nodes);
 
@@ -1493,7 +1500,20 @@ void Mesh::compute_elem_adj(){
 
   //we have also made blk = 0 assumption
 
-  //this is an expensive routine that should be optimized better
+  //this has been cleaned up on 2-22-18, it seems that the adjacency is not correct
+  //in parallel with mpi; hence the hack below.  
+  
+  //I think it was working in parallel before the attempt to speed it up with 1-11-18
+  //commit afdc0e7747ee6396055af96b2734a84dce7c9c3c
+
+  //It really needs to be fixed as in the 
+  //else loop for parallel.
+  //The new approach uses nodal_patch.
+  //The problem is that the nodal_patch reaches over prov boundaries;
+  //see comments in error_estimator.
+
+
+  compute_nodal_patch_old();
 
   elem_connect.resize(num_elem);
 
@@ -1535,7 +1555,7 @@ void Mesh::compute_elem_adj(){
     else{
       std::cout<<"Mesh::compute_elem_adj() unsupported element at this time"<<std::endl<<std::endl<<std::endl;
       exit(0);
-    }
+    }//if 
 
 //     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
 //       int elemid = get_global_elem_id(ne);
@@ -1543,33 +1563,58 @@ void Mesh::compute_elem_adj(){
 //     }
 
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
-      int elemid = get_global_elem_id(ne);
-      int cnt = 0;
-      for(int k = 0; k < num_vertices_in_elem; k++){
 
-	int nodeid = get_node_id(blk, ne, k);//local node id
-	//int gnodeid = node_num_map[nodeid];
-	//std::cout<<proc_id<<" "<<ne<<" "<<elemid<<" "<<nodeid<<" "<<gnodeid<<std::endl;
-
-	for(int ne2=0; ne2 < get_num_elem_in_blk(blk); ne2++){
-	  for(int k2 = 0; k2 < num_vertices_in_elem; k2++){
-	    //std::cout<<ne<<" "<<ne2<<std::endl;
-	    int nodeid2 = get_node_id(blk, ne2, k2);//local node id
-	    //if(nodeid == nodeid2) elem_connect[elemid].push_back(get_global_elem_id(ne2));
-	    if(nodeid == nodeid2) {
-	      elem_connect[ne].push_back(get_global_elem_id(ne2));
-	      cnt++;
-	      break;
-	    }
-	  }//k2
-	  //std::cout<<ne<<" "<<elem_connect[ne].size()<<" "<<cnt<<std::endl;
-	  if( cnt > num_elem_in_patch - 1) break;
-	}//ne2
-
-      }//k
+      if (nprocs > 1){
+	int cnt = 0;
+	for(int k = 0; k < num_vertices_in_elem; k++){
+	  
+	  int nodeid = get_node_id(blk, ne, k);//local node id
+	  //int gnodeid = node_num_map[nodeid];
+	  //std::cout<<proc_id<<" "<<ne<<" "<<elemid<<" "<<nodeid<<" "<<gnodeid<<std::endl;
+	  
+	  for(int ne2=0; ne2 < get_num_elem_in_blk(blk); ne2++){
+	    for(int k2 = 0; k2 < num_vertices_in_elem; k2++){
+	      //std::cout<<ne<<" "<<ne2<<std::endl;
+	      int nodeid2 = get_node_id(blk, ne2, k2);//local node id
+	      //if(nodeid == nodeid2) elem_connect[elemid].push_back(get_global_elem_id(ne2));
+	      if(nodeid == nodeid2) {
+		elem_connect[ne].push_back(get_global_elem_id(ne2));
+		cnt++;
+		break;
+	      }
+	    }//k2
+	    //std::cout<<ne<<" "<<elem_connect[ne].size()<<" "<<cnt<<std::endl;
+	    if( cnt > num_elem_in_patch - 1) break;
+	  }//ne2
+	  
+	}//k
+      }
+      else{
+	for(int k = 0; k < num_vertices_in_elem; k++){
+	  int nodeid = get_node_id(blk, ne, k);//local node id
+	  int s = nodal_patch[nodeid].size();
+	  for(int np = 0; np < s; np++){
+	    //elem_connect1[ne].push_back(nodal_patch[nodeid][np]);
+	    elem_connect[ne].push_back(get_global_elem_id(nodal_patch[nodeid][np]));
+	  }//np
+	}//k
+      }
     }//ne
+#if 0
+    for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+      int elemid = get_global_elem_id(ne);
+      int s = elem_connect[ne].size();
+      std::cout<<nprocs<<"ec  : "<<elemid<<" : ";
+      for(int k = 0; k < s; k++){
+	std::cout<<elem_connect[ne][k]<<" ";
+      }
+      std::cout<<std::endl;
+    }//ne
+#endif
+
   }//blk
 
+  //exit(0);
 
   if(verbose)
     std::cout<<"=== Compute elem adjacencies ==="<<std::endl;

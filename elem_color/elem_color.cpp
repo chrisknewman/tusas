@@ -61,7 +61,7 @@ void elem_color::compute_graph()
 
   for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
     
-    int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+    //int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
     for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
       int row = mesh_->get_global_elem_id(ne);
       std::vector<int> col = mesh_->get_elem_connect(ne);

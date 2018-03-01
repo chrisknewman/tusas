@@ -3757,4 +3757,349 @@ INI_FUNC(init_phase_)
 }
 
 }//namespace truchas
+
+namespace rotate
+{
+//t0 is rotation in x-y plane (wrt to z axis) only
+//there is no derivative coded at this time
+//note that to rotate around the x or y axis, is more complicated;
+//requiring a rotation matrix in cartesian coordinates to be applied
+const double a_sr_(const double px, const double py, const double pz, const double ep, const double t0){
+    // in 2d, equivalent to: a_s = 1 + ep cos 4 (theta - t0)
+    double nn = sqrt(px*px + py*py + pz*pz );
+    double small = 5.e-3;//   => px < 1e-9
+    //double small = a_small;
+    if( nn < small*small ) return 1. + ep;
+
+    double xx = px/nn;
+    double yy = py/nn;
+    double zz = pz/nn;
+    double aa = .75 + (xx*xx*xx*xx + yy*yy*yy*yy -.75)*cos(4.*t0) + (xx*xx*xx*yy-yy*yy*yy*xx)*sin(4.*t0);
+
+    return 1.-3.*ep + 4.*ep*(aa + zz*zz*zz*zz);
+  }
+const double da_sr_dpx(const double px, const double py, const double pz, const double ep, const double t0){
+  return 0.;
+}
+
+}//namespace rotate
+  //double a_small =  5.e-3;//   => px < 1e-9
+
+namespace takaki {
+
+  double a_small =  5.e-9;//   => px < 1e-9
+  const double umperm_ = 1.e6; //1e6 um = 1 m
+
+  const double ep4_=.02;
+  const double w0_ = .9375; //um
+  const double T0_ = 931.2; //K
+  const double G_ = .2; //K/um
+  const double Vp_ = 50.; //um/s
+  const double tau0_ =1.;
+  const double c0_ = .00245; //atm frac
+  const double m_ = -620; //K/atm frac
+  const double k_ = .14; //atm frac
+  double lT_ = -m_*(1.- k_)*c0_/(k_*G_); //should be um
+  double gamma_ = .24e-6/umperm_;// K/m -> K/um
+  //double d0_ = k_*gamma_/(-m_*(1.-k_)*c0_);
+  double d0_ = 1.3e-2;//um
+  const double a1_ = 0.88388;
+  double lambdastar_ = a1_*w0_/d0_;
+  //const double abar_ = 1.;
+  const double Dl_ = (3.e-9)*umperm_*umperm_; //m^2/s -> um^2/s
+  //const double Ds_ = (2.e-12)*umperm_*umperm_; //m^2/s -> um^2/s
+  const double Ds_ = Dl_;
+  double a_ = (1.-k_*Ds_/Dl_)/2./std::sqrt(2.);
+
+
+double dfdp(const double p){
+  return -p + p*p*p;
+}
+double dgdp(const double p){
+  return (1.-p*p)*(1.-p*p);
+}
+double q(const double p){
+  return (k_*Ds_+Dl_+(k_*Ds_-Dl_)*p)/2./Dl_;;
+}
+
+  //see anisotropy_new.nb
+  //rotation about z axis or x-y plane
+const double rpx_z(const double px, const double py, const double pz, const double tz){
+  double c = cos(tz);
+  double s = sin(tz);
+  return c*px + s*py;
+}
+const double drpx_zdpx(const double px, const double py, const double pz, const double tz){
+  return cos(tz);
+}
+const double rpy_z(const double px, const double py, const double pz, const double tz){
+  double c = cos(tz);
+  double s = sin(tz);
+  return -s*px + c*py;
+}
+const double drpy_zdpy(const double px, const double py, const double pz, const double tz){
+  return cos(tz);
+}
+const double rpz_z(const double px, const double py, const double pz, const double tz){
+  return pz;
+}
+const double drpz_zdpz(const double px, const double py, const double pz, const double tz){
+  return 1.;
+}
+  //full 3d rotation about z axis, tz, y axis, ty, and x axis, tx
+const double rpx_f(const double px, const double py, const double pz, const double tz, const double ty, const double tx){
+  double cy = cos(ty);
+  double cz = cos(tz);
+  double sy = sin(ty);
+  double sz = sin(tz);
+  return cy*cz*px + cy*sz*py + sy*pz;
+}
+const double drpx_fdpx(const double px, const double py, const double pz, const double tz, const double ty, const double tx){
+  return rpx_f(1.,0.,0.,tz,ty,tx);
+}
+const double rpy_f(const double px, const double py, const double pz, const double tz, const double ty, const double tx){
+  double cx = cos(tx);
+  double cy = cos(ty);
+  double cz = cos(tz);
+  double sx = sin(tx);
+  double sy = sin(ty);
+  double sz = sin(tz);
+  return (-cz*sx*sy - cx*sz)*px + (cx*cz-sx*sy*sz)*py + cy*sx*pz;
+}
+const double drpy_fdpy(const double px, const double py, const double pz, const double tz, const double ty, const double tx){
+  return rpy_f(0.,1.,0.,tz,ty,tx);
+}
+const double rpz_f(const double px, const double py, const double pz, const double tz, const double ty, const double tx){
+  double cx = cos(tx);
+  double cy = cos(ty);
+  double cz = cos(tz);
+  double sx = sin(tx);
+  double sy = sin(ty);
+  double sz = sin(tz);
+  return (-cx*cz*sy + sx*sz)*px + (-cz*sx - cx*sy*sz)*py  + cx*cy*pz;
+}
+const double drpz_fdpz(const double px, const double py, const double pz, const double tz, const double ty, const double tx){
+  return rpz_f(0.,0.,1.,tz,ty,tx);
+}
+
+
+
+
+const double a_s_(const double px, const double py, const double pz, const double ep){
+    // in 2d, equivalent to: a_s = 1 + ep cos 4 theta
+    double px2 = px*px;
+    double py2 = py*py;
+    double pz2 = pz*pz;
+    double norm4 = (px2 + py2 + pz2 )*(px2 + py2 + pz2 );
+    //double small = 5.e-3;//   => px < 1e-9
+    if( norm4 < a_small ) return 1. + ep;
+    //return 1.-3.*ep + 4.*ep*(px2*px2 + py2*py2 + pz2*pz2)/norm4;
+    return 1.;
+  }
+const double da_s_dpx(const double px, const double py, const double pz, const double ep){
+    // (16 ep x (-y^4 - z^4 + x^2 y^2 + x^2 z^2))/(x^2 + y^2 + z^2)^3
+    double px2 = px*px;
+    double py2 = py*py;
+    double pz2 = pz*pz;
+    double norm4 = (px2 + py2 + pz2 )*(px2 + py2 + pz2 );
+    double norm6 = norm4*(px2 + py2 + pz2 );
+    //double small = 5.e-3;//   => px < 1e-9
+    if( norm4 < a_small ) return 0.;
+    //return 16.*ep*px*(- py2*py2 - pz2*pz2 + px2*py2 + px2*pz2)/norm6;
+    return 0.;
+  }
+const double da_s_dpy(const double px, const double py, const double pz, const double ep){
+    // -((16 ep y (x^4 - x^2 y^2 - y^2 z^2 + z^4))/(x^2 + y^2 + z^2)^3)
+    double px2 = px*px;
+    double py2 = py*py;
+    double pz2 = pz*pz;
+    double norm4 = (px2 + py2 + pz2 )*(px2 + py2 + pz2 );
+    double norm6 = norm4*(px2 + py2 + pz2 );
+    //double small = 5.e-3;//   => px < 1e-9
+    if( norm4 < a_small ) return 0.;
+    //return - 16.*ep*py*(px2*px2 + pz2*pz2 - px2*py2 - py2*pz2)/norm6;
+    return 0.;
+  }
+const double da_s_dpz(const double px, const double py, const double pz, const double ep){
+    //-((16 ep z (x^4 + y^4 - x^2 z^2 - y^2 z^2))/(x^2 + y^2 + z^2)^3)
+    double px2 = px*px;
+    double py2 = py*py;
+    double pz2 = pz*pz;
+    double norm4 = (px2 + py2 + pz2 )*(px2 + py2 + pz2 );
+    double norm6 = norm4*(px2 + py2 + pz2 );
+    //double small = 5.e-3;//   => px < 1e-9
+    if( norm4 < a_small ) return 0.;
+    //return - 16.*ep*pz*(px2*px2 + py2*py2 - px2*pz2 - py2*pz2)/norm6;
+    return 0.;
+  }
+
+const double w_(const double px, const double py, const double pz, const double ep){
+  double a2 = a_s_(px, py, pz, ep);
+  return w0_*a2*a2;
+}
+const double dw_dpx(const double px, const double py, const double pz, const double ep){
+  return 2.*w0_*a_s_(px, py, pz, ep)*da_s_dpx(px, py, pz, ep);
+}
+const double dw_dpy(const double px, const double py, const double pz, const double ep){
+  return 2.*w0_*a_s_(px, py, pz, ep)*da_s_dpy(px, py, pz, ep);
+}
+const double dw_dpz(const double px, const double py, const double pz, const double ep){
+  return 2.*w0_*a_s_(px, py, pz, ep)*da_s_dpz(px, py, pz, ep);
+}
+
+double temp(const double time, const double y){
+  return  T0_ + G_*(y-Vp_*time);
+}
+
+double uprime(const double time, const double y){
+  return  (y-Vp_*time)/lT_;
+}
+
+const double tau_(const double px, const double py, const double pz, const double ep){
+  double a2 = a_s_(px, py, pz, ep);
+  return tau0_*a2*a2;
+}
+
+INI_FUNC(init_conc_)
+{
+  //return c0_;//cn should be u0
+  return 0.;
+}
+
+INI_FUNC(init_phase_)
+{
+  double dx = .75;
+  double lfo = 230.*dx;
+  double luo = 300.*dx; 
+  double val = -1.;
+  double r2 = x*x + y*y;
+
+  double rr2 =.75*.75*dx*dx;
+
+  if(r2 < rr2 ){
+    val=1.;
+  }
+
+  r2 = (x - lfo)*(x - lfo) + y*y;
+
+  if(r2 < rr2 ){
+    val=1.;
+  }
+  r2 = (x - (lfo+luo))*(x - (lfo+luo)) + y*y;
+
+  if(r2 < rr2 ){
+    val=1.;
+  }
+
+  return val;
+}
+
+RES_FUNC(residual_conc_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  //double u = basis[0].uu;
+  double u = basis[0].uuold;
+  //double uold = basis[0].uuold;
+  double uold = basis[0].uuoldold;
+  //double phi = basis[1].uu;
+  double phi = basis[1].uuold;
+  //double phiold = basis[1].uuold;
+  double phiold = basis[1].uuoldold;
+  //double dphidx = basis[1].dudx;
+  double dphidx = basis[1].duolddx;
+  //double dphidy = basis[1].dudy;
+  double dphidy = basis[1].duolddy;
+
+  double dtc = (1.+k_-(1.-k_)*phi)/2.;
+  //double ut = dtc*(u-uold)/dt_*test;
+  double ut = dtc*(basis[0].uu-basis[0].uuold)/dt_*test;
+  //ut = (u-uold)/dt_*test;
+  double divgradu = Dl_*q(phi)*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);//(grad u,grad phi)
+  //double divgradu_old = D*(1.-phiold)/2*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy);//(grad u,grad phi)
+
+  //j is antitrapping current
+  // j grad test here... j1*dtestdx + j2*dtestdy 
+  // what if dphidx*dphidx + dphidy*dphidy = 0?
+
+  double norm = sqrt(dphidx*dphidx + dphidy*dphidy);
+  double small = 1.e-12;
+  
+  double j_coef = 0.;
+  if (small < norm) {
+    j_coef = a_*w0_*(1.+(1.-k_)*u)/norm*(phi-phiold)/dt_;
+  } 
+  //j_coef = 0.;
+  double j1 = j_coef*dphidx;
+  double j2 = j_coef*dphidy;
+  double divj = j1*dtestdx + j2*dtestdy;
+  double phitu = -.5*(phi-phiold)/dt_*(1.+(1.-k_)*u)*test; 
+  //phitu = 1.*test; 
+//   h = hold;
+//   hold = basis[1].uuoldold*(1. + (1.-k_)*basis[0].uuoldold);
+//   double phitu_old = -.5*(h-hold)/dt_*test;
+ 
+  //return ut*0.  + t_theta_*(divgradu + divj*0.) + (1.-t_theta_)*(divgradu_old + divj_old)*0. + t_theta_*phitu*0. + (1.-t_theta_)*phitu_old*0.;
+
+  //std::cout<<"u: "<<ut<<" "<< t_theta_*divgradu  <<" "<< 0.*t_theta_*divj <<" "<< t_theta_*phitu<<"  :  "<<dtc<<std::endl;
+  return (ut + t_theta_*divgradu  + 0.*t_theta_*divj + t_theta_*phitu)/dtc*dt_;
+}
+RES_FUNC(residual_phase_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  //double u = basis[0].uu;
+  double u = basis[0].uuold;
+  //double uold = basis[0].uuold;
+  double uold = basis[0].uuoldold;
+  //double phi = basis[1].uu;
+  double phi = basis[1].uuold;
+  //double phiold = basis[1].uuold;
+  double phiold = basis[1].uuoldold;
+
+  //double dphidx = basis[1].dudx;
+  double dphidx = basis[1].duolddx;
+  //double dphidy = basis[1].dudy;
+  double dphidy = basis[1].duolddy;
+
+  double y = basis[0].yy;
+  double up = uprime(y,time);
+  double dtc = tau_(dphidx,dphidy,0.,ep4_)*(1.-(1.-k_)*up);
+  //double phit = dtc*(phi-phiold)/dt_*test;
+  double phit = dtc*(basis[1].uu-basis[1].uuold)/dt_*test;
+
+  double w = w_(dphidx,dphidy,0.,ep4_);
+  double divgrad = w*w*(dphidx*dtestdx + dphidy*dtestdy);//(grad u,grad phi)
+
+  double norm2 = dphidx*dphidx + dphidy*dphidy;
+  double curlgrad = w*norm2*(dw_dpx(dphidx,dphidy,0.,ep4_)*dtestdx + dw_dpy(dphidx,dphidy,0.,ep4_)*dtestdy);
+
+  double df = dfdp(phi)*test;
+  double dg = lambdastar_*dgdp(phi)*(u + up)*test; 
+
+  //std::cout<<"phi: "<<phit <<" "<< divgrad <<" "<< curlgrad <<" "<< df <<" "<<dg<<" "<<d0_<<"  :  "<<dtc<<std::endl;
+  return (phit + t_theta_*(divgrad + curlgrad + df +dg))/dtc*dt_;
+}
+
+
+}//namespace takaki
 #endif

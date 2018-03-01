@@ -16,6 +16,7 @@
 //teuchos support
 #include <Teuchos_RCP.hpp>
 #include "Epetra_CrsGraph.h"
+//#include <Teuchos_TimeMonitor.hpp>
 
 #include <Isorropia_EpetraColorer.hpp>
 
@@ -77,6 +78,8 @@ private:
   int num_color_;
   /// Initializes element color variable in mesh.
   void init_mesh_data();
+
+  //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
 
 };
 #endif

@@ -263,6 +263,10 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
 	    W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
 
 	  }
+// 	  W_graph->InsertGlobalIndices((int)1,&row, (int)1, &column);
+// 	  int row1 = row + 1;
+// 	  int column1 = column + 1;
+// 	  W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
 	}
       }
     }
@@ -443,6 +447,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	std::vector< std::vector< int > > colors = Elem_col->get_colors();
 	//#ifdef TUSAS_COLOR_CPU
+#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
 	int num_color = Elem_col->get_num_color();
 
 	int alen = u->MyLength () ;
@@ -554,6 +559,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      }//neq
 	    }//k
 	    
+	    //  double dx = 0.;
+	    //  for(int gp=0; gp < basis[0].ngp; gp++) {
+	    //  
+	    //    basis[0].getBasis(gp, &xx[0], &yy[0], &zz[0]);
+	      
+	    //    dx += basis[0].jac*basis[0].wt;
+	    // }
+	    // 	if ( dx < 1e-16){
+	    // 	  std::cout<<std::endl<<"Negative element size found"<<std::endl;
+	    // 	  std::cout<<"dx = "<<dx<<"  elem = "<<elem<<" jac = "<<basis[0].jac<<" wt = "<<basis[0].wt<<std::endl<<std::endl<<std::endl;
+	    // 	  exit(0);
+	    // 	}
+	    //cn should be cube root in 3d
+	    //dx = sqrt(dx);	
+	    
 	    for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
 	      
 	      // Calculate the basis function at the gauss point
@@ -616,6 +636,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #endif	
 	  //exit(0);
       }//blk
+#endif
     }//if f_out
 
     if (nonnull(W_prec_out)) {
@@ -1518,19 +1539,44 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
     if( dorestart ) outfile<<"============THIS IS A RESTARTED RUN============"<<std::endl;	
     outfile.close();
   }
+  int dd = -1;
   int nt = 0;
+  int ompnt = 0;
+  int ompnteam = 0;
+  //#if defined(TUSAS_COLOR_GPU) 
+#pragma omp target device(0) map(tofrom:nt) map(tofrom:ompnt) map(tofrom:ompnteam) //map(tofrom:dd)
+#pragma omp teams reduction(+:nt)
+    //#endif
+  //{
 #pragma omp parallel reduction(+:nt)
+  {
   
   nt += 1;
-  //nt = omp_get_num_threads();
+  ompnt = omp_get_num_threads();
+  ompnteam = omp_get_num_teams();
+  //dd = omp_is_initial_device();
+  }
+  //} 
+
+#pragma omp target map(tofrom:dd)
+  {
+  dd = omp_is_initial_device();
+  }
 #ifdef _OPENMP
   int ompmt = 0; 
   ompmt = omp_get_max_threads();
   std::ofstream outfile;
   outfile.open("openmp.dat");
   outfile 	
-    <<"mpirank :    "<<mypid<<" omp_get_num_threads() :    "<<nt
-    <<" omp_get_max_threads() :    "<<ompmt<<std::endl;
+    <<std::endl
+    <<"mpirank :    "<<mypid
+    <<" omp_get_num_threads() :    "<<ompnt
+    <<" nt :    "<<nt
+    <<" omp_get_max_threads() :    "<<ompmt
+    <<" omp_get_num_teams() :    "<<ompnteam
+    <<" omp_get_num_devices() :    "<<omp_get_num_devices()
+    <<" dd : "<<dd
+    <<std::endl<<std::endl;
   outfile.close();
 #endif
 
@@ -3372,6 +3418,46 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
       (*neumannfunc_)[1][4] = &nbc_zero_;						 
       (*neumannfunc_)[1][5] = &nbc_zero_;
     }
+
+  }else if("takaki" == paramList.get<std::string> (TusastestNameString)){
+    //farzadi test
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &takaki::init_conc_;
+    (*initfunc_)[1] = &takaki::init_phase_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &takaki::residual_conc_;
+    (*residualfunc_)[1] = &takaki::residual_phase_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &farzadi::prec_conc_farzadi_;
+    (*preconfunc_)[1] = &farzadi::prec_phase_farzadi_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+//     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    //(*dirichletfunc_)[0][1] = &dbc_mone_;	
+    //(*dirichletfunc_)[0][3] = &dbc_zero_;
+    //(*dirichletfunc_)[1][1] = &dbc_mone_;
+    //(*dirichletfunc_)[1][3] = &dbc_one_;
+
+    neumannfunc_ = NULL;
+
+    //post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &farzadi::postproc_c_;
+    //post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    //post_proc[1].postprocfunc_ = &farzadi::postproc_t_;
+
+    //paramfunc_ = farzadi::param_;
+						 
+    //exit(0);
 
 
   }else {

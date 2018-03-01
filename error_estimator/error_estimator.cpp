@@ -250,10 +250,9 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
       yy = new double[n_nodes_per_elem];
       zz = new double[n_nodes_per_elem];
       uu = new double[n_nodes_per_elem];
+
       for(int k = 0; k < n_nodes_per_elem; k++){
 	
-
-
 	//cn I believe mesh_->get_node_id(blk, n_patch[ne], k); takes a local elem id in the second slot, not a global one
 	//cn ie it expects the ith elem on this proc
 

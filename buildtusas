@@ -1,0 +1,17 @@
+/usr/bin/mpicxx -v -DTUSAS_COLOR_GPU -flto -fopenmp -foffload=nvptx-none="-lm" \
+-I. -I/home/cnewman/src/trilinos-12.6.4-Source/GCC_7_2_0_MPI_OPT//include -I./mesh/include \
+-I./basis/include -I./preconditioner/include -I./timestep/include -I./input/include \
+-I./error_estimator/include -I./elem_color/include -I./post_process/include -I./periodic_bc/include \
+-I./projection/include -I../src/install/include \
+tusas.cpp basis/basis.cpp mesh/Mesh.C input/ReadInput.cpp elem_color/elem_color.cpp periodic_bc/periodic_bc.cpp \
+post_process/post_process.cpp error_estimator/error_estimator.cpp -o tusas.x \
+-L/home/cnewman/src/trilinos-12.6.4-Source/GCC_7_2_0_MPI_OPT//lib \
+-lnoxepetra -lnox -lstratimikos -lstratimikosbelos \
+-lstratimikosaztecoo -lstratimikosamesos -lstratimikosml -lstratimikosifpack -lifpack2-adapters -lifpack2 \
+-lnemesis -lexodus \
+-lbelosepetra -lbelos -lml -lifpack -lamesos -laztecoo -lisorropia \
+-lthyraepetra -lthyracore -lepetraext -ltpetraext -ltpetrainout -ltpetra \
+-ltpetraclassic -lzoltan -lepetra -lrtop \
+-lteuchosremainder -lteuchosnumerics -lteuchoscomm -lteuchosparameterlist -lteuchoscore \
+-lkokkoscore \
+/usr/lib/x86_64-linux-gnu/libX11.so /home/cnewman/src/install/lib/libnetcdf.so /usr/lib/liblapack.so.3 /usr/lib/libblas.so.3

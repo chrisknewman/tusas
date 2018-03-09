@@ -272,6 +272,8 @@ private: // data members
 
   double *testptr;
 
+  void write_openmp();
+
 };
 
 

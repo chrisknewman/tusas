@@ -3348,6 +3348,48 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 						 
     //exit(0);
 
+  }else if("allencahn" == paramList.get<std::string> (TusastestNameString)){
+    //farzadi test
+
+    numeqs_ = 1;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &allencahn::init_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &allencahn::residual_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &allencahn::prec_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    //dirichletfunc_ = NULL;
+
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    (*dirichletfunc_)[0][0] = &dbc_one_;	
+    (*dirichletfunc_)[0][2] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+#ifdef PERIODIC_BC
+    periodic_bc_.resize(numeqs_);
+    periodic_bc_[0].push_back(new periodic_bc(1,3,0,numeqs_,mesh_,comm_));
+
+#else
+    exit(0);
+#endif
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &allencahn::postproc_;
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1,post_process::SCALAR_OP::NORM2));
+    post_proc[1].postprocfunc_ = &allencahn::postproc_error;
+
+    //paramfunc_ = farzadi::param_;
+						 
+    //exit(0);
+
+
 
   }else {
 

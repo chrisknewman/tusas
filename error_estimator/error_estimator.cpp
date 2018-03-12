@@ -18,6 +18,7 @@
 #include "acml.h"
 #elif defined TUSAS_HAVE_MKL
 #include "mkl.h"
+#elif defined TUSAS_NO_LAPACK
 #else
 #include "clapack.h"
 #endif
@@ -346,6 +347,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 #if TUSAS_HAVE_ACML
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info,0 );
+#elif defined TUSAS_NO_LAPACK
 #else
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info );
@@ -366,6 +368,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 #if TUSAS_HAVE_ACML
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info,0 );
+#elif defined TUSAS_NO_LAPACK
 #else
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info );
@@ -491,6 +494,7 @@ void error_estimator::test_lapack(){
 #if TUSAS_HAVE_ACML
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	  &info,0 );
+#elif defined TUSAS_NO_LAPACK
 #else
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	 &info );
@@ -502,6 +506,7 @@ void error_estimator::test_lapack(){
 #if TUSAS_HAVE_ACML
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	  &info,0 );
+#elif defined TUSAS_NO_LAPACK
 #else
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
                         &info );

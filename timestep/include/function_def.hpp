@@ -4101,4 +4101,168 @@ RES_FUNC(residual_phase_)
 
 
 }//namespace takaki
+
+namespace allencahn {
+
+
+double kappa = 0.0004;
+const double pi = 3.141592653589793;
+const double A1 = 0.0075;
+const double B1 = 8.0*pi;
+const double A2 = 0.03;
+const double B2 = 22.0*pi;
+const double C2 = 0.0625*pi;
+
+
+
+PARAM_FUNC(param_)
+{
+  //kappa = plist->get<double>("kappa");
+}
+
+double alpha(double t, double x) {
+
+   double alpha_result;
+   alpha_result = A1*t*sin(B1*x) + A2*sin(B2*x + C2*t) + 0.25;
+   return alpha_result;
+
+}
+
+double eta(double a, double y) {
+
+   double eta_result;
+   eta_result = -1.0L/2.0L*tanh((1.0L/2.0L)*sqrt(2)*(-a + y)/sqrt(kappa)) + 1.0L/2.0L;
+   return eta_result;
+
+}
+
+double eta0(double a, double y) {
+
+   double eta0_result;
+   eta0_result = -1.0L/2.0L*tanh((1.0L/2.0L)*sqrt(2)*(-a + y)/sqrt(kappa)) + 1.0L/2.0L;
+   return eta0_result;
+
+}
+
+double dadt(double t, double x) {
+
+   double dadt_result;
+   dadt_result = A1*sin(B1*x) + A2*C2*cos(B2*x + C2*t);
+   return dadt_result;
+
+}
+
+double dadx(double t, double x) {
+
+   double dadx_result;
+   dadx_result = A1*B1*t*cos(B1*x) + A2*B2*cos(B2*x + C2*t);
+   return dadx_result;
+
+}
+
+double d2adx2(double t, double x) {
+
+   double d2adx2_result;
+   d2adx2_result = -A1*pow(B1, 2)*t*sin(B1*x) - A2*pow(B2, 2)*sin(B2*x + C2*t);
+   return d2adx2_result;
+
+}
+
+double source(double a, double t, double x, double y) {
+
+   double source_result;
+   source_result = (1.0L/4.0L)*(-pow(tanh((1.0L/2.0L)*sqrt(2)*(-a + y)/sqrt(kappa)), 2) + 1)*(-2*sqrt(kappa)*pow(A1*B1*t*cos(B1*x) + A2*B2*cos(B2*x + C2*t), 2)*tanh((1.0L/2.0L)*sqrt(2)*(-a + y)/sqrt(kappa)) - sqrt(2)*kappa*(-A1*pow(B1, 2)*t*sin(B1*x) - A2*pow(B2, 2)*sin(B2*x + C2*t)) + sqrt(2)*(A1*sin(B1*x) + A2*C2*cos(B2*x + C2*t)))/sqrt(kappa);
+   return source_result;
+
+}
+RES_FUNC(residual_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  //test function
+  double test = basis[0].phi[i];
+
+  double u[2] = {basis[0].uu, basis[0].uuold};
+  double u_x[2] = {basis[0].dudx, basis[0].duolddx};
+  double u_y[2] = {basis[0].dudy, basis[0].duolddy};
+
+  double ut = (u[0]-u[1])/dt_*test;
+
+  double divgrad = t_theta_*kappa*(u_x[0]*dtestdx + u_y[0]*dtestdy)
+             +(1.-t_theta_)*kappa*(u_x[1]*dtestdx + u_y[1]*dtestdy);
+  double fp = (-t_theta_*4.*u[0]*(u[0]-1.)*(u[0]-.5)
+	  -(1.-t_theta_)*4.*u[1]*(u[1]-1.)*(u[1]-.5))*test;
+  
+  double x = basis[0].xx;
+  double y = basis[0].yy;
+  double t[2] = {time, time - dt_};
+  double a[2] = {alpha(t[0],x),alpha(t[1],x)};
+  double s = (-t_theta_*source(a[0],t[0],x,y)
+         -(1.-t_theta_)*source(a[1],t[1],x,y))*test;
+
+  return ut + divgrad + fp + s;
+}
+PRE_FUNC(prec_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  
+  double u_t = test * basis[0].phi[j]/dt_;
+
+  double divgrad = t_theta_*kappa*(dbasisdx * dtestdx + dbasisdy * dtestdy);
+
+  return (u_t + divgrad);
+}
+INI_FUNC(init_)
+{
+  double a = alpha(0.,x);
+  double val = eta0(a,y);
+  return val;
+}
+PPR_FUNC(postproc_)
+{
+  double x = xyz[0];
+  double y = xyz[1];
+  double a = alpha(time,x);
+  double val = eta(a,y);
+
+  return val;
+}
+PPR_FUNC(postproc_error)
+{
+  // x is in nondimensional space, tscale_ takes in nondimensional and converts to um
+  double x = xyz[0];
+  double y = xyz[1];
+  double a = alpha(time,x);
+  double val = (u[0]-eta(a,y));
+  //double val = (u[0]-eta(a,y))*(u[0]-eta(a,y));
+
+  return val;
+}
+
+}//namespace allencahn
 #endif

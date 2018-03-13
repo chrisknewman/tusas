@@ -19,7 +19,9 @@
 #elif defined TUSAS_HAVE_MKL
 #include "mkl.h"
 #else
+#ifndef TUSAS_NO_LAPACK
 //cn #include "clapack.h"
+#endif
 #endif
 
 #ifdef HAVE_MPI

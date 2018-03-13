@@ -501,59 +501,45 @@ OMPBasisLQuad(){
   xi[3]  = abscissa[0];
   eta[3] = abscissa[1];
   nwt[3]  = weight[0] * weight[1];
+  // Calculate basis function and derivatives at nodal pts
+  for (int i=0; i < 4; i++) {
+    phi1[0][i]=(1.0-xi[i])*(1.0-eta[i])/4.0;
+    phi1[1][i]=(1.0+xi[i])*(1.0-eta[i])/4.0;
+    phi1[2][i]=(1.0+xi[i])*(1.0+eta[i])/4.0;
+    phi1[3][i]=(1.0-xi[i])*(1.0+eta[i])/4.0;
+
+    dphidxi1[0][i]=-(1.0-eta[i])/4.0;
+    dphidxi1[1][i]= (1.0-eta[i])/4.0;
+    dphidxi1[2][i]= (1.0+eta[i])/4.0;
+    dphidxi1[3][i]=-(1.0+eta[i])/4.0;
+
+    dphideta1[0][i]=-(1.0-xi[i])/4.0;
+    dphideta1[1][i]=-(1.0+xi[i])/4.0;
+    dphideta1[2][i]= (1.0+xi[i])/4.0;
+    dphideta1[3][i]= (1.0-xi[i])/4.0;
+  }
   
 }
 
 void getBasis(const int gp,const  double x[4], const  double y[4],  const double z[4],const  double u[4],const  double uold[4],const  double uoldold[4]) {
-  // Calculate basis function and derivatives at nodal pts
 
-  phi[0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
-  phi[1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
-  phi[2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
-  phi[3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
-
-  dphidxi[0]=-(1.0-eta[gp])/4.0;
-  dphidxi[1]= (1.0-eta[gp])/4.0;
-  dphidxi[2]= (1.0+eta[gp])/4.0;
-  dphidxi[3]=-(1.0+eta[gp])/4.0;
-
-  dphideta[0]=-(1.0-xi[gp])/4.0;
-  dphideta[1]=-(1.0+xi[gp])/4.0;
-  dphideta[2]= (1.0+xi[gp])/4.0;
-  dphideta[3]= (1.0-xi[gp])/4.0;
-  
   // Caculate basis function and derivative at GP.
-  //std::cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<x[3]<<std::endl;
-  double dxdxi = 0.;
-  //#pragma omp critical
-  dxdxi  = .25*( (x[1]-x[0])*(1.-eta[gp])+(x[2]-x[3])*(1.+eta[gp]) );
-  double dxdeta =  0.;
-  //#pragma omp critical
-  dxdeta = .25*( (x[3]-x[0])*(1.- xi[gp])+(x[2]-x[1])*(1.+ xi[gp]) );
-  double dydxi = 0.;
-  //#pragma omp critical 
-  dydxi  = .25*( (y[1]-y[0])*(1.-eta[gp])+(y[2]-y[3])*(1.+eta[gp]) );
-  dydeta[0] = 0.;
-  //#pragma omp critical 
-  dydeta[0] = .25*( (y[3]-y[0])*(1.- xi[gp])+(y[2]-y[1])*(1.+ xi[gp]) );
-  double dzdxi  = 0.;
-  //#pragma omp critical 
-  dzdxi  = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
-  double dzdeta = 0.;
-  //#pragma omp critical 
-  dzdeta = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
-
-
+  double dxdxi = .25*( (x[1]-x[0])*(1.-eta[gp])+(x[2]-x[3])*(1.+eta[gp]) );
+  double dxdeta = .25*( (x[3]-x[0])*(1.- xi[gp])+(x[2]-x[1])*(1.+ xi[gp]) );
+  double dydxi  = .25*( (y[1]-y[0])*(1.-eta[gp])+(y[2]-y[3])*(1.+eta[gp]) );
+  double dydeta = .25*( (y[3]-y[0])*(1.- xi[gp])+(y[2]-y[1])*(1.+ xi[gp]) );
+  double dzdxi   = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
+  double dzdeta  = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
 
   wt = nwt[gp];
 
-  jac = dxdxi * dydeta[0] - dxdeta * dydxi;
+  jac = dxdxi * dydeta - dxdeta * dydxi;
 
 //   jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
 // 	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
 // 	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
 
-  dxidx = dydeta[0] / jac;
+  dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
   dxidz = 0.;
   detadx = -dydxi / jac;
@@ -580,23 +566,23 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
   duoldolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < 4; i++) {
-    xx += x[i] * phi[i];
-    yy += y[i] * phi[i];
-    zz += z[i] * phi[i];
-    dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx;
-    dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady;
+    xx += x[i] * phi1[i][gp];
+    yy += y[i] * phi1[i][gp];
+    zz += z[i] * phi1[i][gp];
+    dphidx[i] = dphidxi1[i][gp]*dxidx+dphideta1[i][gp]*detadx;
+    dphidy[i] = dphidxi1[i][gp]*dxidy+dphideta1[i][gp]*detady;
     dphidz[i] = 0.0;
     dphidzta[i]= 0.0;
  
-    uu += u[i] * phi[i];
+    uu += u[i] * phi1[i][gp];
     dudx += u[i] * dphidx[i];
     dudy += u[i]* dphidy[i];
     
-    uuold += uold[i] * phi[i];
+    uuold += uold[i] * phi1[i][gp];
     duolddx += uold[i] * dphidx[i];
     duolddy += uold[i]* dphidy[i];
     
-    uuoldold += uoldold[i] * phi[i];
+    uuoldold += uoldold[i] * phi1[i][gp];
     duoldolddx += uoldold[i] * dphidx[i];
     duoldolddy += uoldold[i]* dphidy[i];
   }
@@ -605,17 +591,15 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
   return;
 }
 
-  double dydeta[1];
-
   // Variables that are calculated at the gauss point
   /// Access number of Gauss points.
   int ngp;
   /// Access value of basis function at the current Gauss point.
-  double phi[4]; 
+  double phi1[4][4]; 
   /// Access value of dphi / dxi  at the current Gauss point.
-  double dphidxi[4];
+  double dphidxi1[4][4];
   /// Access value of dphi / deta  at the current Gauss point.
-  double dphideta[4];
+  double dphideta1[4][4];
   /// Access value of dphi / dzta  at the current Gauss point.
   double dphidzta[4];
   

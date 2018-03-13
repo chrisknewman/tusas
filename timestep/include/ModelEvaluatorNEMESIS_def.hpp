@@ -489,9 +489,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  int *rows = new int[num_nodes_in_c];
 #pragma omp target map(to:elem_mapc[0:num_elem]) map(to:meshc[0:clen]) map(to:meshn[0:nlen]) \
   map(to:meshx[0:xlen])  map(to:meshy[0:xlen])   map(to:meshz[0:xlen]) \
-  map(to:ua[0:alen]) map(to:u_olda[0:alen]) map(to:u_old_olda[0:alen]) map(to:B) map(tofrom:values[0:num_nodes_in_c]) map(tofrom:rows[0:num_nodes_in_c])
+  map(to:ua[0:alen]) map(to:u_olda[0:alen]) map(to:u_old_olda[0:alen]) map(tofrom:values[0:num_nodes_in_c]) map(tofrom:rows[0:num_nodes_in_c])  \
+  map(to:B) 
 	  {
-#pragma omp parallel for
+#pragma omp teams distribute parallel for
 	  for (int ne=0; ne < num_elem; ne++) {
 	    double xx[4];
 	    double yy[4];
@@ -512,27 +513,61 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	    //cn need to fix this there seems to be a race condition inside getbasis that only is effected when we store
 	    //everything up in the array...
-#pragma omp critical
- 	    for(int gp=0; gp < 4; gp++) {
+	    //double v[4][4] = {{0.,0.,0.,0.},{0.,0.,0.,0.},{0.,0.,0.,0.},{0.,0.,0.,0.}};
+	    //#pragma omp critical
+	    for (int i=0; i< n_nodes_per_elem; i++) {
+	      for(int gp=0; gp < 4; gp++) {
+ 		//B.getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
+		double dxdxi = .25*( (xx[1]-xx[0])*(1.-B.eta[gp])+(xx[2]-xx[3])*(1.+B.eta[gp]) );
+		double dxdeta = .25*( (xx[3]-xx[0])*(1.- B.xi[gp])+(xx[2]-xx[1])*(1.+ B.xi[gp]) );
+		double dydxi  = .25*( (yy[1]-yy[0])*(1.- B.eta[gp])+(yy[2]-yy[3])*(1.+ B.eta[gp]) );
+		double dydeta = .25*( (yy[3]-yy[0])*(1.-  B.xi[gp])+(yy[2]-yy[1])*(1.+  B.xi[gp]) );
+		double jac = dxdxi * dydeta - dxdeta * dydxi;
+		double dxidx = dydeta / jac;
+		double dxidy = -dxdeta / jac;
+		double detadx = -dydxi / jac;
+		double detady = dxdxi / jac;
+		double uuu = 0.;
+		double uuuold =0.;
+		double dudx = 0.;
+		double dudy = 0.;
+		for (int ii=0; ii < 4; ii++) {
+		  uuu += uu[ii] * B.phi1[ii][gp];
+		  uuuold +=uu_old[ii] * B.phi1[ii][gp];
+		  dudx += uu[ii] * (B.dphidxi1[ii][gp]*dxidx+B.dphideta1[ii][gp]*detadx);
+		  dudy += uu[ii] * (B.dphidxi1[ii][gp]*dxidy+B.dphideta1[ii][gp]*detady);
+		}
 
-	      B.getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
 
-	      for (int i=0; i< n_nodes_per_elem; i++) {
 		int nid = meshc[elem*n_nodes_per_elem+i];
-
+		
 		int row = meshn[nid];
-		//double jacwt = B.jac * B.wt;
+
+		double jacwt = B.weight[0]*jac;
 		double val = 0.;
-		val = B.jac * B.wt*(
-					   (B.uu-B.uuold)/dt*B.phi[i] 
-					   + B.dudx*(B.dphidxi[i]*B.dxidx + B.dphideta[i]*B.detadx)
-					   + B.dudy*(B.dphidxi[i]*B.dxidy + B.dphideta[i]*B.detady)
-					   );	
-		//values[ne*n_nodes_per_elem+i] = B.xi[i];
+		val = jacwt*(
+					   (uuu-uuuold)/dt*B.phi1[i][gp] 
+					   + dudx*(B.dphidxi1[i][gp]*dxidx + B.dphideta1[i][gp]*detadx)
+					   + dudy*(B.dphidxi1[i][gp]*dxidy + B.dphideta1[i][gp]*detady)
+					   );
+// 		v[i][gp] = 	B.jac * B.wt*(
+// 					   (B.uu-B.uuold)/dt*B.phi[i] 
+// 					   + B.dudx*(B.dphidxi[i]*B.dxidx + B.dphideta[i]*B.detadx)
+// 					   + B.dudy*(B.dphidxi[i]*B.dxidy + B.dphideta[i]*B.detady)
+// 					   );
+
 		values[ne*n_nodes_per_elem+i] += val;
 		rows[ne*n_nodes_per_elem+i] = row;
-	      }
- 	    }
+	      }//gp
+// 	      double vv[4] = {0.,0.,0.,0.};
+// 	      for (int i=0; i< n_nodes_per_elem; i++) {
+// 		for(int gp=0; gp < 4; gp++) {
+// 		  vv[i] += v[i][gp];
+// 		}
+// 	      }
+	      //values[ne*n_nodes_per_elem+i] = vv[i];
+	      //rows[ne*n_nodes_per_elem+i] = row;
+ 	    }//i
 	  }//ne
 	  }//omp target
 // 	  for(int n = 0; n<num_nodes_in_c; n++){

@@ -685,8 +685,8 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
   double nwt[4];
 
 
-
 };
+
 #pragma omp end declare target
 
 #endif

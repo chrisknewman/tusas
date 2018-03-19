@@ -218,22 +218,17 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
     int error_index = *it;
     Error_est.push_back(new error_estimator(comm_,mesh_,numeqs_,error_index));
   }
-#if 0
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
-  int xlen = (mesh_->x).size();
-  //meshx = new double[xlen];//need to alloc this
-  //std::copy((mesh_->x).begin(),(mesh_->x).end(),meshx);
-  double *xxx = (mesh_->x).data();
-#pragma omp target enter data map(alloc:xxx[0:xlen])
-#endif
-#endif
-//   int xlen = (mesh_->x).size();
-//   testptr = (mesh_->x).data();
-//   double *xxx = testptr;
-// #pragma omp target enter data map(alloc:xxx[0:xlen])
+
+// #ifdef TUSAS_COLOR_GPU
+//   int clen = ((mesh_->connect)[0]).size();
+//   mc = new int[clen];
+//   mc = ((mesh_->connect)[0]).data();
+// // #pragma omp target enter data map(to:clen)
+// #pragma omp target enter data map(to:mc[0:clen]) 
+// #endif
+
 
   //exit(0);
-
 }
 
 // Initializers/Accessors
@@ -458,16 +453,39 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	int xlen = (mesh_->x).size();
 	double *meshx = (mesh_->x).data();
 	double *meshy = (mesh_->y).data();
-	double *meshz = (mesh_->z).data();
+	//double *meshz = (mesh_->z).data();
+#ifdef TUSAS_COLOR_GPU 
+#pragma omp target enter data map(to:meshx[0:xlen]) 
+#pragma omp target enter data map(to:meshy[0:xlen]) 
+	//#pragma omp target enter data map(to:meshz[0:xlen])
+#endif
 
+#ifdef TUSAS_COLOR_GPU
 	int clen = ((mesh_->connect)[blk]).size();
 	int *meshc = ((mesh_->connect)[blk]).data();
+#pragma omp target enter data map(to:meshc[0:clen]) 
+#endif
 
 	int nlen = (mesh_->node_num_map).size();
 	int *meshn = (mesh_->node_num_map).data();
 
+#ifdef TUSAS_COLOR_GPU
+#pragma omp target enter data map(to:meshn[0:nlen]) 
+#endif
+
+#ifdef TUSAS_COLOR_GPU
 	double dt = dt_;
 
+	OMPBasisLQuad B;
+
+#pragma omp target data	map(to:B) 
+#endif
+#ifdef TUSAS_COLOR_GPU
+#pragma omp target data map(to:u_olda[0:alen]) 
+#endif
+#ifdef TUSAS_COLOR_GPU
+#pragma omp target data map(to:ua[0:alen])
+#endif
 	for(int c = 0; c < num_color; c++){
 	  std::vector<int> elem_map = colors[c];//cn this should be mapped also
 	  //int num_elem = elem_map.size();
@@ -475,22 +493,13 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	  int * elem_mapc = (colors[c]).data();
 #ifdef TUSAS_COLOR_GPU
-// 	  double * xx = new double[n_nodes_per_elem];
-// 	  for(int k = 0; k < n_nodes_per_elem; k++) xx[k]=-999999.;
-// 	  double * yy = new double[n_nodes_per_elem];
-// 	  double * zz = new double[n_nodes_per_elem];
-// 	  double * uu = new double[n_nodes_per_elem];
-// 	  double * uu_old = new double[n_nodes_per_elem];
-// 	  double * uu_old_old = new double[n_nodes_per_elem];
-	  OMPBasisLQuad B;
 	  int num_nodes_in_c = num_elem*n_nodes_per_elem;
 	  double *values = new double[num_nodes_in_c];
- 	  for(int k = 0; k < num_nodes_in_c; k++) values[k] =0.;
 	  int *rows = new int[num_nodes_in_c];
-#pragma omp target map(to:elem_mapc[0:num_elem]) map(to:meshc[0:clen]) map(to:meshn[0:nlen]) \
-  map(to:meshx[0:xlen])  map(to:meshy[0:xlen])   map(to:meshz[0:xlen]) \
-  map(to:ua[0:alen]) map(to:u_olda[0:alen]) map(to:u_old_olda[0:alen]) map(tofrom:values[0:num_nodes_in_c]) map(tofrom:rows[0:num_nodes_in_c])  \
-  map(to:B) 
+#pragma omp target data \
+  map(from:rows[0:num_nodes_in_c]) map(to:elem_mapc[0:num_elem]) map(from:values[0:num_nodes_in_c])
+
+#pragma omp target
 	  {
 #pragma omp teams distribute parallel for
 	  for (int ne=0; ne < num_elem; ne++) {
@@ -499,23 +508,21 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    double zz[4];
 	    double uu[4];
 	    double uu_old[4];
-	    double uu_old_old[4];
+	    //double uu_old_old[4];
  	    const int elem = elem_mapc[ne];
 	    for(int k = 0; k < n_nodes_per_elem; k++){
  	      int nodeid = meshc[elem*n_nodes_per_elem+k];
  	      xx[k] = meshx[nodeid];
  	      yy[k] = meshy[nodeid];
- 	      zz[k] = meshz[nodeid];
+ 	      //zz[k] = meshz[nodeid];
+ 	      zz[k] = 0.;
 	      uu[k] = ua[nodeid]; 
 	      uu_old[k] = u_olda[nodeid];
-	      uu_old_old[k] = u_old_olda[nodeid];
+	      //uu_old_old[k] = u_old_olda[nodeid];
  	    }//k
 
-	    //cn need to fix this there seems to be a race condition inside getbasis that only is effected when we store
-	    //everything up in the array...
-	    //double v[4][4] = {{0.,0.,0.,0.},{0.,0.,0.,0.},{0.,0.,0.,0.},{0.,0.,0.,0.}};
-	    //#pragma omp critical
 	    for (int i=0; i< n_nodes_per_elem; i++) {
+	      values[ne*n_nodes_per_elem+i] =0.;
 	      for(int gp=0; gp < 4; gp++) {
  		//B.getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
 		double dxdxi = .25*( (xx[1]-xx[0])*(1.-B.eta[gp])+(xx[2]-xx[3])*(1.+B.eta[gp]) );
@@ -550,23 +557,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 					   + dudx*(B.dphidxi1[i][gp]*dxidx + B.dphideta1[i][gp]*detadx)
 					   + dudy*(B.dphidxi1[i][gp]*dxidy + B.dphideta1[i][gp]*detady)
 					   );
-// 		v[i][gp] = 	B.jac * B.wt*(
-// 					   (B.uu-B.uuold)/dt*B.phi[i] 
-// 					   + B.dudx*(B.dphidxi[i]*B.dxidx + B.dphideta[i]*B.detadx)
-// 					   + B.dudy*(B.dphidxi[i]*B.dxidy + B.dphideta[i]*B.detady)
-// 					   );
+
 
 		values[ne*n_nodes_per_elem+i] += val;
 		rows[ne*n_nodes_per_elem+i] = row;
 	      }//gp
-// 	      double vv[4] = {0.,0.,0.,0.};
-// 	      for (int i=0; i< n_nodes_per_elem; i++) {
-// 		for(int gp=0; gp < 4; gp++) {
-// 		  vv[i] += v[i][gp];
-// 		}
-// 	      }
-	      //values[ne*n_nodes_per_elem+i] = vv[i];
-	      //rows[ne*n_nodes_per_elem+i] = row;
  	    }//i
 	  }//ne
 	  }//omp target
@@ -596,8 +591,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    for(int k = 0; k < n_nodes_per_elem; k++){
 	      
 	      //cn these calls to mesh methods need to be fixed
-	      //int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
-	      int nodeid = meshc[elem*n_nodes_per_elem+k];
+	      int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
+	      //int nodeid = meshc[elem*n_nodes_per_elem+k];
 
 	      xx[k] = meshx[nodeid];
 	      yy[k] = meshy[nodeid];
@@ -619,7 +614,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     
 	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
 		
-		int nid = meshc[elem*n_nodes_per_elem+i];
+		//int nid = meshc[elem*n_nodes_per_elem+i];
+		int nid = mesh_->get_node_id(blk, elem, i);
 
 		int row = numeqs_*(meshn[nid]);				
 		for( int k = 0; k < numeqs_; k++ ){
@@ -638,6 +634,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  }//ne
 #endif	
 	}//c
+	//#ifdef TUSAS_COLOR_GPU
+	//#pragma omp enter data map(delete:meshc[0:clen])
+	//#endif
 
       }//blk
 #endif

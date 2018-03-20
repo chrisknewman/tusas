@@ -974,8 +974,8 @@ double ModelEvaluatorPHASE_HEAT_Exp<Scalar>::theta(double &x,double &y) const
   double small = 1e-9;
   double pi = 3.141592653589793;
   double t = 0.;
-  if(abs(x) < small && y > 0. ) t = pi/2.;
-  if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
+  if(std::abs(x) < small && y > 0. ) t = pi/2.;
+  if(std::abs(x) < small && y < 0. ) t = 3.*pi/2.;
   if(x > small && y >= 0.) t= atan(y/x);
   if(x > small && y <0.) t= atan(y/x) + 2.*pi;
   if(x < -small) t= atan(y/x)+ pi;

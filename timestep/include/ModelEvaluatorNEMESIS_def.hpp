@@ -1626,8 +1626,8 @@ double ModelEvaluatorNEMESIS<Scalar>::theta(double &x,double &y) const
 //   if(abs(x) < small && y > 0. ) t = pi/2.;
 //   else if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
 //   else t= atan(n/x);
-  if(abs(x) < small && y > 0. ) t = pi/2.;
-  if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
+  if(std::abs(x) < small && y > 0. ) t = pi/2.;
+  if(std::abs(x) < small && y < 0. ) t = 3.*pi/2.;
   if(x > small && y >= 0.) t= atan(n/x);
   if(x > small && y <0.) t= atan(n/x) + 2.*pi;
   if(x < -small) t= atan(n/x)+ pi;
@@ -1650,8 +1650,8 @@ double ModelEvaluatorNEMESIS<Scalar>::psi(double &x,double &y,double &z) const
 //   if(abs(x) < small && y > 0. ) t = pi/2.;
 //   else if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
 //   else t= atan(n/x);
-  if(abs(x) < small && y > 0. ) t = pi/2.;
-  if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
+  if(std::abs(x) < small && y > 0. ) t = pi/2.;
+  if(std::abs(x) < small && y < 0. ) t = 3.*pi/2.;
   if(x > small && y >= 0.) t= atan(n/x);
   if(x > small && y <0.) t= atan(n/x) + 2.*pi;
   if(x < -small) t= atan(n/x)+ pi;
@@ -1734,7 +1734,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init_square(Teuchos::RCP<Epetra_Vector> u)
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);
     double z = mesh_->get_z(nn);
-    if((abs(x) < R_0_) && (abs(y) < R_0_) && (abs(z) < R_0_)){
+    if((std::abs(x) < R_0_) && (std::abs(y) < R_0_) && (std::abs(z) < R_0_)){
       //(*u)[numeqs_*nn]=T_m_;
       (*u)[numeqs_*nn]=T_inf_;
       (*u)[numeqs_*nn+1]=1.;

@@ -243,8 +243,8 @@ double theta(const double &x,const double &y)
 //   if(abs(x) < small && y > 0. ) t = pi/2.;
 //   else if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
 //   else t= atan(n/x);
-  if(abs(x) < small && y > 0. ) t = pi/2.;
-  if(abs(x) < small && y < 0. ) t = 3.*pi/2.;
+  if(std::abs(x) < small && y > 0. ) t = pi/2.;
+  if(std::abs(x) < small && y < 0. ) t = 3.*pi/2.;
   if(x > small && y >= 0.) t= atan(n/x);
   if(x > small && y <0.) t= atan(n/x) + 2.*pi;
   if(x < -small) t= atan(n/x)+ pi;
@@ -803,7 +803,7 @@ INI_FUNC(init_phase_rand_farzadi_)
   double val = phi_liq_;
   int ri = rand()%(100);//random int between 0 and 100
   double rd = (double)ri/ll;
-  double r = .5+rd*abs(sin(y*aa*pi/pp));
+  double r = .5+rd*std::abs(sin(y*aa*pi/pp));
 
   //r=.9;
 
@@ -3541,7 +3541,7 @@ double init(const double x)
 {
   double pi = 3.141592653589793;
   double val = lx/7.*sin(7.*pi*x/lx);
-  return 10.*(abs(val)-.0005);
+  return 10.*(std::abs(val)-.0005);
 }
 INI_FUNC(cinit_)
 {
@@ -3779,6 +3779,7 @@ const double a_sr_(const double px, const double py, const double pz, const doub
     return 1.-3.*ep + 4.*ep*(aa + zz*zz*zz*zz);
   }
 const double da_sr_dpx(const double px, const double py, const double pz, const double ep, const double t0){
+  return 0.;
 }
 
 }//namespace rotate

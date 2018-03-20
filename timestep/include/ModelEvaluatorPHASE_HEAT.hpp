@@ -127,7 +127,8 @@ private: // data members
 
   const double gs(const double &theta);
   const double R(const double &theta);
-  double theta(double &x,double &y,double &z = 0) const;
+  double theta(double &x,double &y) const {return theta(x,y,0.);};
+  double theta(double &x,double &y,double &z) const;
 
   void init(Teuchos::RCP<Epetra_Vector> u);
   void init_square(Teuchos::RCP<Epetra_Vector> u);

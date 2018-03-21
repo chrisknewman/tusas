@@ -484,10 +484,10 @@ void error_estimator::test_lapack(){
   }
 
 
-  b = new double[ldb*nrhs]  {
-    0.9, 1.7, 1.2,
-    0.9, 3.4, 2.4
-  };
+//   b = new double[ldb*nrhs]  {
+//     0.9, 1.7, 1.2,
+//     0.9, 3.4, 2.4
+//   };
   b = new double[ldb*nrhs];b[0]=0.9;b[1]= 1.7;b[2]= 1.2;b[3]= 0.9;b[4]= 3.4;b[5]= 2.4;
 
   //the first call queries the workspace

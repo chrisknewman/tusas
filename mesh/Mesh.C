@@ -1248,6 +1248,7 @@ int Mesh::open_exodus(const char * filename){
   float version;
 
   int ex_id = ex_open(filename, EX_WRITE, &comp_ws, &io_ws, &version);
+  return ex_id;
 }
 
 int Mesh::create_exodus(const char * filename){

@@ -417,8 +417,8 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     gradx_->ReplaceGlobalValues ((int) 1, (int) 0, &gradx, &gid);
     grady_->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &gid);
    
-    delete a;
-    delete b;
+    delete[] a;
+    delete[] b;
 #ifdef ERROR_ESTIMATOR_OMP
     delete basis;
 #endif
@@ -466,11 +466,13 @@ void error_estimator::test_lapack(){
   double * a;
   double * b;
 
-  double p[m][n] = {
-    {0.2, 0.25},
-    {0.4, 0.5},
-    {0.4, 0.25}
-  };
+//   double p[m][n] = {
+//     {0.2, 0.25},
+//     {0.4, 0.5},
+//     {0.4, 0.25}
+//   };
+  double ** p;p = new double*[m];p[0] = new double[n];p[1] = new double[n];p[2] = new double[n];
+  p[0][0]=.2;p[0][1]=.25;p[1][0]=.4;p[1][1]=.5;p[2][0]=.4;p[2][1]=.25;
 
   //note that we fill a by column
   a = new double[lda*n];
@@ -519,6 +521,7 @@ void error_estimator::test_lapack(){
   std::cout<<" b[3] = "<<b[3]<<" b[4] = "<<b[4]<<std::endl;
 
   delete a,b;
+  delete  p;
 
   exit(0);
 };

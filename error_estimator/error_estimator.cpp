@@ -103,7 +103,7 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 
 error_estimator::~error_estimator()
 {
-  delete mesh_;
+  //delete mesh_;
 }
 
 void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in){
@@ -378,7 +378,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     //std::cout<<"info 2 = "<<info<<std::endl<<std::endl;
     //std::cout<<"info 2 = "<<info<<" ldb = "<<ldb<<std::endl; cout<<std::endl;
       
-    delete work;
+    delete[] work;
 
 //     if(224==nn){
 //       for(int i = 0; i < ldb*nrhs; i++){
@@ -524,7 +524,7 @@ void error_estimator::test_lapack(){
   std::cout<<" b[3] = "<<b[3]<<" b[4] = "<<b[4]<<std::endl;
 
   delete a,b;
-  delete  p;
+  delete  p[0],p[1],p[2],p;
 
   exit(0);
 };

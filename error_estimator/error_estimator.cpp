@@ -348,6 +348,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info,0 );
 #elif defined TUSAS_NO_LAPACK
+    exit(0);
 #else
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info );
@@ -498,6 +499,7 @@ void error_estimator::test_lapack(){
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	  &info,0 );
 #elif defined TUSAS_NO_LAPACK
+  exit(0);
 #else
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	 &info );

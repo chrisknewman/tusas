@@ -25,7 +25,7 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
 
 elem_color::~elem_color()
 {
-  delete mesh_;
+  //delete mesh_;
 }
 
 void elem_color::compute_graph()

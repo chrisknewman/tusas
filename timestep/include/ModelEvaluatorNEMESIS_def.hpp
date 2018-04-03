@@ -78,7 +78,7 @@ modelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 			 Teuchos::ParameterList plist
 			 )
 {
-  return Teuchos::rcp(new ModelEvaluatorNEMESIS<Scalar>(comm,mesh,plist));
+  return Teuchos::rcp(new ModelEvaluatorNEMESIS<Scalar>(comm,plist));
 }
 
 // Constructor
@@ -1454,6 +1454,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
     if( dorestart ) outfile<<"============THIS IS A RESTARTED RUN============"<<std::endl;	
     outfile.close();
   }
+#ifdef TUSAS_COLOR_CPU
   int nt = 0;
 #pragma omp parallel reduction(+:nt)
   
@@ -1468,6 +1469,7 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
     <<"mpirank :    "<<mypid<<" omp_get_num_threads() :    "<<nt
     <<" omp_get_max_threads() :    "<<ompmt<<std::endl;
   outfile.close();
+#endif
 #endif
 
   std::ofstream timefile;

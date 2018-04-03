@@ -53,6 +53,10 @@
 #include <iostream>
 #include <string>
 
+#ifdef TUSAS_COLOR_CPU
+#include <omp.h>
+#endif
+
 #include <boost/ptr_container/ptr_vector.hpp>
 
 #include "elem_color.h"
@@ -60,9 +64,6 @@
 #include "interpfluxavg.h"
 #include "interpflux.h"
 #include "projection.h"
-
-
-//#define TUSAS_OMP
 
 // Nonmember constuctors
 Basis* new_clone(Basis const& other){
@@ -203,7 +204,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
 
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+#ifdef TUSAS_COLOR_CPU
   Elem_col = rcp(new elem_color(comm_,mesh_));
 #endif
 
@@ -428,7 +429,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	std::string * elem_type_p = &elem_type;
 		
 	//#ifdef TUSAS_COLOR_CPU
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+#ifdef TUSAS_COLOR_CPU
 	int num_color = Elem_col->get_num_color();
 	std::vector< std::vector< int > > colors = Elem_col->get_colors();
 	for(int c = 0; c < num_color; c++){
@@ -458,7 +459,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #else
 #endif		
 	    //#ifdef TUSAS_COLOR_CPU
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)		
+#ifdef TUSAS_COLOR_CPU		
 #else
 	int num_color = 1;
 	std::vector<double> xx(n_nodes_per_elem);
@@ -528,12 +529,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_,k);
 
 		  //#ifdef TUSAS_COLOR_CPU
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+#ifdef TUSAS_COLOR_CPU
 		  if(f_owned_map_->MyGID(row1)){
 #endif
 		    f_fe_p->SumIntoGlobalValues ((int) 1, &row1, &val);
 		    //#ifdef TUSAS_COLOR_CPU
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+#ifdef TUSAS_COLOR_CPU
 		  }else{
 		    //std::cout<<comm_->MyPID()<<":"<<row<<std::endl;
 		    offrows.push_back(row);
@@ -545,7 +546,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    }//gp
 	  }//ne	
 	  //#ifdef TUSAS_COLOR_CPU
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
+#ifdef TUSAS_COLOR_CPU
 	  f_fe_p->SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
 #endif
 	}//c	

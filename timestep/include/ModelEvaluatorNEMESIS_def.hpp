@@ -110,7 +110,6 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   int mypid = comm_->MyPID();
   int numproc = comm_->NumProc();
 
-
   mesh_->compute_nodal_adj();
   
   std::vector<int> node_num_map(mesh_->get_node_num_map());
@@ -441,9 +440,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
      
 	  std::vector<int> offrows;
 	  std::vector<double> offvals;
-#ifdef TUSAS_COLOR_CPU
 #pragma omp parallel for reduction(merge: offrows, offvals)
-#endif	
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
 	    int elem = elem_map[ne];//private
 	    std::vector<double> xx(n_nodes_per_elem);//private
@@ -456,9 +453,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    boost::ptr_vector<Basis> basis;//private
 	    
 	    set_basis(basis,*elem_type_p);//cn really want this out at the block level
+	    //std::cout<<c<<" "<<ne<<" "<<omp_get_thread_num()<<std::endl;
 #else
 #endif		
-	    //#ifdef TUSAS_COLOR_CPU
 #ifdef TUSAS_COLOR_CPU		
 #else
 	int num_color = 1;
@@ -690,7 +687,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #else
       if (nonnull(f_out) && NULL != periodicbc_) {
 #endif
- 	f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
+ 	f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	//f_fe.Print(std::cout);
 
@@ -708,7 +705,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #ifdef PERIODIC_BC
 	  for(boost::ptr_vector<periodic_bc>::const_iterator it = periodic_bc_[k].begin();it != periodic_bc_[k].end();++it){
 	  
-	    it->import_data(f_fe,u);
+	    it->import_data(*f_fe_p,u);
 
 	    int ns_size = it->u_rep_->Map().NumMyElements ();
 
@@ -747,7 +744,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 // 		std::cout<<"l: "<<rlid1<<" "<<lid2<<std::endl;
 // 		std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
 // 		std::cout<<"f: "<<row2k<<" "<<val1<<" "<<comm_->MyPID()<<std::endl;
-		f_fe.SumIntoGlobalValues ((int) 1, &row2k, &val1);
+		f_fe_p->SumIntoGlobalValues ((int) 1, &row2k, &val1);
 	      }//if
 	      //f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
 	    }//j
@@ -791,7 +788,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 // 		std::cout<<"l: "<<lid1<<" "<<rlid2<<std::endl;
 // 		std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
 // 		std::cout<<"u: "<<row1k<<" "<<val<<" "<<val1<<" "<<comm_->MyPID()<<std::endl;
-		f_fe.ReplaceGlobalValue (row1k, (int)0, val);
+		f_fe_p->ReplaceGlobalValue (row1k, (int)0, val);
 	      }//if
 	    }//j
 	  }//it
@@ -828,11 +825,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
 	      double val1 = f_fe[0][numeqs_*lid1 + k];
  	      //std::cout<<"f: "<<row2k<<" "<<val1<<std::endl;
-	      f_fe.SumIntoGlobalValues ((int) 1, &row2k, &val1);
+	      f_fe_p->SumIntoGlobalValues ((int) 1, &row2k, &val1);
 	      val1 = (*u)[numeqs_*lid2 + k];
 	      double val = (*u)[numeqs_*lid1 + k]  - val1;
   	      //std::cout<<"u: "<<row1k<<" "<<val1<<std::endl;
-	      f_fe.ReplaceGlobalValue (row1k, (int)0, val);
+	      f_fe_p->ReplaceGlobalValue (row1k, (int)0, val);
 	    }//j
 	  }//it
 #endif
@@ -840,7 +837,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       }//if
       //exit(0);
       if (nonnull(f_out) && NULL != dirichletfunc_) {
-	f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
+	f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
 	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	std::map<int,DBCFUNC>::iterator it;
@@ -878,7 +875,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      double val = (*u)[numeqs_*lid + k]  - val1;
 	      //std::cout<<comm_->MyPID()<<" "<<row1<<" "<<std::endl;
 	      //f_fe.ReplaceGlobalValues ((int) 1, &row1, &val);
-	      f_fe.ReplaceGlobalValue (row1, (int)0, val);
+	      f_fe_p->ReplaceGlobalValue (row1, (int)0, val);
 	      
 	    }//j
 	  }//it
@@ -1023,7 +1020,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  }
 #endif		  
 
-		  f_fe.SumIntoGlobalValues ((int) 1, &row1, &val);
+		  f_fe_p->SumIntoGlobalValues ((int) 1, &row1, &val);
 		}//i
 	      }//gp
 	    }//j
@@ -1099,7 +1096,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     
       if (nonnull(f_out)){
 	//f->Print(std::cout);
-	if (f_fe.GlobalAssemble(Epetra_CombineMode::Add,true) != 0){
+	if (f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true) != 0){
 	  std::cout<<"error f_fe.GlobalAssemble()"<<std::endl;
 	  exit(0);
 	}

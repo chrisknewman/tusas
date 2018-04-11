@@ -21,6 +21,9 @@
 #include "ne_nemesisI.h"
 //#endif
 
+//MAX_LINE_LENGTH is defined to 80 in exodusII.h
+#define TUSAS_MAX_LINE_LENGTH 120
+
 /*
 Public interface to the Mesh class
 */
@@ -61,7 +64,8 @@ int Mesh::read_exodus(const char * filename){
 
   }
 
-  char _title[MAX_LINE_LENGTH];
+  //char _title[MAX_LINE_LENGTH];
+  char _title[TUSAS_MAX_LINE_LENGTH];
 
   int ex_err = 0;
 
@@ -492,7 +496,7 @@ int Mesh::read_exodus(const char * filename){
     
   }
   //create_sorted_nodelist();
-  return 0;
+  return ex_err;
   
 }
 

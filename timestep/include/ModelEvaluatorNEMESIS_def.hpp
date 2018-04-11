@@ -230,8 +230,10 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
 {
   Teuchos::RCP<Epetra_FECrsGraph> W_graph;
 
+  int numind = 9*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
+                         //this was causing problems with clang
 
-  W_graph = Teuchos::rcp(new Epetra_FECrsGraph(Copy, *x_owned_map_, 0));
+  W_graph = Teuchos::rcp(new Epetra_FECrsGraph(Copy, *x_owned_map_, numind));
 
   for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
     
@@ -247,13 +249,10 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
 	  for( int k = 0; k < numeqs_; k++ ){
 	    int row1 = row + k;
 	    int column1 = column + k;
+	    
 	    W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
 
 	  }
-// 	  W_graph->InsertGlobalIndices((int)1,&row, (int)1, &column);
-// 	  int row1 = row + 1;
-// 	  int column1 = column + 1;
-// 	  W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
 	}
       }
     }

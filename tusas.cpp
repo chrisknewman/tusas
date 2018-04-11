@@ -77,7 +77,6 @@ int main(int argc, char *argv[])
   readParametersFromFile(argc, argv, paramList, mypid );
 
   Mesh * in_mesh = new Mesh(mypid,numproc,false);
-
   if(1 == numproc ){
     in_mesh->read_exodus((paramList.get<std::string> (TusasmeshNameString) ).c_str());
   }

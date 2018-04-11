@@ -496,7 +496,9 @@ void ModelEvaluatorHEAT<Scalar>::evalModelImpl(
 
     }//blk
 
-    delete xx, yy, uu;
+    delete xx;
+    delete yy;
+    delete uu;
     delete ubasis;
     
     if (nonnull(f_out)){
@@ -795,7 +797,10 @@ void ModelEvaluatorHEAT<Scalar>::compute_error( double *u)
     }//ne
   }//blk
   std::cout<<"num dofs  "<<mesh_->get_num_nodes()<<"  num elem  "<<mesh_->get_num_elem()<<"  error is  "<<sqrt(error)<<std::endl;
-  delete xx, yy, uu, ubasis;
+  delete xx;
+  delete yy;
+  delete uu;
+  delete ubasis;
 }
 
 

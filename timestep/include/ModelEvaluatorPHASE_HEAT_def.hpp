@@ -914,8 +914,17 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::evalModelImpl(
 #endif
     }//blk
 
-    delete xx, yy, zz, uu, uu_old, phiphi, phiphi_old, phiphi_old_old;
-    delete ubasis, phibasis, phibasis2;
+    delete xx;
+    delete yy;
+    delete zz;
+    delete uu; 
+    delete uu_old; 
+    delete phiphi;
+    delete phiphi_old;
+    delete phiphi_old_old;
+    delete ubasis;
+    delete phibasis;
+    delete phibasis2;
     
     if (nonnull(f_out)){
       //f->Print(std::cout);
@@ -1345,7 +1354,10 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::compute_error( double *u)
     }//ne
   }//blk
   std::cout<<"num dofs  "<<mesh_->get_num_nodes()<<"  num elem  "<<mesh_->get_num_elem()<<"  error is  "<<sqrt(error)<<std::endl;
-  delete xx, yy, uu, ubasis;
+  delete xx;
+  delete yy;
+  delete uu;
+  delete ubasis;
 }
 template<class Scalar>
 const double ModelEvaluatorPHASE_HEAT<Scalar>::gs( const double &theta)

@@ -1024,7 +1024,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		}//i
 	      }//gp
 	    }//j
-	    delete xx,yy,zz,uu;
+	    delete xx;
+	    delete yy;
+	    delete zz;
+	    delete uu;
 	  }//it
 	}//k
 #ifdef TUSAS_INTERPFLUX
@@ -1584,7 +1587,10 @@ void ModelEvaluatorNEMESIS<Scalar>::compute_error( double *u)
     }//ne
   }//blk
   std::cout<<"num dofs  "<<mesh_->get_num_nodes()<<"  num elem  "<<mesh_->get_num_elem()<<"  error is  "<<sqrt(error)<<std::endl;
-  delete xx, yy, uu, ubasis;
+  delete xx;
+  delete yy;
+  delete uu;
+  delete ubasis;
 }
 template<class Scalar>
 const double ModelEvaluatorNEMESIS<Scalar>::gs( const double &theta)

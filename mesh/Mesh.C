@@ -1074,8 +1074,8 @@ int Mesh::write_elem_data_exodus(int ex_id, int counter){
 
 int Mesh::read_num_proc_nemesis(int ex_id, int *nproc){
   int num_proc_in_file;
-  char ftype;
-  int ex_err = ne_get_init_info(ex_id,nproc,&num_proc_in_file,&ftype);
+  char ftype[TUSAS_MAX_LINE_LENGTH];
+  int ex_err = ne_get_init_info(ex_id,nproc,&num_proc_in_file,ftype);
   return ex_err;
 }
 

@@ -2084,6 +2084,8 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   }
   int step = -99;
   int error = mesh_->read_last_step_exodus(ex_id_,step);
+  if( 0 == mypid )
+    std::cout<<"  Reading restart last step = "<<step<<std::endl;
   if( 0 > error ) {
     std::cout<<"Error obtaining restart last step"<<std::endl;
     exit(0);
@@ -2091,6 +2093,8 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
 
   double time = -99.99;
   error = mesh_->read_time_exodus(ex_id_, step, time);
+  if( 0 == mypid )
+    std::cout<<"  Reading restart last time = "<<time<<std::endl;
   if( 0 > error ) {
     std::cout<<"Error obtaining restart last time"<<std::endl;
     exit(0);

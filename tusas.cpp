@@ -225,17 +225,35 @@ int decomp(const int mypid,
     std::string trilinosPath=TRILINOS_DIR;
     std::string nemFile =decompPath+nemStr+".nemI";
     std::string sliceStr = trilinosPath+"/bin/nem_slice";//+" -e -m mesh="+std::to_string(numproc)+" -l inertial -o "+nemFile+" "+infile;
-    char * sliceArg[] = {(char*)"nem_slice",(char*)"-e",(char*)"-m",const_cast<char*>(("mesh="+std::to_string(numproc)).c_str()),
-			 (char*)"-l",(char*)"inertial",(char*)"-o",const_cast<char*>((nemFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
-    std::cout<<"  Running nemslice command: "<<sliceStr <<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]
-	     <<" "<<sliceArg[4]<<" "<<sliceArg[5]<<" "<<sliceArg[6]<<" "<<sliceArg[7]<<" "<<sliceArg[8]<<std::endl;
+
     if( writedecomp ){
+      std::string sliceFile="./input-ldbl";
+      std::ofstream slicefile;
+      slicefile.open(sliceFile.c_str());
+      slicefile 
+	<<"OUTPUT NEMESISI FILE = "<<nemFile<<std::endl 
+	<<"GRAPH TYPE			= ELEMENTAL"<<std::endl 
+	<<"DECOMPOSITION METHOD		= INERTIAL"<<std::endl 
+	<<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<std::endl;
+      slicefile.close();
+      char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
+    
       decompfile
-	<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]
-	<<" "<<sliceArg[4]<<" "<<sliceArg[5]<<" "<<sliceArg[6]<<" "<<sliceArg[7]<<" "<<sliceArg[8]<<std::endl;
+	<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<std::endl;
     }
     else {
-      //if(-1 == system(sliceStr.c_str()) ){
+      std::string sliceFile=decompPath+"input-ldbl";
+      std::ofstream slicefile;
+      slicefile.open(sliceFile.c_str());
+      slicefile 
+	<<"OUTPUT NEMESISI FILE = "<<nemFile<<std::endl 
+	<<"GRAPH TYPE			= ELEMENTAL"<<std::endl 
+	<<"DECOMPOSITION METHOD		= INERTIAL"<<std::endl 
+	<<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<std::endl;
+      slicefile.close();
+      char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
+      std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<std::endl;
+	//if(-1 == system(sliceStr.c_str()) ){
       if(-1 == do_sys_call(sliceStr.c_str(),sliceArg) ){
 	std::cout<<"Error running nemslice: "<<sliceStr<<std::endl;
 	exit(0);
@@ -346,11 +364,11 @@ int join(const int mypid, const int numproc)
 {
   if( 0 == mypid ){
     std::cout<<"Entering join: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
-    std::string decompPath="decomp/";
+    std::string decompPath="./decomp/";
     std::string trilinosPath=TRILINOS_DIR;
     std::string comStr = trilinosPath+"bin/epu";// -auto -add_processor_id "+decompPath+"results.e."+std::to_string(numproc)+".000";
     char * comArg[] = {(char*)"epu",(char*)"-auto", (char*)"-add_processor_id",const_cast<char*>((decompPath+"results.e."+std::to_string(numproc)+".000").c_str()),(char*)NULL};
-
+ 
     std::cout<<"Running epu command: "<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<comArg[3]<<std::endl;
     //if(-1 == system(comStr.c_str()) ){
     if(-1 == do_sys_call(comStr.c_str(), comArg) ){

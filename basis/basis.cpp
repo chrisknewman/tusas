@@ -118,7 +118,9 @@ BasisLTri::~BasisLTri() {
   delete [] abscissa;
   delete [] weight;
 
-  delete xi, eta, nwt;
+  delete [] xi;
+  delete [] eta;
+  delete [] nwt;
 }
 
 
@@ -287,7 +289,9 @@ BasisLQuad::~BasisLQuad() {
   delete [] abscissa;
   delete [] weight;
 
-  delete xi, eta, nwt;
+  delete [] xi;
+  delete [] eta;
+  delete [] nwt;
 }
 
 bool BasisLQuad::evalBasis(const double *x,  const double *y, const double *z, const double *u, const double xx_, const double yy_, const double zz_, double &val)
@@ -533,7 +537,9 @@ BasisQTri::~BasisQTri() {
   delete [] weight;
   delete [] abscissa;
 
-  delete xi, eta, nwt;
+  delete [] xi;
+  delete [] eta;
+  delete [] nwt;
 }
 
 void BasisQTri::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
@@ -720,7 +726,9 @@ BasisQQuad::~BasisQQuad() {
   delete [] abscissa;
   delete [] weight;
 
-  delete xi, eta, nwt;
+  delete [] xi;
+  delete [] eta;
+  delete [] nwt;
 }
 
 void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  const double *z,  const double *u,  const double *uold,  const double *uoldold){
@@ -963,7 +971,10 @@ BasisLHex::~BasisLHex() {
   delete [] abscissa;
   delete [] weight;
 
-  delete xi, eta, zta, nwt;
+  delete [] xi;
+  delete [] eta; 
+  delete [] zta;
+  delete [] nwt;
 }
 
 // Calculates a linear 3D basis
@@ -1321,7 +1332,10 @@ BasisLTet::~BasisLTet() {
   delete [] abscissa;
   delete [] weight;
 
-  delete xi, eta, zta, nwt;
+  delete [] xi;
+  delete [] eta;
+  delete [] zta;
+  delete [] nwt;
 }
 
 // Calculates a linear 3D basis
@@ -1467,7 +1481,8 @@ BasisLBar::~BasisLBar() {
   delete [] abscissa;
   delete [] weight;
 
-  delete xi, nwt;
+  delete [] xi;
+  delete [] nwt;
 }
 
 void BasisLBar::getBasis(const int gp,const  double *x, const  double *y,  const double *z,const  double *u,const  double *uold,const  double *uoldold) {
@@ -1586,7 +1601,8 @@ BasisQBar::~BasisQBar() {
   delete [] abscissa;
   delete [] weight;
 
-  delete xi, nwt;
+  delete [] xi;
+  delete [] nwt;
 }
 
 

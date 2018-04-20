@@ -20,7 +20,7 @@ public:
   /// Constructor
   timestep():start_time(0.0),start_step(0){};
   /// Destructor
-  ~timestep(){};
+  virtual ~timestep(){};
   /// Initialize
   /** Initial conditions. Write initial conditions to output exodusII file. */
   virtual void initialize() = 0;

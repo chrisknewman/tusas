@@ -314,7 +314,10 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
 	row++;
       }//gp
-      delete xx, yy, zz, uu;
+      delete xx;
+      delete yy;
+      delete zz;
+      delete uu;
     }//ne
   
 
@@ -417,7 +420,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     grady_->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &gid);
    
     delete a;
-    delete b;
+    delete [] b;
 #ifdef ERROR_ESTIMATOR_OMP
     delete basis;
 #endif
@@ -465,11 +468,13 @@ void error_estimator::test_lapack(){
   double * a;
   double * b;
 
-  double p[m][n] = {
-    {0.2, 0.25},
-    {0.4, 0.5},
-    {0.4, 0.25}
-  };
+//   double p[m][n] = {
+//     {0.2, 0.25},
+//     {0.4, 0.5},
+//     {0.4, 0.25}
+//   };
+  double ** p;p = new double*[m];p[0] = new double[n];p[1] = new double[n];p[2] = new double[n];
+  p[0][0]=.2;p[0][1]=.25;p[1][0]=.4;p[1][1]=.5;p[2][0]=.4;p[2][1]=.25;
 
   //note that we fill a by column
   a = new double[lda*n];
@@ -515,7 +520,12 @@ void error_estimator::test_lapack(){
   std::cout<<" b[0] = "<<b[0]<<" b[1] = "<<b[1]<<std::endl;
   std::cout<<" b[3] = "<<b[3]<<" b[4] = "<<b[4]<<std::endl;
 
-  delete a,b;
+  delete a;
+  delete b;
+  delete  p[0];
+  delete p[1];
+  delete p[2];
+  delete p;
 
   exit(0);
 };
@@ -552,7 +562,8 @@ void error_estimator::update_mesh_data(){
   std::string estring="error"+std::to_string(index_);
   mesh_->update_elem_data(estring, &error[0]);
 
-  delete tempx, tempy;
+  delete tempx;
+  delete tempy;
 }
 
 void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
@@ -650,16 +661,27 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
     elem_error_->ReplaceGlobalValues ((int) 1, (int) 0, &error, &gid);
     //std::cout<<ne<<"  "<<error<<std::endl;
 #ifdef ERROR_ESTIMATOR_OMP
-     delete xx, yy, zz, uu, ux, uy;
-     delete basis;
+    delete xx;
+    delete yy;
+    delete zz;
+    delete uu;
+    delete ux;
+    delete uy;
+    delete basis;
 #endif
   }//ne
 #ifdef ERROR_ESTIMATOR_OMP
 #else
   delete basis;
-  delete xx, yy, zz, uu, ux, uy;
+  delete xx;
+  delete yy;
+  delete zz;
+  delete uu;
+  delete ux;
+  delete uy;
 #endif
-  delete tempx, tempy;
+  delete tempx;
+  delete tempy;
   //elem_error_->Print(std::cout);
   //std::cout<<estimate_global_error()<<std::endl;
   //   exit(0);

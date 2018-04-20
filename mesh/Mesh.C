@@ -597,7 +597,7 @@ int Mesh::get_boundary_status(int blk, int elem){
 
 	for(int i = 0; i < num_node_per_elem_in_blk[blk]; i++)
 
-		if(status = node_set_map[connect[blk][elem * num_node_per_elem_in_blk[blk] + i]] >= 0)
+	  if((status = node_set_map[connect[blk][elem * num_node_per_elem_in_blk[blk] + i]]) >= 0)
 
 			return status;
 
@@ -609,7 +609,7 @@ int Mesh::get_node_boundary_status(int nodeid){
 
 	int status;
 
-	if(status = node_set_map[nodeid] >= 0)
+	if((status = node_set_map[nodeid]) >= 0)
 
 		return status;
 

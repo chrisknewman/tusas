@@ -46,6 +46,14 @@
 #include "ReadInput.h"
 #include "tusas.h"
 
+#if 0
+#include <unistd.h>
+#include <spawn.h>
+#include <sys/wait.h>
+
+extern char **environ;
+#endif
+
 using namespace std;
 
 int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const bool skipdecomp, const bool writedecomp, const Epetra_Comm * comm);
@@ -82,7 +90,7 @@ int main(int argc, char *argv[])
   }
   else {
     if( paramList.get<std::string> (TusasmethodNameString)  != "nemesis") {
-      std::cout<<"More than 1 proc only implemented for nemesis class now."<<std::endl;
+      std::cout<<"More than 1 proc only implemented for nemesis class now."<<"\n";
       exit(0);
     }
     std::string pfile;
@@ -109,7 +117,7 @@ int main(int argc, char *argv[])
     model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
   }
   else {
-    std::cout<<"Invalid method."<<std::endl<<std::endl;
+    std::cout<<"Invalid method."<<"\n"<<"\n";
     exit(0);
   }
 
@@ -133,7 +141,7 @@ int main(int argc, char *argv[])
     }
     if(0 == elapsedSteps%(paramList.get<int> (TusasoutputfreqNameString)) &&
        elapsedSteps != numSteps){
-      if(0 == mypid) std::cout<<"Writing exodus file : timestep :"<<elapsedSteps<<std::endl;
+      if(0 == mypid) std::cout<<"Writing exodus file : timestep :"<<elapsedSteps<<"\n";
       
       model->write_exodus();
     }
@@ -165,7 +173,7 @@ int decomp(const int mypid,
   std::string nemStr = "tusas_nemesis";
 
   if( 0 == mypid && !restart && !skipdecomp){
-    std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
+    std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<"\n"<<std::endl;
 
     std::ofstream decompfile;
     if( writedecomp ){
@@ -173,18 +181,18 @@ int decomp(const int mypid,
       std::string decompFile="./decompscript";
       decompfile.open(decompFile.c_str());
       decompfile
-	<<"#!/bin/bash"<<std::endl;
+	<<"#!/bin/bash"<<"\n";
     }
     
     std::string rmdirStr = "rm";//+" -r "+decompPath;//+";mkdir "+decompPath;
     char * rmdirArg[] = {(char*)"rm",(char*)"-rf",const_cast<char*>((decompPath).c_str()),(char*)NULL};
     if( writedecomp ){
       decompfile
-	<<rmdirArg[0]<<" "<<rmdirArg[1]<<" "<<rmdirArg[2]<<std::endl;
+	<<rmdirArg[0]<<" "<<rmdirArg[1]<<" "<<rmdirArg[2]<<"\n";
     } 
     else {
       //if(-1 == system(comStr.c_str()) ){
-      if(-1 == do_sys_call(rmdirStr.c_str(), rmdirArg) ){
+      if(0 != do_sys_call(rmdirStr.c_str(), rmdirArg) ){
 	std::cout<<"Error removing directory: "<<decompPath<<std::endl;
 	exit(0);
       }
@@ -194,7 +202,7 @@ int decomp(const int mypid,
     char * comArg[] = {(char*)"mkdir",const_cast<char*>((decompPath).c_str()),(char*)NULL};
     if( writedecomp ){
       decompfile
-	<<comArg[0]<<" "<<comArg[1]<<std::endl;
+	<<comArg[0]<<" "<<comArg[1]<<"\n";
     }
     else {
       if(-1 == do_sys_call(comStr.c_str(), comArg) ){
@@ -210,7 +218,7 @@ int decomp(const int mypid,
       char * mkdirArg[] = {(char*)"mkdir",const_cast<char*>((decompPath+numStr).c_str()),(char*)NULL};
       if( writedecomp ){
 	decompfile
-	  <<mkdirArg[0]<<" "<<mkdirArg[1]<<std::endl;
+	  <<mkdirArg[0]<<" "<<mkdirArg[1]<<"\n";
       }
       else {
 	//if(-1 == system(mkdirStr.c_str()) ){
@@ -231,28 +239,29 @@ int decomp(const int mypid,
       std::ofstream slicefile;
       slicefile.open(sliceFile.c_str());
       slicefile 
-	<<"OUTPUT NEMESISI FILE = "<<nemFile<<std::endl 
-	<<"GRAPH TYPE			= ELEMENTAL"<<std::endl 
-	<<"DECOMPOSITION METHOD		= INERTIAL"<<std::endl 
-	<<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<std::endl;
+	<<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n" 
+	<<"GRAPH TYPE			= ELEMENTAL"<<"\n" 
+	<<"DECOMPOSITION METHOD		= INERTIAL"<<"\n" 
+	<<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
       slicefile.close();
       char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
     
       decompfile
-	<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<std::endl;
+	<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<"\n";
     }
     else {
       std::string sliceFile=decompPath+"input-ldbl";
       std::ofstream slicefile;
       slicefile.open(sliceFile.c_str());
       slicefile 
-	<<"OUTPUT NEMESISI FILE = "<<nemFile<<std::endl 
-	<<"GRAPH TYPE			= ELEMENTAL"<<std::endl 
-	<<"DECOMPOSITION METHOD		= INERTIAL"<<std::endl 
-	<<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<std::endl;
+	<<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n"
+	<<"GRAPH TYPE			= ELEMENTAL"<<"\n"
+	<<"DECOMPOSITION METHOD		= INERTIAL"<<"\n" 
+	<<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
       slicefile.close();
       char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
       std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<std::endl;
+
 	//if(-1 == system(sliceStr.c_str()) ){
       if(-1 == do_sys_call(sliceStr.c_str(),sliceArg) ){
 	std::cout<<"Error running nemslice: "<<sliceStr<<std::endl;
@@ -265,29 +274,28 @@ int decomp(const int mypid,
       std::ofstream spreadfile;
       spreadfile.open(spreadFile.c_str());
       spreadfile 
-	<<"Input FEM file		= "<<infile<<std::endl 
-	<<"LB file         	= "<<nemFile<<std::endl 
-	<<"Restart Time list	= off"<<std::endl 
-	<<"Parallel Disk Info	= number="<<std::to_string(numproc)<<std::endl 
-	<<"Parallel file location	= root=./"<<decompPath<<", subdir=.";
+	<<"Input FEM file		= "<<infile<<"\n" 
+	<<"LB file         	= "<<nemFile<<"\n" 
+	<<"Restart Time list	= off"<<"\n"  
+	<<"Parallel Disk Info	= number="<<std::to_string(numproc)<<"\n" 
+	<<"Parallel file location	= root=./"<<decompPath<<", subdir=."<<"\n";
       spreadfile.close();
       std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
       char * spreadArg[] = {(char*)"nem_spread",(char*)"nem_spread.inp",(char*)NULL};
 
       decompfile
-	//<<"mv ./nem_spread.inp "<<decompPath<<std::endl
-	<<spreadStr<<" "<<spreadArg[1]<<std::endl;
+	<<spreadStr<<" "<<spreadArg[1]<<"\n";
     }
     else {
       std::string spreadFile=decompPath+"nem_spread.inp";
       std::ofstream spreadfile;
       spreadfile.open(spreadFile.c_str());
       spreadfile 
-	<<"Input FEM file		= "<<infile<<std::endl 
-	<<"LB file         	= "<<nemFile<<std::endl 
-	<<"Restart Time list	= off"<<std::endl 
-	<<"Parallel Disk Info	= number="<<std::to_string(numproc)<<std::endl 
-	<<"Parallel file location	= root=./"<<decompPath<<", subdir=.";
+	<<"Input FEM file		= "<<infile<<"\n" 
+	<<"LB file         	= "<<nemFile<<"\n" 
+	<<"Restart Time list	= off"<<"\n" 
+	<<"Parallel Disk Info	= number="<<std::to_string(numproc)<<"\n" 
+	<<"Parallel file location	= root=./"<<decompPath<<", subdir=."<<"\n" ;
       spreadfile.close();
       std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
       char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>(spreadFile.c_str()),(char*)NULL};
@@ -383,14 +391,17 @@ int do_sys_call(const char* command, char * const arg[] )
   int status = -99;
   int * s = &status;
   int pid = vfork();
+  //std::cout<<"pid = "<<pid<<std::endl;
   int err = 0;
   if( 0 == pid ) {
     err = execvp(command,arg);
+    //err = execve(command,arg,environ);
     _exit(0);
   }
   else {
     wait(s);
   }
+  //std::cout<<"err = "<<err<<std::endl;
   return err;
 }
 void print_disclaimer(const int mypid)
@@ -404,47 +415,47 @@ void print_disclaimer(const int mypid)
 void print_copyright(const int mypid)
 {
   if(0 == mypid){
-    std::cout<<std::endl
-	     <<"Copyright (c) 2016, Los Alamos National Security, LLC"<<std::endl
-	     <<std::endl
-	     <<"All rights reserved."<<std::endl
-	     <<std::endl
-	     <<"This software was produced under U.S. Government contract DE-AC52-06NA25396"<<std::endl
-	     <<"for Los Alamos National Laboratory (LANL), which is operated by Los Alamos"<<std::endl
-	     <<"National Security, LLC for the U.S. Department of Energy. The U.S. Government"<<std::endl
-	     <<"has rights to use, reproduce, and distribute this software.  NEITHER THE"<<std::endl 
-	     <<"GOVERNMENT NOR LOS ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS"<<std::endl 
-	     <<"OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software"<<std::endl 
-	     <<"is modified to produce derivative works, such modified software should be"<<std::endl 
-	     <<"clearly marked, so as not to confuse it with the version available from LANL."<<std::endl
-	     <<std::endl
-	     <<"Additionally, redistribution and use in source and binary forms, with or"<<std::endl 
-	     <<"without modification, are permitted provided that the following conditions"<<std::endl 
+    std::cout<<"\n"
+	     <<"Copyright (c) 2016, Los Alamos National Security, LLC"<<"\n"
+	     <<"\n"
+	     <<"All rights reserved."<<"\n"
+	     <<"\n"
+	     <<"This software was produced under U.S. Government contract DE-AC52-06NA25396"<<"\n"
+	     <<"for Los Alamos National Laboratory (LANL), which is operated by Los Alamos"<<"\n"
+	     <<"National Security, LLC for the U.S. Department of Energy. The U.S. Government"<<"\n"
+	     <<"has rights to use, reproduce, and distribute this software.  NEITHER THE"<<"\n" 
+	     <<"GOVERNMENT NOR LOS ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS"<<"\n" 
+	     <<"OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software"<<"\n" 
+	     <<"is modified to produce derivative works, such modified software should be"<<"\n" 
+	     <<"clearly marked, so as not to confuse it with the version available from LANL."<<"\n"
+	     <<"\n"
+	     <<"Additionally, redistribution and use in source and binary forms, with or"<<"\n" 
+	     <<"without modification, are permitted provided that the following conditions"<<"\n" 
 	     <<"are met:"
-	     <<std::endl
-	     <<"1. Redistributions of source code must retain the above copyright notice,"<<std::endl 
-	     <<"   this list of conditions and the following disclaimer."<<std::endl
-	     <<std::endl
-	     <<"2. Redistributions in binary form must reproduce the above copyright notice,"<<std::endl 
-	     <<"   this list of conditions and the following disclaimer in the documentation"<<std::endl 
-	     <<"   and/or other materials provided with the distribution."<<std::endl
-	     <<std::endl
-	     <<"3. Neither the name of Los Alamos National Security, LLC, Los Alamos National"<<std::endl 
-	     <<"   Laboratory, LANL, the U.S. Government, nor the names of its contributors"<<std::endl
-	     <<"   may be used to endorse or promote products derived from this software"<<std::endl 
-	     <<"   without specific prior written permission."<<std::endl
-	     <<std::endl
-	     <<"THIS SOFTWARE IS PROVIDED BY LOS ALAMOS NATIONAL SECURITY, LLC AND"<<std::endl 
-	     <<"CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,"<<std::endl 
-	     <<"BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS"<<std::endl 
-	     <<"FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL LOS ALAMOS"<<std::endl
-	     <<"NATIONAL SECURITY, LLC OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,"<<std::endl 
-	     <<"INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT"<<std::endl 
-	     <<"NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,"<<std::endl 
-	     <<"DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY"<<std::endl 
-	     <<"THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT"<<std::endl 
-	     <<"(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF"<<std::endl 
-	     <<"THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."<<std::endl
-	     <<std::endl<<std::endl;
+	     <<"\n"
+	     <<"1. Redistributions of source code must retain the above copyright notice,"<<"\n" 
+	     <<"   this list of conditions and the following disclaimer."<<"\n"
+	     <<"\n"
+	     <<"2. Redistributions in binary form must reproduce the above copyright notice,"<<"\n" 
+	     <<"   this list of conditions and the following disclaimer in the documentation"<<"\n" 
+	     <<"   and/or other materials provided with the distribution."<<"\n"
+	     <<"\n"
+	     <<"3. Neither the name of Los Alamos National Security, LLC, Los Alamos National"<<"\n" 
+	     <<"   Laboratory, LANL, the U.S. Government, nor the names of its contributors"<<"\n"
+	     <<"   may be used to endorse or promote products derived from this software"<<"\n" 
+	     <<"   without specific prior written permission."<<"\n"
+	     <<"\n"
+	     <<"THIS SOFTWARE IS PROVIDED BY LOS ALAMOS NATIONAL SECURITY, LLC AND"<<"\n" 
+	     <<"CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,"<<"\n" 
+	     <<"BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS"<<"\n" 
+	     <<"FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL LOS ALAMOS"<<"\n"
+	     <<"NATIONAL SECURITY, LLC OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,"<<"\n" 
+	     <<"INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT"<<"\n" 
+	     <<"NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,"<<"\n" 
+	     <<"DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY"<<"\n" 
+	     <<"THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT"<<"\n" 
+	     <<"(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF"<<"\n" 
+	     <<"THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."<<"\n"
+	     <<"\n"<<"\n";
   }
 }

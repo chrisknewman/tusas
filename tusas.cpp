@@ -95,7 +95,11 @@ int main(int argc, char *argv[])
     }
     std::string pfile;
     Comm.Barrier();
-    decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString), paramList.get<bool> (TusasskipdecompNameString), paramList.get<bool> (TusaswritedecompNameString),&Comm);
+    int dval = decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString), paramList.get<bool> (TusasskipdecompNameString), paramList.get<bool> (TusaswritedecompNameString),&Comm);
+    
+    if(0 != dval) {
+      return 0;
+    }
     Comm.Barrier();
     
     in_mesh->read_exodus(pfile.c_str());
@@ -118,7 +122,8 @@ int main(int argc, char *argv[])
   }
   else {
     std::cout<<"Invalid method."<<"\n"<<"\n";
-    exit(0);
+    return EXIT_FAILURE;
+    //exit(0);
   }
 
   model->initialize();
@@ -168,6 +173,10 @@ int decomp(const int mypid,
 	   const bool skipdecomp, 
 	   const bool writedecomp, 
 	   const Epetra_Comm * comm){
+
+  //return 1 for writedecomp; return 0 otherwise
+  //probably need to clean this up to return -1 on error, rather than exit(0)
+
 
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
@@ -320,7 +329,8 @@ int decomp(const int mypid,
     if( 0 == mypid ){
       std::cout<<"writedecomp completed."<<"\n"<<"\n";
     }
-    exit(0);
+    //exit(0);
+    return 1;
   }
   std::string mypidstring;
 
@@ -407,7 +417,7 @@ int do_sys_call(const char* command, char * const arg[] )
 void print_disclaimer(const int mypid)
 {
   if(0 == mypid){
-    std::cout<<"\n"
+    std::cout<<"\n"<<"\n"<<"\n"
 	     <<"Tusas Version 1.0 is registered with Los Alamos National Laboratory (LANL) as LA-CC-17-001."
 	     <<"\n"<<"\n";
   }

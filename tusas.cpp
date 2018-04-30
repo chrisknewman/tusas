@@ -84,8 +84,10 @@ int main(int argc, char *argv[])
 
   readParametersFromFile(argc, argv, paramList, mypid );
 
-  Mesh * in_mesh = new Mesh(mypid,numproc,false);
+  //Mesh * in_mesh = new Mesh(mypid,numproc,false);
+  Mesh * in_mesh;
   if(1 == numproc ){
+    in_mesh = new Mesh(mypid,numproc,false);
     in_mesh->read_exodus((paramList.get<std::string> (TusasmeshNameString) ).c_str());
   }
   else {
@@ -101,7 +103,7 @@ int main(int argc, char *argv[])
       return 0;
     }
     Comm.Barrier();
-    
+    in_mesh = new Mesh(mypid,numproc,false);
     in_mesh->read_exodus(pfile.c_str());
     //exit(0);
   }

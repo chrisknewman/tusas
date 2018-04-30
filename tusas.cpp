@@ -173,11 +173,11 @@ int decomp(const int mypid,
   std::string nemStr = "tusas_nemesis";
 
   if( 0 == mypid && !restart && !skipdecomp){
-    std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<"\n"<<std::endl;
+    std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<"\n"<<"\n";
 
     std::ofstream decompfile;
     if( writedecomp ){
-      std::cout<<"writedecomp started."<<std::endl<<std::endl;
+      std::cout<<"writedecomp started."<<"\n"<<"\n";
       std::string decompFile="./decompscript";
       decompfile.open(decompFile.c_str());
       decompfile
@@ -193,7 +193,7 @@ int decomp(const int mypid,
     else {
       //if(-1 == system(comStr.c_str()) ){
       if(0 != do_sys_call(rmdirStr.c_str(), rmdirArg) ){
-	std::cout<<"Error removing directory: "<<decompPath<<std::endl;
+	std::cout<<"Error removing directory: "<<decompPath<<"\n";
 	exit(0);
       }
     }
@@ -206,11 +206,11 @@ int decomp(const int mypid,
     }
     else {
       if(-1 == do_sys_call(comStr.c_str(), comArg) ){
-	std::cout<<"Error creating directory: "<<decompPath<<std::endl;
+	std::cout<<"Error creating directory: "<<decompPath<<"\n";
 	exit(0);
       }
     }
-    std::cout<<"  Creating decomp dir: "<<comStr<<" "<<comArg[1]<<std::endl;
+    std::cout<<"  Creating decomp dir: "<<comStr<<" "<<comArg[1]<<"\n";
 
     for( int i = 0; i < numproc; i++){
       std::string numStr = std::to_string(i+1);
@@ -223,11 +223,11 @@ int decomp(const int mypid,
       else {
 	//if(-1 == system(mkdirStr.c_str()) ){
 	if(-1 == do_sys_call(mkdirStr.c_str(), mkdirArg) ){
-	  std::cout<<"Error creating directory: "<<numStr<<std::endl;
+	  std::cout<<"Error creating directory: "<<numStr<<"\n";
 	  exit(0);
 	}
       }
-      std::cout<<"  Creating decomp dirs: "<<mkdirStr<<" "<<mkdirArg[1]<<std::endl;
+      std::cout<<"  Creating decomp dirs: "<<mkdirStr<<" "<<mkdirArg[1]<<"\n";
     }
 
     std::string trilinosPath=TRILINOS_DIR;
@@ -260,11 +260,11 @@ int decomp(const int mypid,
 	<<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
       slicefile.close();
       char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
-      std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<std::endl;
+      std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<"\n";
 
 	//if(-1 == system(sliceStr.c_str()) ){
       if(-1 == do_sys_call(sliceStr.c_str(),sliceArg) ){
-	std::cout<<"Error running nemslice: "<<sliceStr<<std::endl;
+	std::cout<<"Error running nemslice: "<<sliceStr<<"\n";
 	exit(0);
       }
     }
@@ -299,10 +299,10 @@ int decomp(const int mypid,
       spreadfile.close();
       std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
       char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>(spreadFile.c_str()),(char*)NULL};
-      std::cout<<"  Running nemspread command: "<<spreadStr <<" "<<spreadArg[1]<<std::endl;
+      std::cout<<"  Running nemspread command: "<<spreadStr <<" "<<spreadArg[1]<<"\n";
       //if(-1 == system(spreadStr.c_str()) ){
       if(-1 == do_sys_call(spreadStr.c_str(), spreadArg) ){
-	std::cout<<"Error running nemspread: "<<spreadStr<<std::endl;
+	std::cout<<"Error running nemspread: "<<spreadStr<<"\n";
 	exit(0);
       }
     }
@@ -318,7 +318,7 @@ int decomp(const int mypid,
   (void) MPI_Finalize ();
 #endif
     if( 0 == mypid ){
-      std::cout<<"writedecomp completed."<<std::endl<<std::endl;
+      std::cout<<"writedecomp completed."<<"\n"<<"\n";
     }
     exit(0);
   }
@@ -364,23 +364,23 @@ int decomp(const int mypid,
   outfile=decompPath+std::to_string(mypid+1)+"/"+nemStr+".par."+std::to_string(numproc)+"."+mypidstring;
 
   if( 0 == mypid  && !restart){
-    std::cout<<std::endl<<"Exiting decomp"<<std::endl<<std::endl;
+    std::cout<<"\n"<<"Exiting decomp"<<"\n"<<"\n";
   }
   return 0;
 }
 int join(const int mypid, const int numproc)
 {
   if( 0 == mypid ){
-    std::cout<<"Entering join: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
+    std::cout<<"Entering join: PID "<<mypid<<" NumProcs "<<numproc<<"\n"<<"\n";
     std::string decompPath="./decomp/";
     std::string trilinosPath=TRILINOS_DIR;
     std::string comStr = trilinosPath+"bin/epu";// -auto -add_processor_id "+decompPath+"results.e."+std::to_string(numproc)+".000";
     char * comArg[] = {(char*)"epu",(char*)"-auto", (char*)"-add_processor_id",const_cast<char*>((decompPath+"results.e."+std::to_string(numproc)+".000").c_str()),(char*)NULL};
  
-    std::cout<<"Running epu command: "<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<comArg[3]<<std::endl;
+    std::cout<<"Running epu command: "<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<comArg[3]<<"\n";
     //if(-1 == system(comStr.c_str()) ){
     if(-1 == do_sys_call(comStr.c_str(), comArg) ){
-      std::cout<<"Error running epu: "<<comStr<<std::endl;
+      std::cout<<"Error running epu: "<<comStr<<"\n";
       exit(0);
     }
   }
@@ -391,7 +391,7 @@ int do_sys_call(const char* command, char * const arg[] )
   int status = -99;
   int * s = &status;
   int pid = vfork();
-  //std::cout<<"pid = "<<pid<<std::endl;
+  //std::cout<<"pid = "<<pid<<"\n";
   int err = 0;
   if( 0 == pid ) {
     err = execvp(command,arg);
@@ -401,15 +401,15 @@ int do_sys_call(const char* command, char * const arg[] )
   else {
     wait(s);
   }
-  //std::cout<<"err = "<<err<<std::endl;
+  //std::cout<<"err = "<<err<<"\n";
   return err;
 }
 void print_disclaimer(const int mypid)
 {
   if(0 == mypid){
-    std::cout<<std::endl
+    std::cout<<"\n"
 	     <<"Tusas Version 1.0 is registered with Los Alamos National Laboratory (LANL) as LA-CC-17-001."
-	     <<std::endl<<std::endl;
+	     <<"\n"<<"\n";
   }
 }
 void print_copyright(const int mypid)

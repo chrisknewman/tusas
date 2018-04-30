@@ -30,7 +30,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   paramList.set(TusasntNameString,(int)140,TusasntDocString);
   //paramList.set(TusasntNameString,(int)1,TusasntDocString);
   //paramList.set(TusasntNameString,(int)14000,TusasntDocString);
-  //std::cout<<paramList<<std::endl<<std::endl;
+  //std::cout<<paramList<<"\n"<<std::endl;
   paramList.set(TusastestNameString,"cummins",TusastestDocString);
 
   paramList.set(TusasthetaNameString,(double)1.,TusasthetaDocString);
@@ -149,7 +149,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   if( parse_return != Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL ) {
     if( 0 == mypid ){
-      std::cout << "Default parameter values:\n" << std::endl;
+      std::cout << "Default parameter values:\n" << "\n";
       paramList.print(std::cout, 2, true, true );
     }
     exit(parse_return);
@@ -162,8 +162,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     Teuchos::updateParametersFromXmlFile(inputFileName,inOutArg(paramList));
   } else {
     // no file message here about defaults
-    std::cout << "No input file specified, or not read successfully. Default values will be used.\n" << std::endl;
-    std::cout << "Default values:\n" << std::endl;
+    std::cout << "No input file specified, or not read successfully. Default values will be used.\n" << "\n";
+    std::cout << "Default values:\n" << "\n";
   }
 
 //   if((0 != paramList.get<int>(TusasntNameString))%(paramList.get<int>(TusasoutputfreqNameString)))
@@ -180,7 +180,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
  
   if( 0 == mypid ){
     paramList.print(std::cout, 2, true, true );
-    std::cout<<std::endl<<"Initial parameter list completed."<<std::endl<<std::endl<<std::endl;
+    std::cout<<"\n"<<"Initial parameter list completed."<<"\n"<<"\n"<<"\n";
   }
 
   //exit(0);

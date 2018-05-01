@@ -182,146 +182,148 @@ int decomp(const int mypid,
 
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
-
-  if( 0 == mypid && !restart && !skipdecomp){
-    std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<"\n"<<"\n";
-
-    std::ofstream decompfile;
-    if( writedecomp ){
-      std::cout<<"writedecomp started."<<"\n"<<"\n";
-      std::string decompFile="./decompscript";
-      decompfile.open(decompFile.c_str());
-      decompfile
-	<<"#!/bin/bash"<<"\n";
-    }
-    
-    std::string rmdirStr = "rm";//+" -r "+decompPath;//+";mkdir "+decompPath;
-    char * rmdirArg[] = {(char*)"rm",(char*)"-rf",const_cast<char*>((decompPath).c_str()),(char*)NULL};
-    if( writedecomp ){
-      decompfile
-	<<rmdirArg[0]<<" "<<rmdirArg[1]<<" "<<rmdirArg[2]<<"\n";
-    } 
-    else {
-      //if(-1 == system(comStr.c_str()) ){
-      if(0 != do_sys_call(rmdirStr.c_str(), rmdirArg) ){
-	std::cout<<"Error removing directory: "<<decompPath<<"\n";
-	exit(0);
+  if( 0 == mypid ){
+    if( !restart && !skipdecomp){
+      std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<"\n"<<"\n";
+      
+      std::ofstream decompfile;
+      if( writedecomp ){
+	std::cout<<"writedecomp started."<<"\n"<<"\n";
+	std::string decompFile="./decompscript";
+	decompfile.open(decompFile.c_str());
+	decompfile
+	  <<"#!/bin/bash"<<"\n";
       }
-    }
-
-    std::string comStr = "mkdir";//+decompPath;
-    char * comArg[] = {(char*)"mkdir",const_cast<char*>((decompPath).c_str()),(char*)NULL};
-    if( writedecomp ){
-      decompfile
-	<<comArg[0]<<" "<<comArg[1]<<"\n";
-    }
-    else {
-      if(-1 == do_sys_call(comStr.c_str(), comArg) ){
-	std::cout<<"Error creating directory: "<<decompPath<<"\n";
-	exit(0);
-      }
-    }
-    std::cout<<"  Creating decomp dir: "<<comStr<<" "<<comArg[1]<<"\n";
-
-    for( int i = 0; i < numproc; i++){
-      std::string numStr = std::to_string(i+1);
-      std::string mkdirStr = "mkdir";//+decompPath+numStr;
-      char * mkdirArg[] = {(char*)"mkdir",const_cast<char*>((decompPath+numStr).c_str()),(char*)NULL};
+      
+      std::string rmdirStr = "rm";//+" -r "+decompPath;//+";mkdir "+decompPath;
+      char * rmdirArg[] = {(char*)"rm",(char*)"-rf",const_cast<char*>((decompPath).c_str()),(char*)NULL};
       if( writedecomp ){
 	decompfile
-	  <<mkdirArg[0]<<" "<<mkdirArg[1]<<"\n";
-      }
+	  <<rmdirArg[0]<<" "<<rmdirArg[1]<<" "<<rmdirArg[2]<<"\n";
+      } 
       else {
-	//if(-1 == system(mkdirStr.c_str()) ){
-	if(-1 == do_sys_call(mkdirStr.c_str(), mkdirArg) ){
-	  std::cout<<"Error creating directory: "<<numStr<<"\n";
+	//if(-1 == system(comStr.c_str()) ){
+	if(0 != do_sys_call(rmdirStr.c_str(), rmdirArg) ){
+	  std::cout<<"Error removing directory: "<<decompPath<<"\n";
 	  exit(0);
 	}
       }
-      std::cout<<"  Creating decomp dirs: "<<mkdirStr<<" "<<mkdirArg[1]<<"\n";
-    }
-
-    std::string trilinosPath=TRILINOS_DIR;
-    std::string nemFile =decompPath+nemStr+".nemI";
-    std::string sliceStr = trilinosPath+"/bin/nem_slice";//+" -e -m mesh="+std::to_string(numproc)+" -l inertial -o "+nemFile+" "+infile;
-
-    if( writedecomp ){
-      std::string sliceFile="./input-ldbl";
-      std::ofstream slicefile;
-      slicefile.open(sliceFile.c_str());
-      slicefile 
-	<<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n" 
-	<<"GRAPH TYPE			= ELEMENTAL"<<"\n" 
-	<<"DECOMPOSITION METHOD		= INERTIAL"<<"\n" 
-	<<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
-      slicefile.close();
-      char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
-    
-      decompfile
-	<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<"\n";
-    }
-    else {
-      std::string sliceFile=decompPath+"input-ldbl";
-      std::ofstream slicefile;
-      slicefile.open(sliceFile.c_str());
-      slicefile 
-	<<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n"
-	<<"GRAPH TYPE			= ELEMENTAL"<<"\n"
-	<<"DECOMPOSITION METHOD		= INERTIAL"<<"\n" 
-	<<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
-      slicefile.close();
-      char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
-      std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<"\n";
-
+      
+      std::string comStr = "mkdir";//+decompPath;
+      char * comArg[] = {(char*)"mkdir",const_cast<char*>((decompPath).c_str()),(char*)NULL};
+      if( writedecomp ){
+	decompfile
+	  <<comArg[0]<<" "<<comArg[1]<<"\n";
+      }
+      else {
+	if(-1 == do_sys_call(comStr.c_str(), comArg) ){
+	  std::cout<<"Error creating directory: "<<decompPath<<"\n";
+	  exit(0);
+	}
+      }
+      std::cout<<"  Creating decomp dir: "<<comStr<<" "<<comArg[1]<<"\n";
+      
+      for( int i = 0; i < numproc; i++){
+	std::string numStr = std::to_string(i+1);
+	std::string mkdirStr = "mkdir";//+decompPath+numStr;
+	char * mkdirArg[] = {(char*)"mkdir",const_cast<char*>((decompPath+numStr).c_str()),(char*)NULL};
+	if( writedecomp ){
+	  decompfile
+	    <<mkdirArg[0]<<" "<<mkdirArg[1]<<"\n";
+	}
+	else {
+	  //if(-1 == system(mkdirStr.c_str()) ){
+	  if(-1 == do_sys_call(mkdirStr.c_str(), mkdirArg) ){
+	    std::cout<<"Error creating directory: "<<numStr<<"\n";
+	    exit(0);
+	  }
+	}
+	std::cout<<"  Creating decomp dirs: "<<mkdirStr<<" "<<mkdirArg[1]<<"\n";
+      }
+      
+      std::string trilinosPath=TRILINOS_DIR;
+      std::string nemFile =decompPath+nemStr+".nemI";
+      std::string sliceStr = trilinosPath+"/bin/nem_slice";//+" -e -m mesh="+std::to_string(numproc)+" -l inertial -o "+nemFile+" "+infile;
+      
+      if( writedecomp ){
+	std::string sliceFile="./input-ldbl";
+	std::ofstream slicefile;
+	slicefile.open(sliceFile.c_str());
+	slicefile 
+	  <<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n" 
+	  <<"GRAPH TYPE			= ELEMENTAL"<<"\n" 
+	  <<"DECOMPOSITION METHOD		= INERTIAL"<<"\n" 
+	  <<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
+	slicefile.close();
+	char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
+	
+	decompfile
+	  <<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<"\n";
+      }
+      else {
+	std::string sliceFile=decompPath+"input-ldbl";
+	std::ofstream slicefile;
+	slicefile.open(sliceFile.c_str());
+	slicefile 
+	  <<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n"
+	  <<"GRAPH TYPE			= ELEMENTAL"<<"\n"
+	  <<"DECOMPOSITION METHOD		= INERTIAL"<<"\n" 
+	  <<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
+	slicefile.close();
+	char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
+	std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<"\n";
+	
 	//if(-1 == system(sliceStr.c_str()) ){
-      if(-1 == do_sys_call(sliceStr.c_str(),sliceArg) ){
-	std::cout<<"Error running nemslice: "<<sliceStr<<"\n";
-	exit(0);
+	if(-1 == do_sys_call(sliceStr.c_str(),sliceArg) ){
+	  std::cout<<"Error running nemslice: "<<sliceStr<<"\n";
+	  exit(0);
+	}
       }
-    }
-
-    if( writedecomp ){
-      std::string spreadFile="./nem_spread.inp";
-      std::ofstream spreadfile;
-      spreadfile.open(spreadFile.c_str());
-      spreadfile 
-	<<"Input FEM file		= "<<infile<<"\n" 
-	<<"LB file         	= "<<nemFile<<"\n" 
-	<<"Restart Time list	= off"<<"\n"  
-	<<"Parallel Disk Info	= number="<<std::to_string(numproc)<<"\n" 
-	<<"Parallel file location	= root=./"<<decompPath<<", subdir=."<<"\n";
-      spreadfile.close();
-      std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
-      char * spreadArg[] = {(char*)"nem_spread",(char*)"nem_spread.inp",(char*)NULL};
-
-      decompfile
-	<<spreadStr<<" "<<spreadArg[1]<<"\n";
-    }
-    else {
-      std::string spreadFile=decompPath+"nem_spread.inp";
-      std::ofstream spreadfile;
-      spreadfile.open(spreadFile.c_str());
-      spreadfile 
-	<<"Input FEM file		= "<<infile<<"\n" 
-	<<"LB file         	= "<<nemFile<<"\n" 
-	<<"Restart Time list	= off"<<"\n" 
-	<<"Parallel Disk Info	= number="<<std::to_string(numproc)<<"\n" 
-	<<"Parallel file location	= root=./"<<decompPath<<", subdir=."<<"\n" ;
-      spreadfile.close();
-      std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
-      char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>(spreadFile.c_str()),(char*)NULL};
-      std::cout<<"  Running nemspread command: "<<spreadStr <<" "<<spreadArg[1]<<"\n";
-      //if(-1 == system(spreadStr.c_str()) ){
-      if(-1 == do_sys_call(spreadStr.c_str(), spreadArg) ){
-	std::cout<<"Error running nemspread: "<<spreadStr<<"\n";
-	exit(0);
+      
+      if( writedecomp ){
+	std::string spreadFile="./nem_spread.inp";
+	std::ofstream spreadfile;
+	spreadfile.open(spreadFile.c_str());
+	spreadfile 
+	  <<"Input FEM file		= "<<infile<<"\n" 
+	  <<"LB file         	= "<<nemFile<<"\n" 
+	  <<"Restart Time list	= off"<<"\n"  
+	  <<"Parallel Disk Info	= number="<<std::to_string(numproc)<<"\n" 
+	  <<"Parallel file location	= root=./"<<decompPath<<", subdir=."<<"\n";
+	spreadfile.close();
+	std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
+	char * spreadArg[] = {(char*)"nem_spread",(char*)"nem_spread.inp",(char*)NULL};
+	
+	decompfile
+	  <<spreadStr<<" "<<spreadArg[1]<<"\n";
       }
-    }
+      else {
+	std::string spreadFile=decompPath+"nem_spread.inp";
+	std::ofstream spreadfile;
+	spreadfile.open(spreadFile.c_str());
+	spreadfile 
+	  <<"Input FEM file		= "<<infile<<"\n" 
+	  <<"LB file         	= "<<nemFile<<"\n" 
+	  <<"Restart Time list	= off"<<"\n" 
+	  <<"Parallel Disk Info	= number="<<std::to_string(numproc)<<"\n" 
+	  <<"Parallel file location	= root=./"<<decompPath<<", subdir=."<<"\n" ;
+	spreadfile.close();
+	std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
+	char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>(spreadFile.c_str()),(char*)NULL};
+	std::cout<<"  Running nemspread command: "<<spreadStr <<" "<<spreadArg[1]<<"\n";
+	//if(-1 == system(spreadStr.c_str()) ){
+	if(-1 == do_sys_call(spreadStr.c_str(), spreadArg) ){
+	  std::cout<<"Error running nemspread: "<<spreadStr<<"\n";
+	  exit(0);
+	}
+      }
+      
+      if( writedecomp ){
+	decompfile.close();
+      }
+    }//if( !restart && !skipdecomp)
+  }
 
-    if( writedecomp ){
-      decompfile.close();
-    }
-  }//if( 0 == mypid && !restart)
   //if(  0 == mypid  && writedecomp ){
   comm->Barrier();
   if( writedecomp ){

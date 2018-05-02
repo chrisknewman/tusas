@@ -74,96 +74,106 @@ int main(int argc, char *argv[])
   Epetra_SerialComm Comm;
 #endif
 
-  int mypid = Comm.MyPID();
-  int numproc = Comm.NumProc();
-  
-  print_disclaimer(mypid);
-  print_copyright(mypid);
-
-  Teuchos::ParameterList paramList;
-
-  readParametersFromFile(argc, argv, paramList, mypid );
-
-  //Mesh * in_mesh = new Mesh(mypid,numproc,false);
-  Mesh * in_mesh;
-  if(1 == numproc ){
-    in_mesh = new Mesh(mypid,numproc,false);
-    in_mesh->read_exodus((paramList.get<std::string> (TusasmeshNameString) ).c_str());
-  }
-  else {
-    if( paramList.get<std::string> (TusasmethodNameString)  != "nemesis") {
-      std::cout<<"More than 1 proc only implemented for nemesis class now."<<"\n";
-      exit(0);
-    }
-    std::string pfile;
-    Comm.Barrier();
-    int dval = decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString), paramList.get<bool> (TusasskipdecompNameString), paramList.get<bool> (TusaswritedecompNameString),&Comm);
+  RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Total Run Time");
+  {
+    Teuchos::TimeMonitor TotalTimer(*ts_time_total);
+    int mypid = Comm.MyPID();
+    int numproc = Comm.NumProc();
     
-    if(0 != dval) {
-      return 0;
+    print_disclaimer(mypid);
+    print_copyright(mypid);
+    
+    Teuchos::ParameterList paramList;
+    
+    readParametersFromFile(argc, argv, paramList, mypid );
+    
+    //Mesh * in_mesh = new Mesh(mypid,numproc,false);
+    Mesh * in_mesh;
+    if(1 == numproc ){
+      in_mesh = new Mesh(mypid,numproc,false);
+      in_mesh->read_exodus((paramList.get<std::string> (TusasmeshNameString) ).c_str());
     }
-    Comm.Barrier();
-    in_mesh = new Mesh(mypid,numproc,false);
-    in_mesh->read_exodus(pfile.c_str());
-    //exit(0);
-  }
-  in_mesh->set_global_file_name(paramList.get<std::string> (TusasmeshNameString) );
-
-  double dt = paramList.get<double> (TusasdtNameString);
-  int numSteps = paramList.get<int> (TusasntNameString);
-
-  timestep<double> * model;
-  if( paramList.get<std::string> (TusasmethodNameString)  == "phaseheat") {
-    model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
-  }
-  else if ( paramList.get<std::string> (TusasmethodNameString)  == "heat") {
-    model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
-  }
-  else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
-    model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
-  }
-  else {
-    std::cout<<"Invalid method."<<"\n"<<"\n";
-    return EXIT_FAILURE;
-    //exit(0);
-  }
-
-  model->initialize();
-
-  //cn these values are not updated correctly during a restart
-  double curTime = model->get_start_time();
-  //cn these values are not updated correctly during a restart
-  int elapsedSteps = model->get_start_step();
-  //cn these values are not updated correctly during a restart
-  double endTime = curTime + ((double)numSteps-elapsedSteps)*dt;
-
-  while ( ( curTime <= endTime ) && ( elapsedSteps < numSteps ) ) {
-    model->advance();
-    curTime += dt;
-    elapsedSteps++;
-    if(0 == mypid){
-      cout<< endl << "Time step " <<elapsedSteps <<" of "<<numSteps
-	  << "  ( "<<(float)elapsedSteps/(float)numSteps*100. <<" % )   t = "
-	  <<curTime<<"  t final = "<<endTime<< endl<<endl<<endl;
-    }
-    if(0 == elapsedSteps%(paramList.get<int> (TusasoutputfreqNameString)) &&
-       elapsedSteps != numSteps){
-      if(0 == mypid) std::cout<<"Writing exodus file : timestep :"<<elapsedSteps<<"\n";
+    else {
+      if( paramList.get<std::string> (TusasmethodNameString)  != "nemesis") {
+	std::cout<<"More than 1 proc only implemented for nemesis class now."<<"\n";
+	exit(0);
+      }
+      std::string pfile;
+      Comm.Barrier();
+      int dval = decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString), paramList.get<bool> (TusasskipdecompNameString), paramList.get<bool> (TusaswritedecompNameString),&Comm);
       
-      model->write_exodus();
+      if(0 != dval) {
+	Teuchos::TimeMonitor::summarize();
+	std::ofstream timefile;
+	timefile.open("time.dat");
+	Teuchos::TimeMonitor::summarize(timefile);
+	return 0;
+      }
+      Comm.Barrier();
+      in_mesh = new Mesh(mypid,numproc,false);
+      in_mesh->read_exodus(pfile.c_str());
+      //exit(0);
     }
+    in_mesh->set_global_file_name(paramList.get<std::string> (TusasmeshNameString) );
+    
+    double dt = paramList.get<double> (TusasdtNameString);
+    int numSteps = paramList.get<int> (TusasntNameString);
+    
+    timestep<double> * model;
+    if( paramList.get<std::string> (TusasmethodNameString)  == "phaseheat") {
+      model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
+    }
+    else if ( paramList.get<std::string> (TusasmethodNameString)  == "heat") {
+      model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
+    }
+    else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
+      model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
+    }
+    else {
+      std::cout<<"Invalid method."<<"\n"<<"\n";
+      return EXIT_FAILURE;
+      //exit(0);
+    }
+    
+    model->initialize();
+    
+    //cn these values are not updated correctly during a restart
+    double curTime = model->get_start_time();
+    //cn these values are not updated correctly during a restart
+    int elapsedSteps = model->get_start_step();
+    //cn these values are not updated correctly during a restart
+    double endTime = curTime + ((double)numSteps-elapsedSteps)*dt;
+    
+    while ( ( curTime <= endTime ) && ( elapsedSteps < numSteps ) ) {
+      model->advance();
+      curTime += dt;
+      elapsedSteps++;
+      if(0 == mypid){
+	cout<< endl << "Time step " <<elapsedSteps <<" of "<<numSteps
+	    << "  ( "<<(float)elapsedSteps/(float)numSteps*100. <<" % )   t = "
+	    <<curTime<<"  t final = "<<endTime<< endl<<endl<<endl;
+      }
+      if(0 == elapsedSteps%(paramList.get<int> (TusasoutputfreqNameString)) &&
+	 elapsedSteps != numSteps){
+	if(0 == mypid) std::cout<<"Writing exodus file : timestep :"<<elapsedSteps<<"\n";
+	
+	model->write_exodus();
+      }
+    }
+    
+    model->finalize();
+    
+    Comm.Barrier();
+    
+    if(1 != numproc ) join(mypid, numproc);
+    
+    delete model;
+    delete in_mesh;
   }
-
-  model->finalize();
-  
-  Comm.Barrier();
-
-  if(1 != numproc ) join(mypid, numproc);
-
   Teuchos::TimeMonitor::summarize();
-
-  delete model;
-  delete in_mesh;
+  std::ofstream timefile;
+  timefile.open("time.dat");
+  Teuchos::TimeMonitor::summarize(timefile);
   return 0;
 }
 
@@ -182,12 +192,15 @@ int decomp(const int mypid,
 
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
+  RCP<Teuchos::Time> ts_time_decomp = Teuchos::TimeMonitor::getNewTimer("Total Decomp Time");
+  Teuchos::TimeMonitor DecompTimer(*ts_time_decomp);
   if( 0 == mypid ){
     if( !restart && !skipdecomp){
       std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<"\n"<<"\n";
       
       std::ofstream decompfile;
       if( writedecomp ){
+	
 	std::cout<<"writedecomp started."<<"\n"<<"\n";
 	std::string decompFile="./decompscript";
 	decompfile.open(decompFile.c_str());
@@ -216,12 +229,12 @@ int decomp(const int mypid,
 	  <<comArg[0]<<" "<<comArg[1]<<"\n";
       }
       else {
+	std::cout<<"  Creating decomp dir: "<<comStr<<" "<<comArg[1]<<"\n";
 	if(-1 == do_sys_call(comStr.c_str(), comArg) ){
 	  std::cout<<"Error creating directory: "<<decompPath<<"\n";
 	  exit(0);
 	}
       }
-      std::cout<<"  Creating decomp dir: "<<comStr<<" "<<comArg[1]<<"\n";
       
       for( int i = 0; i < numproc; i++){
 	std::string numStr = std::to_string(i+1);
@@ -232,13 +245,13 @@ int decomp(const int mypid,
 	    <<mkdirArg[0]<<" "<<mkdirArg[1]<<"\n";
 	}
 	else {
+	  std::cout<<"  Creating decomp dirs: "<<mkdirStr<<" "<<mkdirArg[1]<<"\n";
 	  //if(-1 == system(mkdirStr.c_str()) ){
 	  if(-1 == do_sys_call(mkdirStr.c_str(), mkdirArg) ){
 	    std::cout<<"Error creating directory: "<<numStr<<"\n";
 	    exit(0);
 	  }
 	}
-	std::cout<<"  Creating decomp dirs: "<<mkdirStr<<" "<<mkdirArg[1]<<"\n";
       }
       
       std::string trilinosPath=TRILINOS_DIR;
@@ -322,13 +335,12 @@ int decomp(const int mypid,
 	decompfile.close();
       }
     }//if( !restart && !skipdecomp)
-  }
-
-  //if(  0 == mypid  && writedecomp ){
+  }//if(  0 == mypid )
+  
   comm->Barrier();
   if( writedecomp ){
 #ifdef HAVE_MPI
-  (void) MPI_Finalize ();
+    //(void) MPI_Finalize ();
 #endif
     if( 0 == mypid ){
       std::cout<<"writedecomp completed."<<"\n"<<"\n";

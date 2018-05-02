@@ -1471,10 +1471,6 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   outfile.close();
 #endif
 #endif
-
-  std::ofstream timefile;
-  timefile.open("time.dat");
-  Teuchos::TimeMonitor::summarize(timefile);
   
   //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
   if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1== comm_->NumProc())){

@@ -12,6 +12,8 @@
 
 #include "Teuchos_CommandLineProcessor.hpp"
 #include "Teuchos_XMLParameterListHelpers.hpp"
+#include <Teuchos_RCP.hpp>
+#include "Teuchos_TimeMonitor.hpp"
 //	#include "Teuchos_StandardParameterEntryValidators.hpp"
 #include <ml_MultiLevelPreconditioner.h>
 
@@ -21,6 +23,9 @@
 
 void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &paramList, int mypid )
 {
+  using Teuchos::RCP;
+  RCP<Teuchos::Time> ts_time_read = Teuchos::TimeMonitor::getNewTimer("Total Read Input Time");
+  Teuchos::TimeMonitor ReadTimer(*ts_time_read);
   //set defaults here
   paramList.set(TusasmeshNameString,"meshes/dendquad300_q.e",TusasmeshDocString);
 

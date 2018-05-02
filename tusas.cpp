@@ -61,6 +61,7 @@ int do_sys_call(const char* command, char * const arg[] = NULL );
 int join(const int mypid, const int numproc);
 void print_disclaimer(const int mypid);
 void print_copyright(const int mypid);
+void write_timers();
 
 int main(int argc, char *argv[])
 {
@@ -75,45 +76,59 @@ int main(int argc, char *argv[])
 #endif
 
   RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Total Run Time");
+  
+  int mypid = Comm.MyPID();
+  int numproc = Comm.NumProc();
+  
+  Teuchos::ParameterList paramList;
+  
   {
-    Teuchos::TimeMonitor TotalTimer(*ts_time_total);
-    int mypid = Comm.MyPID();
-    int numproc = Comm.NumProc();
-    
     print_disclaimer(mypid);
     print_copyright(mypid);
     
-    Teuchos::ParameterList paramList;
-    
+    Teuchos::TimeMonitor TotalTimer(*ts_time_total);
     readParametersFromFile(argc, argv, paramList, mypid );
-    
-    //Mesh * in_mesh = new Mesh(mypid,numproc,false);
-    Mesh * in_mesh;
+
+    if( 1 != numproc && paramList.get<std::string> (TusasmethodNameString)  != "nemesis") {
+      std::cout<<"More than 1 proc only implemented for nemesis class now."<<"\n";
+      return EXIT_FAILURE;
+    }
+    if( 1 == numproc && paramList.get<bool> (TusaswritedecompNameString) ) {
+      std::cout<<"More than 1 proc required for writedecomp option."<<"\n";
+      return EXIT_FAILURE;
+    }
+  }
+
+  Mesh * in_mesh;
+  std::string pfile;
+  int dval = 0;
+  {
+    Teuchos::TimeMonitor TotalTimer(*ts_time_total);
     if(1 == numproc ){
-      in_mesh = new Mesh(mypid,numproc,false);
-      in_mesh->read_exodus((paramList.get<std::string> (TusasmeshNameString) ).c_str());
+      pfile = paramList.get<std::string> (TusasmeshNameString);
     }
     else {
-      if( paramList.get<std::string> (TusasmethodNameString)  != "nemesis") {
-	std::cout<<"More than 1 proc only implemented for nemesis class now."<<"\n";
-	exit(0);
-      }
-      std::string pfile;
       Comm.Barrier();
-      int dval = decomp(mypid, numproc, paramList.get<std::string> (TusasmeshNameString), pfile, paramList.get<bool> (TusasrestartNameString), paramList.get<bool> (TusasskipdecompNameString), paramList.get<bool> (TusaswritedecompNameString),&Comm);
-      
-      if(0 != dval) {
-	Teuchos::TimeMonitor::summarize();
-	std::ofstream timefile;
-	timefile.open("time.dat");
-	Teuchos::TimeMonitor::summarize(timefile);
-	return 0;
-      }
+      dval = decomp(mypid, 
+		    numproc, 
+		    paramList.get<std::string> (TusasmeshNameString), 
+		    pfile, 
+		    paramList.get<bool> (TusasrestartNameString), 
+		    paramList.get<bool> (TusasskipdecompNameString), 
+		    paramList.get<bool> (TusaswritedecompNameString),
+		    &Comm);      
       Comm.Barrier();
-      in_mesh = new Mesh(mypid,numproc,false);
-      in_mesh->read_exodus(pfile.c_str());
-      //exit(0);
     }
+  }
+  if(0 != dval) {
+    write_timers();
+    return 0;
+  }
+ 
+  {
+    Teuchos::TimeMonitor TotalTimer(*ts_time_total); 
+    in_mesh = new Mesh(mypid,numproc,false);
+    in_mesh->read_exodus(pfile.c_str());
     in_mesh->set_global_file_name(paramList.get<std::string> (TusasmeshNameString) );
     
     double dt = paramList.get<double> (TusasdtNameString);
@@ -132,7 +147,6 @@ int main(int argc, char *argv[])
     else {
       std::cout<<"Invalid method."<<"\n"<<"\n";
       return EXIT_FAILURE;
-      //exit(0);
     }
     
     model->initialize();
@@ -170,10 +184,7 @@ int main(int argc, char *argv[])
     delete model;
     delete in_mesh;
   }
-  Teuchos::TimeMonitor::summarize();
-  std::ofstream timefile;
-  timefile.open("time.dat");
-  Teuchos::TimeMonitor::summarize(timefile);
+  write_timers();
   return 0;
 }
 
@@ -484,4 +495,11 @@ void print_copyright(const int mypid)
 	     <<"THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."<<"\n"
 	     <<"\n"<<"\n";
   }
+}
+void write_timers()
+{ 
+  Teuchos::TimeMonitor::summarize(std::cout,false,true,false);
+  std::ofstream timefile;
+  timefile.open("time.dat");
+  Teuchos::TimeMonitor::summarize(timefile,false,true,false);
 }

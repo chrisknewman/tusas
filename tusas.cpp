@@ -67,6 +67,8 @@ int main(int argc, char *argv[])
 {
   Teuchos::TimeMonitor::zeroOutTimers();
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
+  RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Total Run Time");
+  Teuchos::ParameterList paramList;
 
   // Create a communicator for Epetra objects
 #ifdef HAVE_MPI
@@ -74,19 +76,21 @@ int main(int argc, char *argv[])
 #else
   Epetra_SerialComm Comm;
 #endif
-
-  RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Total Run Time");
   
-  int mypid = Comm.MyPID();
-  int numproc = Comm.NumProc();
-  
-  Teuchos::ParameterList paramList;
-  
+  int mypid;
+  int numproc;
+    
+  Mesh * in_mesh;
+  std::string pfile;
+  int dval = 0;
   {
+    mypid = Comm.MyPID();
+    numproc = Comm.NumProc();
+
+    Teuchos::TimeMonitor TotalTimer(*ts_time_total);
     print_disclaimer(mypid);
     print_copyright(mypid);
     
-    Teuchos::TimeMonitor TotalTimer(*ts_time_total);
     readParametersFromFile(argc, argv, paramList, mypid );
 
     if( 1 != numproc && paramList.get<std::string> (TusasmethodNameString)  != "nemesis") {
@@ -97,13 +101,7 @@ int main(int argc, char *argv[])
       std::cout<<"More than 1 proc required for writedecomp option."<<"\n";
       return EXIT_FAILURE;
     }
-  }
 
-  Mesh * in_mesh;
-  std::string pfile;
-  int dval = 0;
-  {
-    Teuchos::TimeMonitor TotalTimer(*ts_time_total);
     if(1 == numproc ){
       pfile = paramList.get<std::string> (TusasmeshNameString);
     }

@@ -251,7 +251,8 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
 	    int row1 = row + k;
 	    int column1 = column + k;
 	    
-	    W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
+	    //W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
+	    W_graph->InsertGlobalIndices(row1, (int)1, &column1);
 
 	  }
 	}
@@ -705,7 +706,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #ifdef PERIODIC_BC
 	  for(boost::ptr_vector<periodic_bc>::const_iterator it = periodic_bc_[k].begin();it != periodic_bc_[k].end();++it){
 	  
-	    it->import_data(*f_fe_p,u);
+	    //it->import_data(*f_fe_p,u);
+	    it->import_data(*f_fe_p,u_in);
 
 	    int ns_size = it->u_rep_->Map().NumMyElements ();
 
@@ -3052,9 +3054,11 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 #ifdef PERIODIC_BC
     periodic_bc_.resize(numeqs_);
+
     for( int k = 0; k < numeqs_; k++ ){
       periodic_bc_[k].push_back(new periodic_bc(0,2,k,numeqs_,mesh_,comm_));
       periodic_bc_[k].push_back(new periodic_bc(1,3,k,numeqs_,mesh_,comm_));
+      //if(3 == mesh_->get_num_dim() ) periodic_bc_[k].push_back(new periodic_bc(4,5,k,numeqs_,mesh_,comm_));
     }
 #else
     periodicbc_ = new std::vector<std::vector<std::pair<int,int>>>(numeqs_);
@@ -3063,6 +3067,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     for( int k = 0; k < numeqs_; k++ ){
       (*periodicbc_)[k].push_back(std::make_pair(0,2));
       (*periodicbc_)[k].push_back(std::make_pair(1,3));
+      if(3 == mesh_->get_num_dim() ) (*periodicbc_)[k].push_back(std::make_pair(4,5));
     }
 #endif
 

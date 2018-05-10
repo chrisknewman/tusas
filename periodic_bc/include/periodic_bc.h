@@ -44,7 +44,7 @@ public:
   ~periodic_bc();
   /// Import data.
   void import_data(const Epetra_FEVector &f_full, ///< f vector (input)
-		   const Teuchos::RCP<Epetra_Vector>& u_full ///< u vector (input)
+		   const Teuchos::RCP<const Epetra_Vector> u_full ///< u vector (input)
 		   ) const;
 
   /// Replicated vector.

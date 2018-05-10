@@ -254,14 +254,15 @@ int decomp(const int mypid,
 	    <<mkdirArg[0]<<" "<<mkdirArg[1]<<"\n";
 	}
 	else {
-	  std::cout<<"  Creating decomp dirs: "<<mkdirStr<<" "<<mkdirArg[1]<<"\n";
+	  //std::cout<<"  Creating decomp dirs: "<<mkdirArg[1]<<"\n";
+	  std::cout<<"  Creating decomp dirs: "<<decompPath+numStr<<"\n";
 	  //if(-1 == system(mkdirStr.c_str()) ){
 	  if(-1 == do_sys_call(mkdirStr.c_str(), mkdirArg) ){
 	    std::cout<<"Error creating directory: "<<numStr<<"\n";
 	    exit(0);
 	  }
 	}
-      }
+      }//for
       
       std::string trilinosPath=TRILINOS_DIR;
       std::string nemFile =decompPath+nemStr+".nemI";
@@ -410,13 +411,16 @@ int join(const int mypid, const int numproc)
     std::string decompPath="./decomp/";
     std::string trilinosPath=TRILINOS_DIR;
     std::string comStr = trilinosPath+"bin/epu";// -auto -add_processor_id "+decompPath+"results.e."+std::to_string(numproc)+".000";
-    char * comArg[] = {(char*)"epu",(char*)"-auto", (char*)"-add_processor_id",const_cast<char*>((decompPath+"results.e."+std::to_string(numproc)+".000").c_str()),(char*)NULL};
+//     char * comArg[] = {(char*)"epu",(char*)"-auto", (char*)"-add_processor_id",
+// 		       const_cast<char*>((decompPath+"results.e."+std::to_string(numproc)+".000").c_str()),(char*)NULL};
+    char * comArg[] = {(char*)"epu",(char*)"-auto", (char*)"-add_processor_id",
+		       const_cast<char*>(("./decomp/results.e."+std::to_string(numproc)+".000").c_str()),(char*)NULL};
  
     std::cout<<"Running epu command: "<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<comArg[3]<<"\n";
     //if(-1 == system(comStr.c_str()) ){
     if(-1 == do_sys_call(comStr.c_str(), comArg) ){
       std::cout<<"Error running epu: "<<comStr<<"\n";
-      exit(0);
+      return -1;
     }
   }
   return 0;
@@ -500,4 +504,5 @@ void write_timers()
   std::ofstream timefile;
   timefile.open("time.dat");
   Teuchos::TimeMonitor::summarize(timefile,false,true,false);
+  timefile.close();
 }

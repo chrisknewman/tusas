@@ -50,7 +50,7 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   }
 
   if ( 0 == comm_->MyPID())
-    std::cout<<"Post process created for variable "<<index_<<std::endl;
+    std::cout<<"Post process created for variable "<<index_<<std::endl<<std::endl;
   //exit(0);
 };
 

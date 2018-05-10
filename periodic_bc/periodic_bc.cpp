@@ -34,10 +34,19 @@ periodic_bc::periodic_bc(const int ns_id1,
   //cn then replace all the ns1 eqns with u(ns1)-u(ns2)
 
 	//cn see:
-	// http://www.kurims.kyoto-u.ac.jp/~kyodo/kokyuroku/contents/pdf/0836-11.pdf
+	// [1]  http://www.kurims.kyoto-u.ac.jp/~kyodo/kokyuroku/contents/pdf/0836-11.pdf
 	// and similar to
-	// https://orbi.ulg.ac.be/bitstream/2268/100283/1/2012_COMMAT_PBC.pdf
+	// [2] https://orbi.ulg.ac.be/bitstream/2268/100283/1/2012_COMMAT_PBC.pdf
 
+        // we implement eq 14 in [1]
+
+  if( 0 == comm_->MyPID() ){
+    std::cout<<"Entering periodic_bc::periodic_bc for:"<<std::endl
+	     <<"    ns_id1_ = "<<ns_id1_<<std::endl
+	     <<"    ns_id2_ = "<<ns_id2_<<std::endl
+	     <<"    index_  = "<<index_<<std::endl
+	     <<"    numeqs_ = "<<numeqs_<<std::endl<<std::endl;
+  }
   //this sorts all nodelists, we don't want to do this everytime so we need
   //to pass it the nodeset ids eventually
   mesh_->create_sorted_nodesetlists();
@@ -49,13 +58,13 @@ periodic_bc::periodic_bc(const int ns_id1,
   //here we check for same size maps
   if( ns1_map_->NumGlobalElements () != ns2_map_->NumGlobalElements () ){
     if( 0 == comm_->MyPID() ){
-      std::cout<<"Incompatible node set sizes found"<<std::endl;
+      std::cout<<"Incompatible global node set sizes found for index = "<<index_<<"."<<std::endl;
     }
     exit(0);
   }
   if( ns1_map_->NumMyElements () != ns2_map_->NumMyElements () ){
     if( 0 == comm_->MyPID() ){
-      std::cout<<"Incompatible node set sizes found"<<std::endl;
+      std::cout<<"Incompatible local node set sizes found for index = "<<index_<<"."<<std::endl;
     }
     exit(0);
   }
@@ -81,21 +90,43 @@ periodic_bc::periodic_bc(const int ns_id1,
   }else{
     node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
   }
-  //source, target
+
+  // target, source
   importer1_ = Teuchos::rcp(new Epetra_Import(*ns1_map_, *node_map_));
-  importer2_ = Teuchos::rcp(new Epetra_Import(*ns2_map_, *overlap_map_));
+  if( 0 == comm_->MyPID() )
+    std::cout<<"importer1_"<<std::endl;
+
+  //cn I think we are doing something wrong here....
+  //cn the documentation says the source map should have unique gids, 
+  //cn which over_lap_map does not.  In the residual fill we use an inporter like:
+  //cn  importer_ = rcp(new Epetra_Import(*x_overlap_map_, *x_owned_map_));
+
+
+  //importer2_ = Teuchos::rcp(new Epetra_Import(*ns2_map_, *overlap_map_));
+  importer2_ = Teuchos::rcp(new Epetra_Import(*ns2_map_, *node_map_));
+  if( 0 == comm_->MyPID() )
+    std::cout<<"importer2_"<<std::endl;
 
   f_rep_ = Teuchos::rcp(new Epetra_Vector(*ns1_map_));
   u_rep_ = Teuchos::rcp(new Epetra_Vector(*ns2_map_));
   //exit(0);
+  if( 0 == comm_->MyPID() ){
+    std::cout<<"periodic_bc::periodic_bc completed for:"<<std::endl
+	     <<"    ns_id1_ = "<<ns_id1_<<std::endl
+	     <<"    ns_id2_ = "<<ns_id2_<<std::endl
+	     <<"    index_  = "<<index_<<std::endl
+	     <<"    numeqs_ = "<<numeqs_<<std::endl<<std::endl;
+  }
 }
 void periodic_bc::import_data(const Epetra_FEVector &f_full,
-			      const Teuchos::RCP<Epetra_Vector>& u_full ) const
+			      const Teuchos::RCP<const Epetra_Vector> u_full ) const
 {
   //cn f_fe is on the x_owned map and u is on the overlap_map 
-  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*overlap_map_));   
+  //Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*overlap_map_)); 
+  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));  
   //#pragma omp parallel for 
-  for(int nn = 0; nn < overlap_map_->NumMyElements(); nn++ ){
+  // for(int nn = 0; nn < overlap_map_->NumMyElements(); nn++ ){
+  for(int nn = 0; nn < node_map_->NumMyElements(); nn++ ){
     (*u1)[nn]=(*u_full)[numeqs_*nn+index_];
   }
   int err1 = u_rep_->Import(*u1, *importer2_, Insert);
@@ -141,7 +172,7 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
   }//j
 
   int count = comm_->NumProc()*max_size;
-  std::vector<int> AllVals(count);
+  std::vector<int> AllVals(count,-99);
 
   comm_->GatherAll(&gids[0],
 		   &AllVals[0],
@@ -174,6 +205,9 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
 
   //All this and we now have a replicated map for the first nodeset on all procs...
 
+  if( 0 == comm_->MyPID() )
+    std::cout<<"periodic_bc::get_replicated_map completed for id: "<<id<<std::endl;
+
   return ns_map_;
 }
 
@@ -181,5 +215,5 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
 
 periodic_bc::~periodic_bc()
 {
-  delete mesh_;
+  //delete mesh_;
 }

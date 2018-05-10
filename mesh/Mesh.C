@@ -47,6 +47,8 @@ int Mesh::read_exodus(const char * filename){
   int io_ws = 0;
   std::vector<int>::iterator a;
 
+  is_nodesets_sorted = false;
+
   num_nodal_fields = 0;
   num_elem_fields = 0;
 
@@ -1681,6 +1683,8 @@ void Mesh::create_sorted_nodesetlists()
 //   std::cout<<"int num_node_sets "<<num_node_sets<<std::endl;
 //   std::cout<<"num_nodes_per_ns[0] "<<num_nodes_per_ns[0]<<std::endl;
 
+  if(is_nodesets_sorted) return;
+
   sorted_ns_node_list.resize(num_node_sets);
   
   typedef std::tuple<int, double, double, double> tuple_t;
@@ -1729,6 +1733,9 @@ void Mesh::create_sorted_nodesetlists()
       sorted_ns_node_list[i][n] = std::get<0>(sns[n]);
     }//n
   }//i
+
+  is_nodesets_sorted = true;
+
   //   exit(0);
 }
 

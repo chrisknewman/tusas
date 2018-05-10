@@ -52,6 +52,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include "omp.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
@@ -149,8 +150,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 //   exit(0);
 
   x_space_ = ::Thyra::create_VectorSpace(x_owned_map_);
-  
-  
+    
   importer_ = rcp(new Epetra_Import(*x_overlap_map_, *x_owned_map_));
   
   // residual space
@@ -204,8 +204,26 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
 
+#if defined(TUSAS_COLOR_CPU)
+
+  xlen = (mesh_->x).size();
+  meshx = (mesh_->x).data();
+  meshy = (mesh_->y).data();
+  //double *meshz = (mesh_->z).data();
+#endif
+
+
+
 #if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
   Elem_col = rcp(new elem_color(comm_,mesh_));
+#endif
+
+#ifdef TUSAS_COLOR_GPU
+
+  //we need to delete all this as well.....
+  copy_mesh_gpu();
+
+
 #endif
 
   init_nox();
@@ -218,14 +236,6 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
     int error_index = *it;
     Error_est.push_back(new error_estimator(comm_,mesh_,numeqs_,error_index));
   }
-
-// #ifdef TUSAS_COLOR_GPU
-//   int clen = ((mesh_->connect)[0]).size();
-//   mc = new int[clen];
-//   mc = ((mesh_->connect)[0]).data();
-// // #pragma omp target enter data map(to:clen)
-// #pragma omp target enter data map(to:mc[0:clen]) 
-// #endif
 
 
   //exit(0);
@@ -423,7 +433,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);
       u->Import(*u_in, *importer_, Insert);
       u_old->Import(*u_old_, *importer_, Insert);
-      u_old_old->Import(*u_old_old_, *importer_, Insert);
+      //u_old_old->Import(*u_old_old_, *importer_, Insert);
     }
 
     int n_nodes_per_elem;//shared
@@ -437,48 +447,51 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	std::string * elem_type_p = &elem_type;
 
 	//cn right now we assume one and only one of the following is defined
-#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU) 
+#if defined(TUSAS_COLOR_CPU)
 
 	std::vector< std::vector< int > > colors = Elem_col->get_colors();
 	int num_color = Elem_col->get_num_color();
 
 	int alen = u->MyLength () ;
-	double *ua;
-	u->ExtractView(&ua);
-	double *u_olda;
-	u_old->ExtractView(&u_olda);
+	double *uaa;
+	u->ExtractView(&uaa);
+	ua->uaa;
+	double *u_oldaa;
+	u_old->ExtractView(&u_oldaa);
+	u_olda->u_oldaa;
 	double *u_old_olda;
 	u_old_old->ExtractView(&u_old_olda);
 
-	int xlen = (mesh_->x).size();
-	double *meshx = (mesh_->x).data();
-	double *meshy = (mesh_->y).data();
-	//double *meshz = (mesh_->z).data();
-#ifdef TUSAS_COLOR_GPU 
-#pragma omp target enter data map(to:meshx[0:xlen]) 
-#pragma omp target enter data map(to:meshy[0:xlen]) 
-	//#pragma omp target enter data map(to:meshz[0:xlen])
+#endif
+#if defined(TUSAS_COLOR_GPU) 
 
-	int clen = ((mesh_->connect)[blk]).size();
-	int *meshc = ((mesh_->connect)[blk]).data();
-#pragma omp target enter data map(to:meshc[0:clen]) 
+	std::vector< std::vector< int > > colors = Elem_col->get_colors();
+	int num_color = Elem_col->get_num_color();
+
+	//int alen = u->MyLength () ;
+	double *ua;
+	u->ExtractView(&ua);
+
+	//double *u_olda;
+	double *u_oldaa;
+	u_old->ExtractView(&u_oldaa);
+
+	//#pragma omp target update to(ua[0:alen])
+	//#pragma omp target update to(u_olda[0:alen])
+
 #endif
 
-	int nlen = (mesh_->node_num_map).size();
-	int *meshn = (mesh_->node_num_map).data();
-
 #ifdef TUSAS_COLOR_GPU
-#pragma omp target enter data map(to:meshn[0:nlen]) 
 
 	double dt = dt_;
 
 	OMPBasisLQuad B;
 
-#pragma omp target data	map(to:B) 
+#pragma omp target enter data map(to:B) 
 
-#pragma omp target data map(to:u_olda[0:alen]) 
+	//#pragma omp target update to(u_olda[0:alen]) 
+#pragma omp target enter data map(to:u_oldaa[0:alen]) 
 
-#pragma omp target data map(to:ua[0:alen])
 #endif
 	for(int c = 0; c < num_color; c++){//for c
 	  std::vector<int> elem_map = colors[c];//cn this should be mapped also
@@ -490,11 +503,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  int num_nodes_in_c = num_elem*n_nodes_per_elem;
 	  double *values = new double[num_nodes_in_c];
 	  int *rows = new int[num_nodes_in_c];
+#pragma omp target data map(to:ua[0:alen])
 #pragma omp target data \
   map(from:rows[0:num_nodes_in_c]) map(to:elem_mapc[0:num_elem]) map(from:values[0:num_nodes_in_c])
 
 #pragma omp target
-	  {//omp target
+	  //{//omp target
 #pragma omp teams distribute parallel for
 	    for (int ne=0; ne < num_elem; ne++) {//for ne
 	      double xx[4];
@@ -504,6 +518,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      double uu_old[4];
 	      //double uu_old_old[4];
 	      const int elem = elem_mapc[ne];
+	      //#pragma omp parallel for
 	      for(int k = 0; k < n_nodes_per_elem; k++){
 		int nodeid = meshc[elem*n_nodes_per_elem+k];
 		xx[k] = meshx[nodeid];
@@ -511,7 +526,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		//zz[k] = meshz[nodeid];
 		zz[k] = 0.;
 		uu[k] = ua[nodeid]; 
-		uu_old[k] = u_olda[nodeid];
+		uu_old[k] = u_oldaa[nodeid];
 		//uu_old_old[k] = u_old_olda[nodeid];
 	      }//k
 	      
@@ -556,11 +571,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		}//gp
 	      }//i
 	    }//ne
-	  }//omp target
+	    //}//omp target
 
 	  f_fe_p->SumIntoGlobalValues (num_nodes_in_c, rows, values);
-	  delete values;
-	  delete rows;
+	  delete [] values;
+	  delete [] rows;
 
 	  //GPU
 #endif
@@ -627,7 +642,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       }//blk
 
       //CPU or GPU
-#endif
+      //#endif
     
     }//if f_out
 
@@ -1202,6 +1217,7 @@ template<class Scalar>
 ModelEvaluatorNEMESIS<Scalar>::~ModelEvaluatorNEMESIS()
 {
   //  if(!prec_.is_null()) prec_ = Teuchos::null;
+  delete_mesh_gpu();
 }
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::init_nox()
@@ -1357,6 +1373,15 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   random_vector_->Random();
   //random_vector_->Print(std::cout);
 
+
+#ifdef TUSAS_COLOR_GPU
+  RCP< Epetra_Vector> u_old = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));//shared
+  u_old->Import(*u_old_, *importer_, Insert);
+  //copy_uold_gpu(u_old);
+  u_old->ExtractView(&u_olda);
+#pragma omp target update to(u_olda[0:alen])
+#endif
+
   //std::cout<<"random_number_= "<<random_number_<<std::endl;
   {
     Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
@@ -1385,6 +1410,8 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
       (*u_old_)[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
     }
   }
+
+
   //u_old_->Print(std::cout);
   random_number_old_=random_number_;
   random_vector_old_->Scale((double)1.,*random_vector_);
@@ -1482,6 +1509,15 @@ template<class Scalar>
   }
 //   mesh_->add_nodal_field("u");
 //   mesh_->add_nodal_field("phi");
+
+#if defined(TUSAS_COLOR_GPU)
+  RCP< Epetra_Vector> u_old = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));//shared
+  u_old->Import(*u_old_, *importer_, Insert);
+  //copy_uold_gpu(u_old);
+  u_old->ExtractView(&u_olda);
+#pragma omp target update to(u_olda[0:alen])
+#endif
+
   if( 0 == comm_->MyPID()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
 }
 
@@ -3684,6 +3720,71 @@ void ModelEvaluatorNEMESIS<Scalar>::write_openmp()
   outfile.close();
 #endif
 #endif
+  //exit(0);
 }
+
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::copy_mesh_gpu()
+{
+  clen = ((mesh_->connect)[0]).size();
+  meshc = new int[clen];
+  meshc = ((mesh_->connect)[0]).data();
+#pragma omp target enter data map(to:clen)
+#pragma omp target enter data map(alloc:meshc[0:clen])
+#pragma omp target update to(meshc[0:clen])
+
+    nlen = (mesh_->node_num_map).size();
+    meshn = new int[nlen];
+    meshn = (mesh_->node_num_map).data();
+#pragma omp target enter data map(to:nlen)
+#pragma omp target enter data map(alloc:meshn[0:nlen])
+#pragma omp target update to(meshn[0:nlen])
+
+  xlen = (mesh_->x).size();
+  meshx = new double[xlen];
+  meshx = (mesh_->x).data();
+  meshy = new double[xlen];
+  meshy = (mesh_->y).data();
+  //double *meshz = (mesh_->z).data();
+#pragma omp target enter data map(to:xlen)
+#pragma omp target enter data map(alloc:meshx[0:xlen])
+#pragma omp target update to(meshx[0:xlen])
+#pragma omp target enter data map(alloc:meshy[0:xlen])
+#pragma omp target update to(meshy[0:xlen]) 
+//   alen = x_overlap_map_->NumMyElements  () ;
+  RCP< Epetra_Vector> u_old = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));//shared
+  u_old->Import(*u_old_, *importer_, Insert);
+  alen =u_old->MyLength ();
+  u_olda = new double[alen];
+  u_old->ExtractView(&u_olda);
+#pragma omp target enter data map(to:alen)
+#pragma omp target enter data map(alloc:u_olda[0:alen])
+  //u_old->Print(std::cout);
+#pragma omp target update to(u_olda[0:alen])
+  //copy_uold_gpu(u_old);
+
+}
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::delete_mesh_gpu()
+{
+#pragma omp target exit data map(delete:meshc[0:clen])
+#pragma omp target exit data map(delete:meshn[0:nlen])
+#pragma omp target exit data map(delete:meshx[0:xlen])
+#pragma omp target exit data map(delete:meshy[0:xlen])
+  //#pragma omp target exit data map(delete:ua[0:xlen])
+#pragma omp target exit data map(delete:u_olda[0:xlen])
+
+}
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::copy_uold_gpu(RCP< Epetra_Vector> uold)
+//void ModelEvaluatorNEMESIS<Scalar>::copy_uold_gpu(RCP< Epetra_Vector> uold, RCP< Epetra_Vector> uoldold)
+{
+#ifdef TUSAS_COLOR_GPU
+  uold->ExtractView(&u_olda);
+#pragma omp target update to(u_olda[0:alen])
+#endif
+}
+
+
 
 #endif    //NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP

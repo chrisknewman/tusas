@@ -95,9 +95,6 @@ private:
     const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
     ) const;
 
-
-private: // data members
-
   const Teuchos::RCP<const Epetra_Comm>  comm_;
 
   Mesh *mesh_;
@@ -274,8 +271,21 @@ private: // data members
 
   void write_openmp();
 
-};
+  void copy_mesh_gpu();
+  void delete_mesh_gpu();
+  //void copy_uold_gpu(RCP< Epetra_Vector> uold, RCP< Epetra_Vector> uoldold);
+  void copy_uold_gpu(RCP< Epetra_Vector> uold);
 
+  int * meshc;
+  int * meshn;
+  double * meshx;
+  double * meshy;
+  //double * ua;
+  double * u_olda;
+  int clen, nlen, xlen;
+  int alen;
+
+};
 
 
 //==================================================================

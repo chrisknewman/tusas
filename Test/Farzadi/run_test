@@ -1,4 +1,4 @@
 #!/bin/bash
 rm -rf results.e
 mpirun -np 4 $1/tusas --input-file=farzadi.xml
-../exodiff Gold.e results.e 
+../exodiff -f exofile Gold.e results.e 

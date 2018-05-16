@@ -3006,6 +3006,13 @@ PARAM_FUNC(param_)
 
 namespace grain
 {
+
+  //see
+  //[1] Suwa et al, Mater. T. JIM., 44,11, (2003);
+  //[2] Krill et al, Acta Mater., 50,12, (2002); 
+
+
+
   double L = 1.;
   double alpha = 1.;
   double beta = 1.;

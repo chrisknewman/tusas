@@ -702,12 +702,16 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	// https://orbi.ulg.ac.be/bitstream/2268/100283/1/2012_COMMAT_PBC.pdf
 
 
-        for( int k = 0; k < numeqs_; k++ ){
 #ifdef PERIODIC_BC
-	  for(boost::ptr_vector<periodic_bc>::const_iterator it = periodic_bc_[k].begin();it != periodic_bc_[k].end();++it){
 	  
+	for(boost::ptr_vector<periodic_bc>::const_iterator it = periodic_bc_.begin();it != periodic_bc_.end();++it){
+	  for(std::vector<int>::const_iterator it2 = (it->eqn_indices_).begin(); it2 !=(it->eqn_indices_).end();++it2){
+	    int k = *it2;
+	    //}
+	    //for( int k = 0; k < numeqs_; k++ ){
+
 	    //it->import_data(*f_fe_p,u);
-	    it->import_data(*f_fe_p,u_in);
+	    it->import_data(*f_fe_p,u_in,k);
 
 	    int ns_size = it->u_rep_->Map().NumMyElements ();
 
@@ -793,9 +797,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		f_fe_p->ReplaceGlobalValue (row1k, (int)0, val);
 	      }//if
 	    }//j
-	  }//it
-
+	  }//k
+	}//it
 #else
+        for( int k = 0; k < numeqs_; k++ ){
 	  std::vector<std::pair<int,int>>::iterator it;
 	  for(it = (*periodicbc_)[k].begin();it != (*periodicbc_)[k].end(); ++it){
 
@@ -834,8 +839,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      f_fe_p->ReplaceGlobalValue (row1k, (int)0, val);
 	    }//j
 	  }//it
-#endif
 	}//k
+#endif
       }//if
       //exit(0);
       if (nonnull(f_out) && NULL != dirichletfunc_) {
@@ -1042,6 +1047,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
       if (nonnull(W_prec_out) && NULL != dirichletfunc_) {
 	//P_->GlobalAssemble(true,Epetra_CombineMode::Add,true);
+#ifdef PERIODIC_BC
+	if(0 != periodic_bc_.size() )exit(0);
+#endif
 	P_->GlobalAssemble();
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	int lenind = 27;//cn 27 in 3d
@@ -3053,12 +3061,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     paramfunc_ = grain::param_;
 
 #ifdef PERIODIC_BC
-    periodic_bc_.resize(numeqs_);
-
+    periodic_bc_.push_back(new periodic_bc(0,2,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_,comm_));
+    if(3 == mesh_->get_num_dim() ) periodic_bc_.push_back(new periodic_bc(4,5,numeqs_,mesh_,comm_));
     for( int k = 0; k < numeqs_; k++ ){
-      periodic_bc_[k].push_back(new periodic_bc(0,2,k,numeqs_,mesh_,comm_));
-      periodic_bc_[k].push_back(new periodic_bc(1,3,k,numeqs_,mesh_,comm_));
-      //if(3 == mesh_->get_num_dim() ) periodic_bc_[k].push_back(new periodic_bc(4,5,k,numeqs_,mesh_,comm_));
+      periodic_bc_[0].add_eqn_index(k);
+      periodic_bc_[1].add_eqn_index(k);
+      if(3 == mesh_->get_num_dim() ) periodic_bc_[2].add_eqn_index(k);
     }
 #else
     periodicbc_ = new std::vector<std::vector<std::pair<int,int>>>(numeqs_);
@@ -3095,8 +3104,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     neumannfunc_ = NULL;
 
 #ifdef PERIODIC_BC
-    periodic_bc_.resize(numeqs_);
-    periodic_bc_[0].push_back(new periodic_bc(1,3,0,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_,comm_));
+    periodic_bc_[0].add_eqn_index(0);
 
 #else
     periodicbc_ = new std::vector<std::vector<std::pair<int,int>>>(numeqs_);
@@ -3138,9 +3147,14 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     neumannfunc_ = NULL;
 
 #ifdef PERIODIC_BC
-    periodic_bc_.resize(numeqs_);
-    periodic_bc_[0].push_back(new periodic_bc(1,3,0,numeqs_,mesh_,comm_));
-    if(2==numeqs_) periodic_bc_[1].push_back(new periodic_bc(1,3,1,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(0,2,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_,comm_));
+    if(3 == mesh_->get_num_dim() ) periodic_bc_.push_back(new periodic_bc(4,5,numeqs_,mesh_,comm_));
+    for( int k = 0; k < numeqs_; k++ ){
+      periodic_bc_[0].add_eqn_index(k);
+      periodic_bc_[1].add_eqn_index(k);
+      if(3 == mesh_->get_num_dim() ) periodic_bc_[2].add_eqn_index(k);
+    }
 
 #else
     periodicbc_ = new std::vector<std::vector<std::pair<int,int>>>(numeqs_);
@@ -3384,8 +3398,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     neumannfunc_ = NULL;
 #ifdef PERIODIC_BC
-    periodic_bc_.resize(numeqs_);
-    periodic_bc_[0].push_back(new periodic_bc(1,3,0,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_,comm_));
+    periodic_bc_[0].add_eqn_index(0);
 
 #else
     exit(0);

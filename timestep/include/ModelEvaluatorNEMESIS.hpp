@@ -237,8 +237,7 @@ private: // data members
   PARAMFUNC paramfunc_;
 
 #ifdef PERIODIC_BC
-  boost::ptr_vector<boost::ptr_vector<periodic_bc>> periodic_bc_;
-  //std::vector<periodic_bc> periodic_bc_;
+  boost::ptr_vector<periodic_bc> periodic_bc_;
 #else
   //cn std::vector<std::map<int,std::pair<int,int>>> *periodicbc_; is probably better here
   std::vector<std::vector<std::pair<int,int>>> *periodicbc_;

@@ -161,6 +161,7 @@ class Mesh
   void create_sorted_elemlist_yxz();
   /// Return sorted node list
   std::vector<int> get_sorted_elem_num_map(){return sorted_elem_num_map;}
+  int get_num_nodes_per_ns(const int i){return num_nodes_per_ns[i];}
 
  private:
 

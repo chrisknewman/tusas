@@ -48,6 +48,27 @@ periodic_bc::periodic_bc(const int ns_id1,
   //to pass it the nodeset ids eventually
   mesh_->create_sorted_nodesetlists();
 
+  //cn we will eventually do an import of global f and global u into replicated vectors here,
+  //cn hence we may need to change the map routine from global mesh id to global u and f id;
+  //cn ie numeqs_*gid+index_ this could be done at the if(-99... line below.
+
+  std::vector<int> node_num_map(mesh_->get_node_num_map());
+
+  //we want this map to be a one equation version of the x_owned_map in tusas
+  //do it this way and hope it is the same
+
+  //cn we can make overlap local
+  overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
+					     node_num_map.size(),
+					     &node_num_map[0],
+					     0,
+					     *comm_));
+  if( 1 == comm_->NumProc() ){
+    node_map_ = overlap_map_;
+  }else{
+    node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
+  }
+
   ns1_map_ = get_replicated_map(ns_id1_);
   //ns1_map_->Print(std::cout);
   ns2_map_ = get_replicated_map(ns_id2_);
@@ -65,29 +86,6 @@ periodic_bc::periodic_bc(const int ns_id1,
       std::cout<<"Incompatible local node set sizes found for ("<<ns_id1_<<","<<ns_id2_<<")."<<std::endl;
     }
     exit(0);
-  }
-
-
-
-  //cn we will eventually do an import of global f and global u into replicated vectors here,
-  //cn hence we may need to change the map routine from global mesh id to global u and f id;
-  //cn ie numeqs_*gid+index_ this could be done at the if(-99... line below.
-
-  std::vector<int> node_num_map(mesh_->get_node_num_map());
-
-  //we want this map to be a one equation version of the x_owned_map in tusas
-  //do it this way and hope it is the same
-
-  //cn we can make overlap local
-  Teuchos::RCP<const Epetra_Map> overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
-					     node_num_map.size(),
-					     &node_num_map[0],
-					     0,
-					     *comm_));
-  if( 1 == comm_->NumProc() ){
-    node_map_ = overlap_map_;
-  }else{
-    node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
   }
 
   // target, source
@@ -108,12 +106,14 @@ periodic_bc::periodic_bc(const int ns_id1,
 	     <<"    ns_id2_ = "<<ns_id2_<<std::endl<<std::endl;
   }
 }
+
 void periodic_bc::import_data(const Epetra_FEVector &f_full,
 			      const Teuchos::RCP<const Epetra_Vector> u_full,
 			      const int eqn_index ) const
 {
   Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));  
   //#pragma omp parallel for 
+  //u_full->Print(std::cout);
   for(int nn = 0; nn < node_map_->NumMyElements(); nn++ ){
     (*u1)[nn]=(*u_full)[numeqs_*nn+eqn_index];
   }
@@ -138,25 +138,51 @@ void periodic_bc::import_data(const Epetra_FEVector &f_full,
   //f_rep_->Print(std::cout);
   //f_rep_->Reduce();
   //u_rep_->Reduce();
-  //f_rep_->Print(std::cout);
+  //u_rep_->Print(std::cout);
   //exit(0);
 }
 
 Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
   
- 
+  //cn I dont think there is any guarantee that the nodes will stay sorted after the
+  //cn gather below.  It is enough that the two maps are in order wrt each other.
+  //cn I don't believe that is guaranteed either.
+
+  //cn allgather is in order of mpi rank
+  //cn so it is possible that the order is not consistent wrt each other
+  //cn if procid is not in the order of increasing coords
+  //cn (more likely case in 3d rather than 2d)
+
   std::vector<int> node_num_map(mesh_->get_node_num_map());
   //cn the ids in sorted_node_set are local
-  int ns_size = mesh_->get_sorted_node_set(id).size(); 
+  //int ns_size = mesh_->get_sorted_node_set(id).size(); 
+
+  std::vector<int> ownedmap;
+  for ( int j = 0; j < mesh_->get_sorted_node_set(id).size(); j++ ){
+    int lid = mesh_->get_sorted_node_set_entry(id, j);
+    int gid = node_num_map[lid];
+    if ( node_map_->MyGID(gid) ) ownedmap.push_back(gid);
+  }
+
+  std::cout<<ownedmap.size();
+
+  int ns_size = ownedmap.size();
   int max_size = 0;
   comm_->MaxAll(&ns_size,
 		&max_size,
 		(int)1 );	
   //std::cout<<"max = "<<max_size<<" "<<comm_->MyPID()<<std::endl;
+
   std::vector<int> gids(max_size,-99);
+
   for ( int j = 0; j < ns_size; j++ ){
-    int lid = mesh_->get_sorted_node_set_entry(id, j);
-    int gid = node_num_map[lid];
+    //cn this is probably lid on overlap map
+    //int lid = mesh_->get_sorted_node_set_entry(id, j);
+    //int gid = node_num_map[lid];//cn this is overlap
+    int gid = ownedmap[j];
+    //cn we could check here if the id is in the node_map_
+    //cn this would eliminate duplicates
+    //cn or remove the ghosts above
     gids[j] = gid;
   }//j
 
@@ -178,7 +204,7 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
   }
 
   std::vector<int> result(g_gids);
-  uniquifyWithOrder_set_remove_if(g_gids, result);
+  //uniquifyWithOrder_set_remove_if(g_gids, result);
 
   Teuchos::RCP<const Epetra_Map> ns_map_ = Teuchos::rcp(new Epetra_Map(result.size(),
 					 result.size(),
@@ -196,7 +222,7 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
   }
   if( 0 == comm_->MyPID() )
     std::cout<<"periodic_bc::get_replicated_map completed for id: "<<id<<std::endl;
-  
+  //ns_map_->Print(std::cout);
   //exit(0);
   return ns_map_;
 }

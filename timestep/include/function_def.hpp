@@ -556,7 +556,11 @@ PARAM_FUNC(param_)
 RES_FUNC(residual_heat_test_)
 {
 
+  //for heat eqn:
   //u[x,y,t]=exp(-2 pi^2 t)sin(pi x)sin(pi y)
+
+  //for neumann:
+  //u[x,y,t]=exp( -1/4 pi^2 t)sin(pi/4 x)
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
     +basis[0].dphideta[i]*basis[0].detadx

@@ -77,6 +77,8 @@ private:
   Teuchos::RCP<const Epetra_Import> importer1_;
   /// Import object.
   Teuchos::RCP<const Epetra_Import> importer2_;
+  /// Node overlap map object.
+  Teuchos::RCP<const Epetra_Map>   overlap_map_;
   /// Node map object.
   Teuchos::RCP<const Epetra_Map>   node_map_;
   /// Sets up the communication maps for nodeset id.

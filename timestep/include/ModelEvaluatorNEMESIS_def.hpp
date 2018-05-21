@@ -550,6 +550,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	}//c	
 	  //exit(0);	
       }//blk
+	  f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
     }//if f
 
     if (nonnull(W_prec_out)) {
@@ -688,7 +689,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #else
       if (nonnull(f_out) && NULL != periodicbc_) {
 #endif
- 	f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
+ 	//f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	//f_fe.Print(std::cout);
 
@@ -707,8 +708,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	for(boost::ptr_vector<periodic_bc>::const_iterator it = periodic_bc_.begin();it != periodic_bc_.end();++it){
 	  for(std::vector<int>::const_iterator it2 = (it->eqn_indices_).begin(); it2 !=(it->eqn_indices_).end();++it2){
 	    int k = *it2;
-	    //}
-	    //for( int k = 0; k < numeqs_; k++ ){
+
+	    //cn it still could be the case that the global assemble will be messed up if procs are in a funny order, 
+	    //cn however this is not the case in our current tests.
+
+	    //u->Print(std::cout);
 
 	    //it->import_data(*f_fe_p,u);
 	    it->import_data(*f_fe_p,u_in,k);
@@ -719,84 +723,48 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	    //first we will add f(ns1) to f(ns2) by looping over nodeset 2
 	    //ie f(ns2) = f(ns2) + f_rep_(ns1)
+
+	    //loop over ns2 and add value from f_rep_(ns1)
 	    
 	    for ( int j = 0; j < ns_size; j++ ){
 
 	      //this is the gid for ns2
 	      int gid2 = it->u_rep_->Map().GID(j);
 
-	      //this is the local id in the matrix
-	      //lid1 is only used in parallel to test if we are on this proc
-	      int lid2 = (x_owned_map_->LID(numeqs_*gid2 + k) - k)/numeqs_;
-	      //int lid2 = (x_overlap_map_->LID(numeqs_*gid2 + k) - k)/numeqs_;
-
-	      //if lid == -1, it does not live on this proc
-	      if(lid2 > -1) {
-
-		//global row in ns2 on this proc
-		int row2 = numeqs_*gid2;	      
-		int row2k = row2 + k;
-		
-		//this is the gid for ns1
-		int gid1 = it->f_rep_->Map().GID(j);
-		
-		//this is the lid for ns1
-		int rlid1 = it->f_rep_->Map().LID(gid1);
-		//f_rep_(ns1)
-		double val1 = (*(it->f_rep_))[rlid1];
-		
-		//f(ns2) = f(ns2) + f_rep_(ns1)
-// 		std::cout<<"k: "<<k<<std::endl;
-// 		std::cout<<"l: "<<rlid1<<" "<<lid2<<std::endl;
-// 		std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
-// 		std::cout<<"f: "<<row2k<<" "<<val1<<" "<<comm_->MyPID()<<std::endl;
-		f_fe_p->SumIntoGlobalValues ((int) 1, &row2k, &val1);
-	      }//if
-	      //f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
+	      bool local = x_owned_map_->MyGID(numeqs_*gid2 + k);
+	      if(local) {
+		int lid2 = (x_owned_map_->LID(numeqs_*gid2 + k) - k)/numeqs_;
+		double val1 = (*(it->f_rep_))[j];
+		int row = numeqs_*gid2 + k;
+		f_fe_p->SumIntoGlobalValues ((int) 1, &row, &val1);
+		//if( 1 == comm_->MyPID() ) std::cout<<j<<" "<<gid2<<" "<<lid2<<" "<<val1<<std::endl;
+	      }	
+	      //f_fe_p.GlobalAssemble(Epetra_CombineMode::Add,true);
 	    }//j
+
+	    //exit(0);
+
 	    //loop over ns1
+	    // u(ns1) - u_rep_(ns2)
 	    for ( int j = 0; j < ns_size; j++ ){
 
 	      //this is the gid for ns1
 	      int gid1 = it->f_rep_->Map().GID(j);//this is the mesh gid
-	      //lid1 is only used in parallel to test if we are on this proc
-	      int lid1 = (x_owned_map_->LID(numeqs_*gid1 + k) - k)/numeqs_;//x_owned_map is map for linear system
-
-	      //if lid == -1, it does not live on this proc
-	      if(lid1 > -1) {
-
-		//this is the gid for ns2
-		int gid2 = it->u_rep_->Map().GID(j);
-		
-		int row1 = numeqs_*gid1;//global row
-		int row1k = row1 + k;
-		
-		
-		int rlid2 = it->u_rep_->Map().LID(gid2);
-		// u(ns2)
-		double val1 = (*(it->u_rep_))[rlid2];
-		
+	      bool local = x_owned_map_->MyGID(numeqs_*gid1 + k);
+	      if(local) {
+		int lid1 = (x_owned_map_->LID(numeqs_*gid1 + k) - k)/numeqs_;
+		double val1 = (*(it->u_rep_))[j];
+		int row = numeqs_*gid1 + k;
+		int lid = x_owned_map_->LID(row);
 		// u(ns1) - u(ns2)
-		double val = (*u)[numeqs_*lid1 + k]  - val1;
+		double val = (*u_in)[numeqs_*lid1 + k] - val1;
+		f_fe_p->ReplaceGlobalValue (row, (int)0, val);
+		//std::cout<<j<<" "<<gid1<<" "<<std::endl;
+		//if( 3 == comm_->MyPID() ) std::cout<<"   "<<j<<" "<<gid1<<" "<<val1<<" "<<val<<std::endl;
 
-		//but is mostly working in parallel, there are some weird values where
-		//periodic bc nodesets intersect processor boundaries
-		//to be looked at-- run test problem on 8 procs shows this
-
-		//8-16-17 i think the problem is in periodic_bc::import_data
-		//or periodic_bc::import_data is right and
-		//probably also has to do with ghosted nodes
-		//ie these values on ghost nodes are only added in once
-		//the problems are at gid 276 and 280 ?
-
-		// f(ns1) = u(ns1) - u(ns2)
-// 		std::cout<<"k: "<<k<<std::endl;
-// 		std::cout<<"l: "<<lid1<<" "<<rlid2<<std::endl;
-// 		std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
-// 		std::cout<<"u: "<<row1k<<" "<<val<<" "<<val1<<" "<<comm_->MyPID()<<std::endl;
-		f_fe_p->ReplaceGlobalValue (row1k, (int)0, val);
-	      }//if
+	      }
 	    }//j
+	    //exit(0);
 	  }//k
 	}//it
 #else
@@ -834,17 +802,18 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
  	      //std::cout<<"f: "<<row2k<<" "<<val1<<std::endl;
 	      f_fe_p->SumIntoGlobalValues ((int) 1, &row2k, &val1);
 	      val1 = (*u)[numeqs_*lid2 + k];
-	      double val = (*u)[numeqs_*lid1 + k]  - val1;
+	      double val = (*u_in)[numeqs_*lid1 + k]  - val1;
   	      //std::cout<<"u: "<<row1k<<" "<<val1<<std::endl;
 	      f_fe_p->ReplaceGlobalValue (row1k, (int)0, val);
 	    }//j
 	  }//it
 	}//k
 #endif
+	f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,false);
       }//if
       //exit(0);
       if (nonnull(f_out) && NULL != dirichletfunc_) {
-	f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
+	//f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
 	
 	std::vector<int> node_num_map(mesh_->get_node_num_map());
 	std::map<int,DBCFUNC>::iterator it;
@@ -868,6 +837,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      int lid = mesh_->get_node_set_entry(ns_id, j);
 
 	      //cn not sure why this next line is here.....
+	      //cn probably because node_set_entry is on overlap map (includes ghosts)
 	      //if(!x_owned_map_->MyLID(lid) ) exit(0);//break;//check that this node lives on this proc, otherwise skip it
 	      int gid = node_num_map[lid];
 	      //std::cout<<ns_id<<" "<<gid<<" "<<mesh_->get_node_set(ns_id).size()<<std::endl;
@@ -887,10 +857,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    }//j
 	  }//it
 	}//k
+	f_fe_p->GlobalAssemble(Epetra_CombineMode::Zero,true);
       }//if
 
       if (nonnull(f_out) && NULL != neumannfunc_) {
-	//f_fe.GlobalAssemble(Epetra_CombineMode::Add,true);
+	//f_fe.GlobalAssemble(Epetra_CombineMode::Zero,true);
 	Basis * basis;
 	//this is the number of nodes per side edge
 	//int num_node_per_side = mesh_->get_num_node_per_side(ss_id);
@@ -1041,7 +1012,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	proj.clear();
 #endif		  
 	delete basis;
-      }//if
+ 	f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
+      }//if (nonnull(f_out) && NULL != neumannfunc_)
 
 
       //cn WARNING the residual and precon are not fully tested, especially with numeqs_ > 1 !!!!!!!
@@ -1065,7 +1037,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //cn ie construct a node_num_map that only contains locally owned nodes,
 	      //cn then we could turn openmp back on above
 	      //cn however mesh_->get_node_set(ns_id).size() would need to be fixed as well...
-	      if(!x_owned_map_->MyLID(lid) ) break;//check that this node lives on this proc, otherwise skip it
+	 
+	      if(!x_owned_map_->MyLID(lid) ) break;//check that this node live on this proc, otherwise skip it
 	      int gid = node_num_map[lid];
 	      //int gid = x_owned_map_->GID(lid);
 	      int row = numeqs_*gid + k;
@@ -1109,10 +1082,10 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     
       if (nonnull(f_out)){
 	//f->Print(std::cout);
-	if (f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true) != 0){
-	  std::cout<<"error f_fe.GlobalAssemble()"<<std::endl;
-	  exit(0);
-	}
+// 	if (f_fe_p->GlobalAssemble(Epetra_CombineMode::Zero,true) != 0){
+// 	  std::cout<<"error f_fe.GlobalAssemble()"<<std::endl;
+// 	  exit(0);
+// 	}
 	
 	f->Update(1,*f_fe(0),0);
 	//*f=*f_fe(0);
@@ -1127,7 +1100,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	prec_->ReComputePreconditioner();
       }
     }	
-    }
+    return;
+      }
 
 //====================================================================
 

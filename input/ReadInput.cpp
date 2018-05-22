@@ -66,6 +66,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasqtriquadordNameString,(int)3,TusasqtriquadordDocString);
 
+  paramList.set(TusasexaConstitNameString,(bool)false,TusasexaConstitDocString);
+
   //ML parameters
   Teuchos::ParameterList *MLList;
   MLList = &paramList.sublist ( TusasmlNameString, false );

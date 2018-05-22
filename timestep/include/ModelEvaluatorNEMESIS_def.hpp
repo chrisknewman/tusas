@@ -58,6 +58,7 @@
 #endif
 
 #include <boost/ptr_container/ptr_vector.hpp>
+#include <limits>
 
 #include "elem_color.h"
 
@@ -1459,6 +1460,11 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
   if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1== comm_->NumProc())){
     finalize_vtip();
+  }
+
+  //finalize exaConstit here...
+  if(paramList.get<bool> (TusasexaConstitNameString)) {
+    dump_exaconstit();
   }
 
   if(!x_space_.is_null()) x_space_=Teuchos::null;
@@ -3616,6 +3622,107 @@ void ModelEvaluatorNEMESIS<Scalar>::set_basis( boost::ptr_vector<Basis> &basis, 
 // 	std::cout<<" basis.size() != numeqs_ "<<std::endl;
 // 	exit(0);
 //       }
+
+}  
+
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::dump_exaconstit(){
+
+  std::vector<int> node_num_map(mesh_->get_node_num_map());
+  Teuchos::RCP<const Epetra_Map> overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
+					     node_num_map.size(),
+					     &node_num_map[0],
+					     0,
+					     *comm_));
+
+  Teuchos::RCP<const Epetra_Map> node_map_;
+
+  if( 1 == comm_->NumProc() ){
+    node_map_ = overlap_map_;
+  }else{
+    node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
+  }
+
+  Teuchos::RCP<const Epetra_Map> root_node_map_ = Teuchos::rcp( new Epetra_Map( Epetra_Util::Create_Root_Map( *node_map_)));
+
+  //node_map_->Print(std::cout);
+  //root_node_map_->Print(std::cout);
+  Teuchos::RCP<Epetra_Vector> x_vec = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  Teuchos::RCP<Epetra_Vector> y_vec = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  Teuchos::RCP<Epetra_Vector> z_vec = Teuchos::rcp(new Epetra_Vector(*node_map_));
+
+  //the mesh_->get_x() mthods are indexed by overlap map
+
+  for (int nn=0; nn < num_my_nodes_; nn++) {
+    int gid = node_map_->GID(nn);
+    int lid = overlap_map_->LID(gid); 
+    double val = mesh_->get_x(lid);
+    x_vec->ReplaceGlobalValues ((int) 1, &val, &gid);
+    val = mesh_->get_y(lid);
+    y_vec->ReplaceGlobalValues ((int) 1, &val, &gid);
+    val = mesh_->get_z(lid);
+    z_vec->ReplaceGlobalValues ((int) 1, &val, &gid);
+  }
+  //x_vec->Print(std::cout);
+
+  Teuchos::RCP<const Epetra_Import> importer1_ = Teuchos::rcp(new Epetra_Import(*root_node_map_, *node_map_));
+
+  Teuchos::RCP<Epetra_Vector> root_x_vec = Teuchos::rcp(new Epetra_Vector(*root_node_map_));
+  Teuchos::RCP<Epetra_Vector> root_y_vec = Teuchos::rcp(new Epetra_Vector(*root_node_map_));
+  Teuchos::RCP<Epetra_Vector> root_z_vec = Teuchos::rcp(new Epetra_Vector(*root_node_map_));
+
+  root_x_vec->Import(*x_vec, *importer1_, Insert);
+  root_y_vec->Import(*y_vec, *importer1_, Insert);
+  root_z_vec->Import(*z_vec, *importer1_, Insert);
+  //root_x_vec->Print(std::cout);
+
+
+  Teuchos::RCP<const Epetra_Map> root_f_owned_map_ = Teuchos::rcp( new Epetra_Map( Epetra_Util::Create_Root_Map( *f_owned_map_)));
+  Teuchos::RCP<const Epetra_Import> importer2_ = Teuchos::rcp(new Epetra_Import(*root_f_owned_map_, *f_owned_map_));
+  Teuchos::RCP<Epetra_Vector> root_u_vec = Teuchos::rcp(new Epetra_Vector(*root_f_owned_map_));
+  root_u_vec->Import(*u_old_, *importer2_, Insert);
+
+  std::cout.precision(std::numeric_limits<double>::digits10 + 2);
+  if( 0 == comm_->MyPID() ){
+
+    std::ofstream coordfile;
+    coordfile.open("ec_coord.txt");
+    coordfile.precision(std::numeric_limits<double>::digits10 + 2);
+
+    std::ofstream varfile;
+    varfile.open("ec_var.txt");
+    varfile.precision(std::numeric_limits<double>::digits10 + 2);
+
+    for ( int nn = 0; nn < root_node_map_->NumGlobalElements(); nn++ ){
+      int gid = root_node_map_->GID(nn);
+      //std::cout<<gid<<std::scientific<<" "<<(*root_x_vec)[nn]<<" "<<(*root_y_vec)[nn]<<" "<<(*root_z_vec)[nn]<<"\n";
+      coordfile<<gid<<std::scientific<<" "<<(*root_x_vec)[nn]<<" "<<(*root_y_vec)[nn]<<" "<<(*root_z_vec)[nn]<<"\n";
+      int ogid = gid*numeqs_;
+
+      //std::cout<<gid;
+      varfile<<gid;
+      for(int k = 0; k < numeqs_; k++ ){
+	double val = (*root_u_vec)[numeqs_*nn+k];
+	//std::cout<<std::scientific<<" "<<val;
+	varfile<<std::scientific<<" "<<val*val;
+      }
+      //std::cout<<"\n";
+      varfile<<"\n";
+    }
+   
+    std::ofstream orientfile;
+    orientfile.open("ec_orient.txt");
+    orientfile.precision(std::numeric_limits<double>::digits10 + 2);
+
+    for(int k = 0; k < numeqs_; k++ ){
+      double pi = 3.141592653589793;
+      double phi = 2.*pi*(rand()%101)/100.;// [0, 2 pi]
+      double theta = pi*(rand()%101)/100.;// [0, pi]
+      double omega = 2.*pi*(rand()%101)/100.;// [0, 2 pi]
+      //std::cout<<k<<std::scientific<<" "<<phi<<" "<<theta<<" "<<omega<<"\n";
+      orientfile<<k<<std::scientific<<" "<<phi<<" "<<theta<<" "<<omega<<"\n";
+    }
+  }
 
 }
 #endif

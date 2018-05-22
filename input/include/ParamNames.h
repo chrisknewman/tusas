@@ -90,6 +90,10 @@ std::string const TusasltriquadordDocString = "quadrature order for bilinear tri
 std::string const TusasqtriquadordNameString = "qtriquadord";
 /// Quadrature order.
 std::string const TusasqtriquadordDocString = "quadrature order for biquadratic tri family (int): default 3";
+/// Dump exaConstit file
+std::string const TusasexaConstitNameString = "exaconstit";
+/// Dump exaConstit file
+std::string const TusasexaConstitDocString = "exaconstit (bool): true; false (default)";
 
 //other parameters not in the input file
 /// Restart.

@@ -58,7 +58,7 @@ periodic_bc::periodic_bc(const int ns_id1,
   //do it this way and hope it is the same
 
   //cn we can make overlap local
-  overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
+  Teuchos::RCP<const Epetra_Map> overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
 					     node_num_map.size(),
 					     &node_num_map[0],
 					     0,
@@ -152,6 +152,10 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
   //cn so it is possible that the order is not consistent wrt each other
   //cn if procid is not in the order of increasing coords
   //cn (more likely case in 3d rather than 2d)
+
+  //cn also turns out that 
+  //cn static Epetra_Map Epetra_Util::Create_Root_Map(const Epetra_Map &usermap,int root = 0 )
+  //cn with root = -1 creates replicated map; we might look into this in future 	
 
   std::vector<int> node_num_map(mesh_->get_node_num_map());
   //cn the ids in sorted_node_set are local

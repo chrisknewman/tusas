@@ -19,9 +19,12 @@
 #elif defined TUSAS_HAVE_MKL
 #include "mkl.h"
 #elif defined TUSAS_NO_LAPACK
-#else
+#elif defined TUSAS_HAVE_CLAPACK
 #include "clapack.h"
+#else
+#include "Epetra_LAPACK.h"
 #endif
+
 
 #ifdef HAVE_MPI
 #include "Epetra_MpiComm.h"
@@ -352,9 +355,17 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 	    &info,0 );
 #elif defined TUSAS_NO_LAPACK
     exit(0);
-#else
+#elif defined TUSAS_HAVE_MKL
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	    &info );
+#elif defined TUSAS_HAVE_CLAPACK
+    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+	    &info );
+#else
+    Epetra_LAPACK lapack; 
+    //GELS (const char TRANS, const int M, const int N, const int NRHS, double *A, const int LDA, double *B, const int LDB, double *WORK, const int LWORK, int *INFO) 
+    lapack.GELS( 'N', m, n, nrhs, a, lda, b, ldb, &wkopt, lwork,
+		 &info );
 #endif
 
     //std::cout<<"info 1 = "<<info<<std::endl<<std::endl;
@@ -373,8 +384,14 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info,0 );
 #elif defined TUSAS_NO_LAPACK
-#else
+#elif defined TUSAS_HAVE_MKL
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
+	    &info );
+#elif defined TUSAS_HAVE_CLAPACK
+    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
+	    &info );
+#else
+    lapack.GELS( 'N', m, n, nrhs, a, lda, b, ldb, work, lwork,
 	    &info );
 #endif
     if( info < 0 ) exit(0);
@@ -503,8 +520,15 @@ void error_estimator::test_lapack(){
 	  &info,0 );
 #elif defined TUSAS_NO_LAPACK
   exit(0);
-#else
+#elif defined TUSAS_HAVE_MKL
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+	 &info );
+#elif defined TUSAS_HAVE_CLAPACK
+  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
+	 &info );
+#else
+    Epetra_LAPACK lapack;    
+    lapack.GELS( 'N', m, n, nrhs, a, lda, b, ldb, &wkopt, lwork,
 	 &info );
 #endif
   lwork = (int)wkopt;
@@ -515,8 +539,14 @@ void error_estimator::test_lapack(){
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	  &info,0 );
 #elif defined TUSAS_NO_LAPACK
-#else
+#elif defined TUSAS_HAVE_MKL
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
+                        &info );
+#elif defined TUSAS_HAVE_CLAPACK
+  dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
+                        &info );
+#else   
+    lapack.GELS( 'N', m, n, nrhs, a, lda, b, ldb, work, lwork,
                         &info );
 #endif
   delete work;

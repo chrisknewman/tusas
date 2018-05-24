@@ -46,15 +46,18 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   //Right now, in parallel MPI, grdients and error estimates are one-sided along processor boundaries
   //and averaged at shared nodes.  Alternatively, one could reach across to elements on neighboring processors
   //to compute a non-averaged gradient.  We do not have this sort of communication set up at this time.
+  //Only nodes are ghosted, elements are not ghosted.
 
   int blk = 0;
   std::string elem_type=mesh_->get_blk_elem_type(blk);
-  bool quad_type = (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) 
+  bool quad_type = (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) 
+    || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) 
     || (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9"));
-  bool tri_type= (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3")) || (0==elem_type.compare("tri")); 
-//     || (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6"));
+  bool tri_type= (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) 
+    || (0==elem_type.compare("tri3")) || (0==elem_type.compare("tri"));
+  //    || (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6"));
  
-  if( !(quad_type || tri_type) ){ // linear quad
+  if( !(quad_type || tri_type) ){ 
     if( 0 == comm_->MyPID() )std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl
 	     <<elem_type<<" not supported."<<std::endl;
     exit(0);
@@ -117,8 +120,6 @@ error_estimator::~error_estimator()
 
 void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in){
 
-  //not tested nor working with mpi
-
   //according to the ainsworth book, for bilinear quads it is better to sample
   //at centroids, rather than guass pts as is done here. This is due to
   //superconvergence at centroids. Guass pts are used for biquadratic quads.
@@ -164,7 +165,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   //or possibly use more than 3 guass pts for Qtri?
 
   //5-22-2017 cn thinks the best approach 
-  //would check for gtri && m==n, then use dgesv_ instead of dgels_
+  //would check for qtri && m==n, then use dgesv_ instead of dgels_
 
   Teuchos::TimeMonitor GradEstTimer(*ts_time_grad);  
 
@@ -187,6 +188,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
   std::string elem_type=mesh_->get_blk_elem_type(blk);
    
+  //we do the computations on and fill overlap_map_, then export to a vector on the node_map_ to avg on shared nodes
   Epetra_Vector *tempx,*tempy;
   tempx = new Epetra_Vector(*overlap_map_);
   tempy = new Epetra_Vector(*overlap_map_);
@@ -294,10 +296,6 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 	uu[k] = (*u)[nodeid]; 
 
       }//k
-
-//       comm_->Barrier();
-//       std::cout<<comm_->MyPID()<<" "<<nn<<" "<<num_elem_in_patch<<"\n";
-//       comm_->Barrier();
 
       //we could loop over dimension of p here to avoid if statements....
       for(int gp=0; gp < basis->ngp; gp++) {// Loop Over Gauss Points 

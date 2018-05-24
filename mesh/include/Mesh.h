@@ -306,6 +306,7 @@ class Mesh
   bool is_global_node_local(int i);
   bool is_global_elem_local(int i);
   bool is_nodesets_sorted;
+  bool is_compute_nodal_patch_overlap;
   std::vector<int> sorted_node_num_map;
   std::vector<int> sorted_elem_num_map;
   //#endif

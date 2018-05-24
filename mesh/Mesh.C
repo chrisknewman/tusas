@@ -48,6 +48,7 @@ int Mesh::read_exodus(const char * filename){
   std::vector<int>::iterator a;
 
   is_nodesets_sorted = false;
+  is_compute_nodal_patch_overlap = false;
 
   num_nodal_fields = 0;
   num_elem_fields = 0;
@@ -1460,6 +1461,7 @@ void Mesh::compute_nodal_patch_overlap(){
 
   //cn then we will average the shared nodes in the estimator
 
+  if(is_compute_nodal_patch_overlap) return;
 
   //my_node_num_map is local ids
   //we really want to search by global id
@@ -1491,6 +1493,9 @@ void Mesh::compute_nodal_patch_overlap(){
       }      
     }
   }
+  
+  is_compute_nodal_patch_overlap = true;
+
 
 //   for(int i=0; i<num_nodes; i++){
 //     std::cout<<proc_id<<" "<<i<<":: "<<node_num_map[i]<<"::  ";
@@ -1503,7 +1508,7 @@ void Mesh::compute_nodal_patch_overlap(){
   //exit(0);
   //std::cout<<"compute_nodal_patch() finished on proc_id: "<<proc_id<<std::endl;
   //exit(0);
-
+  return;
 }
 
 void Mesh::compute_nodal_patch_old(){

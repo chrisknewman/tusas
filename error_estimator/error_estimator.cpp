@@ -42,6 +42,11 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   numeqs_(numeqs),
   index_(index)
 {
+
+  //Right now, in parallel MPI, grdients and error estimates are one-sided along processor boundaries
+  //and averaged at shared nodes.  Alternatively, one could reach across to elements on neighboring processors
+  //to compute a non-averaged gradient.  We do not have this sort of communication set up at this time.
+
   int blk = 0;
   std::string elem_type=mesh_->get_blk_elem_type(blk);
   bool quad_type = (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) 
@@ -55,7 +60,7 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
     exit(0);
   }
 
-  mesh_->compute_nodal_patch_old();
+  mesh_->compute_nodal_patch_overlap();
 
   std::vector<int> node_num_map(mesh_->get_node_num_map());
 
@@ -77,6 +82,7 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   gradx_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
   grady_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
+
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
   mesh_->add_nodal_field(xstring);
@@ -138,6 +144,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   //also right now, with quadratic tris, it seems the midside nodes are getting garbage,
   //while the vertex nodes are correct
   //it looks like reasonable numbers are provided to lapack, but the solution is way off...
+
   //this corresponds to a square 6 x 6 matrix, could it be ill conditioned?--according to matlab
   //a significant number of these matrices have full rank
   //seems as though lapack is fucking up?
@@ -159,8 +166,6 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   //5-22-2017 cn thinks the best approach 
   //would check for gtri && m==n, then use dgesv_ instead of dgels_
 
-
-
   Teuchos::TimeMonitor GradEstTimer(*ts_time_grad);  
 
   Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
@@ -168,6 +173,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
     (*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
   }
+
   Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
   u->Import(*u1, *importer_, Insert);
 
@@ -181,9 +187,13 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
   std::string elem_type=mesh_->get_blk_elem_type(blk);
    
+  Epetra_Vector *tempx,*tempy;
+  tempx = new Epetra_Vector(*overlap_map_);
+  tempy = new Epetra_Vector(*overlap_map_);
+
 #ifdef ERROR_ESTIMATOR_OMP
 #pragma omp parallel for
-  for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
+  for(int nn = 0; nn < mesh_->get_num_nodes(); nn++ ){
 #endif
  
   Basis * basis;
@@ -217,10 +227,10 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
 #ifdef ERROR_ESTIMATOR_OMP
 #else
-  for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
+  for(int nn = 0; nn < mesh_->get_num_nodes(); nn++ ){
 #endif
 
-    int num_elem_in_patch = mesh_->get_nodal_patch(nn).size();
+    int num_elem_in_patch = mesh_->get_nodal_patch_overlap(nn).size();
 
     //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<num_elem_in_patch<<std::endl;
 
@@ -242,7 +252,8 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     double * b = new double[ldb*nrhs];
 
     int row = 0;
-    std::vector<int> n_patch(mesh_->get_nodal_patch(nn));
+
+    std::vector<int> n_patch(mesh_->get_nodal_patch_overlap(nn));
 
     for(int ne = 0; ne < num_elem_in_patch; ne++){
 
@@ -266,7 +277,10 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
 	//int nodeid = mesh_->get_node_id(blk, ne, k);
 
-	int lid = elem_map_->LID(n_patch[ne]);//cn this wont work because it is not an overlap map
+	//n_patch[ne] is the local elemid
+
+	int gid = elem_map_->GID(n_patch[ne]);//cn this wont work because it is not an overlap map
+	int lid = n_patch[ne];
 
 
 	//int nodeid = mesh_->get_node_id(blk, n_patch[ne], k);
@@ -281,7 +295,9 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
       }//k
 
-      //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<num_elem_in_patch<<std::endl;
+//       comm_->Barrier();
+//       std::cout<<comm_->MyPID()<<" "<<nn<<" "<<num_elem_in_patch<<"\n";
+//       comm_->Barrier();
 
       //we could loop over dimension of p here to avoid if statements....
       for(int gp=0; gp < basis->ngp; gp++) {// Loop Over Gauss Points 
@@ -307,12 +323,6 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 	b[row] = basis->dudx;// du/dx
 	b[row+ldb]  = basis->dudy;// du/dy
 	//b[row+2*q]  = basis->dudz;// du/dz, ie in 3d => nrhs = 3 cols of b
-// 	if(224==nn){
-// 	  std::cout<<nn<<" "<<row<<" "<<row+ldb<<" : "<<p[row][0]<<" "<<p[row][1]<<" "<<p[row][2]<<" "<<p[row][3]
-// 		   <<" "<<p[row][4]<<" "<<p[row][5]
-// 		   <<" : "<<b[row]<<" "<<b[row+ldb]<<std::endl;
-// 	}
-
 
 	row++;
       }//gp
@@ -435,8 +445,8 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     //std::cout<<x<<"   "<<y<<"            "<<gradx<<std::endl;
     
     int gid = (mesh_->get_node_num_map())[nn];
-    gradx_->ReplaceGlobalValues ((int) 1, (int) 0, &gradx, &gid);
-    grady_->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &gid);
+    tempx->ReplaceGlobalValues ((int) 1, (int) 0, &gradx, &gid);
+    tempy->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &gid);
    
     delete[] a;
     delete[] b;
@@ -448,7 +458,11 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 #else
   delete basis;
 #endif
+
+  gradx_->Export(*tempx, *importer_, Average);
+  grady_->Export(*tempy, *importer_, Average);
   //gradx_->Print(std::cout);
+  //grady_->Print(std::cout);
   //exit(0);
 }
 
@@ -558,7 +572,7 @@ void error_estimator::test_lapack(){
 
   delete a;
   delete b;
-  delete  p[0];
+  delete p[0];
   delete p[1];
   delete p[2];
   delete p;
@@ -573,7 +587,6 @@ void error_estimator::update_mesh_data(){
   tempx->Import(*gradx_, *importer_, Insert);
   tempy = new Epetra_Vector(*overlap_map_);
   tempy->Import(*grady_, *importer_, Insert);
-
   int num_nodes = overlap_map_->NumMyElements ();
   std::vector<double> gradx(num_nodes,0.);
   std::vector<double> grady(num_nodes,0.);

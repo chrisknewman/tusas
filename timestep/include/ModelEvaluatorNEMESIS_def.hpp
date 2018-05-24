@@ -3550,6 +3550,7 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
     for( int k = 0; k < numeqs_; k++ ){
       uu[k] = (*u_old_)[numeqs_*nn+k];
     }
+
     for( int k = 0; k < numee; k++ ){
       ug[k] = (*(Error_est[k].gradx_))[nn];
       ug[k+dim] = (*(Error_est[k].grady_))[nn];

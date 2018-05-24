@@ -22,6 +22,12 @@
 #include "Epetra_Import.h"
 #include <Teuchos_TimeMonitor.hpp>
 
+#if OLD
+#else
+#include "Epetra_FEVector.h"
+#endif
+
+
 #define ERROR_ESTIMATOR_OMP
 
 //template<class Scalar>

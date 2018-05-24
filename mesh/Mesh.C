@@ -1449,11 +1449,72 @@ bool Mesh::is_global_elem_local(int i){
   return found;
 }
 
+void Mesh::compute_nodal_patch_overlap(){
+
+  //cn 5-23-18
+  //cn this version will be called by the error estimator
+  //cn not working in parallel yet, there are some issues
+
+  //cn in parallel, I think we need nodal patches for the overlap map,
+  //cn not the node map
+
+  //cn then we will average the shared nodes in the estimator
+
+
+  //my_node_num_map is local ids
+  //we really want to search by global id
+  num_my_nodes = my_node_num_map.size();
+  //std::cout<<num_my_nodes<<" "<<num_nodes<<std::endl;
+
+  //std::cout<<"compute_nodal_patch() started on proc_id: "<<proc_id<<" with num_my_nodes "<<num_my_nodes<<std::endl;
+
+  //if( num_my_nodes == nodal_patch.size() ) return;
+  //exit(0);
+
+  nodal_patch_overlap.resize(num_nodes);
+
+  //std::cout<<"compute_nodal_patch() "<<nodal_patch.size()<<" "<<num_nodes<<" "<<my_node_num_map.size()<<std::endl<<std::endl;
+  for(int blk = 0; blk < get_num_elem_blks(); blk++){
+    int n_nodes_per_elem = get_num_nodes_per_elem_in_blk(blk);
+
+    for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+      for(int k = 0; k < n_nodes_per_elem; k++){
+	
+	int nodeid = get_node_id(blk, ne, k);
+	//std::cout<<proc_id<<" "<<get_global_elem_id(ne)<<" "<<nodeid<<" "<<node_num_map[nodeid]<<" "<<num_my_nodes<<std::endl;
+	//we check here if the node lives on this proc
+	if(nodeid < num_nodes){
+	  //int elemid = get_global_elem_id(ne);
+	  int elemid = ne;
+	  nodal_patch_overlap[nodeid].push_back(elemid);
+	}
+      }      
+    }
+  }
+
+//   for(int i=0; i<num_nodes; i++){
+//     std::cout<<proc_id<<" "<<i<<":: "<<node_num_map[i]<<"::  ";
+//     //std::cout<<nodal_patch_overlap[i].size();
+//     for(int j=0; j< nodal_patch_overlap[i].size(); j++){
+//       std::cout<<nodal_patch_overlap[i][j]<<" ";
+//     }
+//     std::cout<<std::endl;
+//   }
+  //exit(0);
+  //std::cout<<"compute_nodal_patch() finished on proc_id: "<<proc_id<<std::endl;
+  //exit(0);
+
+}
 
 void Mesh::compute_nodal_patch_old(){
 
+  //cn this is called below by compute_elem_adj() that is used in computing the
+  //cn element graph for cpu/gpu computations
 
   //cn not working in parallel yet, there are some issues
+
+  //cn in parallel, I think we need nodal patches for the overlap map,
+  //cn not the node map
 
 
   //my_node_num_map is local ids

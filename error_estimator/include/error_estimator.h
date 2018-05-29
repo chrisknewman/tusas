@@ -22,11 +22,6 @@
 #include "Epetra_Import.h"
 #include <Teuchos_TimeMonitor.hpp>
 
-#if OLD
-#else
-#include "Epetra_FEVector.h"
-#endif
-
 
 #define ERROR_ESTIMATOR_OMP
 
@@ -61,6 +56,8 @@ public:
   Teuchos::RCP<Epetra_Vector> gradx_;
   /// Estimated nodal derivative wrt to y.
   Teuchos::RCP<Epetra_Vector> grady_;
+  /// Estimated nodal derivative wrt to y.
+  Teuchos::RCP<Epetra_Vector> gradz_;
 
 private:
   ///Mesh object

@@ -56,8 +56,10 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   bool tri_type= (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) 
     || (0==elem_type.compare("tri3")) || (0==elem_type.compare("tri"));
   //    || (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6"));
+  bool hex_type = (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) 
+    || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex")); 
  
-  if( !(quad_type || tri_type) ){ 
+  if( !(quad_type || tri_type || hex_type) ){ 
     if( 0 == comm_->MyPID() )std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl
 	     <<elem_type<<" not supported."<<std::endl;
     exit(0);
@@ -83,14 +85,20 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   //node_map_->Print(std::cout);
   importer_ = Teuchos::rcp(new Epetra_Import(*overlap_map_, *node_map_));
 
+  int nrhs = mesh_->get_num_dim();
+
   gradx_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
   grady_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  if(3 == nrhs) gradz_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
 
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
   mesh_->add_nodal_field(xstring);
   mesh_->add_nodal_field(ystring);
-
+  if(3 == nrhs){
+    std::string zstring="grad"+std::to_string(index_)+"z";
+    mesh_->add_nodal_field(zstring);
+  }
 
   //cn this is the map of elements belonging to this processor
   std::vector<int> elem_num_map(*(mesh_->get_elem_num_map()));
@@ -189,9 +197,10 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   std::string elem_type=mesh_->get_blk_elem_type(blk);
    
   //we do the computations on and fill overlap_map_, then export to a vector on the node_map_ to avg on shared nodes
-  Epetra_Vector *tempx,*tempy;
+  Epetra_Vector *tempx,*tempy,*tempz;
   tempx = new Epetra_Vector(*overlap_map_);
   tempy = new Epetra_Vector(*overlap_map_);
+  if(3 == nrhs) tempz = new Epetra_Vector(*overlap_map_);
 
 #ifdef ERROR_ESTIMATOR_OMP
 #pragma omp parallel for
@@ -201,7 +210,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   Basis * basis;
 
   if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad   
-    dimp = 4;
+    dimp = 4;//polynomial dimension; ie number of basis functions
     num_q_pts = 4;
     int qpt_for_basis = sqrt(num_q_pts);
     basis = new BasisLQuad(qpt_for_basis);
@@ -220,6 +229,12 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     dimp = 6;
     num_q_pts = 3;
     basis=new BasisQTri();
+  }
+  else if((0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) 
+	  || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))){// hex8
+    dimp = 8;
+    num_q_pts = 8;
+    basis=new BasisLHex(2);
   }
   else{
     std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl;
@@ -281,7 +296,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
 	//n_patch[ne] is the local elemid
 
-	int gid = elem_map_->GID(n_patch[ne]);//cn this wont work because it is not an overlap map
+	int gid = elem_map_->GID(n_patch[ne]);//elem_map_ is not an overlap map
 	int lid = n_patch[ne];
 
 
@@ -302,25 +317,41 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 	basis->getBasis(gp, xx, yy, zz, uu);
 	double x = basis->xx;
 	double y = basis->yy;
-	//double z = basis->zz;
-	p[row][0] = 1.;            //tri3 || quad4 || tri6 || quad9
-	p[row][1] = x;             //tri3 || quad4 || tri6 || quad9
-	p[row][2] = y;             //tri3 || quad4 || tri6 || quad9
+	double z = basis->zz;
+	p[row][0] = 1.;            //tri3 || quad4 || tri6 || quad9 || hex8
+	p[row][1] = x;             //tri3 || quad4 || tri6 || quad9 || hex8
+	p[row][2] = y;             //tri3 || quad4 || tri6 || quad9 || hex8
 	//cn we would skip this for tris. However we compute it, but this column is not copied to a below
 	//cn we need something better for quadratic and 3d
-	if(3 < dimp) p[row][3] = x*y;      //quad4 || tri6 || quad9
-	if(5 < dimp) {
-	  p[row][4] = x*x;             //tri6 || quad9
-	  p[row][5] = y*y;             //tri6 || quad9
+
+	//cn we could have a polynomial class that takes element type
+	//cn returns number of rows and provides an evaluate(x,y,z,n) that returns the 
+	//cn term for each n=0,...,number rows
+
+	if(3 < dimp) p[row][3] = x*y;      //quad4 || tri6 || quad9 || hex8
+	if(2 == nrhs){
+	  if(5 < dimp) {
+	    p[row][4] = x*x;             //tri6 || quad9
+	    p[row][5] = y*y;             //tri6 || quad9
+	  }
+	  if(8 < dimp) {
+	    p[row][6] = x*x*y;                   //quad9
+	    p[row][7] = x*y*y;                   //quad9
+	    p[row][8] = x*x*y*y;                 //quad9
+	  }
 	}
-	if(8 < dimp) {
-	  p[row][6] = x*x*y;                   //quad9
-	  p[row][7] = x*y*y;                   //quad9
-	  p[row][8] = x*x*y*y;                 //quad9
+	if(3 == nrhs){
+	  p[row][4] = z;             //hex8
+	  p[row][5] = x*z;           //hex8
+	  p[row][6] = y*z;           //hex8
+	  p[row][7] = x*y*z;         //hex8
 	}
 	b[row] = basis->dudx;// du/dx
 	b[row+ldb]  = basis->dudy;// du/dy
-	//b[row+2*q]  = basis->dudz;// du/dz, ie in 3d => nrhs = 3 cols of b
+	if(3 == nrhs) {
+	  b[row+2*ldb]  = basis->dudz;// du/dz, ie in 3d => nrhs = 3 cols of b
+	  //std::cout<<row<<" "<<b[row+2*ldb]<<std::endl;
+	}
 
 	row++;
       }//gp
@@ -379,15 +410,9 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     //std::cout<<"info 1 = "<<info<<std::endl<<std::endl;
     lwork = (int)wkopt;
     work = new double[lwork];
+
     //second call does the solve
 
-//     std::cout<<std::endl;
-//     if(224==nn){
-//       for(int i = 0; i < ldb*nrhs; i++){
-// 	std::cout<<b[i]<<" ";
-//       }
-//     }
-//     std::cout<<std::endl;
 #if TUSAS_HAVE_ACML
     dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
 	    &info,0 );
@@ -408,36 +433,43 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
       
     delete[] work;
 
-//     if(224==nn){
-//       for(int i = 0; i < ldb*nrhs; i++){
-// 	std::cout<<nn<<" "<<i<<":"<<b[i]<<" ";
-//       }
-//       std::cout<<std::endl;
-//     }
-
     double x = mesh_->get_x(nn);
     double y = mesh_->get_y(nn);
-    p[0][0] = 1.;
-    p[0][1] = x;
-    p[0][2] = y;
+    double z = mesh_->get_z(nn);
+    p[0][0] = 1.;            //tri3 || quad4 || tri6 || quad9 || hex8
+    p[0][1] = x;             //tri3 || quad4 || tri6 || quad9 || hex8
+    p[0][2] = y;             //tri3 || quad4 || tri6 || quad9 || hex8
     //cn this would be skipped for tris as well; however it does not get summed in below
     //cn we only dimension p to 3 cols for tris and 4 cols for quad earlier
-    if(3 < dimp) p[0][3] = x*y;
-    if(5 < dimp) {
-      p[0][4] = x*x;
-      p[0][5] = y*y;
+    if(3 < dimp) p[0][3] = x*y;      //quad4 || tri6 || quad9 || hex8
+    if(2 == nrhs){
+      if(5 < dimp) {
+	p[0][4] = x*x;             //tri6 || quad9
+	p[0][5] = y*y;             //tri6 || quad9
+      }
+      if(8 < dimp) {
+	p[0][6] = x*x*y;                   //quad9
+	p[0][7] = x*y*y;                   //quad9
+	p[0][8] = x*x*y*y;                 //quad9
+      }
     }
-    if(8 < dimp) {
-      p[0][6] = x*x*y;
-      p[0][7] = x*y*y;
-      p[0][8] = x*x*y*y;
+    if(3 == nrhs){
+      p[0][4] = z;             //hex8
+      p[0][5] = x*z;           //hex8
+      p[0][6] = y*z;           //hex8
+      p[0][7] = x*y*z;         //hex8
     }
     double gradx = 0.;
     double grady = 0.;
+    double gradz = 0.;
     for(int i = 0; i < n; i++){//cn could we use dimp rather than n here?
       gradx = gradx + p[0][i]*b[i];
       //grady = grady + p[0][i]*b[i+q];
       grady = grady + p[0][i]*b[i+ldb];
+      if(3 == nrhs) {
+	gradz = gradz + p[0][i]*b[i+2*ldb];
+	//std::cout<<i<<" "<<b[i+2*ldb]<<std::endl;
+      }
     }
     //std::cout<<nn<<" "<<x<<" "<<y<<" "<<gradx<<" "<<grady<<std::endl;
     //std::cout<<x<<"   "<<y<<"            "<<gradx<<std::endl;
@@ -445,6 +477,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     int gid = (mesh_->get_node_num_map())[nn];
     tempx->ReplaceGlobalValues ((int) 1, (int) 0, &gradx, &gid);
     tempy->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &gid);
+    if(3 == nrhs) tempz->ReplaceGlobalValues ((int) 1, (int) 0, &gradz, &gid);
    
     delete[] a;
     delete[] b;
@@ -459,8 +492,14 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
   gradx_->Export(*tempx, *importer_, Average);
   grady_->Export(*tempy, *importer_, Average);
+  if(3 == nrhs) gradz_->Export(*tempz, *importer_, Average);
+
+  delete tempx;
+  delete tempy;
+  if(3 == nrhs) delete tempz;
   //gradx_->Print(std::cout);
   //grady_->Print(std::cout);
+  //gradz_->Print(std::cout);
   //exit(0);
 }
 
@@ -580,24 +619,36 @@ void error_estimator::test_lapack(){
 
 void error_estimator::update_mesh_data(){
   
-  Epetra_Vector *tempx,*tempy;
+  int nrhs = mesh_->get_num_dim();
+
+  Epetra_Vector *tempx,*tempy,*tempz;
   tempx = new Epetra_Vector(*overlap_map_);
   tempx->Import(*gradx_, *importer_, Insert);
   tempy = new Epetra_Vector(*overlap_map_);
   tempy->Import(*grady_, *importer_, Insert);
+  if(3 == nrhs){
+    tempz = new Epetra_Vector(*overlap_map_);
+    tempz->Import(*gradz_, *importer_, Insert);
+  }
   int num_nodes = overlap_map_->NumMyElements ();
   std::vector<double> gradx(num_nodes,0.);
   std::vector<double> grady(num_nodes,0.);
+  std::vector<double> gradz(num_nodes,0.);
 #pragma omp parallel for
   for (int nn=0; nn < num_nodes; nn++) {
       gradx[nn]=(*tempx)[nn];
       grady[nn]=(*tempy)[nn];
       //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<grady[nn]<<" "<<(*grady_)[nn]<<std::endl;
+      if(3 == nrhs) gradz[nn]=(*tempz)[nn];
   }
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
   mesh_->update_nodal_data(xstring, &gradx[0]);
   mesh_->update_nodal_data(ystring, &grady[0]);
+  if(3 == nrhs){
+    std::string zstring="grad"+std::to_string(index_)+"z";
+    mesh_->update_nodal_data(zstring, &gradz[0]);
+  }
 
   int num_elem = mesh_->get_elem_num_map()->size();
   std::vector<double> error(num_elem,0.);
@@ -611,11 +662,14 @@ void error_estimator::update_mesh_data(){
 
   delete tempx;
   delete tempy;
+  if(3 == nrhs) delete tempz;
 }
 
 void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   
   Teuchos::TimeMonitor ErrorEstTimer(*ts_time_error); 
+
+  int nrhs = mesh_->get_num_dim();
 
   Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
 #pragma omp parallel for 
@@ -626,11 +680,15 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
   u->Import(*u1, *importer_, Insert);
 
-  Epetra_Vector *tempx,*tempy;
+  Epetra_Vector *tempx,*tempy,*tempz;
   tempx = new Epetra_Vector(*overlap_map_);
   tempx->Import(*gradx_, *importer_, Insert);
   tempy = new Epetra_Vector(*overlap_map_);
   tempy->Import(*grady_, *importer_, Insert);
+  if(3 == nrhs){
+    tempz = new Epetra_Vector(*overlap_map_);
+    tempz->Import(*gradz_, *importer_, Insert);
+  }
 
   const int blk = 0;//for now
 
@@ -640,7 +698,7 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
 #endif
 
   double *xx, *yy, *zz;
-  double *uu, *ux, *uy;
+  double *uu, *ux, *uy, *uz;
   int n_nodes_per_elem;
 
   std::string elem_type=mesh_->get_blk_elem_type(blk);
@@ -659,6 +717,10 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6"))) { // quadratic triangle
     basis=new BasisQTri();
   }
+  else if((0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) 
+	  || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))){// hex8
+    basis=new BasisLHex();
+  }
   else{
     std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl;
     std::cout<<elem_type<<" not supported."<<std::endl;
@@ -673,6 +735,7 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   uu = new double[n_nodes_per_elem];
   ux = new double[n_nodes_per_elem];
   uy = new double[n_nodes_per_elem];
+  if(3 == nrhs) uz = new double[n_nodes_per_elem];
   
   // Loop Over # of Finite Elements on Processor
 
@@ -691,6 +754,7 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
       uu[k] = (*u)[nodeid]; 
       ux[k] = (*tempx)[nodeid];
       uy[k] = (*tempy)[nodeid];
+      if(3 == nrhs) uz[k] = (*tempy)[nodeid];
     }//k
     for(int gp=0; gp < basis->ngp; gp++) { 
       //ux is uuold, uy is uuoldold
@@ -699,6 +763,14 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
       double ey = (basis->dudy - basis->uuoldold);
 
       error += basis->jac * basis->wt *(ex*ex + ey*ey);
+
+      //cn need to do another call to get error in z...
+      if(3 == nrhs){
+	basis->getBasis(gp, xx, yy, zz, uu, uz);
+	ex = (basis->dudz - basis->uuold);
+	error += basis->jac * basis->wt *(ex*ex);
+      }
+
       
 //       std::cout<<comm_->MyPID()<<" "<<ne<<"  "<<gp<<"  "<<basis->dudx<<" "<<basis->uuold<<std::endl;
 //       std::cout<<comm_->MyPID()<<" "<<ne<<"  "<<gp<<"  "<<ex*ex<<" "<<ey*ey<<std::endl;
@@ -714,6 +786,7 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
     delete uu;
     delete ux;
     delete uy;
+    if(3 == nrhs) delete uz;
     delete basis;
 #endif
   }//ne
@@ -726,9 +799,11 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   delete uu;
   delete ux;
   delete uy;
+  if(3 == nrhs) delete uz;
 #endif
   delete tempx;
   delete tempy;
+  if(3 == nrhs) delete tempz;
   //elem_error_->Print(std::cout);
   //std::cout<<estimate_global_error()<<std::endl;
   //   exit(0);

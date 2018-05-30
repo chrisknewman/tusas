@@ -51,8 +51,6 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   //We could also do mesh replication here
 
 
-  //Also we will remove all if(3 == nrhs) {}; this requires reblessing all 2d tests with error estimator
-  //Lets do this later...
 
   int blk = 0;
   std::string elem_type=mesh_->get_blk_elem_type(blk);
@@ -97,16 +95,14 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   gradx_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
   grady_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
-  if(3 == nrhs) gradz_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  gradz_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
 
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
   mesh_->add_nodal_field(xstring);
   mesh_->add_nodal_field(ystring);
-  if(3 == nrhs){
-    std::string zstring="grad"+std::to_string(index_)+"z";
-    mesh_->add_nodal_field(zstring);
-  }
+  std::string zstring="grad"+std::to_string(index_)+"z";
+  mesh_->add_nodal_field(zstring);
 
   //cn this is the map of elements belonging to this processor
   std::vector<int> elem_num_map(*(mesh_->get_elem_num_map()));
@@ -200,7 +196,9 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
   int dimp = -999;//dimension of 2d basis
 
-  int nrhs = mesh_->get_num_dim();//num right hand size or dim of gradient = 2 for 2d
+  //cn i think we always need nrhs = 3
+  //cn but we need to distinguish between shape functions for different element types better below
+  int nrhs = mesh_->get_num_dim();
 
   std::string elem_type=mesh_->get_blk_elem_type(blk);
    
@@ -208,7 +206,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   Epetra_Vector *tempx,*tempy,*tempz;
   tempx = new Epetra_Vector(*overlap_map_);
   tempy = new Epetra_Vector(*overlap_map_);
-  if(3 == nrhs) tempz = new Epetra_Vector(*overlap_map_);
+  tempz = new Epetra_Vector(*overlap_map_);
 
 #ifdef ERROR_ESTIMATOR_OMP
 #pragma omp parallel for
@@ -499,7 +497,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     int gid = (mesh_->get_node_num_map())[nn];
     tempx->ReplaceGlobalValues ((int) 1, (int) 0, &gradx, &gid);
     tempy->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &gid);
-    if(3 == nrhs) tempz->ReplaceGlobalValues ((int) 1, (int) 0, &gradz, &gid);
+    tempz->ReplaceGlobalValues ((int) 1, (int) 0, &gradz, &gid);
    
     delete[] a;
     delete[] b;
@@ -514,11 +512,11 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
   gradx_->Export(*tempx, *importer_, Average);
   grady_->Export(*tempy, *importer_, Average);
-  if(3 == nrhs) gradz_->Export(*tempz, *importer_, Average);
+  gradz_->Export(*tempz, *importer_, Average);
 
   delete tempx;
   delete tempy;
-  if(3 == nrhs) delete tempz;
+  delete tempz;
   //gradx_->Print(std::cout);
   //grady_->Print(std::cout);
   //gradz_->Print(std::cout);
@@ -648,10 +646,9 @@ void error_estimator::update_mesh_data(){
   tempx->Import(*gradx_, *importer_, Insert);
   tempy = new Epetra_Vector(*overlap_map_);
   tempy->Import(*grady_, *importer_, Insert);
-  if(3 == nrhs){
-    tempz = new Epetra_Vector(*overlap_map_);
-    tempz->Import(*gradz_, *importer_, Insert);
-  }
+  tempz = new Epetra_Vector(*overlap_map_);
+  tempz->Import(*gradz_, *importer_, Insert);
+  
   int num_nodes = overlap_map_->NumMyElements ();
   std::vector<double> gradx(num_nodes,0.);
   std::vector<double> grady(num_nodes,0.);
@@ -661,16 +658,14 @@ void error_estimator::update_mesh_data(){
       gradx[nn]=(*tempx)[nn];
       grady[nn]=(*tempy)[nn];
       //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<grady[nn]<<" "<<(*grady_)[nn]<<std::endl;
-      if(3 == nrhs) gradz[nn]=(*tempz)[nn];
+      gradz[nn]=(*tempz)[nn];
   }
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
   mesh_->update_nodal_data(xstring, &gradx[0]);
   mesh_->update_nodal_data(ystring, &grady[0]);
-  if(3 == nrhs){
-    std::string zstring="grad"+std::to_string(index_)+"z";
-    mesh_->update_nodal_data(zstring, &gradz[0]);
-  }
+  std::string zstring="grad"+std::to_string(index_)+"z";
+  mesh_->update_nodal_data(zstring, &gradz[0]);
 
   int num_elem = mesh_->get_elem_num_map()->size();
   std::vector<double> error(num_elem,0.);
@@ -684,7 +679,7 @@ void error_estimator::update_mesh_data(){
 
   delete tempx;
   delete tempy;
-  if(3 == nrhs) delete tempz;
+  delete tempz;
 }
 
 void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
@@ -707,10 +702,8 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   tempx->Import(*gradx_, *importer_, Insert);
   tempy = new Epetra_Vector(*overlap_map_);
   tempy->Import(*grady_, *importer_, Insert);
-  if(3 == nrhs){
-    tempz = new Epetra_Vector(*overlap_map_);
-    tempz->Import(*gradz_, *importer_, Insert);
-  }
+  tempz = new Epetra_Vector(*overlap_map_);
+  tempz->Import(*gradz_, *importer_, Insert);
 
   const int blk = 0;//for now
 
@@ -761,7 +754,7 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   uu = new double[n_nodes_per_elem];
   ux = new double[n_nodes_per_elem];
   uy = new double[n_nodes_per_elem];
-  if(3 == nrhs) uz = new double[n_nodes_per_elem];
+  uz = new double[n_nodes_per_elem];
   
   // Loop Over # of Finite Elements on Processor
 
@@ -780,7 +773,7 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
       uu[k] = (*u)[nodeid]; 
       ux[k] = (*tempx)[nodeid];
       uy[k] = (*tempy)[nodeid];
-      if(3 == nrhs) uz[k] = (*tempy)[nodeid];
+      uz[k] = (*tempz)[nodeid];
     }//k
     for(int gp=0; gp < basis->ngp; gp++) { 
       //ux is uuold, uy is uuoldold
@@ -812,7 +805,7 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
     delete uu;
     delete ux;
     delete uy;
-    if(3 == nrhs) delete uz;
+    delete uz;
     delete basis;
 #endif
   }//ne
@@ -825,11 +818,11 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   delete uu;
   delete ux;
   delete uy;
-  if(3 == nrhs) delete uz;
+  delete uz;
 #endif
   delete tempx;
   delete tempy;
-  if(3 == nrhs) delete tempz;
+  delete tempz;
   //elem_error_->Print(std::cout);
   //std::cout<<estimate_global_error()<<std::endl;
   //   exit(0);

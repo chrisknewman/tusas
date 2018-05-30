@@ -2363,6 +2363,10 @@ PPR_FUNC(postproc_stress_x_)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
 
   double strain[2];//x,y,z,yx,zy,zx
   double phi = u[0];
@@ -2381,6 +2385,10 @@ PPR_FUNC(postproc_stress_xd_)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
 
   double strain[2];//x,y,z,yx,zy,zx
 //   double phi = u[0];
@@ -2397,6 +2405,13 @@ PPR_FUNC(postproc_stress_xd_)
 //double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_stress_y_)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double strain[2];//x,y,z,yx,zy,zx
   double phi = u[0];
   if(phi < 0.) phi = 0.;
@@ -2412,6 +2427,13 @@ PPR_FUNC(postproc_stress_y_)
 //double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_stress_xy_)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double phi = u[0];
   if(phi < 0.) phi = 0.;
   if(phi > 1.) phi = 1.;
@@ -2426,6 +2448,13 @@ PPR_FUNC(postproc_stress_eq_)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double strain[3], stress[3];//x,y,z,yx,zy,zx
   double phi = u[0];
   if(phi < 0.) phi = 0.;
@@ -2454,6 +2483,13 @@ PPR_FUNC(postproc_stress_eqd_)
 {
   //u is u0,u1,...
   //gradu is dee0dx,dee0dy,dee1dx...
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double strain[3], stress[3];//x,y,z,yx,zy,zx
   double phi = u[0];
   if(phi < 0.) phi = 0.;
@@ -2483,6 +2519,13 @@ PPR_FUNC(postproc_stress_eqd_)
 //double postproc_phi_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_phi_)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double phi = u[0];
   if(phi < 0.) phi = 0.;
   if(phi > 1.) phi = 1.;
@@ -2491,6 +2534,13 @@ PPR_FUNC(postproc_phi_)
 //double postproc_strain_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_strain_)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double phi = u[0];
   double uu = u[1];
 //   if(phi < 0.) phi = 0.;
@@ -2852,6 +2902,13 @@ PPR_FUNC(postproc_stress_x_)
 {
   //u is u0,u1,...
   //gradu is d0dx,d0dy,d1dx...
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
 
   double strain[2];//x,y,z,yx,zy,zx
   strain[0] = gradu[0];//var 0 dx
@@ -2862,6 +2919,13 @@ PPR_FUNC(postproc_stress_x_)
 //double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_stress_y_)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double strain[2];//x,y,z,yx,zy,zx
   strain[0] = gradu[0];//var 0 dx
   strain[1] = gradu[3];//var 1 dy
@@ -2871,6 +2935,13 @@ PPR_FUNC(postproc_stress_y_)
 //double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_stress_xy_)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double strain = gradu[1] + gradu[2];
 
   return c3*strain;
@@ -3113,6 +3184,13 @@ PRE_FUNC(prec_)
 }
 PPR_FUNC(postproc_)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double s =0.;
   for(int j = 0; j < N; j++){
     s = s + u[j]*u[j];
@@ -3598,6 +3676,13 @@ INI_FUNC(phiinit_)
 }
 PPR_FUNC(postproc_)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double y = xyz[1];
   return temp(time,y);
 }
@@ -4257,6 +4342,13 @@ INI_FUNC(init_)
 }
 PPR_FUNC(postproc_)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   double x = xyz[0];
   double y = xyz[1];
   double a = alpha(time,x);
@@ -4266,6 +4358,13 @@ PPR_FUNC(postproc_)
 }
 PPR_FUNC(postproc_error)
 {
+  //u is u0,u1,...
+  //gradu is dee0dx,dee0dy,dee1dx...
+  //when we enable 3d, we will have
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+  //we will need to fix all the indices to be both 2d and 3d compliant
+
+
   // x is in nondimensional space, tscale_ takes in nondimensional and converts to um
   double x = xyz[0];
   double y = xyz[1];

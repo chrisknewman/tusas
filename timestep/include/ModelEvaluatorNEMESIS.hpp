@@ -261,6 +261,7 @@ private:
   RCP<Teuchos::Time> ts_time_resfill;
   RCP<Teuchos::Time> ts_time_precfill;
   RCP<Teuchos::Time> ts_time_nsolve;
+  RCP<Teuchos::Time> ts_time_f_fill;
   boost::ptr_vector<error_estimator> Error_est;
   boost::ptr_vector<post_process> post_proc;
   Teuchos::RCP<elem_color> Elem_col;

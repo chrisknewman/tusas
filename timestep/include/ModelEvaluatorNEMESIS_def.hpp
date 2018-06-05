@@ -203,6 +203,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Total Residual Fill Time");
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
+  ts_time_f_fill= Teuchos::TimeMonitor::getNewTimer("Total f_fill Time");
 
 #if defined(TUSAS_COLOR_CPU)
 
@@ -413,7 +414,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
     f_fe.PutScalar(0.0);
     Epetra_FEVector * f_fe_p = &f_fe;
     if (nonnull(f_out)) {
-      f = Thyra::get_Epetra_Vector(*f_owned_map_,outArgs.get_f());//f_out?
+      //f = Thyra::get_Epetra_Vector(*f_owned_map_,outArgs.get_f());//f_out?
+      f = Thyra::get_Epetra_Vector(*f_owned_map_,f_out);//f_out?
       //f->Print(std::cout);
     }
 
@@ -472,9 +474,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	double *ua;
 	u->ExtractView(&ua);
 
-	//double *u_olda;
-	double *u_oldaa;
-	u_old->ExtractView(&u_oldaa);
+	//	double *u_olda;
+ 	double *u_oldaa;
+ 	u_old->ExtractView(&u_oldaa);
 
 	//#pragma omp target update to(ua[0:alen])
 	//#pragma omp target update to(u_olda[0:alen])
@@ -487,10 +489,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	OMPBasisLQuad B;
 
-#pragma omp target enter data map(to:B) 
-
-	//#pragma omp target update to(u_olda[0:alen]) 
-#pragma omp target enter data map(to:u_oldaa[0:alen]) 
+	#pragma omp target enter data map(to:B) 
 
 #endif
 	for(int c = 0; c < num_color; c++){//for c
@@ -503,13 +502,32 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  int num_nodes_in_c = num_elem*n_nodes_per_elem;
 	  double *values = new double[num_nodes_in_c];
 	  int *rows = new int[num_nodes_in_c];
-#pragma omp target data map(to:ua[0:alen])
-#pragma omp target data \
-  map(from:rows[0:num_nodes_in_c]) map(to:elem_mapc[0:num_elem]) map(from:values[0:num_nodes_in_c])
+#pragma omp target data map(to:num_elem,num_nodes_in_c)
+#pragma omp target data map(to:elem_mapc[0:num_elem], ua[0:alen],u_oldaa[0:alen])
+#pragma omp target data map(from:rows[0:num_nodes_in_c],values[0:num_nodes_in_c])
 
-#pragma omp target
-	  //{//omp target
-#pragma omp teams distribute parallel for
+// #pragma omp target teams distribute parallel for
+// 	    for (int ne=0; ne < num_elem; ne++) {
+// 	      const int elem = elem_mapc[ne];
+// 	      //double xx[4];
+// 	      for(int k = 0; k < n_nodes_per_elem; k++){
+// 		int nodeid = meshc[elem*n_nodes_per_elem+k];
+// 		double xx = meshx[0];
+// 		int x = meshn[0];
+// 		double y =  meshy[0];
+// 		//double u = u_olda[nodeid];
+// 		double u_a = ua[nodeid];
+// 		double uold_a = u_oldaa[nodeid];
+// 		double eta = B.eta[k];
+// 		values[k] += 10.;
+// 		rows[k] = 4.;
+// 	      }
+// 	    }
+// 	    //exit(0);
+
+
+
+#pragma omp target teams distribute parallel for
 	    for (int ne=0; ne < num_elem; ne++) {//for ne
 	      double xx[4];
 	      double yy[4];
@@ -518,33 +536,33 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      double uu_old[4];
 	      //double uu_old_old[4];
 	      const int elem = elem_mapc[ne];
-	      //#pragma omp parallel for
+	      //#pragma omp parallel
 	      for(int k = 0; k < n_nodes_per_elem; k++){
-		int nodeid = meshc[elem*n_nodes_per_elem+k];
+		const int nodeid = meshc[elem*n_nodes_per_elem+k];
 		xx[k] = meshx[nodeid];
 		yy[k] = meshy[nodeid];
 		//zz[k] = meshz[nodeid];
 		zz[k] = 0.;
 		uu[k] = ua[nodeid]; 
-		uu_old[k] = u_oldaa[nodeid];
-		//uu_old_old[k] = u_old_olda[nodeid];
+		uu_old[k] = u_oldaa[nodeid];//cn why is this oldaa?
+		//uu_old[k] = u_olda[nodeid];
 	      }//k
 	      
 	      for (int i=0; i< n_nodes_per_elem; i++) {//i
 		values[ne*n_nodes_per_elem+i] =0.;
 		for(int gp=0; gp < 4; gp++) {//gp
 		  //B.getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
-		  double dxdxi = .25*( (xx[1]-xx[0])*(1.-B.eta[gp])+(xx[2]-xx[3])*(1.+B.eta[gp]) );
-		  double dxdeta = .25*( (xx[3]-xx[0])*(1.- B.xi[gp])+(xx[2]-xx[1])*(1.+ B.xi[gp]) );
-		  double dydxi  = .25*( (yy[1]-yy[0])*(1.- B.eta[gp])+(yy[2]-yy[3])*(1.+ B.eta[gp]) );
-		  double dydeta = .25*( (yy[3]-yy[0])*(1.-  B.xi[gp])+(yy[2]-yy[1])*(1.+  B.xi[gp]) );
-		  double jac = dxdxi * dydeta - dxdeta * dydxi;
-		  double dxidx = dydeta / jac;
-		  double dxidy = -dxdeta / jac;
-		  double detadx = -dydxi / jac;
-		  double detady = dxdxi / jac;
+		  const double dxdxi  = .25*( (xx[1]-xx[0])*(1.-B.eta[gp])+(xx[2]-xx[3])*(1.+B.eta[gp]) );
+		  const double dxdeta = .25*( (xx[3]-xx[0])*(1.- B.xi[gp])+(xx[2]-xx[1])*(1.+ B.xi[gp]) );
+		  const double dydxi  = .25*( (yy[1]-yy[0])*(1.- B.eta[gp])+(yy[2]-yy[3])*(1.+ B.eta[gp]) );
+		  const double dydeta = .25*( (yy[3]-yy[0])*(1.-  B.xi[gp])+(yy[2]-yy[1])*(1.+  B.xi[gp]) );
+		  const double jac = dxdxi * dydeta - dxdeta * dydxi;
+		  const double dxidx = dydeta / jac;
+		  const double dxidy = -dxdeta / jac;
+		  const double detadx = -dydxi / jac;
+		  const double detady = dxdxi / jac;
 		  double uuu = 0.;
-		  double uuuold =0.;
+		  double uuuold = 0.;
 		  double dudx = 0.;
 		  double dudy = 0.;
 		  for (int ii=0; ii < 4; ii++) {
@@ -554,11 +572,11 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		    dudy += uu[ii] * (B.dphidxi1[ii][gp]*dxidy+B.dphideta1[ii][gp]*detady);
 		  }//ii
 		  		  
-		  int nid = meshc[elem*n_nodes_per_elem+i];
+		  const int nid = meshc[elem*n_nodes_per_elem+i];
 		  
-		  int row = meshn[nid];
+		  const int row = meshn[nid];
 		  
-		  double jacwt = B.weight[0]*jac;
+		  const double jacwt = B.weight[0]*jac;
 		  double val = 0.;
 		  val = jacwt*(
 			       (uuu-uuuold)/dt*B.phi1[i][gp] 
@@ -566,18 +584,28 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 			       + dudy*(B.dphidxi1[i][gp]*dxidy + B.dphideta1[i][gp]*detady)
 			       );
 		  		  
+		  //f_fe_p->SumIntoGlobalValues ((int)1, &row, &val);
 		  values[ne*n_nodes_per_elem+i] += val;
 		  rows[ne*n_nodes_per_elem+i] = row;
 		}//gp
 	      }//i
 	    }//ne
-	    //}//omp target
+	    
+	    //for (int i=0; i< num_nodes_in_c; i++)std::cout<<c<<" "<<rows[i]<<" "<<values[i]<<std::endl;
 
-	  f_fe_p->SumIntoGlobalValues (num_nodes_in_c, rows, values);
+	    {
+	      Teuchos::TimeMonitor FillTimer(*ts_time_f_fill);
+	      f_fe_p->SumIntoGlobalValues (num_nodes_in_c, rows, values);
+#// pragma omp parallel for
+// 	      for (int i=0; i< num_nodes_in_c; i++){
+// 		f_fe_p->SumIntoGlobalValues ((int)1, rows[i], values[i]);
+// 	      }
+	    }
 	  delete [] values;
 	  delete [] rows;
-
+	  //exit(0);
 	  //GPU
+
 #endif
 #ifdef TUSAS_COLOR_CPU
 #pragma omp parallel for 
@@ -1379,7 +1407,7 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   u_old->Import(*u_old_, *importer_, Insert);
   //copy_uold_gpu(u_old);
   u_old->ExtractView(&u_olda);
-#pragma omp target update to(u_olda[0:alen])
+  //#pragma omp target update to(u_olda[0:alen])
 #endif
 
   //std::cout<<"random_number_= "<<random_number_<<std::endl;
@@ -1515,7 +1543,7 @@ template<class Scalar>
   u_old->Import(*u_old_, *importer_, Insert);
   //copy_uold_gpu(u_old);
   u_old->ExtractView(&u_olda);
-#pragma omp target update to(u_olda[0:alen])
+  //#pragma omp target update to(u_olda[0:alen])
 #endif
 
   if( 0 == comm_->MyPID()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
@@ -2040,7 +2068,7 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
     itp->update_scalar_data(time_);
   }
 
-#ifdef TUSAS_COLOR_CPU
+#if defined(TUSAS_COLOR_CPU) || defined(TUSAS_COLOR_GPU)
   Elem_col->update_mesh_data();
 #endif
 
@@ -3726,19 +3754,15 @@ void ModelEvaluatorNEMESIS<Scalar>::write_openmp()
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::copy_mesh_gpu()
 {
+  std::cout<<"copy_mesh_gpu() started"<<std::endl;
+
   clen = ((mesh_->connect)[0]).size();
   meshc = new int[clen];
   meshc = ((mesh_->connect)[0]).data();
-#pragma omp target enter data map(to:clen)
-#pragma omp target enter data map(alloc:meshc[0:clen])
-#pragma omp target update to(meshc[0:clen])
 
-    nlen = (mesh_->node_num_map).size();
-    meshn = new int[nlen];
-    meshn = (mesh_->node_num_map).data();
-#pragma omp target enter data map(to:nlen)
-#pragma omp target enter data map(alloc:meshn[0:nlen])
-#pragma omp target update to(meshn[0:nlen])
+  nlen = (mesh_->node_num_map).size();
+  meshn = new int[nlen];
+  meshn = (mesh_->node_num_map).data();
 
   xlen = (mesh_->x).size();
   meshx = new double[xlen];
@@ -3746,23 +3770,24 @@ void ModelEvaluatorNEMESIS<Scalar>::copy_mesh_gpu()
   meshy = new double[xlen];
   meshy = (mesh_->y).data();
   //double *meshz = (mesh_->z).data();
-#pragma omp target enter data map(to:xlen)
-#pragma omp target enter data map(alloc:meshx[0:xlen])
-#pragma omp target update to(meshx[0:xlen])
-#pragma omp target enter data map(alloc:meshy[0:xlen])
-#pragma omp target update to(meshy[0:xlen]) 
-//   alen = x_overlap_map_->NumMyElements  () ;
-  RCP< Epetra_Vector> u_old = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));//shared
-  u_old->Import(*u_old_, *importer_, Insert);
-  alen =u_old->MyLength ();
-  u_olda = new double[alen];
-  u_old->ExtractView(&u_olda);
-#pragma omp target enter data map(to:alen)
-#pragma omp target enter data map(alloc:u_olda[0:alen])
-  //u_old->Print(std::cout);
-#pragma omp target update to(u_olda[0:alen])
+
+  alen = x_overlap_map_->NumMyElements  () ;
+//   RCP< Epetra_Vector> u_old = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
+//   u_old->Import(*u_old_, *importer_, Insert);
+//   alen =u_old->MyLength ();
+//   u_olda = new double[alen];
+//   u_old->ExtractView(&u_olda);
+
   //copy_uold_gpu(u_old);
 
+  //cn seems clang wants all this grouped together...
+  
+#pragma omp target enter data map(to: clen, nlen, xlen,alen)
+#pragma omp target enter data map(alloc:meshc[0:clen],meshn[0:nlen],meshx[0:xlen],meshy[0:xlen])//,u_olda[0:alen])
+#pragma omp target update to(meshc[0:clen],meshn[0:nlen],meshx[0:xlen],meshy[0:xlen])//,u_olda[0:alen])
+  
+  std::cout<<"copy_mesh_gpu() ended"<<std::endl;
+  //exit(0);
 }
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::delete_mesh_gpu()
@@ -3772,7 +3797,7 @@ void ModelEvaluatorNEMESIS<Scalar>::delete_mesh_gpu()
 #pragma omp target exit data map(delete:meshx[0:xlen])
 #pragma omp target exit data map(delete:meshy[0:xlen])
   //#pragma omp target exit data map(delete:ua[0:xlen])
-#pragma omp target exit data map(delete:u_olda[0:xlen])
+  //#pragma omp target exit data map(delete:u_olda[0:xlen])
 
 }
 template<class Scalar>
@@ -3781,7 +3806,7 @@ void ModelEvaluatorNEMESIS<Scalar>::copy_uold_gpu(RCP< Epetra_Vector> uold)
 {
 #ifdef TUSAS_COLOR_GPU
   uold->ExtractView(&u_olda);
-#pragma omp target update to(u_olda[0:alen])
+  //#pragma omp target update to(u_olda[0:alen])
 #endif
 }
 

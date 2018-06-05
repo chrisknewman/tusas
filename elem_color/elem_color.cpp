@@ -135,8 +135,10 @@ void elem_color::create_colorer()
 //   }
 
 
-  if( 0 == mypid )
-    std::cout<<std::endl<<"elem_color::create_colorer() ended."<<std::endl<<std::endl;
+  if( 0 == mypid ){
+    std::cout<<std::endl<<"elem_color::create_colorer() ended."<<std::endl;
+    std::cout<<"With num_color_ = "<<num_color_<<std::endl<<std::endl;
+  }
   //exit(0);
 }
 void elem_color::init_mesh_data()

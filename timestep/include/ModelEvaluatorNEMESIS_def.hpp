@@ -503,7 +503,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  double *values = new double[num_nodes_in_c];
 	  int *rows = new int[num_nodes_in_c];
 #pragma omp target data map(to:num_elem,num_nodes_in_c)
-#pragma omp target data map(to:elem_mapc[0:num_elem], ua[0:alen],u_oldaa[0:alen])
+#pragma omp target data map(to:elem_mapc[0:num_elem], ua[0:alen],u_oldaa[0:alen])//can we map ua and u_oldaa outside of the c loop?
 #pragma omp target data map(from:rows[0:num_nodes_in_c],values[0:num_nodes_in_c])
 
 // #pragma omp target teams distribute parallel for
@@ -593,13 +593,18 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    
 	    //for (int i=0; i< num_nodes_in_c; i++)std::cout<<c<<" "<<rows[i]<<" "<<values[i]<<std::endl;
 
+
+	    //cn we *COULD PROBABLY* deal with the shared nodes right here, *EXACTLY* the same way
+	    //cn with the reduction use in the cpu case. We then only need to figure out how omp target device()
+	    //cn works to now work across multiple gpus
 	    {
 	      Teuchos::TimeMonitor FillTimer(*ts_time_f_fill);
-	      f_fe_p->SumIntoGlobalValues (num_nodes_in_c, rows, values);
-#// pragma omp parallel for
-// 	      for (int i=0; i< num_nodes_in_c; i++){
-// 		f_fe_p->SumIntoGlobalValues ((int)1, rows[i], values[i]);
-// 	      }
+	      //	      f_fe_p->SumIntoGlobalValues (num_nodes_in_c, rows, values);//fevector version
+#pragma omp parallel for
+ 	      for (int i=0; i< num_nodes_in_c; i++){
+// 		f_fe_p->SumIntoGlobalValues ((int)1, rows[i], values[i]);//fevector version
+ 		f_fe_p->SumIntoGlobalValue (rows[i], (int)0, values[i]);//multivector version
+	      }
 	    }
 	  delete [] values;
 	  delete [] rows;

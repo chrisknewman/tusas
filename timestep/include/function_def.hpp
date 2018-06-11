@@ -16,12 +16,38 @@
 	
 #include "Teuchos_ParameterList.hpp"
 
+/** Definition for residual function. Each residual function is called at each Gauss point for each equation with this signature:
+- NAME:     name of function to call
+- const boost::ptr_vector<Basis> &basis:     an array of basis function objects indexed by equation
+- const int &i:    the current test function (row in residual vector)
+- const double &dt_: the timestep size as prescribed in input file						
+- const double &t_theta_: the timestep parameter as prescribed in input file
+- const double &time: the current simulation time
+- const int &eqn_id: the index of the current equation
+
+
+*/
+
+
 #define RES_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
                                     const int &i,\
                                     const double &dt_,\
 			            const double &t_theta_,\
                                     const double &time,\
 				    const int &eqn_id)
+
+/** Definition for precondition function. Each precondition function is called at each Gauss point for each equation with this signature:
+- NAME:     name of function to call
+- const boost::ptr_vector<Basis> &basis:     an array of basis function objects indexed by equation
+- const int &i:    the current basis function (row in preconditioning matrix)
+- const int &j:    the current test function (column in preconditioning matrix)
+- const double &dt_: the timestep size as prescribed in input file						
+- const double &t_theta_: the timestep parameter as prescribed in input file
+- const double &time: the current simulation time
+- const int &eqn_id: the index of the current equation
+
+
+*/
 
 #define PRE_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
                                     const int &i,\
@@ -30,15 +56,46 @@
 				    const double &t_theta_,\
 				    const int &eqn_id)
 
+/** Definition for initialization function. Each initialization function is called at each node for each equation at the beginning of the simualtaion with this signature:
+- NAME:     name of function to call
+- const double &x: the x-ccordinate of the node
+- const double &y: the y-ccordinate of the node
+- const double &z: the z-ccordinate of the node
+- const int &eqn_id: the index of the current equation
+
+*/
+
 #define INI_FUNC(NAME)  double NAME(const double &x,\
 			            const double &y,\
 			            const double &z,\
 				    const int &eqn_id) 
 
+
+/** Definition for Dirichlet function. Each Dirichlet function is called at each node for each equation with this signature:
+- NAME:     name of function to call
+- const double &x: the x-ccordinate of the node
+- const double &y: the y-ccordinate of the node
+- const double &z: the z-ccordinate of the node
+- const int &eqn_id: the index of the current equation
+- const double &t: the current time
+
+*/
+
 #define DBC_FUNC(NAME)  double NAME(const double &x,\
 			            const double &y,\
 			            const double &z,\
 			            const double &t) 
+
+/** Definition for Neumann function. Each Neumann function is called at each Gauss point for the current equation with this signature:
+- NAME:     name of function to call
+- const Basis *basis:     basis function object for current equation
+- const int &i:    the current basis function (row in residual vector)
+- const double &dt_: the timestep size as prescribed in input file						
+- const double &t_theta_: the timestep parameter as prescribed in input file
+- const double &time: the current simulation time
+
+
+*/
 
 #define NBC_FUNC(NAME)  double NAME(const Basis *basis,\
 				    const int &i,\
@@ -46,12 +103,111 @@
 				    const double &t_theta_,\
 				    const double &time)
 
+/** Definition for post-process function. Each post-process function is called at each node for each equation at the end of each timestep with this signature:
+- NAME:     name of function to call
+- const double *u: an array of solution values indexed by equation
+- const double *gradu: an array of gradient values indexed by equation, coordinates (NULL unless error estimation is activated)
+- const double *xyz: an array of coordinates indexed by equation, coordinates
+- const double &time: the current simulation time
+
+*/
+
 #define PPR_FUNC(NAME)  double NAME(const double *u,\
 				    const double *gradu,\
 				    const double *xyz,\
 				    const double &time)
 
+/** Parameter function to propogate information from input file. Each parameter function is called at the beginning of each simulation.
+- NAME:     name of function to call
+- Teuchos::ParameterList *plist: paramterlist containing information defined in input file
+
+*/
+
 #define PARAM_FUNC(NAME) void NAME(Teuchos::ParameterList *plist) 
+
+
+namespace heat
+{
+// double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
+// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
+// 		      const double &time)
+
+/** Residual function for heat equation test problem. */
+RES_FUNC(residual_heat_test_)
+{
+
+  //for heat eqn:
+  //u[x,y,t]=exp(-2 pi^2 t)sin(pi x)sin(pi y)
+
+  //for neumann:
+  //u[x,y,t]=exp( -1/4 pi^2 t)sin(pi/4 x)
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+//   double dtestdx = basis[0].dphidx[i];
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+//   double dtestdy = basis[0].dphidy[i];
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //double dtestdz = basis[0].dphidz[i];
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  double u = basis[0].uu;
+  double uold = basis[0].uuold;
+
+  double ut = (u-uold)/dt_*test;
+  double divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+  double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
+ 
+ 
+  return ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old;
+}
+//double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
+//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_heat_test_)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  double divgrad = dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz;
+  double u_t =test * basis[0].phi[j]/dt_;
+  return u_t + t_theta_*divgrad;
+}
+//double init_heat_test_(const double &x,
+//		 const double &y,
+//		 const double &z)
+INI_FUNC(init_heat_test_)
+{
+
+  double pi = 3.141592653589793;
+
+  return sin(pi*x)*sin(pi*y);
+}
+}//namespace heat
 
 
 double rand_phi_zero_(const double &phi, const double &random_number)
@@ -548,82 +704,6 @@ PARAM_FUNC(param_)
 }
 }//cummins
 
-
-
-// double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
-RES_FUNC(residual_heat_test_)
-{
-
-  //for heat eqn:
-  //u[x,y,t]=exp(-2 pi^2 t)sin(pi x)sin(pi y)
-
-  //for neumann:
-  //u[x,y,t]=exp( -1/4 pi^2 t)sin(pi/4 x)
-  //derivatives of the test function
-  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
-    +basis[0].dphideta[i]*basis[0].detadx
-    +basis[0].dphidzta[i]*basis[0].dztadx;
-  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
-    +basis[0].dphideta[i]*basis[0].detady
-    +basis[0].dphidzta[i]*basis[0].dztady;
-  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
-    +basis[0].dphideta[i]*basis[0].detadz
-    +basis[0].dphidzta[i]*basis[0].dztadz;
-  //test function
-  double test = basis[0].phi[i];
-  //u, phi
-  double u = basis[0].uu;
-  double uold = basis[0].uuold;
-
-  double ut = (u-uold)/dt_*test;
-  double divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
-  double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
- 
- 
-  return ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old;
-}
-//double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
-//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
-PRE_FUNC(prec_heat_test_)
-{
-  //cn probably want to move each of these operations inside of getbasis
-  //derivatives of the test function
-  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
-    +basis[0].dphideta[i]*basis[0].detadx
-    +basis[0].dphidzta[i]*basis[0].dztadx;
-  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
-    +basis[0].dphideta[i]*basis[0].detady
-    +basis[0].dphidzta[i]*basis[0].dztady;
-  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
-    +basis[0].dphideta[i]*basis[0].detadz
-    +basis[0].dphidzta[i]*basis[0].dztadz;
-
-  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
-    +basis[0].dphideta[j]*basis[0].detadx
-    +basis[0].dphidzta[j]*basis[0].dztadx;
-  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
-    +basis[0].dphideta[j]*basis[0].detady
-    +basis[0].dphidzta[j]*basis[0].dztady;
-  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
-    +basis[0].dphideta[j]*basis[0].detadz
-    +basis[0].dphidzta[j]*basis[0].dztadz;
-  double test = basis[0].phi[i];
-  double divgrad = dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz;
-  double u_t =test * basis[0].phi[j]/dt_;
-  return u_t + t_theta_*divgrad;
-}
-//double init_heat_test_(const double &x,
-//		 const double &y,
-//		 const double &z)
-INI_FUNC(init_heat_test_)
-{
-
-  double pi = 3.141592653589793;
-
-  return sin(pi*x)*sin(pi*y);
-}
 //double init_zero_(const double &x,
 //		 const double &y,
 //		 const double &z)

@@ -901,6 +901,9 @@ BasisLHex::BasisLHex(int n): sngp(n){
   dphidxi = new double[8];
   dphideta = new double[8];
   dphidzta = new double[8];
+  dphidx = new double[8];
+  dphidy = new double[8];
+  dphidz = new double[8];
 
   abscissa = new double[sngp];
   weight = new double[sngp];
@@ -968,6 +971,9 @@ BasisLHex::~BasisLHex() {
   delete [] dphideta;
   delete [] dphidxi;
   delete [] dphidzta;
+  delete [] dphidx;
+  delete [] dphidy;
+  delete [] dphidz;
   delete [] abscissa;
   delete [] weight;
 
@@ -1215,6 +1221,9 @@ void BasisLHex::getBasis( const int gp,  const double *x,  const double *y,  con
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
     zz += z[i] * phi[i];
+    dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx;
+    dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady+dphidzta[i]*dztady;
+    dphidz[i] = dphidxi[i]*dxidz+dphideta[i]*detadz+dphidzta[i]*dztadz;
     if( u ){
       uu += u[i] * phi[i];
       dudx += u[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
@@ -1263,6 +1272,9 @@ BasisLTet::BasisLTet(){
   dphidxi = new double[ngp];
   dphideta = new double[ngp];
   dphidzta = new double[ngp];
+  dphidx = new double[ngp];
+  dphidy = new double[ngp];
+  dphidz = new double[ngp];
   abscissa = new double[sngp];
   weight = new double[sngp];
   //setN(sngp, abscissa, weight);
@@ -1329,6 +1341,9 @@ BasisLTet::~BasisLTet() {
   delete [] dphideta;
   delete [] dphidxi;
   delete [] dphidzta;
+  delete [] dphidx;
+  delete [] dphidy;
+  delete [] dphidz;
   delete [] abscissa;
   delete [] weight;
 
@@ -1422,6 +1437,9 @@ void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  con
     xx += x[i] * phi[i];
     yy += y[i] * phi[i];
     zz += z[i] * phi[i];
+    dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx;
+    dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady+dphidzta[i]*dztady;
+    dphidz[i] = dphidxi[i]*dxidz+dphideta[i]*detadz+dphidzta[i]*dztadz;
     if( u ){
       uu += u[i] * phi[i];
       dudx += u[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);

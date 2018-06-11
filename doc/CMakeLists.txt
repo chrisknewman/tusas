@@ -1,3 +1,4 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 find_package(Doxygen)
 option(BUILD_DOCUMENTATION "Create and install the HTML based API        
 documentation (requires Doxygen)" ${DOXYGEN_FOUND})

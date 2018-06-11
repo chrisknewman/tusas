@@ -2324,13 +2324,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     numeqs_ = 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &residual_heat_test_;
+    (*residualfunc_)[0] = &heat::residual_heat_test_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &prec_heat_test_;
+    (*preconfunc_)[0] = &heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &init_heat_test_;
+    (*initfunc_)[0] = &heat::init_heat_test_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -2353,13 +2353,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     numeqs_ = 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &residual_heat_test_;
+    (*residualfunc_)[0] = &heat::residual_heat_test_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &prec_heat_test_;
+    (*preconfunc_)[0] = &heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &init_heat_test_;
+    (*initfunc_)[0] = &heat::init_heat_test_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -2375,10 +2375,10 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     numeqs_ = 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &residual_heat_test_;
+    (*residualfunc_)[0] = &heat::residual_heat_test_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &prec_heat_test_;
+    (*preconfunc_)[0] = &heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &init_neumann_test_;
@@ -2557,7 +2557,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*preconfunc_)[0] = &liniso::prec_liniso_x_test_;
     (*preconfunc_)[1] = &liniso::prec_liniso_y_test_;
     (*preconfunc_)[2] = &liniso::prec_liniso_z_test_;
-    (*preconfunc_)[3] = &prec_heat_test_;
+    (*preconfunc_)[3] = &heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &init_neumann_test_;
@@ -2793,7 +2793,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*residualfunc_)[0] = &laplace::residual_heat_test_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &prec_heat_test_;
+    (*preconfunc_)[0] = &heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &init_zero_;

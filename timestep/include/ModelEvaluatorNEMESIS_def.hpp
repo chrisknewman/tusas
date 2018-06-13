@@ -527,12 +527,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  double jacwt = basis[0].jac * basis[0].wt;
 		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_,k);
 
-		  //#ifdef TUSAS_COLOR_CPU
 #ifdef TUSAS_COLOR_CPU
-		  if(f_owned_map_->MyGID(row1)){
+		  if(f_owned_map_->MyGID(row1)){		    
+		    f_fe_p->SumIntoGlobalValue (row1,(int) 0, val);//multivector version--may be faster
+#else	
+		    f_fe_p->SumIntoGlobalValues ((int) 1, &row1, &val);	//fevector version--needed in mpi
 #endif
-		    f_fe_p->SumIntoGlobalValues ((int) 1, &row1, &val);
-		    //#ifdef TUSAS_COLOR_CPU
 #ifdef TUSAS_COLOR_CPU
 		  }else{
 		    //std::cout<<comm_->MyPID()<<":"<<row<<std::endl;
@@ -546,7 +546,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  }//ne	
 	  //#ifdef TUSAS_COLOR_CPU
 #ifdef TUSAS_COLOR_CPU
-	  f_fe_p->SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);	    
+	  f_fe_p->SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);//we need fevector version here	    
 #endif
 	}//c	
 	  //exit(0);	

@@ -142,18 +142,9 @@ RES_FUNC(residual_heat_test_)
   //for neumann:
   //u[x,y,t]=exp( -1/4 pi^2 t)sin(pi/4 x)
   //derivatives of the test function
-  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
-    +basis[0].dphideta[i]*basis[0].detadx
-    +basis[0].dphidzta[i]*basis[0].dztadx;
-//   double dtestdx = basis[0].dphidx[i];
-  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
-    +basis[0].dphideta[i]*basis[0].detady
-    +basis[0].dphidzta[i]*basis[0].dztady;
-//   double dtestdy = basis[0].dphidy[i];
-  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
-    +basis[0].dphideta[i]*basis[0].detadz
-    +basis[0].dphidzta[i]*basis[0].dztadz;
-  //double dtestdz = basis[0].dphidz[i];
+  double dtestdx = basis[0].dphidx[i];
+  double dtestdy = basis[0].dphidy[i];
+  double dtestdz = basis[0].dphidz[i];
   //test function
   double test = basis[0].phi[i];
   //u, phi
@@ -173,15 +164,9 @@ PRE_FUNC(prec_heat_test_)
 {
   //cn probably want to move each of these operations inside of getbasis
   //derivatives of the test function
-  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
-    +basis[0].dphideta[i]*basis[0].detadx
-    +basis[0].dphidzta[i]*basis[0].dztadx;
-  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
-    +basis[0].dphideta[i]*basis[0].detady
-    +basis[0].dphidzta[i]*basis[0].dztady;
-  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
-    +basis[0].dphideta[i]*basis[0].detadz
-    +basis[0].dphidzta[i]*basis[0].dztadz;
+  double dtestdx = basis[0].dphidx[i];
+  double dtestdy = basis[0].dphidy[i];
+  double dtestdz = basis[0].dphidz[i];
 
   double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
     +basis[0].dphideta[j]*basis[0].detadx

@@ -4441,4 +4441,409 @@ PPR_FUNC(postproc_error)
 }
 
 }//namespace allencahn
+namespace pfhub2 {
+
+  int N_ = 1;
+  int eqn_off_ =1;
+  const double c0_ = .5;
+  const double eps_ = .05;
+  const double eps_eta_ = .1;
+  const double psi_ = 1.5;
+  const double rho_ = std::sqrt(2.);
+  const double c_alpha_ = .3;
+  const double c_beta_ = .7;
+  const double alpha_ = 5.;
+  const double k_c_ = 3.;
+  const double k_eta_ = 3.;
+  const double M_ = 5.;
+  const double L_ = 5.;
+  const double w_ = 1.;
+
+  PARAM_FUNC(param_)
+  {
+    N_ = plist->get<int>("N");
+    eqn_off_ = plist->get<int>("OFFSET");
+  }
+
+  double f_alpha(const double c){
+    return rho_*rho_*(c - c_alpha_)*(c - c_alpha_);
+  }
+
+  double df_alphadc(const double c){
+    return 2.*rho_*rho_*(c - c_alpha_);
+  }
+
+  double f_beta(const double c){
+    return rho_*rho_*(c_beta_ - c)*(c_beta_ - c);
+  }
+
+  double df_betadc(const double c){
+    return -2.*rho_*rho_*(c_beta_ - c);
+  }
+
+  double d2fdc2(){
+    return 2.*rho_*rho_;
+  }
+
+  double h(const double *eta){
+    double val = 0.;
+    for (int i = 0; i < N_; i++){
+      val += eta[i]*eta[i]*eta[i]*(6.*eta[i]*eta[i] - 15.*eta[i] + 10.);
+    }
+    return val;
+  }
+
+  //double dhdeta(const double *eta, const int eqn_id){
+  double dhdeta(const double eta){
+
+    //return 30.*eta[eqn_id]*eta[eqn_id] - 60.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id] + 30.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
+    return 30.*eta*eta - 60.*eta*eta*eta + 30.*eta*eta*eta*eta;
+  }
+
+//   double d2hdeta2(const double *eta, const int eqn_id){
+
+//     return 60.*eta[eqn_id] - 180.*eta[eqn_id]*eta[eqn_id] + 120.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
+//   }
+
+  double g(const double *eta){
+
+    double aval =0.;
+    for (int i = 0; i < N_; i++){
+      aval += eta[i]*eta[i];
+    }
+    
+    double val = 0.;
+    for (int i = 0; i < N_; i++){
+      val += eta[i]*eta[i]*(1.-eta[i])*(1.-eta[i]) + alpha_*eta[i]*eta[i]*aval - alpha_*eta[i]*eta[i]*eta[i]*eta[i];
+    }
+    return val;
+  }
+
+  double dgdeta(const double *eta, const int eqn_id){
+
+    double aval =0.;
+    for (int i = 0; i < N_; i++){
+      aval += eta[i]*eta[i];
+    }
+    return 2.*eta[eqn_id]*(1. - eta[eqn_id])*(1. - eta[eqn_id])  - 2.* eta[eqn_id]* eta[eqn_id]* (1. - eta[eqn_id]) + 
+      4.*alpha_*eta[eqn_id] *aval - 4.*alpha_*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
+  }
+
+//   double d2gdeta2(const double *eta, const int eqn_id){
+
+//     double aval =0.;
+//     for (int i = 0; i < N_; i++){
+//       aval += eta[i]*eta[i];
+//     }
+//     return 2. - 12.*eta[eqn_id] + 12.*eta[eqn_id]*eta[eqn_id] + alpha_*4.*aval - 4.*alpha_*eta[eqn_id]*eta[eqn_id];
+//   }
+
+RES_FUNC(residual_c_)
+{
+
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidx[i];
+  double dtestdy = basis[0].dphidy[i];
+  //double dtestdz = basis[0].dphidz[i];
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  double c[2] = {basis[0].uu, basis[0].uuold};
+  double dcdx[2] = {basis[0].dudx, basis[0].duolddx};
+  double dcdy[2] = {basis[0].dudy, basis[0].duolddy};
+
+  double dhdx[2] = {0., 0.};
+  double dhdy[2] = {0., 0.};
+
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    dhdx[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudx;
+    dhdx[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddx;
+    dhdy[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudy;
+    dhdy[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddy;
+  }
+
+  double ct = (c[0]-c[1])/dt_*test;
+
+  double DfDc[2] = {df_betadc(c[0])-df_alphadc(c[0]),
+		    df_betadc(c[1])-df_alphadc(c[1])};
+
+  double D2fDc2 = d2fdc2();
+
+  double dfdx[2] = {M_*(DfDc[0]*dhdx[0] + D2fDc2*dcdx[0]),
+		    M_*(DfDc[1]*dhdx[1] + D2fDc2*dcdx[1])};
+  double dfdy[2] = {M_*(DfDc[0]*dhdy[0] + D2fDc2*dcdy[0]),
+		    M_*(DfDc[1]*dhdy[1] + D2fDc2*dcdy[1])};
+
+  double divgradc[2] = {dfdx[0]*dtestdx + dfdy[0]*dtestdy,
+			dfdx[1]*dtestdx + dfdy[1]*dtestdy};
+
+  return ct + t_theta_*divgradc[0] + (1.-t_theta_)*divgradc[1];
+}
+
+PRE_FUNC(prec_c_)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidx[i];
+  double dtestdy = basis[0].dphidy[i];
+  double dtestdz = basis[0].dphidz[i];
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  double divgrad = dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz;
+  double u_t =test * basis[0].phi[j]/dt_;
+  double D2fDc2 = d2fdc2();
+  return u_t + t_theta_*M_*D2fDc2*divgrad;
+}
+
+
+RES_FUNC(residual_eta_)
+{
+
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidx[i];
+  double dtestdy = basis[0].dphidy[i];
+  //double dtestdz = basis[0].dphidz[i];
+  //test function
+  double test = basis[eqn_id].phi[i];
+  //u, phi
+  double c[2] = {basis[0].uu, basis[0].uuold};
+
+  double eta[2] = {basis[eqn_id].uu, basis[eqn_id].uuold};
+  double detadx[2] = {basis[eqn_id].dudx, basis[eqn_id].duolddx};
+  double detady[2] = {basis[eqn_id].dudy, basis[eqn_id].duolddy};
+
+  double eta_array[N_];
+  double eta_array_old[N_];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off].uu;
+    eta_array_old[kk] = basis[kk_off].uuold;
+  }
+
+  double etat = (eta[0]-eta[1])/dt_*test;
+
+  double F[2] = {f_beta(c[0])-f_alpha(c[0]),
+		 f_beta(c[1])-f_alpha(c[1])};
+
+  int k = eqn_id - eqn_off_;
+  double dfdeta[2] = {L_*(F[0]*dhdeta(eta[0]) + w_*dgdeta(eta_array,k))*test,
+		      L_*(F[1]*dhdeta(eta[1]) + w_*dgdeta(eta_array_old,k))*test};
+
+  double divgradeta[2] = {L_*k_eta_*(detadx[0]*dtestdx + detady[0]*dtestdy), 
+			  L_*k_eta_*(detadx[1]*dtestdx + detady[1]*dtestdy)};//(grad u,grad phi)
+ 
+  return etat + t_theta_*divgradeta[0] + t_theta_*dfdeta[0] + (1.-t_theta_)*divgradeta[1] + (1.-t_theta_)*dfdeta[1];
+}
+
+PRE_FUNC(prec_eta_)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidx[i];
+  double dtestdy = basis[0].dphidy[i];
+  double dtestdz = basis[0].dphidz[i];
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  double divgrad = dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz;
+  double u_t =test * basis[0].phi[j]/dt_;
+  return u_t + t_theta_*L_*k_eta_*divgrad;
+}
+
+RES_FUNC(residual_c_kks_)
+{
+
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidx[i];
+  double dtestdy = basis[0].dphidy[i];
+  //double dtestdz = basis[0].dphidz[i];
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  double c[2] = {basis[0].uu, basis[0].uuold};
+  double dcdx[2] = {basis[0].dudx, basis[0].duolddx};
+  double dcdy[2] = {basis[0].dudy, basis[0].duolddy};
+
+  double dhdx[2] = {0., 0.};
+  double dhdy[2] = {0., 0.};
+
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    dhdx[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudx;
+    dhdx[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddx;
+    dhdy[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudy;
+    dhdy[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddy;
+  }
+
+  double ct = (c[0]-c[1])/dt_*test;
+
+  double c_a[2] = {basis[1].uu, basis[1].uuold};
+  double c_b[2] = {basis[2].uu, basis[2].uuold};
+
+  double DfDc[2] = {c_b[0] - c_a[0],
+		    c_b[1] - c_a[1]};
+
+  double D2fDc2 = 1.;
+  //double D2fDc2 = 1.*d2fdc2();
+
+  double dfdx[2] = {M_*(DfDc[0]*dhdx[0] + D2fDc2*dcdx[0]),
+		    M_*(DfDc[1]*dhdx[1] + D2fDc2*dcdx[1])};
+  double dfdy[2] = {M_*(DfDc[0]*dhdy[0] + D2fDc2*dcdy[0]),
+		    M_*(DfDc[1]*dhdy[1] + D2fDc2*dcdy[1])};
+
+  double divgradc[2] = {dfdx[0]*dtestdx + dfdy[0]*dtestdy,
+			dfdx[1]*dtestdx + dfdy[1]*dtestdy};
+
+  return ct + t_theta_*divgradc[0] + (1.-t_theta_)*divgradc[1];
+}
+
+RES_FUNC(residual_eta_kks_)
+{
+
+  //derivatives of the test function
+  double dtestdx = basis[eqn_id].dphidx[i];
+  double dtestdy = basis[eqn_id].dphidy[i];
+  //double dtestdz = basis[0].dphidz[i];
+  //test function
+  double test = basis[eqn_id].phi[i];
+  //u, phi
+  double c[2] = {basis[0].uu, basis[0].uuold};
+
+  double eta[2] = {basis[eqn_id].uu, basis[eqn_id].uuold};
+  double detadx[2] = {basis[eqn_id].dudx, basis[eqn_id].duolddx};
+  double detady[2] = {basis[eqn_id].dudy, basis[eqn_id].duolddy};
+
+  double eta_array[N_];
+  double eta_array_old[N_];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off].uu;
+    eta_array_old[kk] = basis[kk_off].uuold;
+  }
+
+  double etat = (eta[0]-eta[1])/dt_*test;
+
+  double c_a[2] = {basis[1].uu, basis[1].uuold};
+  double c_b[2] = {basis[2].uu, basis[2].uuold};
+
+  double F[2] = {f_beta(c_b[0])-f_alpha(c_a[0]) - (c_b[0] - c_a[0])*df_betadc(c_b[0]),
+		 f_beta(c_b[1])-f_alpha(c_a[1]) - (c_b[1] - c_a[1])*df_betadc(c_b[1])};
+
+  int k = eqn_id - eqn_off_;
+  double dfdeta[2] = {L_*(F[0]*dhdeta(eta[0]) + w_*dgdeta(eta_array,k))*test,
+		      L_*(F[1]*dhdeta(eta[1]) + w_*dgdeta(eta_array_old,k))*test};
+
+  double divgradeta[2] = {L_*k_eta_*(detadx[0]*dtestdx + detady[0]*dtestdy), 
+			  L_*k_eta_*(detadx[1]*dtestdx + detady[1]*dtestdy)};//(grad u,grad phi)
+ 
+  return etat + t_theta_*divgradeta[0] + t_theta_*dfdeta[0] + (1.-t_theta_)*divgradeta[1] + (1.-t_theta_)*dfdeta[1];
+}
+
+INI_FUNC(init_c_)
+{
+  return c0_ + eps_*(cos(0.105*x)*cos(0.11*y)
+		     + cos(0.13*x)*cos(0.087*y)*cos(0.13*x)*cos(0.087*y)
+		     + cos(0.025*x-0.15*y)*cos(0.07*x-0.02*y)
+		     );
+}
+
+INI_FUNC(init_eta_)
+{
+  const double i = (double)(eqn_id -eqn_off_ + 1);
+  return eps_eta_*std::pow(cos((0.01*i)*x-4.)*cos((0.007+0.01*i)*y)
+			   + cos((0.11+0.01*i)*x)*cos((0.11+0.01*i)*y)		   
+			   + psi_*std::pow(cos((0.046+0.001*i)*x+(0.0405+0.001*i)*y)
+					   *cos((0.031+0.001*i)*x-(0.004+0.001*i)*y),2
+					   ),2
+			   );
+}
+
+RES_FUNC(residual_c_alpha_)
+{
+
+  double test = basis[eqn_id].phi[i];
+  double c = basis[0].uu;
+  double c_a = basis[1].uu;
+  double c_b = basis[2].uu;
+  double eta_array[N_];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off].uu;
+  }
+
+  return (h(eta_array)*c_b + (1.- h(eta_array))*c_a - c)*test;
+}
+
+PRE_FUNC(prec_c_alpha_)
+{
+  double test = basis[0].phi[i];
+  double eta_array[N_];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off].uu;
+  }
+  return (1.-h(eta_array)) * basis[eqn_id].phi[j]*test;
+  //return basis[eqn_id].phi[j]*test;
+}
+
+  RES_FUNC(residual_c_beta_)
+{
+  double test = basis[eqn_id].phi[i];
+  double c_a = basis[1].uu;
+  double c_b = basis[2].uu;
+  return (df_betadc(c_b) - df_alphadc(c_a))*test;
+}
+
+PRE_FUNC(prec_c_beta_)
+{
+  double test = basis[eqn_id].phi[i];
+  double c_b = basis[eqn_id].phi[j];
+  //return df_betadc(c_b)*c_b*test;
+  return c_b*test;
+ }
+
+INI_FUNC(init_c_alpha_)
+{
+   double c = init_c_(x,y,z,0);
+
+//   double eta_array[N_];
+//   for( int kk = 0; kk < N_; kk++){
+//     int kk_off = kk + eqn_off_;
+//     eta_array[kk] = init_eta(x,y,z,kk_off);
+//   }
+
+   return c;
+}
+
+INI_FUNC(init_c_beta_)
+{
+  double c = init_c_(x,y,z,0);
+
+  double eta_array[N_];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = init_eta_(x,y,z,kk_off);
+  }
+
+  return c*h(eta_array);
+}
+}//namespace pfhub2
 #endif

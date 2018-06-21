@@ -3394,6 +3394,183 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 						 
     //exit(0);
 
+  }else if("pfhub2" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    int numeta = problemList->get<int>("N");
+
+    numeqs_ = numeta+1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &pfhub2::residual_c_;
+    (*residualfunc_)[1] = &pfhub2::residual_eta_;
+    if( 4 == numeta){
+      (*residualfunc_)[2] = &pfhub2::residual_eta_;
+      (*residualfunc_)[3] = &pfhub2::residual_eta_;
+      (*residualfunc_)[4] = &pfhub2::residual_eta_;
+    }
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &pfhub2::prec_c_;
+    (*preconfunc_)[1] = &pfhub2::prec_eta_;
+    if( 4 == numeta){
+      (*preconfunc_)[2] = &pfhub2::prec_eta_;
+      (*preconfunc_)[3] = &pfhub2::prec_eta_;
+      (*preconfunc_)[4] = &pfhub2::prec_eta_;
+    }
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &pfhub2::init_c_;
+    (*initfunc_)[1] = &pfhub2::init_eta_;
+    if( 4 == numeta){
+      (*initfunc_)[2] = &pfhub2::init_eta_;
+      (*initfunc_)[3] = &pfhub2::init_eta_;
+      (*initfunc_)[4] = &pfhub2::init_eta_;
+    }
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "eta0";
+    if( 4 == numeta){
+      (*varnames_)[2] = "eta1";
+      (*varnames_)[3] = "eta2";
+      (*varnames_)[4] = "eta3";
+    }
+
+    // numeqs_ number of variables(equations) 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
+    dirichletfunc_ = NULL;
+
+
+    neumannfunc_ = NULL;
+
+    paramfunc_ = pfhub2::param_;
+
+  }else if("pfhub2kkspp" == paramList.get<std::string> (TusastestNameString)){
+
+    //same as above with c_alpha and c_beta coupled independently
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    int numeta = problemList->get<int>("N");
+
+    numeqs_ = numeta+3;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &pfhub2::residual_c_;
+    (*residualfunc_)[1] = &pfhub2::residual_c_alpha_;
+    (*residualfunc_)[2] = &pfhub2::residual_c_beta_;
+    (*residualfunc_)[3] = &pfhub2::residual_eta_;
+    if( 4 == numeta){
+      (*residualfunc_)[4] = &pfhub2::residual_eta_;
+      (*residualfunc_)[5] = &pfhub2::residual_eta_;
+      (*residualfunc_)[6] = &pfhub2::residual_eta_;
+    }
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &pfhub2::prec_c_;
+    (*preconfunc_)[1] = &pfhub2::prec_c_alpha_;
+    (*preconfunc_)[2] = &pfhub2::prec_c_beta_;
+    (*preconfunc_)[3] = &pfhub2::prec_eta_;
+    if( 4 == numeta){
+      (*preconfunc_)[4] = &pfhub2::prec_eta_;
+      (*preconfunc_)[5] = &pfhub2::prec_eta_;
+      (*preconfunc_)[6] = &pfhub2::prec_eta_;
+    }
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &pfhub2::init_c_;
+    (*initfunc_)[1] = &pfhub2::init_c_;
+    (*initfunc_)[2] = &pfhub2::init_c_beta_;
+    (*initfunc_)[3] = &pfhub2::init_eta_;
+    if( 4 == numeta){
+      (*initfunc_)[4] = &pfhub2::init_eta_;
+      (*initfunc_)[5] = &pfhub2::init_eta_;
+      (*initfunc_)[6] = &pfhub2::init_eta_;
+    }
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "ca";
+    (*varnames_)[2] = "cb";
+    (*varnames_)[3] = "eta0";
+    if( 4 == numeta){
+      (*varnames_)[4] = "eta1";
+      (*varnames_)[5] = "eta2";
+      (*varnames_)[6] = "eta3";
+    }
+
+    // numeqs_ number of variables(equations) 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
+    dirichletfunc_ = NULL;
+
+
+    neumannfunc_ = NULL;
+
+    paramfunc_ = pfhub2::param_;
+
+
+
+  }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
+
+    //cn full kks
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    int numeta = problemList->get<int>("N");
+
+    numeqs_ = numeta+3;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &pfhub2::residual_c_kks_;
+    (*residualfunc_)[1] = &pfhub2::residual_c_alpha_;
+    (*residualfunc_)[2] = &pfhub2::residual_c_beta_;
+    (*residualfunc_)[3] = &pfhub2::residual_eta_kks_;
+    if( 4 == numeta){
+      (*residualfunc_)[4] = &pfhub2::residual_eta_kks_;
+      (*residualfunc_)[5] = &pfhub2::residual_eta_kks_;
+      (*residualfunc_)[6] = &pfhub2::residual_eta_kks_;
+    }
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &heat::prec_heat_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &pfhub2::init_c_;
+    (*initfunc_)[1] = &pfhub2::init_c_;
+    (*initfunc_)[2] = &pfhub2::init_c_beta_;
+    (*initfunc_)[3] = &pfhub2::init_eta_;
+    if( 4 == numeta){
+      (*initfunc_)[4] = &pfhub2::init_eta_;
+      (*initfunc_)[5] = &pfhub2::init_eta_;
+      (*initfunc_)[6] = &pfhub2::init_eta_;
+    }
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "ca";
+    (*varnames_)[2] = "cb";
+    (*varnames_)[3] = "eta0";
+    if( 4 == numeta){
+      (*varnames_)[4] = "eta1";
+      (*varnames_)[5] = "eta2";
+      (*varnames_)[6] = "eta3";
+    }
+
+    // numeqs_ number of variables(equations) 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
+    dirichletfunc_ = NULL;
+
+
+    neumannfunc_ = NULL;
+
+    paramfunc_ = pfhub2::param_;
+
+
 
 
   }else {

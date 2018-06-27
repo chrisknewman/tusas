@@ -1585,8 +1585,11 @@ void Mesh::compute_elem_adj(){
   //The problem is that the nodal_patch reaches over prov boundaries;
   //see comments in error_estimator.
 
-
-  compute_nodal_patch_old();
+  //cn changed to the following on 6-27-18
+  //seems to make it a little better
+  //compute_nodal_patch_old();
+  compute_nodal_patch_overlap();
+  
 
   elem_connect.resize(num_elem);
 
@@ -1643,7 +1646,7 @@ void Mesh::compute_elem_adj(){
 	  
 	  int nodeid = get_node_id(blk, ne, k);//local node id
 	  //int gnodeid = node_num_map[nodeid];
-	  //std::cout<<proc_id<<" "<<ne<<" "<<elemid<<" "<<nodeid<<" "<<gnodeid<<std::endl;
+	  //std::cout<<proc_id<<" "<<ne<<" "<<" "<<nodeid<<" "<<std::endl;
 	  
 	  for(int ne2=0; ne2 < get_num_elem_in_blk(blk); ne2++){
 	    for(int k2 = 0; k2 < num_vertices_in_elem; k2++){
@@ -1665,10 +1668,11 @@ void Mesh::compute_elem_adj(){
       else{
 	for(int k = 0; k < num_vertices_in_elem; k++){
 	  int nodeid = get_node_id(blk, ne, k);//local node id
-	  int s = nodal_patch[nodeid].size();
+  //cn	  int s = nodal_patch[nodeid].size();
+	  int s = nodal_patch_overlap[nodeid].size();
 	  for(int np = 0; np < s; np++){
-	    //elem_connect1[ne].push_back(nodal_patch[nodeid][np]);
-	    elem_connect[ne].push_back(get_global_elem_id(nodal_patch[nodeid][np]));
+	    //cn	    elem_connect[ne].push_back(get_global_elem_id(nodal_patch[nodeid][np]));
+	    elem_connect[ne].push_back(get_global_elem_id(nodal_patch_overlap[nodeid][np]));
 	  }//np
 	}//k
       }

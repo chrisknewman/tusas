@@ -1639,7 +1639,7 @@ void Mesh::compute_elem_adj(){
 //     }
 
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
-
+#if 0
       if (nprocs > 1){
 	int cnt = 0;
 	for(int k = 0; k < num_vertices_in_elem; k++){
@@ -1666,16 +1666,19 @@ void Mesh::compute_elem_adj(){
 	}//k
       }
       else{
+#endif
 	for(int k = 0; k < num_vertices_in_elem; k++){
 	  int nodeid = get_node_id(blk, ne, k);//local node id
-  //cn	  int s = nodal_patch[nodeid].size();
+  	  //int s = nodal_patch[nodeid].size();
 	  int s = nodal_patch_overlap[nodeid].size();
 	  for(int np = 0; np < s; np++){
-	    //cn	    elem_connect[ne].push_back(get_global_elem_id(nodal_patch[nodeid][np]));
+	    //elem_connect[ne].push_back(get_global_elem_id(nodal_patch[nodeid][np]));
 	    elem_connect[ne].push_back(get_global_elem_id(nodal_patch_overlap[nodeid][np]));
 	  }//np
 	}//k
-      }
+#if 0
+      }//if
+#endif
     }//ne
 #if 0
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){

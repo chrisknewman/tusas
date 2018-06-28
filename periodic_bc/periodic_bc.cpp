@@ -168,7 +168,7 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
     if ( node_map_->MyGID(gid) ) ownedmap.push_back(gid);
   }
 
-  std::cout<<ownedmap.size();
+  //std::cout<<ownedmap.size();
 
   int ns_size = ownedmap.size();
   int max_size = 0;

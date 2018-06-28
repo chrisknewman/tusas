@@ -78,6 +78,8 @@ private:
   int num_color_;
   /// Initializes element color variable in mesh.
   void init_mesh_data();
+  /// Inserts off processor elements into the graph.
+  void insert_off_proc_elems();
 
   //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
 

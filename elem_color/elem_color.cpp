@@ -79,6 +79,7 @@ void elem_color::compute_graph()
     exit(0);
   } 
   //graph_->Print(std::cout);
+  //elem_map_->Print(std::cout);
   //exit(0);
   if( 0 == mypid )
     std::cout<<std::endl<<"elem_color::compute_graph() ended."<<std::endl<<std::endl;
@@ -119,26 +120,13 @@ void elem_color::create_colorer()
   for(int i = 0; i < num_color_; i++){
     int num_elem = map_coloring_->NumElementsWithColor(color_list_[i]);
     //int num_elem = map_coloring_->NumElementsWithColor(i);
+    //std::cout<<"       "<<comm_->MyPID()<<" "<<num_elem<<" "<<color_list_[i]<<std::endl;
 
     elem_LIDS_[i].assign(map_coloring_->ColorLIDList(color_list_[i]),map_coloring_->ColorLIDList(color_list_[i])+num_elem);
     //elem_LIDS_[i].assign(map_coloring_->ColorLIDList(i),map_coloring_->ColorLIDList(i)+num_elem);
 
     //std::cout<<color_list_[i]<<" ("<<map_coloring_->NumElementsWithColor(color_list_[i])<<") "; 
   }
-  //std::cout<<std::endl;
-  //std::cout<<"num_color_"<<num_color_<<std::endl;
-
-
-//   for(int i = 0; i < num_color_; i++){
-//     int num_elem = elem_LIDS_[i].size();
-
-//     std::cout<<mypid<<" "<<i<<" ("<<color_list_[i]<<") : ";
-//     for(int n = 0; n < num_elem; n++){
-//       std::cout<<elem_LIDS_[i][n]<<" ";
-//     }
-//     std::cout<<std::endl;
-//   }
-
 
   if( 0 == mypid ){
     std::cout<<std::endl<<"elem_color::create_colorer() ended."<<std::endl;
@@ -160,7 +148,7 @@ void elem_color::update_mesh_data()
     int num_elem = elem_map.size();
     for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
       int elem = elem_map[ne];
-      color[elem] = c;  
+      color[elem] = color_list_[c];  
     }
     
   }

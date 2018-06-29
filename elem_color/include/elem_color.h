@@ -66,10 +66,6 @@ private:
   Teuchos::RCP<const Epetra_Map>  elem_map_;
   /// Element graph.
   Teuchos::RCP<Epetra_CrsGraph>  graph_;
-  /// Isorropia color object.
-  Teuchos::RCP<Isorropia::Epetra::Colorer> elem_colorer_;
-  /// Epetra MapColoring object.
-  Teuchos::RCP< Epetra_MapColoring > map_coloring_;
   /// List of color ids.
   std::vector<int> color_list_;
   /// List of local element ids.

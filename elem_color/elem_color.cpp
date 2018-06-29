@@ -89,8 +89,7 @@ void elem_color::create_colorer()
 {
   using Teuchos::rcp;
   int mypid = comm_->MyPID();
-  if( 0 == mypid )
-    std::cout<<std::endl<<"elem_color::create_colorer() started."<<std::endl<<std::endl;
+  std::cout<<std::endl<<"elem_color::create_colorer() started on proc "<<mypid<<std::endl<<std::endl;
 
   //cn looks like the default is a distance-2 coloring,
   //   we need a distance-1 coloring
@@ -98,9 +97,9 @@ void elem_color::create_colorer()
   Teuchos::ParameterList paramList;
   paramList.set("DISTANCE","1","");
 
-  elem_colorer_ = rcp(new Isorropia::Epetra::Colorer(  graph_.getConst(), paramList, true));
+  Teuchos::RCP<Isorropia::Epetra::Colorer> elem_colorer_ = rcp(new Isorropia::Epetra::Colorer(  graph_.getConst(), paramList, true));
 
-  map_coloring_ = rcp( 
+  Teuchos::RCP< Epetra_MapColoring > map_coloring_ = rcp( 
 		      new Epetra_MapColoring(
 					     *(elem_colorer_->Isorropia::Epetra::Colorer::generateRowMapColoring())
 					     )
@@ -128,16 +127,17 @@ void elem_color::create_colorer()
     //std::cout<<color_list_[i]<<" ("<<map_coloring_->NumElementsWithColor(color_list_[i])<<") "; 
   }
 
-  if( 0 == mypid ){
-    std::cout<<std::endl<<"elem_color::create_colorer() ended."<<std::endl;
-    std::cout<<"With num_color_ = "<<num_color_<<std::endl<<std::endl;
-  }
+  graph_ = Teuchos::null;
+
+  std::cout<<std::endl<<"elem_color::create_colorer() ended on proc "<<mypid<<". With num_color_ = "<<num_color_<<std::endl<<std::endl;
+
   //exit(0);
 }
 void elem_color::init_mesh_data()
 {
   std::string cstring="color";
   mesh_->add_elem_field(cstring);
+  return;
 }
 void elem_color::update_mesh_data()
 {
@@ -155,16 +155,12 @@ void elem_color::update_mesh_data()
 
   std::string cstring="color";
   mesh_->update_elem_data(cstring, &color[0]);
+  return;
 }
 void elem_color::insert_off_proc_elems(){
-  //this will be a function that creates the overlap and replicated map
 
-  //then we will have a function that does the allgather and returnd a std::vector
-  //of global element ids for each replicated row, rsgid
-
-  //then we will loop over shared nodes in the graph creation and insert into the graph 
-
-  //note this is very similar to how we can create the patche for error estimator...
+  //note this is very similar to how we can create the patch for error estimator...
+  //although we would need to communicate the nodes also...
 
   std::vector<int> node_num_map(mesh_->get_node_num_map());
   Teuchos::RCP<const Epetra_Map> overlap_map_= Teuchos::rcp(new Epetra_Map(-1,

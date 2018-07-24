@@ -11,6 +11,7 @@
 #include "elem_color.h"
 
 #include <Epetra_MapColoring.h>
+#include <Epetra_Util.h>
 
 elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm, 
 				 Mesh *mesh):  
@@ -54,7 +55,8 @@ void elem_color::compute_graph()
     std::cout<<std::endl<<"Mesh::compute_elem_adj() started."<<std::endl<<std::endl;
   {
     //Teuchos::TimeMonitor ElemadjTimer(*ts_time_elemadj); 
-  mesh_->compute_elem_adj();
+    //mesh_->compute_elem_adj_old();
+    mesh_->compute_elem_adj();
   }
   if( 0 == mypid )
     std::cout<<std::endl<<"Mesh::compute_elem_adj() ended."<<std::endl<<std::endl;
@@ -69,6 +71,7 @@ void elem_color::compute_graph()
 
     }
   }
+  insert_off_proc_elems();
   //if (graph_->GlobalAssemble() != 0){
   if (graph_->FillComplete() != 0){
     std::cout<<"error graph_->GlobalAssemble()"<<std::endl;
@@ -108,18 +111,21 @@ void elem_color::create_colorer()
 
   elem_LIDS_.resize(num_color_);
 
-  //colors seem to begin with 1, which is the defaultcolor?
-  int default_color_=map_coloring_->DefaultColor();
+  num_elem_with_color.resize(num_color_);
 
   for(int i = 0; i < num_color_; i++){
     int num_elem = map_coloring_->NumElementsWithColor(color_list_[i]);
-    //int num_elem = map_coloring_->NumElementsWithColor(i);
 
     elem_LIDS_[i].assign(map_coloring_->ColorLIDList(color_list_[i]),map_coloring_->ColorLIDList(color_list_[i])+num_elem);
-    //elem_LIDS_[i].assign(map_coloring_->ColorLIDList(i),map_coloring_->ColorLIDList(i)+num_elem);
+
+    for (auto it = elem_LIDS_[i].cbegin(); it != elem_LIDS_[i].cend(); it++)
+      elem_LIDS_flat_.push_back(*it);
 
     //std::cout<<color_list_[i]<<" ("<<map_coloring_->NumElementsWithColor(color_list_[i])<<") "; 
+    num_elem_with_color[i] = elem_LIDS_[i].size();
   }
+
+
   //std::cout<<std::endl;
   //std::cout<<"num_color_"<<num_color_<<std::endl;
 
@@ -155,12 +161,99 @@ void elem_color::update_mesh_data()
     int num_elem = elem_map.size();
     for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
       int elem = elem_map[ne];
-      color[elem] = c;  
+      color[elem] = color_list_[c];  
     }
     
   }
 
   std::string cstring="color";
   mesh_->update_elem_data(cstring, &color[0]);
+}
+void elem_color::insert_off_proc_elems(){
+  //this will be a function that creates the overlap and replicated map
+
+  //then we will have a function that does the allgather and returnd a std::vector
+  //of global element ids for each replicated row, rsgid
+
+  //then we will loop over shared nodes in the graph creation and insert into the graph 
+
+  //note this is very similar to how we can create the patche for error estimator...
+
+  std::vector<int> node_num_map(mesh_->get_node_num_map());
+  Teuchos::RCP<const Epetra_Map> overlap_map_= Teuchos::rcp(new Epetra_Map(-1,
+									   node_num_map.size(),
+									   &node_num_map[0],
+									   0,
+									   *comm_));
+  //elem_map_->Print(std::cout);
+  //overlap_map_->Print(std::cout);
+  int blk = 0;
+  int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+  int num_elem = mesh_->get_num_elem();
+
+  Teuchos::RCP<const Epetra_Map> node_map_;
+  if( 1 == comm_->NumProc() ){
+    node_map_ = overlap_map_;
+  }else{
+    node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
+  }
+
+  //node_map_->Print(std::cout);
+
+  std::vector<int> shared_nodes;
+
+  for(int i = 0; i < overlap_map_->NumMyElements (); i++){
+    int ogid = overlap_map_->GID(i);
+    //std::cout<<comm_->MyPID()<<" "<<ogid<<" "<<node_map_->LID(ogid)<<std::endl;
+    if(node_map_->LID(ogid) < 0 ) shared_nodes.push_back(ogid);
+  }
+
+  Teuchos::RCP<const Epetra_Map> shared_map_= Teuchos::rcp(new Epetra_Map(-1,
+									  shared_nodes.size(),
+									  &shared_nodes[0],
+									  0,
+									  *comm_));
+  //shared_map_->Print(std::cout);
+
+  Teuchos::RCP<const Epetra_Map> rep_shared_node_map_ 
+    = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *shared_map_, -1))); 	
+  //rep_shared_node_map_->Print(std::cout);
+
+  for(int i = 0; i < rep_shared_node_map_->NumMyElements (); i++){
+    int rsgid = rep_shared_node_map_->GID(i);
+    int ogid = overlap_map_->LID(rsgid);
+    std::vector<int> mypatch = mesh_->get_nodal_patch_overlap(ogid);
+    int p_size = mypatch.size();
+    int max_size = 0;
+    comm_->MaxAll(&p_size,
+		  &max_size,
+		  (int)1 );
+    int count = comm_->NumProc()*max_size;
+    std::vector<int> AllVals(count,-99);
+
+    std::vector<int> gidmypatch(mypatch);
+    for(int j = 0; j < p_size; j++){
+      gidmypatch[j] = elem_map_->GID(mypatch[j]);     
+      //std::cout<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
+    }
+
+    comm_->GatherAll(&gidmypatch[0],
+		     &AllVals[0],
+		     max_size );
+
+    for(int j = 0; j< AllVals.size() ;j++){
+      //std::cout<<"          "<<AllVals[j]<<std::endl;	
+      int egid = elem_map_->GID(mypatch[j]);
+      //std::cout<<comm_->MyPID()<<" "<<egid<<" "<<rsgid<<" "<<mypatch[j]<<std::endl;
+      if(egid != -1){
+	graph_->InsertGlobalIndices(egid, (int)(AllVals.size()), &AllVals[0]);
+	
+      }//if
+    }//j 
+  }
+
+  //exit(0);
+  return;
+
 }
 

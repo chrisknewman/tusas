@@ -285,6 +285,12 @@ private:
   double * u_olda;
   int clen, nlen, xlen;
   int alen;
+  int * num_elem_w_color_array;
+  int num_elem_w_color;
+  int num_elem_flat;
+  int * elem_mapc_flat;
+
+  const int get_gpu_device() const;
 
 };
 

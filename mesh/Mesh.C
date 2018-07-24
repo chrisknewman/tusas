@@ -1445,6 +1445,67 @@ bool Mesh::is_global_elem_local(int i){
   return found;
 }
 
+void Mesh::compute_nodal_patch_overlap(){
+
+  //cn 5-23-18
+  //cn this version will be called by the error estimator
+  //cn not working in parallel yet, there are some issues
+
+  //cn in parallel, I think we need nodal patches for the overlap map,
+  //cn not the node map
+
+  //cn then we will average the shared nodes in the estimator
+
+  if(is_compute_nodal_patch_overlap) return;
+
+  //my_node_num_map is local ids
+  //we really want to search by global id
+  num_my_nodes = my_node_num_map.size();
+  //std::cout<<num_my_nodes<<" "<<num_nodes<<std::endl;
+
+  //std::cout<<"compute_nodal_patch() started on proc_id: "<<proc_id<<" with num_my_nodes "<<num_my_nodes<<std::endl;
+
+  //if( num_my_nodes == nodal_patch.size() ) return;
+  //exit(0);
+
+  nodal_patch_overlap.resize(num_nodes);
+
+  //std::cout<<"compute_nodal_patch() "<<nodal_patch.size()<<" "<<num_nodes<<" "<<my_node_num_map.size()<<std::endl<<std::endl;
+  for(int blk = 0; blk < get_num_elem_blks(); blk++){
+    int n_nodes_per_elem = get_num_nodes_per_elem_in_blk(blk);
+
+    for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+      for(int k = 0; k < n_nodes_per_elem; k++){
+	
+	int nodeid = get_node_id(blk, ne, k);
+	//std::cout<<proc_id<<" "<<get_global_elem_id(ne)<<" "<<nodeid<<" "<<node_num_map[nodeid]<<" "<<num_my_nodes<<std::endl;
+	//we check here if the node lives on this proc
+	if(nodeid < num_nodes){
+	  //int elemid = get_global_elem_id(ne);
+	  int elemid = ne;
+	  nodal_patch_overlap[nodeid].push_back(elemid);
+	}
+      }      
+    }
+  }
+  
+  is_compute_nodal_patch_overlap = true;
+
+
+//   for(int i=0; i<num_nodes; i++){
+//     std::cout<<proc_id<<" "<<i<<":: "<<node_num_map[i]<<"::  ";
+//     //std::cout<<nodal_patch_overlap[i].size();
+//     for(int j=0; j< nodal_patch_overlap[i].size(); j++){
+//       std::cout<<nodal_patch_overlap[i][j]<<" ";
+//     }
+//     std::cout<<std::endl;
+//   }
+  //exit(0);
+  //std::cout<<"compute_nodal_patch() finished on proc_id: "<<proc_id<<std::endl;
+  //exit(0);
+  return;
+}
+
 
 void Mesh::compute_nodal_patch_old(){
 
@@ -1491,7 +1552,97 @@ void Mesh::compute_nodal_patch_old(){
   //exit(0);
 
 }
+void Mesh::compute_elem_adj_old(){
 
+  //at the end we have a
+  //std::vector<std::vector<int>> elem_connect indexed by local elemid
+  //where elem_connect[ne] is a vector of global elemids icluding and surrounding ne
+
+  //we have also made blk = 0 assumption
+
+  //this is an expensive routine that should be optimized better
+
+  elem_connect.resize(num_elem);
+
+  for(int blk = 0; blk < get_num_elem_blks(); blk++){
+
+    std::string elem_type=get_blk_elem_type(blk);
+ 
+    int num_vertices_in_elem = 3;
+
+    if( (0==elem_type.compare("QUAD4")) || 
+	(0==elem_type.compare("QUAD")) || 
+	(0==elem_type.compare("quad4")) || 
+	(0==elem_type.compare("quad")) || 
+	(0==elem_type.compare("quad9")) || 
+	(0==elem_type.compare("QUAD9")) || 
+	(0==elem_type.compare("TETRA4")) || 
+	(0==elem_type.compare("TETRA")) || 
+	(0==elem_type.compare("tetra4")) || 
+	(0==elem_type.compare("tetra")) ||
+	(0==elem_type.compare("TETRA10")) || 
+	(0==elem_type.compare("tetra10")) ){ 
+      num_vertices_in_elem = 4;
+    }
+    else if( (0==elem_type.compare("HEX8")) || 
+	     (0==elem_type.compare("HEX")) || 
+	     (0==elem_type.compare("hex8")) || 
+	     (0==elem_type.compare("hex"))  ||
+	     (0==elem_type.compare("HEX27")) || 
+	     (0==elem_type.compare("hex27")) ){ 
+      num_vertices_in_elem = 8;
+    }
+
+//     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+//       int elemid = get_global_elem_id(ne);
+//       std::cout<<proc_id<<" "<<ne<<" "<<elemid<<" "<<elem_num_map[ne]<<std::endl;
+//     }
+
+    for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+      int elemid = get_global_elem_id(ne);
+      for(int k = 0; k < num_vertices_in_elem; k++){
+
+	int nodeid = get_node_id(blk, ne, k);//local node id
+	int gnodeid = node_num_map[nodeid];
+	//std::cout<<proc_id<<" "<<ne<<" "<<elemid<<" "<<nodeid<<" "<<gnodeid<<std::endl;
+
+	for(int ne2=0; ne2 < get_num_elem_in_blk(blk); ne2++){
+	  for(int k2 = 0; k2 < num_vertices_in_elem; k2++){
+	    //std::cout<<ne<<" "<<ne2<<std::endl;
+	    int nodeid2 = get_node_id(blk, ne2, k2);//local node id
+	    //if(nodeid == nodeid2) elem_connect[elemid].push_back(get_global_elem_id(ne2));
+	    if(nodeid == nodeid2) elem_connect[ne].push_back(get_global_elem_id(ne2));
+	  }
+	}
+
+      }
+    }
+  }
+
+
+  if(verbose)
+    std::cout<<"=== Compute elem adjacencies ==="<<std::endl;
+
+  int blk = 0;
+  for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+    int elemid = get_global_elem_id(ne);
+
+    sort( elem_connect[ne].begin(), elem_connect[ne].end() );
+    elem_connect[ne].erase( unique( elem_connect[ne].begin(), elem_connect[ne].end() ), elem_connect[ne].end() );
+
+
+    if(verbose){
+
+      int n=elem_connect[ne].size();
+      std::cout<<elemid<<"::"<<std::endl;
+      for (int k =0; k<n; k++){
+	std::cout<<"  "<<elem_connect[ne][k];
+      }
+      std::cout<<std::endl;
+    }
+  }
+
+}
 void Mesh::compute_elem_adj(){
 
   //at the end we have a
@@ -1513,7 +1664,8 @@ void Mesh::compute_elem_adj(){
   //see comments in error_estimator.
 
 
-  compute_nodal_patch_old();
+  //compute_nodal_patch_old();
+  compute_nodal_patch_overlap();
 
   elem_connect.resize(num_elem);
 
@@ -1562,7 +1714,7 @@ void Mesh::compute_elem_adj(){
 //     }
 
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
-
+#if 0
       if (nprocs > 1){
 	int cnt = 0;
 	for(int k = 0; k < num_vertices_in_elem; k++){
@@ -1589,15 +1741,18 @@ void Mesh::compute_elem_adj(){
 	}//k
       }
       else{
+#endif
 	for(int k = 0; k < num_vertices_in_elem; k++){
 	  int nodeid = get_node_id(blk, ne, k);//local node id
-	  int s = nodal_patch[nodeid].size();
+	  int s = nodal_patch_overlap[nodeid].size();
 	  for(int np = 0; np < s; np++){
 	    //elem_connect1[ne].push_back(nodal_patch[nodeid][np]);
-	    elem_connect[ne].push_back(get_global_elem_id(nodal_patch[nodeid][np]));
+	    elem_connect[ne].push_back(get_global_elem_id(nodal_patch_overlap[nodeid][np]));
 	  }//np
 	}//k
+#if 0
       }
+#endif
     }//ne
 #if 0
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){

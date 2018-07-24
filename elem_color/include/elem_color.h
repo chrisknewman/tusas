@@ -27,9 +27,6 @@
 #include "Epetra_SerialComm.h"
 #endif
 
-//#define TUSAS_COLOR_CPU
-//#define TUSAS_COLOR_GPU
-
 /// Element coloring for residual and preconditioner fill with OpenMP.
 /** To enable <code>\#define TUSAS_COLOR_CPU</code>. */
 class elem_color
@@ -47,10 +44,19 @@ public:
   std::vector<int> get_color(int i ///<color index
 			     ){return elem_LIDS_[i];}
   std::vector< std::vector< int > > get_colors(){return elem_LIDS_;}
+  std::vector< int > get_colors_flat(){return elem_LIDS_flat_;}
   /// Return the number of colors.
   int get_num_color(){return num_color_;}
+  /// Return the number of elements with color i.
+  const int get_num_elem_with_color(int i) {return map_coloring_->NumElementsWithColor(i);}
+  /// Return vector with number of elements with color
+  std::vector< int > get_num_elem_with_color(){return num_elem_with_color;}
   /// Output element color to exodus file.
   void update_mesh_data();
+  /// List of number of elements for each color.
+  std::vector<int> num_elem_with_color;
+  /// List of local element ids.
+  std::vector<int> elem_LIDS_flat_;
 
 private:
 
@@ -74,10 +80,14 @@ private:
   std::vector<int> color_list_;
   /// List of local element ids.
   std::vector< std::vector< int > > elem_LIDS_;
+  /// List of local element ids.
+  std::vector<int> num_elem_;
   /// Number of colors.
   int num_color_;
   /// Initializes element color variable in mesh.
   void init_mesh_data();
+
+  void insert_off_proc_elems();
 
   //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
 

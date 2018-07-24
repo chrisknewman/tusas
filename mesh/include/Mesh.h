@@ -65,10 +65,13 @@ class Mesh
   void compute_nodal_adj();
   /// Compute the elemental adjacencies.
   void compute_elem_adj();
+  void compute_elem_adj_old();
   /// Compute nodal patch elements. Must be called before any call to get_nodal_patch(int i).
   void compute_nodal_patch_old();
+  void compute_nodal_patch_overlap();
   /// Return a std::vector<int> of elements (by local id) in nodal patch for node i (by local id).
   std::vector<int> get_nodal_patch(int i){return nodal_patch[i];}
+  std::vector<int> get_nodal_patch_overlap(int i){return nodal_patch_overlap[i];}
 
   /// Add nodal data as std::vector<double> with name name
   int add_nodal_data(std::string name, std::vector<double> &data);
@@ -290,6 +293,7 @@ class Mesh
   std::vector<std::vector<int> > elem_ids_in_cmap, e_side_ids_in_cmap, e_proc_ids_in_cmap;
 
   std::vector<std::vector<int> > nodal_patch;//[nodeid][elemnt ids in patch
+  std::vector<std::vector<int> > nodal_patch_overlap;//[nodeid][elemnt ids in patch
 
   int proc_id, nprocs, nprocs_infile;
 
@@ -301,6 +305,7 @@ class Mesh
 
   bool is_global_node_local(int i);
   bool is_global_elem_local(int i);
+  bool is_compute_nodal_patch_overlap;
   std::vector<int> sorted_node_num_map;
   std::vector<int> sorted_elem_num_map;
   //#endif

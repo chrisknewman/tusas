@@ -221,7 +221,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
 #ifdef TUSAS_COLOR_GPU
 
-  //we need to delete all this as well.....
+  
   copy_mesh_gpu();
 
 
@@ -478,56 +478,36 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
  	double *u_oldaa;
  	u_old->ExtractView(&u_oldaa);
 
-	//#pragma omp target update to(ua[0:alen])
-	//#pragma omp target update to(u_olda[0:alen])
-
-#endif
-
-#ifdef TUSAS_COLOR_GPU
-
 	double dt = dt_;
 
 	OMPBasisLQuad B;
 
-	#pragma omp target enter data map(to:B) 
+	const int dev = get_gpu_device();
+#pragma omp target enter data device(dev) map(to:B) 
+#pragma omp target data device(dev) map(to:ua[0:alen],u_oldaa[0:alen])
 
 #endif
-	for(int c = 0; c < num_color; c++){//for c
-	  std::vector<int> elem_map = colors[c];//cn this should be mapped also
-	  //int num_elem = elem_map.size();
-	  int num_elem = colors[c].size();
+	for(int c = 0; c < num_color; c++){
+	  //int num_elem = colors[c].size();
+	  int num_elem = num_elem_w_color_array[c];
 
 	  int * elem_mapc = (colors[c]).data();
 #ifdef TUSAS_COLOR_GPU
+	  int off = 0;
+	  for(int i = 0; i < c; i++ ) off += num_elem_w_color_array[i];
+	  //std::cout<<off<<std::endl;
+// 	  for (int ne=0; ne < num_elem; ne++){
+// 	    std::cout<<"     "<<off+ne<<" "<<elem_mapc_flat[off+ne]<<std::endl;
+// 	  }
 	  int num_nodes_in_c = num_elem*n_nodes_per_elem;
 	  double *values = new double[num_nodes_in_c];
 	  int *rows = new int[num_nodes_in_c];
-#pragma omp target data map(to:num_elem,num_nodes_in_c)
-#pragma omp target data map(to:elem_mapc[0:num_elem], ua[0:alen],u_oldaa[0:alen])//can we map ua and u_oldaa outside of the c loop?
-#pragma omp target data map(from:rows[0:num_nodes_in_c],values[0:num_nodes_in_c])
+#pragma omp target data device(dev) map(to:num_elem,num_nodes_in_c,off)
+#pragma omp target data device(dev) map(from:rows[0:num_nodes_in_c],values[0:num_nodes_in_c])
 
-// #pragma omp target teams distribute parallel for
-// 	    for (int ne=0; ne < num_elem; ne++) {
-// 	      const int elem = elem_mapc[ne];
-// 	      //double xx[4];
-// 	      for(int k = 0; k < n_nodes_per_elem; k++){
-// 		int nodeid = meshc[elem*n_nodes_per_elem+k];
-// 		double xx = meshx[0];
-// 		int x = meshn[0];
-// 		double y =  meshy[0];
-// 		//double u = u_olda[nodeid];
-// 		double u_a = ua[nodeid];
-// 		double uold_a = u_oldaa[nodeid];
-// 		double eta = B.eta[k];
-// 		values[k] += 10.;
-// 		rows[k] = 4.;
-// 	      }
-// 	    }
-// 	    //exit(0);
+#pragma omp target data map(to:elem_mapc[0:num_elem])
 
-
-
-#pragma omp target teams distribute parallel for
+#pragma omp target teams distribute parallel for device(dev) 
 	    for (int ne=0; ne < num_elem; ne++) {//for ne
 	      double xx[4];
 	      double yy[4];
@@ -535,8 +515,9 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      double uu[4];
 	      double uu_old[4];
 	      //double uu_old_old[4];
+	      //const int elem = elem_mapc_flat[off+ne];
 	      const int elem = elem_mapc[ne];
-	      //#pragma omp parallel
+	      
 	      for(int k = 0; k < n_nodes_per_elem; k++){
 		const int nodeid = meshc[elem*n_nodes_per_elem+k];
 		xx[k] = meshx[nodeid];
@@ -597,14 +578,36 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    //cn we *COULD PROBABLY* deal with the shared nodes right here, *EXACTLY* the same way
 	    //cn with the reduction use in the cpu case. We then only need to figure out how omp target device()
 	    //cn works to now work across multiple gpus
+
+	    //cn we can just collect offproc values into a vectors here, do the reduction and sum outside the loop.
+	    //cn we don't need to remove them from the values and rows arrays as they will be ignored in 
+	    //cn SumIntoGlobalValue//multivector version
 	    {
 	      Teuchos::TimeMonitor FillTimer(*ts_time_f_fill);
-	      //	      f_fe_p->SumIntoGlobalValues (num_nodes_in_c, rows, values);//fevector version
-#pragma omp parallel for
+
+#pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+     
+	      std::vector<int> offrows;
+	      std::vector<double> offvals;
+
+#pragma omp parallel for reduction(merge: offrows, offvals)
  	      for (int i=0; i< num_nodes_in_c; i++){
-// 		f_fe_p->SumIntoGlobalValues ((int)1, rows[i], values[i]);//fevector version
- 		f_fe_p->SumIntoGlobalValue (rows[i], (int)0, values[i]);//multivector version
+		int err = -999;
+                //we should fix the cpu only code like this as well
+                //this returns 1 if not on this proc
+		//if(f_owned_map_->MyGID(rows[i])){
+		err = f_fe_p->SumIntoGlobalValue (rows[i], (int)0, values[i]);//multivector version
+		//   } else{
+		if (err == 1){
+		  offrows.push_back(rows[i]);
+		  offvals.push_back(values[i]);
+		}//if
+
 	      }
+	      //Teuchos::TimeMonitor FillTimer(*ts_time_f_fill);
+
+	      f_fe_p->SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);//fevector version
+
 	    }
 	  delete [] values;
 	  delete [] rows;
@@ -3721,7 +3724,7 @@ void ModelEvaluatorNEMESIS<Scalar>::write_openmp()
   int ompnt = 0;
   int ompnteam = 0;
   //#if defined(TUSAS_COLOR_GPU) 
-#pragma omp target device(0) map(tofrom:nt) map(tofrom:ompnt) map(tofrom:ompnteam) //map(tofrom:dd)
+#pragma omp target device(1) map(tofrom:nt) map(tofrom:ompnt) map(tofrom:ompnteam) //map(tofrom:dd)
 #pragma omp teams reduction(+:nt)
 #pragma omp parallel reduction(+:nt)
   {
@@ -3731,7 +3734,8 @@ void ModelEvaluatorNEMESIS<Scalar>::write_openmp()
   ompnteam = omp_get_num_teams();
   //dd = omp_is_initial_device();
   }
-
+#endif
+#if 0
 #pragma omp target map(tofrom:dd)
   {
     dd = omp_is_initial_device();// should return 0 on gpu; 1 otherwise
@@ -3785,22 +3789,54 @@ void ModelEvaluatorNEMESIS<Scalar>::copy_mesh_gpu()
 
   //copy_uold_gpu(u_old);
 
+  num_elem_w_color = (Elem_col->num_elem_with_color).size();
+  num_elem_w_color_array = new int[num_elem_w_color];
+  num_elem_w_color_array = (Elem_col->num_elem_with_color).data();
+
+  num_elem_flat = (Elem_col->elem_LIDS_flat_).size();
+  elem_mapc_flat = new int[num_elem_flat];
+  elem_mapc_flat = (Elem_col->elem_LIDS_flat_).data();
+
+
   //cn seems clang wants all this grouped together...
-  
-#pragma omp target enter data map(to: clen, nlen, xlen,alen)
-#pragma omp target enter data map(alloc:meshc[0:clen],meshn[0:nlen],meshx[0:xlen],meshy[0:xlen])//,u_olda[0:alen])
-#pragma omp target update to(meshc[0:clen],meshn[0:nlen],meshx[0:xlen],meshy[0:xlen])//,u_olda[0:alen])
+   
+  const int dev = get_gpu_device();
+#pragma omp target enter data device(dev) map(to: clen, nlen, xlen,alen)
+#pragma omp target enter data device(dev) map(to:num_elem_w_color,num_elem_flat)
+
+#pragma omp target enter data device(dev) map(alloc:meshc[0:clen],meshn[0:nlen],meshx[0:xlen],meshy[0:xlen])
+#pragma omp target enter data device(dev) map(alloc:num_elem_w_color_array[0:num_elem_w_color])
+#pragma omp target enter data device(dev) map(alloc:elem_mapc_flat[0:num_elem_flat])
+//,u_olda[0:alen])
+
+#pragma omp target update device(dev) to(meshc[0:clen],meshn[0:nlen],meshx[0:xlen],meshy[0:xlen])
+#pragma omp target update device(dev) to(num_elem_w_color_array[0:num_elem_w_color])
+#pragma omp target update device(dev) to(elem_mapc_flat[0:num_elem_flat])
+//,u_olda[0:alen])
   
   std::cout<<"copy_mesh_gpu() ended"<<std::endl;
+
+  std::cout<<num_elem_flat<<" "<<std::endl;
+  std::cout<<num_elem_w_color_array[0]<<std::endl;
+  std::cout<<num_elem_w_color_array[1]<<std::endl;
+  std::cout<<num_elem_w_color_array[2]<<std::endl;
+  std::cout<<num_elem_w_color_array[3]<<std::endl;
+  std::cout<<num_elem_w_color_array[4]<<std::endl;
+  std::cout<<num_elem_w_color_array[5]<<std::endl;
+  std::cout<<num_elem_w_color_array[6]<<std::endl;
+  std::cout<<num_elem_w_color_array[7]<<std::endl;
   //exit(0);
 }
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::delete_mesh_gpu()
 {
-#pragma omp target exit data map(delete:meshc[0:clen])
-#pragma omp target exit data map(delete:meshn[0:nlen])
-#pragma omp target exit data map(delete:meshx[0:xlen])
-#pragma omp target exit data map(delete:meshy[0:xlen])
+  const int dev = get_gpu_device();
+#pragma omp target exit data device(dev) map(delete:meshc[0:clen])
+#pragma omp target exit data device(dev) map(delete:meshn[0:nlen])
+#pragma omp target exit data device(dev) map(delete:meshx[0:xlen])
+#pragma omp target exit data device(dev) map(delete:meshy[0:xlen])
+#pragma omp target exit data device(dev) map(delete:num_elem_w_color_array[0:num_elem_w_color])
+#pragma omp target exit data device(dev) map(delete:elem_mapc_flat[0:num_elem_flat])
   //#pragma omp target exit data map(delete:ua[0:xlen])
   //#pragma omp target exit data map(delete:u_olda[0:xlen])
 
@@ -3810,11 +3846,47 @@ void ModelEvaluatorNEMESIS<Scalar>::copy_uold_gpu(RCP< Epetra_Vector> uold)
 //void ModelEvaluatorNEMESIS<Scalar>::copy_uold_gpu(RCP< Epetra_Vector> uold, RCP< Epetra_Vector> uoldold)
 {
 #ifdef TUSAS_COLOR_GPU
-  uold->ExtractView(&u_olda);
+  //uold->ExtractView(&u_olda);
   //#pragma omp target update to(u_olda[0:alen])
 #endif
 }
+template<class Scalar>
+const int ModelEvaluatorNEMESIS<Scalar>::get_gpu_device() const
+{
+  //hacked severely for guido now; with two gpus on node g9
+  int mypid = comm_->MyPID();
+  int numproc = comm_->NumProc();
+  int numdev = omp_get_num_devices();
 
+  //std::cout<<"omp_get_num_devices() :    "<<omp_get_num_devices()<<std::endl;
+  //std::cout<<mypid<<" "<<numproc<<" "<<numdev<<std::endl;
+  int dev = 0;
+  //omp_set_default_device(dev);
 
+  if ( numproc == 1 ) {
+    dev = 0;
+  }else if (numproc == 2 ){
+    if( numdev == 2 ) dev = mypid;
+  }else{
+    exit(0);
+  }
+
+   int nt = 0;
+// #pragma omp parallel num_threads(1)
+// {
+//   //omp_set_num_threads(32);
+//   nt = omp_get_num_threads();
+// }
+  //std::cout<<"dev = "<<dev<<std::endl;
+
+//   nt = omp_get_num_threads();
+
+// #pragma omp target device(dev)
+//    {
+//      nt = omp_get_num_threads();
+//    }
+//    std::cout<<nt<<std::endl;
+  return dev;
+}
 
 #endif    //NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP

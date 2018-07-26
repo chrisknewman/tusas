@@ -125,7 +125,6 @@ void elem_color::create_colorer()
     num_elem_with_color[i] = elem_LIDS_[i].size();
   }
 
-
   //std::cout<<std::endl;
   //std::cout<<"num_color_"<<num_color_<<std::endl;
 

@@ -53,6 +53,7 @@ public:
   std::vector< int > get_num_elem_with_color(){return num_elem_with_color;}
   /// Output element color to exodus file.
   void update_mesh_data();
+
   /// List of number of elements for each color.
   std::vector<int> num_elem_with_color;
   /// List of local element ids.

@@ -222,7 +222,9 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 #ifdef TUSAS_COLOR_GPU
 
   
-  copy_mesh_gpu();
+  copy_mesh_gpu();  
+
+  //copy_color_gpu(); 
 
 
 #endif
@@ -465,6 +467,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	u_old_old->ExtractView(&u_old_olda);
 
 #endif
+	int * elem_mapc_flat_temp =(Elem_col->elem_LIDS_flat_).data();
 #if defined(TUSAS_COLOR_GPU) 
 
 	std::vector< std::vector< int > > colors = Elem_col->get_colors();
@@ -483,31 +486,34 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	OMPBasisLQuad B;
 
 	const int dev = get_gpu_device();
+
+
 #pragma omp target enter data device(dev) map(to:B) 
 #pragma omp target data device(dev) map(to:ua[0:alen],u_oldaa[0:alen])
 
+	  //#pragma omp target data device(dev) map(to:elem_mapc_flat[0:num_elem_flat])
+	  //#pragma omp target update device(dev) to(elem_mapc_flat[0:num_elem_flat])
+
+
+#pragma omp target data device(dev) map(to:elem_mapc_flat_temp[0:numelemflat])
+
 #endif
 	for(int c = 0; c < num_color; c++){
-	  //int num_elem = colors[c].size();
-	  int num_elem = num_elem_w_color_array[c];
+	  int num_elem = (Elem_col->num_elem_with_color)[c];
 
-	  int * elem_mapc = (colors[c]).data();
 #ifdef TUSAS_COLOR_GPU
 	  int off = 0;
-	  for(int i = 0; i < c; i++ ) off += num_elem_w_color_array[i];
-	  //std::cout<<off<<std::endl;
-// 	  for (int ne=0; ne < num_elem; ne++){
-// 	    std::cout<<"     "<<off+ne<<" "<<elem_mapc_flat[off+ne]<<std::endl;
-// 	  }
+	  //for(int i = 0; i < c; i++ ) off += num_elem_w_color_array[i];
+	  for(int i = 0; i < c; i++ ) off += (Elem_col->num_elem_with_color)[i];
+
 	  int num_nodes_in_c = num_elem*n_nodes_per_elem;
 	  double *values = new double[num_nodes_in_c];
 	  int *rows = new int[num_nodes_in_c];
-#pragma omp target data device(dev) map(to:num_elem,num_nodes_in_c,off)
+	  //cn should be enter data with an update
+#pragma omp target data device(dev) map(to:num_elem,num_nodes_in_c,off,n_nodes_per_elem)
 #pragma omp target data device(dev) map(from:rows[0:num_nodes_in_c],values[0:num_nodes_in_c])
 
-#pragma omp target data map(to:elem_mapc[0:num_elem])
-
-#pragma omp target teams distribute parallel for device(dev) 
+#pragma omp target teams distribute parallel for device(dev) schedule(static,1) num_teams(num_elem/1024)
 	    for (int ne=0; ne < num_elem; ne++) {//for ne
 	      double xx[4];
 	      double yy[4];
@@ -515,11 +521,18 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      double uu[4];
 	      double uu_old[4];
 	      //double uu_old_old[4];
-	      //const int elem = elem_mapc_flat[off+ne];
-	      const int elem = elem_mapc[ne];
-	      
+
+	      //not sure why this causes invalid read...
+	      //still seems to run but aborts nvprof
+	      //nvvp shows kernel gpu use though...
+	      //would really like it to show no errors though
+	      //could be an nprof/cuda-memcheck bug?
+	      const int offs = off+ne;
+	      const int elem = elem_mapc_flat_temp[offs];
+	      //int elem = elemmapcflat[offs];
+
 	      for(int k = 0; k < n_nodes_per_elem; k++){
-		const int nodeid = meshc[elem*n_nodes_per_elem+k];
+		const int nodeid = meshc[elem*n_nodes_per_elem+k];	           
 		xx[k] = meshx[nodeid];
 		yy[k] = meshy[nodeid];
 		//zz[k] = meshz[nodeid];
@@ -528,7 +541,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		uu_old[k] = u_oldaa[nodeid];//cn why is this oldaa?
 		//uu_old[k] = u_olda[nodeid];
 	      }//k
-	      
+      
 	      for (int i=0; i< n_nodes_per_elem; i++) {//i
 		values[ne*n_nodes_per_elem+i] =0.;
 		for(int gp=0; gp < 4; gp++) {//gp
@@ -590,7 +603,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      std::vector<int> offrows;
 	      std::vector<double> offvals;
 
-#pragma omp parallel for reduction(merge: offrows, offvals)
+#pragma omp parallel for reduction(merge: offrows, offvals) num_threads(36)
  	      for (int i=0; i< num_nodes_in_c; i++){
 		int err = -999;
                 //we should fix the cpu only code like this as well
@@ -3759,11 +3772,28 @@ void ModelEvaluatorNEMESIS<Scalar>::write_openmp()
 #endif
   //exit(0);
 }
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::copy_color_gpu()
+{
+  //this allocation is completely hosing all memory on the gpu, no idea why...
+
+
+  //need to delete as well
+  numelemflat = (Elem_col->elem_LIDS_flat_).size();
+  elemmapcflat = new int[numelemflat];
+  elemmapcflat = (Elem_col->elem_LIDS_flat_).data();
+
+  const int dev = get_gpu_device();
+#pragma omp target enter data device(dev) map(alloc:elemmapcflat[0:numelemflat])
+#pragma omp target update device(dev) to(elemmapcflat[0:numelemflat])
+}
 
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::copy_mesh_gpu()
 {
   std::cout<<"copy_mesh_gpu() started"<<std::endl;
+ 
+  //copy_color_gpu();
 
   clen = ((mesh_->connect)[0]).size();
   meshc = new int[clen];
@@ -3789,42 +3819,38 @@ void ModelEvaluatorNEMESIS<Scalar>::copy_mesh_gpu()
 
   //copy_uold_gpu(u_old);
 
-  num_elem_w_color = (Elem_col->num_elem_with_color).size();
-  num_elem_w_color_array = new int[num_elem_w_color];
-  num_elem_w_color_array = (Elem_col->num_elem_with_color).data();
-
-  num_elem_flat = (Elem_col->elem_LIDS_flat_).size();
-  elem_mapc_flat = new int[num_elem_flat];
-  elem_mapc_flat = (Elem_col->elem_LIDS_flat_).data();
+  numelemflat = (Elem_col->elem_LIDS_flat_).size();
+//   elemmapcflat = new int[numelemflat];
+//   elemmapcflat = (Elem_col->elem_LIDS_flat_).data();
 
 
   //cn seems clang wants all this grouped together...
    
   const int dev = get_gpu_device();
-#pragma omp target enter data device(dev) map(to: clen, nlen, xlen,alen)
-#pragma omp target enter data device(dev) map(to:num_elem_w_color,num_elem_flat)
+#pragma omp target enter data device(dev) map(to: clen, nlen, xlen,alen, numelemflat)
 
-#pragma omp target enter data device(dev) map(alloc:meshc[0:clen],meshn[0:nlen],meshx[0:xlen],meshy[0:xlen])
-#pragma omp target enter data device(dev) map(alloc:num_elem_w_color_array[0:num_elem_w_color])
-#pragma omp target enter data device(dev) map(alloc:elem_mapc_flat[0:num_elem_flat])
+#pragma omp target enter data device(dev) map(alloc:meshc[0:clen],meshn[0:nlen],meshx[0:xlen],meshy[0:xlen])// \
+  //map(alloc:elemmapcflat[0:numelemflat])
+
+
 //,u_olda[0:alen])
 
-#pragma omp target update device(dev) to(meshc[0:clen],meshn[0:nlen],meshx[0:xlen],meshy[0:xlen])
-#pragma omp target update device(dev) to(num_elem_w_color_array[0:num_elem_w_color])
-#pragma omp target update device(dev) to(elem_mapc_flat[0:num_elem_flat])
+#pragma omp target update device(dev) to(meshc[0:clen],meshn[0:nlen],meshx[0:xlen], meshy[0:xlen])// \
+  //to(elemmapcflat[0:numelemflat])
+
 //,u_olda[0:alen])
   
   std::cout<<"copy_mesh_gpu() ended"<<std::endl;
 
-  std::cout<<num_elem_flat<<" "<<std::endl;
-  std::cout<<num_elem_w_color_array[0]<<std::endl;
-  std::cout<<num_elem_w_color_array[1]<<std::endl;
-  std::cout<<num_elem_w_color_array[2]<<std::endl;
-  std::cout<<num_elem_w_color_array[3]<<std::endl;
-  std::cout<<num_elem_w_color_array[4]<<std::endl;
-  std::cout<<num_elem_w_color_array[5]<<std::endl;
-  std::cout<<num_elem_w_color_array[6]<<std::endl;
-  std::cout<<num_elem_w_color_array[7]<<std::endl;
+//   std::cout<<num_elem_flat<<" "<<std::endl;
+//   std::cout<<num_elem_w_color_array[0]<<std::endl;
+//   std::cout<<num_elem_w_color_array[1]<<std::endl;
+//   std::cout<<num_elem_w_color_array[2]<<std::endl;
+//   std::cout<<num_elem_w_color_array[3]<<std::endl;
+//   std::cout<<num_elem_w_color_array[4]<<std::endl;
+//   std::cout<<num_elem_w_color_array[5]<<std::endl;
+//   std::cout<<num_elem_w_color_array[6]<<std::endl;
+//   std::cout<<num_elem_w_color_array[7]<<std::endl;
   //exit(0);
 }
 template<class Scalar>
@@ -3835,8 +3861,7 @@ void ModelEvaluatorNEMESIS<Scalar>::delete_mesh_gpu()
 #pragma omp target exit data device(dev) map(delete:meshn[0:nlen])
 #pragma omp target exit data device(dev) map(delete:meshx[0:xlen])
 #pragma omp target exit data device(dev) map(delete:meshy[0:xlen])
-#pragma omp target exit data device(dev) map(delete:num_elem_w_color_array[0:num_elem_w_color])
-#pragma omp target exit data device(dev) map(delete:elem_mapc_flat[0:num_elem_flat])
+#pragma omp target exit data device(dev) map(delete:elemmapcflat[0:numelemflat])
   //#pragma omp target exit data map(delete:ua[0:xlen])
   //#pragma omp target exit data map(delete:u_olda[0:xlen])
 

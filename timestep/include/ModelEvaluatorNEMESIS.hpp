@@ -273,6 +273,7 @@ private:
   void write_openmp();
 
   void copy_mesh_gpu();
+  void copy_color_gpu();
   void delete_mesh_gpu();
   //void copy_uold_gpu(RCP< Epetra_Vector> uold, RCP< Epetra_Vector> uoldold);
   void copy_uold_gpu(RCP< Epetra_Vector> uold);
@@ -285,10 +286,8 @@ private:
   double * u_olda;
   int clen, nlen, xlen;
   int alen;
-  int * num_elem_w_color_array;
-  int num_elem_w_color;
-  int num_elem_flat;
-  int * elem_mapc_flat;
+  int numelemflat;
+  int * elemmapcflat;
 
   const int get_gpu_device() const;
 

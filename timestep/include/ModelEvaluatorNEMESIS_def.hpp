@@ -204,6 +204,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
   ts_time_f_fill= Teuchos::TimeMonitor::getNewTimer("Total f_fill Time");
+  ts_time_f_sum= Teuchos::TimeMonitor::getNewTimer("Total f_sum Time");
 
 #if defined(TUSAS_COLOR_CPU)
 
@@ -513,7 +514,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #pragma omp target data device(dev) map(to:num_elem,num_nodes_in_c,off,n_nodes_per_elem)
 #pragma omp target data device(dev) map(from:rows[0:num_nodes_in_c],values[0:num_nodes_in_c])
 
-#pragma omp target teams distribute parallel for device(dev) schedule(static,1) num_teams(num_elem/1024)
+#pragma omp target teams distribute parallel for device(dev) schedule(static,1) num_teams(num_elem/1024) nowait
 	    for (int ne=0; ne < num_elem; ne++) {//for ne
 	      double xx[4];
 	      double yy[4];
@@ -603,24 +604,24 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      std::vector<int> offrows;
 	      std::vector<double> offvals;
 
-#pragma omp parallel for reduction(merge: offrows, offvals) num_threads(36)
+#pragma omp parallel for reduction(merge: offrows, offvals) //num_threads(36)
  	      for (int i=0; i< num_nodes_in_c; i++){
 		int err = -999;
                 //we should fix the cpu only code like this as well
                 //this returns 1 if not on this proc
-		//if(f_owned_map_->MyGID(rows[i])){
+		
 		err = f_fe_p->SumIntoGlobalValue (rows[i], (int)0, values[i]);//multivector version
-		//   } else{
 		if (err == 1){
 		  offrows.push_back(rows[i]);
 		  offvals.push_back(values[i]);
 		}//if
 
+	      }//i
+	      {
+		Teuchos::TimeMonitor FillTimer(*ts_time_f_sum);
+		
+		f_fe_p->SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);//fevector version
 	      }
-	      //Teuchos::TimeMonitor FillTimer(*ts_time_f_fill);
-
-	      f_fe_p->SumIntoGlobalValues (offrows.size(), &offrows[0], &offvals[0]);//fevector version
-
 	    }
 	  delete [] values;
 	  delete [] rows;
@@ -3888,15 +3889,14 @@ const int ModelEvaluatorNEMESIS<Scalar>::get_gpu_device() const
   int dev = 0;
   //omp_set_default_device(dev);
 
-  if ( numproc == 1 ) {
-    dev = 0;
-  }else if (numproc == 2 ){
-    if( numdev == 2 ) dev = mypid;
-  }else{
+  if(numproc > numdev){
+    std::cout<<"***************  numproc > numdev  ***************"<<std::endl;
     exit(0);
+  }else{
+      dev = mypid;
   }
 
-   int nt = 0;
+//    int nt = 0;
 // #pragma omp parallel num_threads(1)
 // {
 //   //omp_set_num_threads(32);

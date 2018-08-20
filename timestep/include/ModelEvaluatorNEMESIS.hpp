@@ -23,6 +23,7 @@
 #include "elem_color.h"
 #include "post_process.h"
 #include "periodic_bc.h"
+#include "basis.hpp"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 

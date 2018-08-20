@@ -7,7 +7,13 @@
   <Parameter name="meshfile" type="string" value="../../meshes/dendquad300_q.e"/>
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="0.5"/>
-  <Parameter name="method" type="string" value="phaseheat"/>
+  <Parameter name="testcase" type="string" value="cummins"/>
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+
+
+
+   <ParameterList name="ProblemParams">
+     <Parameter name="delta" type="double" value=".03"/>
+   </ParameterList>
 
 </ParameterList>

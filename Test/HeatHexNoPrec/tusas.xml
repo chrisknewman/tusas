@@ -7,7 +7,7 @@
   <Parameter name="meshfile" type="string" value="../../meshes/hex64_3d.e"/>
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value=".5"/>
-  <Parameter name="method" type="string" value="heat"/>
+  <Parameter name="testcase" type="string" value="heat"/>
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
 
 </ParameterList>

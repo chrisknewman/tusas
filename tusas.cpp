@@ -36,8 +36,8 @@
 #include "Thyra_LinearOpWithSolveFactoryHelpers.hpp"
 #include "Thyra_SpmdVectorBase.hpp"
 
-#include "ModelEvaluatorHEAT.hpp"
-#include "ModelEvaluatorPHASE_HEAT.hpp"
+//#include "ModelEvaluatorHEAT.hpp"
+//#include "ModelEvaluatorPHASE_HEAT.hpp"
 #include "ModelEvaluatorNEMESIS.hpp"
 
 #include "Mesh.h"
@@ -133,13 +133,8 @@ int main(int argc, char *argv[])
     int numSteps = paramList.get<int> (TusasntNameString);
     
     timestep<double> * model;
-    if( paramList.get<std::string> (TusasmethodNameString)  == "phaseheat") {
-      model = new ModelEvaluatorPHASE_HEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
-    }
-    else if ( paramList.get<std::string> (TusasmethodNameString)  == "heat") {
-      model = new ModelEvaluatorHEAT<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
-    }
-    else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
+
+    if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
       model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
     }
     else {

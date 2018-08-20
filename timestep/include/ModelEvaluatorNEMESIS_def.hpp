@@ -45,7 +45,6 @@
 
 // local support
 #include "preconditioner.hpp"
-//#include "basis.hpp"
 #include "ParamNames.h"
 #include "function_def.hpp"
 

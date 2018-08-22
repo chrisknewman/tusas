@@ -36,9 +36,10 @@
 #include "Thyra_LinearOpWithSolveFactoryHelpers.hpp"
 #include "Thyra_SpmdVectorBase.hpp"
 
-//#include "ModelEvaluatorHEAT.hpp"
-//#include "ModelEvaluatorPHASE_HEAT.hpp"
+#include <Kokkos_Core.hpp>
+
 #include "ModelEvaluatorNEMESIS.hpp"
+#include "ModelEvaluatorTPETRA.hpp"
 
 #include "Mesh.h"
 
@@ -67,6 +68,7 @@ int main(int argc, char *argv[])
 {
   Teuchos::TimeMonitor::zeroOutTimers();
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
+  Kokkos::initialize(argc, argv);
   RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Total Run Time");
   Teuchos::ParameterList paramList;
 
@@ -93,7 +95,9 @@ int main(int argc, char *argv[])
     
     readParametersFromFile(argc, argv, paramList, mypid );
 
-    if( 1 != numproc && paramList.get<std::string> (TusasmethodNameString)  != "nemesis") {
+    if( 1 != numproc && (paramList.get<std::string> (TusasmethodNameString)  != "nemesis"
+			 && paramList.get<std::string> (TusasmethodNameString)  != "tpetra")) {
+//     if( 1 != numproc && (paramList.get<std::string> (TusasmethodNameString)  != "nemesis")) {
       std::cout<<"More than 1 proc only implemented for nemesis class now."<<"\n";
       return EXIT_FAILURE;
     }
@@ -134,7 +138,10 @@ int main(int argc, char *argv[])
     
     timestep<double> * model;
 
-    if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
+    if( paramList.get<std::string> (TusasmethodNameString)  == "tpetra") {
+      model = new ModelEvaluatorTPETRA<double>(in_mesh,paramList);
+    }
+    else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
       model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
     }
     else {
@@ -172,12 +179,14 @@ int main(int argc, char *argv[])
     
     Comm.Barrier();
     
-    if(1 != numproc ) join(mypid, numproc);
+    if(1 != numproc ) 
+      if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis") join(mypid, numproc);
     
     delete model;
     delete in_mesh;
   }
   write_timers();
+  Kokkos::finalize();
   return 0;
 }
 

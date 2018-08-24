@@ -80,8 +80,10 @@ ModelEvaluatorTPETRA( Mesh *mesh,
 
   x_space_ = Thyra::createVectorSpace<Scalar>(x_owned_map_);
   f_space_ = x_space_;
-  x0_ = Thyra::createMember(x_space_);
-  V_S(x0_.ptr(), Teuchos::ScalarTraits<Scalar>::zero());
+  //x0_ = Thyra::createMember(x_space_);
+  x0_ = Teuchos::rcp(new Tpetra::Vector<Scalar, int>(x_owned_map_));
+  x0_->putScalar(Teuchos::ScalarTraits<Scalar>::zero());
+  //V_S(x0_.ptr(), Teuchos::ScalarTraits<Scalar>::zero());  //cn not sure what this is
 
   Thyra::ModelEvaluatorBase::InArgsSetup<Scalar> inArgs;
   inArgs.setModelEvalDescription(this->description());
@@ -94,16 +96,62 @@ ModelEvaluatorTPETRA( Mesh *mesh,
   outArgs.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_W_prec);
   prototypeOutArgs_ = outArgs;
   nominalValues_ = inArgs;
-  nominalValues_.set_x(x0_);
+  //nominalValues_.set_x(x0_);;
+  nominalValues_.set_x(Thyra::createVector(x0_, x_space_));
+
 }
+
 template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::set_x0(const Teuchos::ArrayView<const Scalar> &x0_in)
 {
+#if 0
 #ifdef TEUCHOS_DEBUG
   TEUCHOS_ASSERT_EQUALITY(x_space_->dim(), x0_in.size());
 #endif
   Thyra::DetachedVectorView<Scalar> x0(x0_);
   x0.sv().values()().assign(x0_in);
+#endif
+#ifdef TEUCHOS_DEBUG
+  TEUCHOS_ASSERT_EQUALITY(x_space_->dim(), x0_in.size());
+#endif
+  x0_->get1dViewNonConst()().assign(x0_in);
+}
+
+template<class Scalar>
+void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
+  const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
+  const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
+  ) const
+{  
+  typedef Thyra::TpetraOperatorVectorExtraction<Scalar,int> ConverterT;
+
+  const RCP<const Tpetra::Vector<Scalar, int> > x_vec =
+    ConverterT::getConstTpetraVector(inArgs.get_x());
+  const ArrayRCP<const Scalar> x = x_vec->get1dView();
+
+  const RCP<Tpetra::Vector<Scalar, int> > f_vec =
+    ConverterT::getTpetraVector(outArgs.get_f());
+#if 0
+  const RCP<Tpetra::CrsMatrix<Scalar, int> > W =
+    rcp_dynamic_cast<Tpetra::CrsMatrix<Scalar,int> >(
+      ConverterT::getTpetraOperator(outArgs.get_W_op()),
+      true
+      );
+#endif
+
+  if (nonnull(f_vec)) {
+    const ArrayRCP<Scalar> f = f_vec->get1dViewNonConst();
+//     f[0] = x[0] + x[1]*x[1] - p_[0];
+//     f[1] = d_ * (x[0]*x[0] -x[1] - p_[1]);
+  }
+#if 0
+  if (nonnull(W)) {
+    W->setAllToScalar(ST::zero());
+    W->sumIntoGlobalValues(0, tuple<int>(0, 1), tuple<Scalar>(1.0, 2.0*x[1]));
+    W->sumIntoGlobalValues(1, tuple<int>(0, 1), tuple<Scalar>(2.0*d_*x[0], -d_));
+  }
+#endif
+
 }
 
 

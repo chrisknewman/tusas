@@ -43,9 +43,11 @@ public:
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > get_f_space() const{return f_space_;};
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
-  ::Thyra::ModelEvaluatorBase::InArgs<Scalar> createInArgs() const{};
+  ::Thyra::ModelEvaluatorBase::InArgs<Scalar> createInArgs() const{return prototypeInArgs_;};
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   void set_x0(const Teuchos::ArrayView<const Scalar> &x0);
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
+  ::Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const{return nominalValues_;};
 
   void initialize(){};
   void finalize(){};
@@ -64,7 +66,7 @@ private:
   void evalModelImpl(
     const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
     const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
-    ) const{};
+    ) const;
 
   //const Teuchos::RCP<const Teuchos::Comm<int> > comm_;
   Teuchos::RCP<Mesh> mesh_;
@@ -85,7 +87,8 @@ private:
   Teuchos::ParameterList paramList;
 
   Thyra::ModelEvaluatorBase::InArgs<Scalar> nominalValues_;
-  Teuchos::RCP< ::Thyra::VectorBase<Scalar> > x0_;
+  //Teuchos::RCP< ::Thyra::VectorBase<Scalar> > x0_;
+  Teuchos::RCP<Tpetra::Vector<Scalar,int> > x0_;
   Thyra::ModelEvaluatorBase::InArgs<Scalar> prototypeInArgs_;
   Thyra::ModelEvaluatorBase::OutArgs<Scalar> prototypeOutArgs_;
 };

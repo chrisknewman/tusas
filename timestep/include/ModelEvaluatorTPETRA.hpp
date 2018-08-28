@@ -14,9 +14,13 @@
 #include <Teuchos_Comm.hpp>
 
 #include <Tpetra_Vector.hpp>
+#include <Tpetra_Map_decl.hpp>
+#include <Tpetra_Import.hpp>
+
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 
 #include "Mesh.h"
+#include "elem_color.h"
 
 template<class Scalar> class ModelEvaluatorTPETRA;
 
@@ -38,6 +42,8 @@ public:
   /// Destructor
   ~ModelEvaluatorTPETRA(){};
 
+  typedef Tpetra::Vector<>::scalar_type scalar_type;
+
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > get_x_space() const{return x_space_;};
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
@@ -49,19 +55,26 @@ public:
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const{return nominalValues_;};
 
-  void initialize(){};
-  void finalize(){};
-  void advance(){};
-  void write_exodus(){};
+  void initialize();
+  void finalize();
+  void advance();
+  void write_exodus();
+
 
 private:
+
 
   typedef Tpetra::Vector<>::global_ordinal_type global_ordinal_type;
   typedef Tpetra::Vector<>::local_ordinal_type local_ordinal_type;
   typedef Tpetra::global_size_t global_size_t;
   typedef Tpetra::Vector<>::node_type node_type;
+  typedef Tpetra::Vector<scalar_type, local_ordinal_type,
+                              global_ordinal_type, node_type> vector_type;
+  typedef Tpetra::Map<local_ordinal_type, global_ordinal_type, node_type> map_type;
+  typedef Tpetra::Import<local_ordinal_type, global_ordinal_type,
+                         node_type> import_type;
 
-  ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const{};
+  ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
 
   void evalModelImpl(
     const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
@@ -70,27 +83,56 @@ private:
 
   //const Teuchos::RCP<const Teuchos::Comm<int> > comm_;
   Teuchos::RCP<Mesh> mesh_;
+
+  int update_mesh_data();
+
+  void set_test_case();
+
+  double time_;
+
+  int ex_id_;
+
+  int output_step_;
   int numeqs_;
   int num_owned_nodes_;
   int num_overlap_nodes_;
 
   Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > x_space_;
-  Teuchos::RCP<const Tpetra::Map<> > x_overlap_map_;
-  Teuchos::RCP<const Tpetra::Map<> > x_owned_map_;
+  Teuchos::RCP<const map_type > x_overlap_map_;
+  Teuchos::RCP<const map_type > x_owned_map_;
 
   Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > f_space_;
 
-  Teuchos::RCP<const Tpetra::Import<> > importer_;
+  Teuchos::RCP<const import_type > importer_;
+  Teuchos::RCP<NOX::Solver::Generic> solver_;
 
+  Teuchos::RCP<vector_type> u_old_;
+
+  int nnewt_;
   double dt_;
   double t_theta_;
   Teuchos::ParameterList paramList;
 
   Thyra::ModelEvaluatorBase::InArgs<Scalar> nominalValues_;
-  //Teuchos::RCP< ::Thyra::VectorBase<Scalar> > x0_;
-  Teuchos::RCP<Tpetra::Vector<Scalar,int> > x0_;
+  //Teuchos::RCP< ::Thyra::VectorBase<scalar_type> > x0_;
+  Teuchos::RCP<vector_type > x0_;
   Thyra::ModelEvaluatorBase::InArgs<Scalar> prototypeInArgs_;
   Thyra::ModelEvaluatorBase::OutArgs<Scalar> prototypeOutArgs_;
+
+  /// Initialize and create the NOX and linear solvers.
+  void init_nox();
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
+  void set_W_factory(const Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> >& W_factory);
+ 
+  Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> > W_factory_;
+
+  void init(Teuchos::RCP<vector_type> u);
+
+  std::vector<std::string> *varnames_;
+  Teuchos::RCP<elem_color> Elem_col;
+
+
+  Teuchos::RCP<const Epetra_Comm>  Comm;
 };
 
 //==================================================================

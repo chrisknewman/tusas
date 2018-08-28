@@ -699,6 +699,22 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
   return error;
 
 }
+
+int Mesh::write_exodus_no_elem(const int ex_id, const int counter, const double time){
+  int error = 0;
+  error = write_nodal_coordinates_exodus(ex_id);
+  //std::cout<<error<<std::endl;
+  error = write_element_blocks_exodus(ex_id);
+  //std::cout<<error<<std::endl;
+  error = write_nodal_data_exodus(ex_id,counter);
+  //error = write_elem_data_exodus(ex_id,counter);
+  //std::cout<<error<<std::endl;
+  error = ex_put_time(ex_id,counter,&time);
+  //std::cout<<error<<std::endl;
+
+  return error;
+
+}
 int Mesh::read_last_step_exodus(const int ex_id, int &timestep){
   float ret_float = 0.0;
   char ret_char = '\0';

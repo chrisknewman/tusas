@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
     timestep<double> * model;
 
     if( paramList.get<std::string> (TusasmethodNameString)  == "tpetra") {
-      model = new ModelEvaluatorTPETRA<double>(in_mesh,paramList);
+      model = new ModelEvaluatorTPETRA<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
     }
     else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
       model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);

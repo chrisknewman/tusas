@@ -26,7 +26,8 @@ template<class Scalar> class ModelEvaluatorTPETRA;
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
-modelEvaluatorTPETRA( Mesh &mesh,
+modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
+			Mesh &mesh,
 			 Teuchos::ParameterList plist 
 			 );
 /// Implentation of timestep with MPI and OpenMP support.
@@ -36,7 +37,8 @@ class ModelEvaluatorTPETRA
 {
 public:
   /// Constructor
-  ModelEvaluatorTPETRA( Mesh *mesh,
+  ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
+			Mesh *mesh,
 			   Teuchos::ParameterList plist 
 		       );
   /// Destructor
@@ -63,13 +65,12 @@ public:
 
 private:
 
-
   typedef Tpetra::Vector<>::global_ordinal_type global_ordinal_type;
   typedef Tpetra::Vector<>::local_ordinal_type local_ordinal_type;
   typedef Tpetra::global_size_t global_size_t;
   typedef Tpetra::Vector<>::node_type node_type;
   typedef Tpetra::Vector<scalar_type, local_ordinal_type,
-                              global_ordinal_type, node_type> vector_type;
+			 global_ordinal_type, node_type> vector_type;
   typedef Tpetra::Map<local_ordinal_type, global_ordinal_type, node_type> map_type;
   typedef Tpetra::Import<local_ordinal_type, global_ordinal_type,
                          node_type> import_type;
@@ -77,12 +78,12 @@ private:
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
 
   void evalModelImpl(
-    const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
-    const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
-    ) const;
+		     const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
+		     const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
+		     ) const;
 
-  //const Teuchos::RCP<const Teuchos::Comm<int> > comm_;
-  Teuchos::RCP<Mesh> mesh_;
+//Teuchos::RCP<Mesh> mesh_;
+  Mesh* mesh_;
 
   int update_mesh_data();
 
@@ -129,10 +130,33 @@ private:
   void init(Teuchos::RCP<vector_type> u);
 
   std::vector<std::string> *varnames_;
+
+  typedef double (*DBCFUNC)(const double &x,
+			    const double &y,
+			    const double &z,
+			    const double &t);
+
+  std::vector<std::map<int,DBCFUNC>> *dirichletfunc_;
+
+  typedef double (*INITFUNC)(const double &x,
+			     const double &y,
+			     const double &z,
+			     const int &eqn_id);
+
+  std::vector<INITFUNC> *initfunc_;
+
+
+
+  RCP<Teuchos::Time> ts_time_import;
+  RCP<Teuchos::Time> ts_time_resfill;
+  //RCP<Teuchos::Time> ts_time_precfill;
+  RCP<Teuchos::Time> ts_time_nsolve;
+
+  //hacked stuff for elem_color
   Teuchos::RCP<elem_color> Elem_col;
-
-
   Teuchos::RCP<const Epetra_Comm>  Comm;
+  int num_color;
+  std::vector< std::vector< int > > colors;
 };
 
 //==================================================================

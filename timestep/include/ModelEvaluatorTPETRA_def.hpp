@@ -13,6 +13,7 @@
 #include <Teuchos_DefaultComm.hpp>
 #include <Teuchos_Describable.hpp>
 #include <Teuchos_ArrayViewDecl.hpp>
+#include <Teuchos_TimeMonitor.hpp>
 
 //#include <Kokkos_View.hpp>
 
@@ -26,7 +27,8 @@
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
-modelEvaluatorTPETRA( Mesh *mesh,
+modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
+			Mesh *mesh,
 			 Teuchos::ParameterList plist
 			 )
 {
@@ -37,10 +39,13 @@ modelEvaluatorTPETRA( Mesh *mesh,
 
 template<class Scalar>
 ModelEvaluatorTPETRA<Scalar>::
-ModelEvaluatorTPETRA( Mesh *mesh,
+ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
+			Mesh *mesh,
 			 Teuchos::ParameterList plist 
 		     ) :
-  paramList(plist)
+  paramList(plist),
+  mesh_(mesh),
+  Comm(comm)
 {
   dt_ = paramList.get<double> (TusasdtNameString);
   t_theta_ = paramList.get<double> (TusasthetaNameString);
@@ -50,7 +55,7 @@ ModelEvaluatorTPETRA( Mesh *mesh,
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
   //comm_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   
-  mesh_ = Teuchos::rcp(new Mesh(*mesh));
+  //mesh_ = Teuchos::rcp(new Mesh(*mesh));
   mesh_->compute_nodal_adj(); 
   std::vector<int> node_num_map(mesh_->get_node_num_map());
   
@@ -105,14 +110,35 @@ ModelEvaluatorTPETRA( Mesh *mesh,
   nominalValues_.set_x(Thyra::createVector(x0_, x_space_));
   time_=0.;
   
-  init_nox();
+  ts_time_import= Teuchos::TimeMonitor::getNewTimer("Total Import Time");
+  ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Total Residual Fill Time");
+  //ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
+  ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
+
 
   //HACK
   //cn 8-28-18 currently elem_color takes an epetra_mpi_comm....
   //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
-  Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
-  Elem_col = Teuchos::rcp(new elem_color(Comm,mesh_.get()));
+  //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
+  Elem_col = Teuchos::rcp(new elem_color(Comm,mesh));
+  //elem_color Elem_col = elem_color(Comm,mesh_.get());
+  //Mesh m = *((mesh_.ptr()).get());
+  //elem_color Elem_col = elem_color(Comm,mesh_);
+  num_color = Elem_col->get_num_color();
+  //std::cout<<num_color<<std::endl;
+  //colors = Elem_col->get_colors();
+  colors.resize(num_color);
+  for(int cc = 0; cc < num_color; cc++){
+    const int color_size=(Elem_col->get_color(cc)).size();
+    for(int ii = 0; ii < color_size; ii++){
+      const int id = (Elem_col->get_color(cc))[ii];
+      colors[cc].push_back(id);
+      //std::cout<<cc<<" "<<colors[cc][ii]<<std::endl;
+    }
+  }
+  //std::cout<<num_color<<" "<<colors[0].size()<<std::endl;
 
+  init_nox();
 
 }
 
@@ -137,9 +163,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     ConverterT::getConstTpetraVector(inArgs.get_x());
 
   Teuchos::RCP<vector_type > u = Teuchos::rcp(new vector_type(x_overlap_map_));
-  u->doImport(*x_vec,*importer_,Tpetra::INSERT);
   Teuchos::RCP<vector_type > uold = Teuchos::rcp(new vector_type(x_overlap_map_));
-  uold->doImport(*u_old_,*importer_,Tpetra::INSERT);
+  {
+    Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+    u->doImport(*x_vec,*importer_,Tpetra::INSERT);
+    uold->doImport(*u_old_,*importer_,Tpetra::INSERT);
+  }
 
   const ArrayRCP<const scalar_type> uv = u->get1dView();
   const ArrayRCP<const scalar_type> uoldv = uold->get1dView();
@@ -148,7 +177,72 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     const RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
-   
+    f_vec->scale(0.);
+    Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
+    const int blk = 0;
+    const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
+    //std::cout<<num_color<<" "<<colors[0].size()<<" "<<(Elem_col->get_color(0)).size()<<std::endl;
+    OMPBasisLQuad B;
+    for(int c = 0; c < num_color; c++){
+      std::vector<int> elem_map = colors[c];
+      const int num_elem = elem_map.size();
+#pragma omp parallel for
+      for (int ne=0; ne < num_elem; ne++) { 
+	const int elem = elem_map[ne];
+	double xx[4];
+	double yy[4];
+	double zz[4];
+	double uu[4];
+	double uu_old[4];
+	for(int k = 0; k < n_nodes_per_elem; k++){
+	  
+	  int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
+	  
+	  xx[k] = mesh_->get_x(nodeid);
+	  yy[k] = mesh_->get_y(nodeid);
+	  zz[k] = mesh_->get_z(nodeid);
+	  uu[k] = uv[nodeid]; 
+	  uu_old[k] = uoldv[nodeid];
+	}//k
+	  //std::cout<<uu[k]<<" "<<uu_old[k]<<" "<<uoldv[nodeid]<<" "<<nodeid<<std::endl;
+	for (int i=0; i< n_nodes_per_elem; i++) {//i
+	  for(int gp=0; gp < 4; gp++) {//gp
+	    //B.getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
+	    const double dxdxi  = .25*( (xx[1]-xx[0])*(1.-B.eta[gp])+(xx[2]-xx[3])*(1.+B.eta[gp]) );
+	    const double dxdeta = .25*( (xx[3]-xx[0])*(1.- B.xi[gp])+(xx[2]-xx[1])*(1.+ B.xi[gp]) );
+	    const double dydxi  = .25*( (yy[1]-yy[0])*(1.- B.eta[gp])+(yy[2]-yy[3])*(1.+ B.eta[gp]) );
+	    const double dydeta = .25*( (yy[3]-yy[0])*(1.-  B.xi[gp])+(yy[2]-yy[1])*(1.+  B.xi[gp]) );
+	    const double jac = dxdxi * dydeta - dxdeta * dydxi;
+	    const double dxidx = dydeta / jac;
+	    const double dxidy = -dxdeta / jac;
+	    const double detadx = -dydxi / jac;
+	    const double detady = dxdxi / jac;
+	    double uuu = 0.;
+	    double uuuold = 0.;
+	    double dudx = 0.;
+	    double dudy = 0.;
+	    for (int ii=0; ii < 4; ii++) {
+	      uuu += uu[ii] * B.phi1[ii][gp];
+	      uuuold +=uu_old[ii] * B.phi1[ii][gp];
+	      dudx += uu[ii] * (B.dphidxi1[ii][gp]*dxidx+B.dphideta1[ii][gp]*detadx);
+	      dudy += uu[ii] * (B.dphidxi1[ii][gp]*dxidy+B.dphideta1[ii][gp]*detady);
+	    }//ii
+	    const int row =  mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i));
+	    double val = 0.;
+	    double jacwt = jac * B.weight[0];
+	    val = jacwt*(
+			 (uuu-uuuold)/dt_*B.phi1[i][gp] 
+			 + dudx*(B.dphidxi1[i][gp]*dxidx + B.dphideta1[i][gp]*detadx)
+			 + dudy*(B.dphidxi1[i][gp]*dxidy + B.dphideta1[i][gp]*detady)
+			 );
+	    f_vec->sumIntoGlobalValue (row, val);
+	  }//gp
+	}//i
+	
+      }//ne
+    }//c   
+    //exit(0);
+#if 0
     const ArrayRCP<scalar_type> f = f_vec->get1dViewNonConst();
     const size_t localLength = f_vec->getLocalLength();
     //#pragma omp parallel for
@@ -156,6 +250,36 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //std::cout<<f[k]<<" "<<x[k]<<std::endl;
       f[k] = uv[k] - 10.3;
     }
+#endif
+  }//get_f
+  if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
+    const RCP<vector_type> f_vec =
+      ConverterT::getTpetraVector(outArgs.get_f());
+    std::vector<int> node_num_map(mesh_->get_node_num_map());
+    std::map<int,DBCFUNC>::iterator it;
+    
+    for( int k = 0; k < numeqs_; k++ ){
+      for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
+	int ns_id = it->first;
+#pragma omp parallel for
+	for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
+	  
+	  int lid = mesh_->get_node_set_entry(ns_id, j);
+	  int gid = node_num_map[lid];
+	  //std::cout<<ns_id<<" "<<gid<<" "<<mesh_->get_node_set(ns_id).size()<<std::endl;
+	  int row = numeqs_*gid;//global row
+	  //int row = numeqs_*lid;//local row
+	  double x = mesh_->get_x(lid);
+	  double y = mesh_->get_y(lid);
+	  double z = mesh_->get_z(lid);
+	      
+	  int row1 = row + k;
+	  double val1 = (it->second)(x,y,z,time_);//the function pointer eval
+	  double val = uv[numeqs_*lid + k]  - val1;
+	  f_vec->replaceGlobalValue (row1, val);
+	}//j
+      }//it
+    }//k
   }//get_f
 
 #if 0
@@ -326,12 +450,11 @@ void ModelEvaluatorTPETRA<scalar_type>::advance()
 {
   Teuchos::RCP< VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
-  //solver_->reset(thyraguess);
+  solver_->reset(thyraguess);
 
   {
-#if 0
     Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
-#endif
+
     NOX::StatusTest::StatusType solvStatus = solver_->solve();
     if( !(NOX::StatusTest::Converged == solvStatus)) {
       std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
@@ -346,10 +469,6 @@ void ModelEvaluatorTPETRA<scalar_type>::advance()
 					      ).getThyraVector()
       );
   Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
-
-#if 0
-  *u_old_old_ = *u_old_;
-#endif
 
   ArrayRCP<scalar_type> uv = u_old_->get1dViewNonConst();
   const size_t localLength = num_owned_nodes_;
@@ -453,11 +572,14 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 
 
       //cn this will be a pointer in future
-      double pi = 3.141592653589793;
-      uv[nn] = sin(pi*x)*sin(pi*y);
+//       double pi = 3.141592653589793;
+//       uv[nn] = sin(pi*x)*sin(pi*y);
+      uv[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
     }
 
+
   }
+  //exit(0);
 }
 
 template<class scalar_type>
@@ -467,6 +589,20 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
   varnames_ = new std::vector<std::string>(numeqs_);
   (*varnames_)[0] = "u";
+
+  initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+  (*initfunc_)[0] = &heat::init_heat_test_;
+  
+  // numeqs_ number of variables(equations) 
+  dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+  
+  //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+  //               [numeq][nodeset id]
+//  [variable index][nodeset index]
+  (*dirichletfunc_)[0][0] = &dbc_zero_;							 
+  (*dirichletfunc_)[0][1] = &dbc_zero_;						 
+  (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+  (*dirichletfunc_)[0][3] = &dbc_zero_;
 }
 
 template<class scalar_type>
@@ -474,6 +610,8 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
 //void ModelEvaluatorNEMESIS<scalar_type>::write_exodus(const int output_step)
 {
   update_mesh_data();
+
+  //not sre what the bug is here...
   mesh_->write_exodus_no_elem(ex_id_,output_step_,time_);
   output_step_++;
 }

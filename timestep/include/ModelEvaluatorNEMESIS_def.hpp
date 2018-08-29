@@ -431,7 +431,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	//#ifdef TUSAS_COLOR_CPU
 #ifdef TUSAS_COLOR_CPU
 	int num_color = Elem_col->get_num_color();
-	std::vector< std::vector< int > > colors = Elem_col->get_colors();
+	//std::vector< std::vector< int > > colors = Elem_col->get_colors();
 	for(int c = 0; c < num_color; c++){
 	  std::vector<int> elem_map = Elem_col->get_color(c);
 	  //std::vector<int> elem_map = colors[c];

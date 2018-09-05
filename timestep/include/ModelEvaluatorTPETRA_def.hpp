@@ -186,8 +186,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     for(int c = 0; c < num_color; c++){
       std::vector<int> elem_map = colors[c];
       const int num_elem = elem_map.size();
-#pragma omp parallel for
-      for (int ne=0; ne < num_elem; ne++) { 
+// #pragma omp parallel for
+//       for (int ne=0; ne < num_elem; ne++) { 
+      Kokkos::parallel_for(num_elem,[=](const size_t ne){
 	const int elem = elem_map[ne];
 	double xx[4];
 	double yy[4];
@@ -196,7 +197,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	double uu_old[4];
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
-	  int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
+	  const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
 	  
 	  xx[k] = mesh_->get_x(nodeid);
 	  yy[k] = mesh_->get_y(nodeid);
@@ -204,7 +205,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  uu[k] = uv[nodeid]; 
 	  uu_old[k] = uoldv[nodeid];
 	}//k
-	  //std::cout<<uu[k]<<" "<<uu_old[k]<<" "<<uoldv[nodeid]<<" "<<nodeid<<std::endl;
 	for (int i=0; i< n_nodes_per_elem; i++) {//i
 	  for(int gp=0; gp < 4; gp++) {//gp
 	    //B.getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
@@ -238,8 +238,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    f_vec->sumIntoGlobalValue (row, val);
 	  }//gp
 	}//i
-	
-      }//ne
+      });//parallel_for
+	//}//ne
+
+
     }//c   
     //exit(0);
 #if 0
@@ -260,9 +262,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
-	int ns_id = it->first;
-#pragma omp parallel for
-	for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
+	const int ns_id = it->first;
+	const int num_node_ns = mesh_->get_node_set(ns_id).size();
+// #pragma omp parallel for
+// 	for ( int j = 0; j < num_node_ns; j++ ){
+	Kokkos::parallel_for(num_node_ns,[=](const size_t j){
 	  
 	  int lid = mesh_->get_node_set_entry(ns_id, j);
 	  int gid = node_num_map[lid];
@@ -277,7 +281,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  double val1 = (it->second)(x,y,z,time_);//the function pointer eval
 	  double val = uv[numeqs_*lid + k]  - val1;
 	  f_vec->replaceGlobalValue (row1, val);
-	}//j
+	});//parallel_for
+	  //}//j
+
       }//it
     }//k
   }//get_f

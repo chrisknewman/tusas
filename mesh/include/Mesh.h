@@ -165,6 +165,7 @@ class Mesh
   /// Return sorted node list
   std::vector<int> get_sorted_elem_num_map(){return sorted_elem_num_map;}
   int get_num_nodes_per_ns(const int i){return num_nodes_per_ns[i];}
+  std::vector<std::vector<int> > connect;
 
  private:
 
@@ -229,7 +230,7 @@ class Mesh
   std::vector<int> num_elem_in_blk;
   std::vector<std::string> blk_elem_type;
   std::vector<int> num_node_per_elem_in_blk;
-  std::vector<std::vector<int> > connect;
+  //std::vector<std::vector<int> > connect;
   std::vector< std::vector <int> > elem_connect;      
 
   std::vector<int> ss_ids;

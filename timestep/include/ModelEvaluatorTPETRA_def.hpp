@@ -15,7 +15,8 @@
 #include <Teuchos_ArrayViewDecl.hpp>
 #include <Teuchos_TimeMonitor.hpp>
 
-//#include <Kokkos_View.hpp>
+//#include <Kokkos_View.hpp> 	
+#include <Kokkos_Vector.hpp>
 
 #include <Tpetra_Core.hpp>
 #include <Tpetra_Map.hpp>
@@ -88,6 +89,22 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   //cn we could store previous time values in a multivector
   u_old_ = Teuchos::rcp(new vector_type(x_owned_map_));
+
+  //HACK
+  //x,y,z should be on a map that corresponds to nodes,
+  // not a map that corresponds to (multiple) unknowns
+  x_ = Teuchos::rcp(new vector_type(x_owned_map_));
+  y_ = Teuchos::rcp(new vector_type(x_owned_map_));
+  z_ = Teuchos::rcp(new vector_type(x_owned_map_));
+  ArrayRCP<scalar_type> xv = x_->get1dViewNonConst();
+  ArrayRCP<scalar_type> yv = y_->get1dViewNonConst();
+  ArrayRCP<scalar_type> zv = z_->get1dViewNonConst();
+  const size_t localLength = num_owned_nodes_;
+  for (size_t nn=0; nn < localLength; nn++) {
+    xv[nn] = mesh_->get_x(nn);
+    yv[nn] = mesh_->get_y(nn);
+    zv[nn] = mesh_->get_z(nn);
+  }
  
   x_space_ = Thyra::createVectorSpace<scalar_type>(x_owned_map_);
   f_space_ = x_space_;
@@ -170,9 +187,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     uold->doImport(*u_old_,*importer_,Tpetra::INSERT);
   }
 
-  const ArrayRCP<const scalar_type> uv = u->get1dView();
-  const ArrayRCP<const scalar_type> uoldv = uold->get1dView();
-
   if (nonnull(outArgs.get_f())){
 
     const RCP<vector_type> f_vec =
@@ -183,13 +197,39 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
     //std::cout<<num_color<<" "<<colors[0].size()<<" "<<(Elem_col->get_color(0)).size()<<std::endl;
     OMPBasisLQuad B;
+
+    Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
+    for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
+
     for(int c = 0; c < num_color; c++){
       std::vector<int> elem_map = colors[c];
-      const int num_elem = elem_map.size();
+
+      const int num_elem = colors[c].size();
+
+      Kokkos::vector<int> elem_map_k(num_elem);
+      for(int i = 0; i<num_elem; i++) elem_map_k[i] = colors[c][i];
+
+
+      auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto f_view = f_vec->getLocalView<Kokkos::DefaultExecutionSpace>();
+
+
+      auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+      auto uold_1d = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
+      auto x_1d = Kokkos::subview (x_view, Kokkos::ALL (), 0);
+      auto y_1d = Kokkos::subview (y_view, Kokkos::ALL (), 0);
+      auto z_1d = Kokkos::subview (z_view, Kokkos::ALL (), 0);
+      auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+
 // #pragma omp parallel for
 //       for (int ne=0; ne < num_elem; ne++) { 
-      Kokkos::parallel_for(num_elem,[=](const size_t ne){
-	const int elem = elem_map[ne];
+      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+			     //const int elem = elem_map[ne];
+	const int elem = elem_map_k[ne];
 	double xx[4];
 	double yy[4];
 	double zz[4];
@@ -199,11 +239,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  
 	  const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
 	  
-	  xx[k] = mesh_->get_x(nodeid);
-	  yy[k] = mesh_->get_y(nodeid);
-	  zz[k] = mesh_->get_z(nodeid);
-	  uu[k] = uv[nodeid]; 
-	  uu_old[k] = uoldv[nodeid];
+	  xx[k] = x_1d[nodeid];
+	  yy[k] = y_1d[nodeid];
+	  zz[k] = z_1d[nodeid];
+	  uu[k] = u_1d[nodeid]; 
+	  uu_old[k] = uold_1d[nodeid];
 	}//k
 	for (int i=0; i< n_nodes_per_elem; i++) {//i
 	  for(int gp=0; gp < 4; gp++) {//gp
@@ -221,21 +261,23 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    double uuuold = 0.;
 	    double dudx = 0.;
 	    double dudy = 0.;
-	    for (int ii=0; ii < 4; ii++) {
+	    for (int ii=0; ii < n_nodes_per_elem; ii++) {
 	      uuu += uu[ii] * B.phi1[ii][gp];
 	      uuuold +=uu_old[ii] * B.phi1[ii][gp];
 	      dudx += uu[ii] * (B.dphidxi1[ii][gp]*dxidx+B.dphideta1[ii][gp]*detadx);
 	      dudy += uu[ii] * (B.dphidxi1[ii][gp]*dxidy+B.dphideta1[ii][gp]*detady);
 	    }//ii
-	    const int row =  mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i));
-	    double val = 0.;
-	    double jacwt = jac * B.weight[0];
-	    val = jacwt*(
+	    const double wt = B.weight[0];
+	    const double val = jac*wt*(
 			 (uuu-uuuold)/dt_*B.phi1[i][gp] 
 			 + dudx*(B.dphidxi1[i][gp]*dxidx + B.dphideta1[i][gp]*detadx)
 			 + dudy*(B.dphidxi1[i][gp]*dxidy + B.dphideta1[i][gp]*detady)
 			 );
-	    f_vec->sumIntoGlobalValue (row, val);
+	    //const int row =  mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i));
+	    //f_vec->sumIntoGlobalValue (row, val);
+	    const int lid = mesh_->get_node_id(blk, elem, i);
+	    //f_vec->sumIntoLocalValue (lid, val);
+	    f_1d[lid] += val;
 	  }//gp
 	}//i
       });//parallel_for
@@ -244,15 +286,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     }//c   
     //exit(0);
-#if 0
-    const ArrayRCP<scalar_type> f = f_vec->get1dViewNonConst();
-    const size_t localLength = f_vec->getLocalLength();
-    //#pragma omp parallel for
-    for (size_t k = 0; k < localLength; ++k) {
-      //std::cout<<f[k]<<" "<<x[k]<<std::endl;
-      f[k] = uv[k] - 10.3;
-    }
-#endif
   }//get_f
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
     const RCP<vector_type> f_vec =
@@ -266,9 +299,30 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
 // #pragma omp parallel for
 // 	for ( int j = 0; j < num_node_ns; j++ ){
-	Kokkos::parallel_for(num_node_ns,[=](const size_t j){
+	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
+	Kokkos::View <double*> node_set_view("nsv",ns_size);
+	for (size_t i = 0; i < ns_size; ++i) {
+	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+        }
+
+	//we need a runtime way of deciding on Kokkos::Cuda or Kokkos::Host
+	auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+	auto f_view = f_vec->getLocalView<Kokkos::DefaultExecutionSpace>();
+
+	auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+	auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+    
+
+	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t j){
+			       const int lid = node_set_view(j);//could use Kokkos::vector here...
+			       const double val1 = 0.;
+			       const double val = u_1d(lid)  - val1;
+			       f_1d[lid] = val;
+			     });
+#if 0
+	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
 	  
-	  int lid = mesh_->get_node_set_entry(ns_id, j);
+			       int lid = node_set_view(j);
 	  int gid = node_num_map[lid];
 	  //std::cout<<ns_id<<" "<<gid<<" "<<mesh_->get_node_set(ns_id).size()<<std::endl;
 	  int row = numeqs_*gid;//global row
@@ -283,7 +337,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  f_vec->replaceGlobalValue (row1, val);
 	});//parallel_for
 	  //}//j
-
+#endif
       }//it
     }//k
   }//get_f

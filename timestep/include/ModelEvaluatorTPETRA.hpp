@@ -109,6 +109,10 @@ private:
 
   Teuchos::RCP<vector_type> u_old_;
 
+  Teuchos::RCP<vector_type> x_;
+  Teuchos::RCP<vector_type> y_;
+  Teuchos::RCP<vector_type> z_;
+
   int nnewt_;
   double dt_;
   double t_theta_;

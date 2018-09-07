@@ -16,7 +16,7 @@
 //teuchos support
 #include <Teuchos_RCP.hpp>
 #include "Epetra_CrsGraph.h"
-//#include <Teuchos_TimeMonitor.hpp>
+#include <Teuchos_TimeMonitor.hpp>
 
 #include <Isorropia_EpetraColorer.hpp>
 
@@ -78,6 +78,7 @@ private:
   void insert_off_proc_elems();
 
   //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
+  Teuchos::RCP<Teuchos::Time> ts_time_color;
 
 };
 #endif

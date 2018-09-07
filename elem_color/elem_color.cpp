@@ -19,6 +19,8 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
   mesh_(mesh)
 {
   //ts_time_elemadj= Teuchos::TimeMonitor::getNewTimer("Total Elem Adj Fill Time");
+  ts_time_color= Teuchos::TimeMonitor::getNewTimer("Total Elem Color Time");
+  Teuchos::TimeMonitor ElemcolTimer(*ts_time_color);
   compute_graph();
   create_colorer();
   init_mesh_data();

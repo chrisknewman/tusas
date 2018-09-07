@@ -93,6 +93,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //HACK
   //x,y,z should be on a map that corresponds to nodes,
   // not a map that corresponds to (multiple) unknowns
+  // and should be an overlap map
   x_ = Teuchos::rcp(new vector_type(x_owned_map_));
   y_ = Teuchos::rcp(new vector_type(x_owned_map_));
   z_ = Teuchos::rcp(new vector_type(x_owned_map_));

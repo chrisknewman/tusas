@@ -201,6 +201,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
     for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
 
+    double dt = dt_; //cuda 8 lambdas dont capture private data
+
     for(int c = 0; c < num_color; c++){
       std::vector<int> elem_map = colors[c];
 
@@ -225,26 +227,28 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       auto z_1d = Kokkos::subview (z_view, Kokkos::ALL (), 0);
       auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
 
-// #pragma omp parallel for
-//       for (int ne=0; ne < num_elem; ne++) { 
+      //for (int ne=0; ne < num_elem; ne++) { 
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
 			     //const int elem = elem_map[ne];
+
 	const int elem = elem_map_k[ne];
 	double xx[4];
 	double yy[4];
-	double zz[4];
+	//double zz[4];
 	double uu[4];
 	double uu_old[4];
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
-	  const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
+	  //const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
+	  const int nodeid = meshc[elem*n_nodes_per_elem+k];
 	  
 	  xx[k] = x_1d[nodeid];
 	  yy[k] = y_1d[nodeid];
-	  zz[k] = z_1d[nodeid];
+	  //zz[k] = z_1d[nodeid];
 	  uu[k] = u_1d[nodeid]; 
 	  uu_old[k] = uold_1d[nodeid];
 	}//k
+
 	for (int i=0; i< n_nodes_per_elem; i++) {//i
 	  for(int gp=0; gp < 4; gp++) {//gp
 	    //B.getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
@@ -269,23 +273,32 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    }//ii
 	    const double wt = B.weight[0];
 	    const double val = jac*wt*(
-			 (uuu-uuuold)/dt_*B.phi1[i][gp] 
+			 (uuu-uuuold)/dt*B.phi1[i][gp] 
 			 + dudx*(B.dphidxi1[i][gp]*dxidx + B.dphideta1[i][gp]*detadx)
 			 + dudy*(B.dphidxi1[i][gp]*dxidy + B.dphideta1[i][gp]*detady)
 			 );
+
 	    //const int row =  mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i));
 	    //f_vec->sumIntoGlobalValue (row, val);
-	    const int lid = mesh_->get_node_id(blk, elem, i);
+	    //const int lid = mesh_->get_node_id(blk, elem, i);
+	    const int lid = meshc[elem*n_nodes_per_elem+i];
 	    //f_vec->sumIntoLocalValue (lid, val);
+	    //f_1d[lid] += jac;//val;
 	    f_1d[lid] += val;
 	  }//gp
 	}//i
-      });//parallel_for
+	});//parallel_for
 	//}//ne
 
 
     }//c   
+
+//     f_vec->print(std::cout);
+//     auto f_view = f_vec->getLocalView<Kokkos::HostSpace>();
+//     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+//     for(int i = 0; i<25; i++)std::cout<<f_1d[i]<<std::endl;
     //exit(0);
+
   }//get_f
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
     const RCP<vector_type> f_vec =
@@ -297,8 +310,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	const int ns_id = it->first;
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
-// #pragma omp parallel for
-// 	for ( int j = 0; j < num_node_ns; j++ ){
+
+
 	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
 	Kokkos::View <double*> node_set_view("nsv",ns_size);
 	for (size_t i = 0; i < ns_size; ++i) {
@@ -306,19 +319,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
         }
 
 	//we need a runtime way of deciding on Kokkos::Cuda or Kokkos::Host
-	auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
-	auto f_view = f_vec->getLocalView<Kokkos::DefaultExecutionSpace>();
+ 	auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+ 	auto f_view = f_vec->getLocalView<Kokkos::DefaultExecutionSpace>();
+
 
 	auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
 	auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
     
 
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t j){
+ 	//for ( int j = 0; j < num_node_ns; j++ ){
+	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
 			       const int lid = node_set_view(j);//could use Kokkos::vector here...
 			       const double val1 = 0.;
 			       const double val = u_1d(lid)  - val1;
 			       f_1d[lid] = val;
-			     });
+	});
+			       //}//j
 #if 0
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
 	  

@@ -62,6 +62,10 @@ public:
   void advance();
   void write_exodus();
 
+  void evalModelImpl(
+		     const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
+		     const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
+		     ) const;
 
 private:
 
@@ -77,10 +81,6 @@ private:
 
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
 
-  void evalModelImpl(
-		     const ::Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
-		     const ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
-		     ) const;
 
 //Teuchos::RCP<Mesh> mesh_;
   Mesh* mesh_;

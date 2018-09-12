@@ -179,9 +179,11 @@ int main(int argc, char *argv[])
     
     Comm.Barrier();
     
-    if(1 != numproc ) 
+    if(1 != numproc ) {
       if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis") join(mypid, numproc);
-    
+      if(paramList.get<std::string> (TusasmethodNameString)  == "tpetra") join(mypid, numproc);
+    }
+
     delete model;
     delete in_mesh;
   }

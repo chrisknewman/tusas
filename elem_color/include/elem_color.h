@@ -66,8 +66,6 @@ private:
   Teuchos::RCP<const Epetra_Map>  elem_map_;
   /// Element graph.
   Teuchos::RCP<Epetra_CrsGraph>  graph_;
-  /// List of color ids.
-  std::vector<int> color_list_;
   /// List of local element ids.
   std::vector< std::vector< int > > elem_LIDS_;
   /// Number of colors.
@@ -76,6 +74,8 @@ private:
   void init_mesh_data();
   /// Inserts off processor elements into the graph.
   void insert_off_proc_elems();
+  /// List of color ids.
+  std::vector<int> color_list_;
 
   //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
   Teuchos::RCP<Teuchos::Time> ts_time_color;

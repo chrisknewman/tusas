@@ -77,30 +77,36 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 					     indexBase,
 					     comm_
 					     ));
+
   //x_overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_DEFAULT );
 
   x_owned_map_ = Teuchos::rcp(new map_type(*(createOneToOne(x_overlap_map_))));
   //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_DEFAULT );
   
-  importer_ = Teuchos::rcp(new import_type(x_overlap_map_, x_owned_map_));
+  importer_ = Teuchos::rcp(new import_type(x_owned_map_, x_overlap_map_));
+  //exporter_ = Teuchos::rcp(new export_type(x_owned_map_, x_overlap_map_));
+  exporter_ = Teuchos::rcp(new export_type(x_overlap_map_, x_owned_map_));
   
   num_owned_nodes_ = x_owned_map_->getNodeNumElements()/numeqs_;
   num_overlap_nodes_ = x_overlap_map_->getNodeNumElements()/numeqs_;
 
+  Teuchos::ArrayView<int> NV(node_num_map);
+  node_overlap_map_ = Teuchos::rcp(new map_type(num_overlap_nodes_,
+						NV,
+						indexBase,
+						comm_
+						));
+
   //cn we could store previous time values in a multivector
   u_old_ = Teuchos::rcp(new vector_type(x_owned_map_));
 
-  //HACK
-  //x,y,z should be on a map that corresponds to nodes,
-  // not a map that corresponds to (multiple) unknowns
-  // and should be an overlap map
-  x_ = Teuchos::rcp(new vector_type(x_owned_map_));
-  y_ = Teuchos::rcp(new vector_type(x_owned_map_));
-  z_ = Teuchos::rcp(new vector_type(x_owned_map_));
+  x_ = Teuchos::rcp(new vector_type(node_overlap_map_));
+  y_ = Teuchos::rcp(new vector_type(node_overlap_map_));
+  z_ = Teuchos::rcp(new vector_type(node_overlap_map_));
   ArrayRCP<scalar_type> xv = x_->get1dViewNonConst();
   ArrayRCP<scalar_type> yv = y_->get1dViewNonConst();
   ArrayRCP<scalar_type> zv = z_->get1dViewNonConst();
-  const size_t localLength = num_owned_nodes_;
+  const size_t localLength = node_overlap_map_->getNodeNumElements();
   for (size_t nn=0; nn < localLength; nn++) {
     xv[nn] = mesh_->get_x(nn);
     yv[nn] = mesh_->get_y(nn);
@@ -133,28 +139,11 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
 
-
   //HACK
   //cn 8-28-18 currently elem_color takes an epetra_mpi_comm....
   //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
   //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   Elem_col = Teuchos::rcp(new elem_color(Comm,mesh));
-  //elem_color Elem_col = elem_color(Comm,mesh_.get());
-  //Mesh m = *((mesh_.ptr()).get());
-  //elem_color Elem_col = elem_color(Comm,mesh_);
-  num_color = Elem_col->get_num_color();
-  //std::cout<<num_color<<std::endl;
-  //colors = Elem_col->get_colors();
-  colors.resize(num_color);
-  for(int cc = 0; cc < num_color; cc++){
-    const int color_size=(Elem_col->get_color(cc)).size();
-    for(int ii = 0; ii < color_size; ii++){
-      const int id = (Elem_col->get_color(cc))[ii];
-      colors[cc].push_back(id);
-      //std::cout<<cc<<" "<<colors[cc][ii]<<std::endl;
-    }
-  }
-  //std::cout<<num_color<<" "<<colors[0].size()<<std::endl;
 
   init_nox();
 
@@ -175,6 +164,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
   ) const
 {  
+
+  //cn the easiest way probably to do the sum into off proc nodes is to load a 
+  //vector(overlap_map) the export with summation to the f_vec(owned_map)
+  //after summing into. ie import is uniquely-owned to multiply-owned
+  //export is multiply-owned to uniquely-owned
+
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+
   typedef Thyra::TpetraOperatorVectorExtraction<Scalar,int> ConverterT;
 
   const Teuchos::RCP<const vector_type > x_vec =
@@ -188,6 +185,129 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     uold->doImport(*u_old_,*importer_,Tpetra::INSERT);
   }
 
+  if (nonnull(outArgs.get_f())){
+
+    const RCP<vector_type> f_vec =
+      ConverterT::getTpetraVector(outArgs.get_f());
+
+    Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
+    f_vec->scale(0.);
+    f_overlap->scale(0.);
+    Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
+    const int blk = 0;
+    const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
+    //std::cout<<num_color<<" "<<colors[0].size()<<" "<<(Elem_col->get_color(0)).size()<<std::endl;
+    OMPBasisLQuad B;
+
+    Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
+    for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
+
+    double dt = dt_; //cuda 8 lambdas dont capture private data
+
+    const int num_color = Elem_col->get_num_color();
+
+    for(int c = 0; c < num_color; c++){
+      //std::vector<int> elem_map = colors[c];
+      std::vector<int> elem_map = Elem_col->get_color(c);
+
+      const int num_elem = elem_map.size();
+
+
+      Kokkos::vector<int> elem_map_k(num_elem);
+      for(int i = 0; i<num_elem; i++) {
+	elem_map_k[i] = elem_map[i];
+	//std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
+      }
+      //exit(0);
+      auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>();
+
+      auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+
+
+      auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+      auto uold_1d = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
+      auto x_1d = Kokkos::subview (x_view, Kokkos::ALL (), 0);
+      auto y_1d = Kokkos::subview (y_view, Kokkos::ALL (), 0);
+      auto z_1d = Kokkos::subview (z_view, Kokkos::ALL (), 0);
+      auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+
+      //for (int ne=0; ne < num_elem; ne++) { 
+      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+			     //const int elem = elem_map[ne];
+
+	const int elem = elem_map_k[ne];
+	double xx[4];
+	double yy[4];
+	//double zz[4];
+	double uu[4];
+	double uu_old[4];
+	for(int k = 0; k < n_nodes_per_elem; k++){
+	  
+	  //const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
+	  const int nodeid = meshc[elem*n_nodes_per_elem+k];
+	  
+	  xx[k] = x_1d[nodeid];
+	  yy[k] = y_1d[nodeid];
+	  //zz[k] = z_1d[nodeid];
+	  uu[k] = u_1d[nodeid]; 
+	  uu_old[k] = uold_1d[nodeid];
+	}//k
+
+	for (int i=0; i< n_nodes_per_elem; i++) {//i
+	  for(int gp=0; gp < 4; gp++) {//gp
+	    //B.getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
+	    const double dxdxi  = .25*( (xx[1]-xx[0])*(1.-B.eta[gp])+(xx[2]-xx[3])*(1.+B.eta[gp]) );
+	    const double dxdeta = .25*( (xx[3]-xx[0])*(1.- B.xi[gp])+(xx[2]-xx[1])*(1.+ B.xi[gp]) );
+	    const double dydxi  = .25*( (yy[1]-yy[0])*(1.- B.eta[gp])+(yy[2]-yy[3])*(1.+ B.eta[gp]) );
+	    const double dydeta = .25*( (yy[3]-yy[0])*(1.-  B.xi[gp])+(yy[2]-yy[1])*(1.+  B.xi[gp]) );
+	    const double jac = dxdxi * dydeta - dxdeta * dydxi;
+	    const double dxidx = dydeta / jac;
+	    const double dxidy = -dxdeta / jac;
+	    const double detadx = -dydxi / jac;
+	    const double detady = dxdxi / jac;
+	    double uuu = 0.;
+	    double uuuold = 0.;
+	    double dudx = 0.;
+	    double dudy = 0.;
+	    for (int ii=0; ii < n_nodes_per_elem; ii++) {
+	      uuu += uu[ii] * B.phi1[ii][gp];
+	      uuuold +=uu_old[ii] * B.phi1[ii][gp];
+	      dudx += uu[ii] * (B.dphidxi1[ii][gp]*dxidx+B.dphideta1[ii][gp]*detadx);
+	      dudy += uu[ii] * (B.dphidxi1[ii][gp]*dxidy+B.dphideta1[ii][gp]*detady);
+	    }//ii
+	    const double wt = B.weight[0];
+	    const double val = jac*wt*(
+			 (uuu-uuuold)/dt*B.phi1[i][gp] 
+			 + dudx*(B.dphidxi1[i][gp]*dxidx + B.dphideta1[i][gp]*detadx)
+			 + dudy*(B.dphidxi1[i][gp]*dxidy + B.dphideta1[i][gp]*detady)
+			 );
+
+	    const int lid = meshc[elem*n_nodes_per_elem+i];
+	    f_1d[lid] += val;
+	  }//gp
+	}//i
+	});//parallel_for
+	//}//ne
+
+
+    }//c 
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      f_vec->doExport(*f_overlap, *exporter_, Tpetra::INSERT);
+    }
+//     f_overlap->print(std::cout);
+//     f_vec->print(std::cout);
+//     auto f_view = f_overlap->getLocalView<Kokkos::HostSpace>();
+//     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+//     for(int i = 0; i<15; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<f_1d[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
+    //exit(0);
+
+  }//get_f
+#if 0
   if (nonnull(outArgs.get_f())){
 
     const RCP<vector_type> f_vec =
@@ -301,6 +421,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //exit(0);
 
   }//get_f
+#endif
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
     const RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
@@ -648,10 +769,8 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 
 
 
-      //cn this will be a pointer in future
-//       double pi = 3.141592653589793;
-//       uv[nn] = sin(pi*x)*sin(pi*y);
       uv[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+      //std::cout<<uv[numeqs_*nn+k]<<" "<<x<<" "<<y<<std::endl;
     }
 
 
@@ -696,35 +815,38 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
 template<class scalar_type>
 int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
 {
+  //std::cout<<"update_mesh_data()"<<std::endl;
+
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
   //std::vector<int> node_num_map(mesh_->get_node_num_map());
 
   //cn 8-28-18 we need an overlap map with mpi, since shared nodes live
   // on the decomposed mesh----fix this later
-#if 0
-  Tpetra::Vector<scalar_type, int> *temp;
+  Teuchos::RCP<vector_type> temp;
+
   if( 1 == comm_->getSize() ){
-    temp = new Tpetra::Vector(*u_old_);
+    temp = Teuchos::rcp(new vector_type(*u_old_));
   }
   else{
-    temp = new Tpetra::Vector(*x_overlap_map_);//cn might be better to have u_old_ live on overlap map
-    temp->Import(*u_old_, *importer_, Insert);
+    temp = Teuchos::rcp(new vector_type(x_overlap_map_));//cn might be better to have u_old_ live on overlap map
+    temp->doImport(*u_old_, *importer_, Tpetra::INSERT);
   }
-#endif
+
 
   //cn 8-28-18 we need an overlap map with mpi, since shared nodes live
   // on the decomposed mesh----fix this later
-  int num_nodes = num_owned_nodes_;
+  int num_nodes = num_overlap_nodes_;
   std::vector<std::vector<double>> output(numeqs_, std::vector<double>(num_nodes));
 
-  const ArrayRCP<scalar_type> uv = u_old_->get1dViewNonConst();
-  const size_t localLength = num_owned_nodes_;
+  const ArrayRCP<scalar_type> uv = temp->get1dViewNonConst();
+  //const size_t localLength = num_owned_nodes_;
 
   for( int k = 0; k < numeqs_; k++ ){
     //#pragma omp parallel for
     for (int nn=0; nn < num_nodes; nn++) {
       //output[k][nn]=(*temp)[numeqs_*nn+k];
       output[k][nn]=uv[numeqs_*nn+k];
+      //std::cout<<uv[numeqs_*nn+k]<<std::endl;
     }
   }
   int err = 0;

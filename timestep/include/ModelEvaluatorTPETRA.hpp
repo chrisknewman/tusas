@@ -16,6 +16,7 @@
 #include <Tpetra_Vector.hpp>
 #include <Tpetra_Map_decl.hpp>
 #include <Tpetra_Import.hpp>
+#include <Tpetra_Export.hpp>
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 
@@ -78,6 +79,8 @@ private:
   typedef Tpetra::Map<local_ordinal_type, global_ordinal_type, node_type> map_type;
   typedef Tpetra::Import<local_ordinal_type, global_ordinal_type,
                          node_type> import_type;
+  typedef Tpetra::Export<local_ordinal_type, global_ordinal_type,
+                         node_type> export_type;
 
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
 
@@ -101,10 +104,12 @@ private:
   Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > x_space_;
   Teuchos::RCP<const map_type > x_overlap_map_;
   Teuchos::RCP<const map_type > x_owned_map_;
+  Teuchos::RCP<const map_type > node_overlap_map_;
 
   Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > f_space_;
 
   Teuchos::RCP<const import_type > importer_;
+  Teuchos::RCP<const export_type > exporter_;
   Teuchos::RCP<NOX::Solver::Generic> solver_;
 
   Teuchos::RCP<vector_type> u_old_;
@@ -159,8 +164,6 @@ private:
   //hacked stuff for elem_color
   Teuchos::RCP<elem_color> Elem_col;
   Teuchos::RCP<const Epetra_Comm>  Comm;
-  int num_color;
-  std::vector< std::vector< int > > colors;
 };
 
 //==================================================================

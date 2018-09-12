@@ -109,21 +109,23 @@ void elem_color::create_colorer()
 
   //map_coloring_->Print(std::cout);
 
-  num_color_ = map_coloring_->NumColors ();
+  num_color_ = elem_colorer_->numColors();
 
   color_list_.assign(map_coloring_->ListOfColors(),map_coloring_->ListOfColors()+num_color_);
 
   elem_LIDS_.resize(num_color_);
 
   //colors seem to begin with 1, which is the defaultcolor?
-  int default_color_=map_coloring_->DefaultColor();
+  //int default_color_=map_coloring_->DefaultColor();
 
-  for(int i = 0; i < num_color_; i++){
-    int num_elem = map_coloring_->NumElementsWithColor(color_list_[i]);
-    //int num_elem = map_coloring_->NumElementsWithColor(i);
-    //std::cout<<"       "<<comm_->MyPID()<<" "<<num_elem<<" "<<color_list_[i]<<std::endl;
-
-    elem_LIDS_[i].assign(map_coloring_->ColorLIDList(color_list_[i]),map_coloring_->ColorLIDList(color_list_[i])+num_elem);
+  for(int i = 1; i < num_color_+1; i++){
+    //int num_elem = map_coloring_->NumElementsWithColor(color_list_[i]);
+    int num_elem = elem_colorer_->numElemsWithColor(i);
+    elem_LIDS_[i-1].resize(num_elem);
+    elem_colorer_->elemsWithColor(i,
+		&elem_LIDS_[i-1][0],
+		num_elem ) ;	
+    //elem_LIDS_[i].assign(map_coloring_->ColorLIDList(color_list_[i]),map_coloring_->ColorLIDList(color_list_[i])+num_elem);
     //elem_LIDS_[i].assign(map_coloring_->ColorLIDList(i),map_coloring_->ColorLIDList(i)+num_elem);
 
     //std::cout<<color_list_[i]<<" ("<<map_coloring_->NumElementsWithColor(color_list_[i])<<") "; 
@@ -132,6 +134,12 @@ void elem_color::create_colorer()
   graph_ = Teuchos::null;
 
   std::cout<<std::endl<<"elem_color::create_colorer() ended on proc "<<mypid<<". With num_color_ = "<<num_color_<<std::endl<<std::endl;
+
+  //std::cout<<std::endl<<std::endl;
+  //std::cout<<mypid<<" "<<elem_colorer_->numColors()<<" "<<num_color_<<std::endl;
+  //for(int cc =1; cc<=elem_colorer_->numColors();cc++){
+  //  std::cout<<mypid<<" "<<cc<<" "<<elem_colorer_->numElemsWithColor(cc)<<std::endl;
+  //}
 
   //exit(0);
 }

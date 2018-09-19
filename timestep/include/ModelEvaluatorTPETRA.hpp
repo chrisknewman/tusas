@@ -160,10 +160,13 @@ private:
   RCP<Teuchos::Time> ts_time_resfill;
   //RCP<Teuchos::Time> ts_time_precfill;
   RCP<Teuchos::Time> ts_time_nsolve;
+  RCP<Teuchos::Time> ts_time_view;
 
   //hacked stuff for elem_color
   Teuchos::RCP<elem_color> Elem_col;
   Teuchos::RCP<const Epetra_Comm>  Comm;
+  //Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra;
+  //Kokkos::View<const double*> x_1dra;
 };
 
 //==================================================================

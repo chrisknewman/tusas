@@ -709,6 +709,7 @@ NBC_FUNC(nbc_zero_)
   
   return 0.*phi;
 }
+KOKKOS_INLINE_FUNCTION 
 //double dbc_zero_(const double &x,
 //	const double &y,
 //	const double &z,
@@ -4994,4 +4995,31 @@ RES_FUNC(residual_eta_kkspp_)
 }
 
 }//namespace pfhub2
+
+#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasisLQuad &basis,\
+                                    const int &i,\
+                                    const double &dt_,\
+			            const double &t_theta_,\
+                                    const double &time,\
+				    const int &eqn_id)
+
+namespace tusastpetra {//we can just put the KOKKOS... around the other dbc_zero_ later...
+
+KOKKOS_INLINE_FUNCTION 
+DBC_FUNC(dbc_zero_) 
+{
+  return 0.;
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_heat_test_)
+{
+
+  return (basis.uu-basis.uuold)/dt_*basis.phi[i]
+			 + basis.dudx*basis.dphidx[i]
+			 + basis.dudy*basis.dphidy[i];
+}
+
+}//namespace tusastpetra
+
 #endif

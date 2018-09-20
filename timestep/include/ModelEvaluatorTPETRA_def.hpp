@@ -254,7 +254,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }
       //exit(0);
 
-#ifdef KOKKOS_HAVE_CUDA
       //would be better to nest this.....
       //loop over team_member.league_rank () in outer loop, then do an inner loop
       //in theory, each league can be performed independently
@@ -263,24 +262,25 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //so just as good to go with Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
       //as below....
 
-      int team_size = 256;
-      int league_size = (num_elem + team_size -1)/team_size;//cn we will need num_eqs_ here akso
-      typedef Kokkos::TeamPolicy <Kokkos::DefaultExecutionSpace>::member_type member_type;
-      Kokkos::TeamPolicy <Kokkos::DefaultExecutionSpace> policy (league_size , team_size);
-      Kokkos::parallel_for (policy , KOKKOS_LAMBDA (member_type team_member) {
-	int nr = team_member.league_rank ();
-	//int ne = team_member.league_rank () * team_member.team_size () + team_member.team_rank ();
+// #ifdef KOKKOS_HAVE_CUDA
+//       int team_size = 256;
+//       int league_size = (num_elem + team_size -1)/team_size;//cn we will need num_eqs_ here akso
+//       typedef Kokkos::TeamPolicy <Kokkos::DefaultExecutionSpace>::member_type member_type;
+//       Kokkos::TeamPolicy <Kokkos::DefaultExecutionSpace> policy (league_size , team_size);
+//       Kokkos::parallel_for (policy , KOKKOS_LAMBDA (member_type team_member) {
+// 	int nr = team_member.league_rank ();
+// 	//int ne = team_member.league_rank () * team_member.team_size () + team_member.team_rank ();
 
-	Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, team_size ),
-			     [=] (int  nc){
+// 	Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, team_size ),
+// 			     [=] (int  nc){
 
-	int ne = nr * team_member.team_size () + nc;
-	if(ne < num_elem){
+// 	int ne = nr * team_member.team_size () + nc;
+// 	if(ne < num_elem){
 
 
-#else
+// #else
 	Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
-#endif
+// #endif
 	GPUBasisLQuad BGPU;
 	const int elem = elem_map_k[ne];
 	double xx[4];
@@ -310,10 +310,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    f_1d[lid] += val;
 	  }//gp
 	}//i
-#ifdef KOKKOS_HAVE_CUDA
-	}//if
-        });//parallel_for
-#endif
+// #ifdef KOKKOS_HAVE_CUDA
+// 	}//if
+//         });//parallel_for
+// #endif
 	});//parallel_for
 
 

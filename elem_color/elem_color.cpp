@@ -21,6 +21,7 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
   //ts_time_elemadj= Teuchos::TimeMonitor::getNewTimer("Total Elem Adj Fill Time");
   ts_time_color= Teuchos::TimeMonitor::getNewTimer("Total Elem Color Time");
   Teuchos::TimeMonitor ElemcolTimer(*ts_time_color);
+  mesh_->compute_nodal_patch_overlap();
   compute_graph();
   create_colorer();
   init_mesh_data();
@@ -208,43 +209,113 @@ void elem_color::insert_off_proc_elems(){
 									  *comm_));
   //shared_map_->Print(std::cout);
 
+  Teuchos::RCP<const Epetra_Map> onetoone_shared_node_map_ = 
+    Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*shared_map_)));
+  //onetoone_shared_node_map_->Print(std::cout);
+
+//   Teuchos::RCP<const Epetra_Map> rep_shared_node_map_ 
+//     = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *shared_map_, -1))); 
   Teuchos::RCP<const Epetra_Map> rep_shared_node_map_ 
-    = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *shared_map_, -1))); 	
+    = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *onetoone_shared_node_map_, -1))); 	
   //rep_shared_node_map_->Print(std::cout);
 
   for(int i = 0; i < rep_shared_node_map_->NumMyElements (); i++){
-    int rsgid = rep_shared_node_map_->GID(i);
-    int ogid = overlap_map_->LID(rsgid);
-    std::vector<int> mypatch = mesh_->get_nodal_patch_overlap(ogid);
+  //for(int i = 0; i < 2; i++){
+    const int rsgid = rep_shared_node_map_->GID(i);
+    const int ogid = overlap_map_->LID(rsgid);
+    std::vector<int> mypatch;
+    if(ogid != -1){
+      mypatch = mesh_->get_nodal_patch_overlap(ogid);
+    }
     int p_size = mypatch.size();
     int max_size = 0;
     comm_->MaxAll(&p_size,
 		  &max_size,
 		  (int)1 );
-    int count = comm_->NumProc()*max_size;
-    std::vector<int> AllVals(count,-99);
-
-    std::vector<int> gidmypatch(mypatch);
+      
+    std::vector<int> gidmypatch(max_size,-99);
     for(int j = 0; j < p_size; j++){
       gidmypatch[j] = elem_map_->GID(mypatch[j]);     
-      //std::cout<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
+      //std::cout<<comm_->MyPID()<<" "<<i<<" "<<gidmypatch[j]<<" "<<rsgid<<std::endl;
     }
-
+      
+    int count = comm_->NumProc()*max_size;
+    std::vector<int> AllVals(count,-99);
+    
     comm_->GatherAll(&gidmypatch[0],
 		     &AllVals[0],
 		     max_size );
-
-    for(int j = 0; j< AllVals.size() ;j++){
-      //std::cout<<"          "<<AllVals[j]<<std::endl;	
-      int egid = elem_map_->GID(mypatch[j]);
-      //std::cout<<comm_->MyPID()<<" "<<egid<<" "<<rsgid<<" "<<mypatch[j]<<std::endl;
-      if(egid != -1){
-	graph_->InsertGlobalIndices(egid, (int)(AllVals.size()), &AllVals[0]);
-	
-      }//if
-    }//j 
-  }
-
+    
+    //cn need to fix Allvals here
+    
+    std::vector<int> g_gids;
+    for(int j = 0; j< count ;j++){
+      if(-99 < AllVals[j]) {
+	//std::cout<<"   "<<comm_->MyPID()<<" "<<i<<" "<<AllVals[j]<<" "<<rsgid<<std::endl;
+	g_gids.push_back(AllVals[j]);
+      }
+    }
+    
+    for(int j = 0; j < g_gids.size(); j++){
+      int elid = elem_map_->LID(g_gids[j]);
+      if(elid > -1){
+	for(int k = 0;k< g_gids.size(); k++){
+	  int eelid = elem_map_->LID(g_gids[k]);
+	  //if(eelid > -1){
+	  //std::cout<<"   "<<comm_->MyPID()<<" "<<g_gids[j]<<" "<<g_gids[k]<<std::endl;//" "<<rsgid<<" "<<elid<<std::endl;
+	  graph_->InsertGlobalIndices(g_gids[j], (int)1, &g_gids[k]);
+	  //}
+	}
+      }
+      
+    }
+    
+    
+  }//i
+#if 0
+  for(int i = 0; i < rep_shared_node_map_->NumMyElements (); i++){
+    int rsgid = rep_shared_node_map_->GID(i);
+    int ogid = overlap_map_->LID(rsgid);
+    std::cout<<i<<" "<<rsgid<<" "<<ogid<<std::endl;
+    if(ogid != -1){
+      std::vector<int> mypatch = mesh_->get_nodal_patch_overlap(ogid);
+      int p_size = mypatch.size();
+      int max_size = 0;
+      comm_->MaxAll(&p_size,
+		    &max_size,
+		    (int)1 );
+      int count = comm_->NumProc()*max_size;
+      std::vector<int> AllVals(count,-99);
+      
+      std::vector<int> gidmypatch(mypatch);
+      for(int j = 0; j < p_size; j++){
+	gidmypatch[j] = elem_map_->GID(mypatch[j]);     
+	//std::cout<<gidmypatch[j]<<" "<<mypatch[j]<<" "<<p_size<<" "<<comm_->MyPID()<<std::endl;
+      }
+      
+      comm_->GatherAll(&gidmypatch[0],
+		       &AllVals[0],
+		       max_size );
+      
+      //std::cout<<comm_->MyPID()<<" : "<<p_size<<" "<<rsgid<<" "<<ogid<<" "<<AllVals.size()<<std::endl;
+      
+      for(int j = 0; j< AllVals.size() ;j++){
+	std::cout<<"   "<<comm_->MyPID()<<" "<<j<<" "<<AllVals[j]<<" "<<rsgid<<std::endl;
+      }
+      
+      //for(int j = 0; j< AllVals.size() ;j++){
+      for(int j = 0; j< p_size ;j++){
+	//std::cout<<"          "<<AllVals[j]<<std::endl;	
+	int egid = elem_map_->GID(mypatch[j]);
+	//std::cout<<comm_->MyPID()<<" "<<egid<<" "<<rsgid<<" "<<std::endl;
+	if(egid != -1){
+	  graph_->InsertGlobalIndices(egid, (int)(AllVals.size()), &AllVals[0]);
+	}//if
+      }//j 
+    }//if
+  }//i
+#endif
+  //graph_->Print(std::cout);
   //exit(0);
   return;
 

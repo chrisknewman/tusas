@@ -91,7 +91,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   num_overlap_nodes_ = x_overlap_map_->getNodeNumElements()/numeqs_;
 
   Teuchos::ArrayView<int> NV(node_num_map);
-  node_overlap_map_ = Teuchos::rcp(new map_type(num_overlap_nodes_,
+  node_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
 						NV,
 						indexBase,
 						comm_
@@ -207,19 +207,38 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     double dt = dt_; //cuda 8 lambdas dont capture private data
 
     const int num_color = Elem_col->get_num_color();
-      
-    //auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
-    //auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
-    //auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>();
-    //auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>();
-    //auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>();
-    
-    auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+
+#if 0
+    auto f_view = f_overlap->getLocalView<Kokkos::Cuda>();
 
     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
     
     //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
     //this will utilize texture memory not available on tesla or earlier gpus
+    Kokkos::View<const double*, Kokkos::Cuda, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra;// = Kokkos::subview (x_view, Kokkos::ALL (), 0); 
+    Kokkos::View<const double*, Kokkos::Cuda, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra;// = Kokkos::subview (y_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::Cuda, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra;// = Kokkos::subview (z_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::Cuda, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra;// = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::Cuda, Kokkos::MemoryTraits<Kokkos::RandomAccess>> uold_1dra;// = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_view);
+      auto x_view = x_->getLocalView<Kokkos::Cuda>();
+      x_1dra = Kokkos::subview (x_view, Kokkos::ALL (), 0);
+      auto y_view = y_->getLocalView<Kokkos::Cuda>();
+      y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
+      auto z_view = z_->getLocalView<Kokkos::Cuda>();
+      z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
+      auto u_view = u->getLocalView<Kokkos::Cuda>();
+      u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+      auto uold_view = uold->getLocalView<Kokkos::Cuda>();
+      uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
+    }
+#endif
+    
+    auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+
+    auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+    
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra;// = Kokkos::subview (x_view, Kokkos::ALL (), 0); 
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra;// = Kokkos::subview (y_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra;// = Kokkos::subview (z_view, Kokkos::ALL (), 0);
@@ -238,7 +257,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
       uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
     }
-
     Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
 
     for(int c = 0; c < num_color; c++){
@@ -777,9 +795,14 @@ template<class scalar_type>
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 {
-  ArrayRCP<scalar_type> uv = u->get1dViewNonConst();
+  //ArrayRCP<scalar_type> uv = u->get1dViewNonConst();
+
+  auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+  
   const size_t localLength = num_owned_nodes_;
-  for( int k = 0; k < numeqs_; k++ ){
+  const int k = 0;
+  //for( int k = 0; k < numeqs_; k++ ){
     //#pragma omp parallel for
     for (size_t nn=0; nn < localLength; nn++) {
 
@@ -790,16 +813,12 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
       const double y = mesh_->get_y(lid_overlap);
       const double z = mesh_->get_z(lid_overlap);
   
-
-
-
-
-      uv[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
-      //std::cout<<uv[numeqs_*nn+k]<<" "<<x<<" "<<y<<std::endl;
+      //uv[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+      u_1d[numeqs_*nn+k] = tusastpetra::init_heat_test_(x,y,z,k);
     }
 
 
-  }
+    //}
   //exit(0);
 }
 

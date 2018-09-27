@@ -5012,6 +5012,15 @@ DBC_FUNC(dbc_zero_)
 }
 
 KOKKOS_INLINE_FUNCTION 
+INI_FUNC(init_heat_test_)
+{
+
+  double pi = 3.141592653589793;
+
+  return sin(pi*x)*sin(pi*y);
+}
+
+KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_heat_test_)
 {
 

@@ -713,6 +713,7 @@ NBC_FUNC(nbc_zero_)
 //	const double &y,
 //	const double &z,
 //	const double &t)
+KOKKOS_INLINE_FUNCTION
 DBC_FUNC(dbc_zero_)
 {  
   return 0.;

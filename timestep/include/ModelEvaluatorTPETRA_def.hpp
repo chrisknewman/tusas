@@ -206,6 +206,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
     for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
 
+    Kokkos::vector<int> meshn = ((mesh_->get_node_num_map()).size());
+    for(int i = 0; i<((mesh_->get_node_num_map())).size(); i++) meshn[i]=(mesh_->get_node_num_map())[i];
+
     double dt = dt_; //cuda 8 lambdas dont capture private data
 
     const int num_color = Elem_col->get_num_color();
@@ -250,9 +253,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
 
+    //cn 10-01-18 think it is an issue with local id ie meshc is messed up in parallel
+    //cn I think meshc is set up for x_owned_map_ not x_overlap_map
+    //cn so effectively, lid on proc 0 never is the lid for a ghost node
 
 
-    const int nn1 = x_overlap_map_->getNodeNumElements(); 
+
+
+    //const int nn1 = x_overlap_map_->getNodeNumElements(); 
     //for(int i = 0; i<nn1; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<u_1dra[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
     //for(int i = 0; i<nn1; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<uold_1dra[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
     
@@ -270,8 +278,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }
       //exit(0);
 
-      //for (int ne=0; ne < num_elem; ne++) { 
-      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+      for (int ne=0; ne < num_elem; ne++) { 
+	//Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
 
 	const int elem = elem_map_k[ne];
 	double xx[4];
@@ -321,11 +329,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			 );
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
-	    f_1d(lid) += val;
+// 	    std::cout<<comm_->getRank()<<"   "<<elem<<"      "<<lid<<"       "
+// 		     <<x_overlap_map_->getLocalElement(meshn(lid))<<"     "
+// 		     <<meshn(lid)
+// 	      //<<x_owned_map_->getGlobalElement(lid)
+// 		     <<std::endl;
+	    const int nlid = x_overlap_map_->getLocalElement(meshn(lid));
+	    f_1d(nlid) += val;
 	  }//gp
 	}//i
-	});//parallel_for
-	//}//ne
+	//});//parallel_for
+	}//ne
 
 
     }//c 
@@ -384,14 +398,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 
- 	//for ( int j = 0; j < num_node_ns; j++ ){
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
+ 	for ( int j = 0; j < num_node_ns; j++ ){
+	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
 			       const int lid = node_set_view(j);//could use Kokkos::vector here...
 			       const double val1 = 0.;
 			       const double val = u_1dra(lid)  - val1;
 			       f_1d(lid) = val;
-	});
-			       //}//j
+			       //});
+	}//j
 #if 0
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
 	  
@@ -748,7 +762,8 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
   update_mesh_data();
 
   //not sre what the bug is here...
-  mesh_->write_exodus_no_elem(ex_id_,output_step_,time_);
+  //mesh_->write_exodus_no_elem(ex_id_,output_step_,time_);
+  mesh_->write_exodus(ex_id_,output_step_,time_);
   output_step_++;
 }
 
@@ -806,12 +821,15 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     itp->update_scalar_data(time_);
   }
 
-#ifdef TUSAS_COLOR_CPU
+  //#ifdef TUSAS_COLOR_CPU
   Elem_col->update_mesh_data();
-#endif
+  //#endif
 
   delete temp;
 #endif
+  //#ifdef TUSAS_COLOR_CPU
+  Elem_col->update_mesh_data();
+  //#endif
   return err;
 }
 template<class scalar_type>

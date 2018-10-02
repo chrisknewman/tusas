@@ -161,7 +161,8 @@ void elem_color::update_mesh_data()
     int num_elem = elem_map.size();
     for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
       int elem = elem_map[ne];
-      color[elem] = color_list_[c];  
+      //color[elem] = color_list_[c]; 
+      color[elem] = elem_LIDS_[c][ne];  
     }
     
   }

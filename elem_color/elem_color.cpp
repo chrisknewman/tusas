@@ -138,11 +138,15 @@ void elem_color::create_colorer()
 
   std::cout<<std::endl<<"elem_color::create_colorer() ended on proc "<<mypid<<". With num_color_ = "<<num_color_<<std::endl<<std::endl;
 
-  //std::cout<<std::endl<<std::endl;
-  //std::cout<<mypid<<" "<<elem_colorer_->numColors()<<" "<<num_color_<<std::endl;
-  //for(int cc =1; cc<=elem_colorer_->numColors();cc++){
-  //  std::cout<<mypid<<" "<<cc<<" "<<elem_colorer_->numElemsWithColor(cc)<<std::endl;
-  //}
+//   std::cout<<std::endl<<std::endl;
+//   std::cout<<mypid<<": "<<elem_colorer_->numColors()<<": "<<num_color_<<std::endl<<std::endl;
+//   for(int cc =1; cc<=elem_colorer_->numColors();cc++){
+//     std::cout<<mypid<<" "<<cc<<" "<<elem_colorer_->numElemsWithColor(cc)<<std::endl;
+//     for(int ne = 0; ne < elem_colorer_->numElemsWithColor(cc); ne++){
+//       const int lid = elem_LIDS_[cc-1][ne];
+//       std::cout<<"   "<<mypid<<" "<<cc<<" "<<elem_LIDS_[cc-1][ne]<<" "<<(*(mesh_->get_elem_num_map()))[lid]<<std::endl;
+//     }
+//   }
 
   //exit(0);
 }
@@ -160,9 +164,8 @@ void elem_color::update_mesh_data()
     std::vector<int> elem_map = get_color(c);
     int num_elem = elem_map.size();
     for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
-      int elem = elem_map[ne];
-      //color[elem] = color_list_[c]; 
-      color[elem] = elem_LIDS_[c][ne];  
+      const int lid = elem_LIDS_[c][ne];
+      color[lid] = c;
     }
     
   }

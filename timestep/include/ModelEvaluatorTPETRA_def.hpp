@@ -271,6 +271,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       const int num_elem = elem_map.size();
 
 
+      f_overlap->scale(0.);
+
       Kokkos::vector<int> elem_map_k(num_elem);
       for(int i = 0; i<num_elem; i++) {
 	elem_map_k[i] = elem_map[i];
@@ -341,6 +343,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	//});//parallel_for
 	}//ne
 
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
+    }
 
     }//c 
 
@@ -348,17 +354,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 //      for(int i = 0; i<nn1; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<f_1d[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
      
 
-    {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
-      f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
-    }
+//     {
+//       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+//       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
+//     }
 //     f_overlap->print(std::cout);
 //     f_vec->print(std::cout);
 //     auto fv_view = f_vec->getLocalView<Kokkos::HostSpace>();
 //     auto fv_1d = Kokkos::subview (fv_view, Kokkos::ALL (), 0);
 //      const int nn = x_owned_map_->getNodeNumElements();
 //     for(int i = 0; i<nn; i++)std::cout<<comm_->getRank()<<": "<<i<<" "<<fv_1d[i]<<" "<<x_owned_map_->getGlobalElement(i)<<std::endl;
-     std::cout<<"***********"<<std::endl;
+//      std::cout<<"***********"<<std::endl;
     
      //exit(0);
 

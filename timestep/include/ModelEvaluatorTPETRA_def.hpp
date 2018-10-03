@@ -263,6 +263,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //std::vector<int> elem_map = colors[c];
       std::vector<int> elem_map = Elem_col->get_color(c);
 
+      
       const int num_elem = elem_map.size();
 
       Kokkos::vector<int> elem_map_k(num_elem);
@@ -470,7 +471,21 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     std::map<int,DBCFUNC>::iterator it;
     
     Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
+    
+    Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+      f_overlap->doImport(*f_vec,*importer_,Tpetra::INSERT);
+    }
 
+    //u is already imported to overlap_map here
+    auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+    auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+        
+    //auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+    auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+    
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	const int ns_id = it->first;
@@ -483,15 +498,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 
- 	auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
- 	auto f_view = f_vec->getLocalView<Kokkos::DefaultExecutionSpace>();
-
-
-	//auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
-	Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
-	auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
-    
-
  	//for ( int j = 0; j < num_node_ns; j++ ){
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
 			       const int lid = node_set_view(j);//could use Kokkos::vector here...
@@ -500,27 +506,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			       f_1d(lid) = val;
 	});
 			       //}//j
-#if 0
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
-	  
-			       int lid = node_set_view(j);
-	  int gid = node_num_map[lid];
-	  //std::cout<<ns_id<<" "<<gid<<" "<<mesh_->get_node_set(ns_id).size()<<std::endl;
-	  int row = numeqs_*gid;//global row
-	  //int row = numeqs_*lid;//local row
-	  double x = mesh_->get_x(lid);
-	  double y = mesh_->get_y(lid);
-	  double z = mesh_->get_z(lid);
-	      
-	  int row1 = row + k;
-	  double val1 = (it->second)(x,y,z,time_);//the function pointer eval
-	  double val = uv[numeqs_*lid + k]  - val1;
-	  f_vec->replaceGlobalValue (row1, val);
-	});//parallel_for
-	  //}//j
-#endif
+
       }//it
     }//k
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      f_vec->doExport(*f_overlap, *exporter_, Tpetra::INSERT);
+    }
   }//get_f
 
 #if 0

@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
   Teuchos::TimeMonitor::zeroOutTimers();
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
   Kokkos::initialize(argc, argv);
-  //Kokkos::print_configuration( std::cout , false );
+  Kokkos::print_configuration( std::cout , false );
   RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Total Run Time");
   Teuchos::ParameterList paramList;
 

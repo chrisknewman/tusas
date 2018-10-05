@@ -81,7 +81,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //x_overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_DEFAULT );
 
   x_owned_map_ = Teuchos::rcp(new map_type(*(createOneToOne(x_overlap_map_))));
-  x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_DEFAULT );
+  //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_DEFAULT );
   
   importer_ = Teuchos::rcp(new import_type(x_owned_map_, x_overlap_map_));
   //exporter_ = Teuchos::rcp(new export_type(x_owned_map_, x_overlap_map_));
@@ -91,11 +91,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   num_overlap_nodes_ = x_overlap_map_->getNodeNumElements()/numeqs_;
 
   Teuchos::ArrayView<int> NV(node_num_map);
-//   node_overlap_map_ = Teuchos::rcp(new map_type(num_overlap_nodes_,
-// 						NV,
-// 						indexBase,
-// 						comm_
-// 						));
+
   node_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
 						NV,
 						indexBase,
@@ -239,39 +235,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
 
 
-
-
-
-
-
-
-    //cn seems that u is slightly different when np=4
-
-    //cn also the solution converges for np=8, but the solution is not correct
-
-    //cn and seems to be a random segfault in here on osx
-
-
-
-    //cn 10-01-18 think it is an issue with local id ie meshc is messed up in parallel
-    //cn I think meshc is set up for x_owned_map_ not x_overlap_map
-    //cn so effectively, lid on proc 0 never is the lid for a ghost node
-
-
-
-
-    //const int nn1 = x_overlap_map_->getNodeNumElements(); 
-    //for(int i = 0; i<nn1; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<u_1dra[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
-    //for(int i = 0; i<nn1; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<uold_1dra[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
-    
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
       std::vector<int> elem_map = Elem_col->get_color(c);
 
       const int num_elem = elem_map.size();
-
-
-      f_overlap->scale(0.);
 
       Kokkos::vector<int> elem_map_k(num_elem);
       for(int i = 0; i<num_elem; i++) {
@@ -280,8 +248,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }
       //exit(0);
 
-      for (int ne=0; ne < num_elem; ne++) { 
-	//Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+      //#pragma omp parallel for
+      //for (int ne=0; ne < num_elem; ne++) { 
+      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
 
 	const int elem = elem_map_k[ne];
 	double xx[4];
@@ -290,13 +259,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	double uu[4];
 	double uu_old[4];
 	for(int k = 0; k < n_nodes_per_elem; k++){
-	  
+
 	  //const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
 	  const int nodeid = meshc[elem*n_nodes_per_elem+k];
 	  
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
-	  //zz[k] = z_1d[nodeid];
+	  //zz[k] = z_1d(nodeid);
 	  uu[k] = u_1dra(nodeid); 
 	  uu_old[k] = uold_1dra(nodeid);
 	}//k
@@ -331,60 +300,48 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			 );
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
-// 	    std::cout<<comm_->getRank()<<"   "<<elem<<"      "<<lid<<"       "
-// 		     <<x_overlap_map_->getLocalElement(meshn(lid))<<"     "
-// 		     <<meshn(lid)
-// 	      //<<x_owned_map_->getGlobalElement(lid)
-// 		     <<std::endl;
-	    const int nlid = x_overlap_map_->getLocalElement(meshn(lid));
-	    f_1d(nlid) += val;
+
+	    f_1d(lid) += val;
+
 	  }//gp
 	}//i
-	//});//parallel_for
-	}//ne
+	});//parallel_for
+	//}//ne
+
+    }//c 
+    
+    //f_overlap->sync<Kokkos::HostSpace> ();
+
 
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
     }
 
-    }//c 
-
-//      const int nn1 = x_overlap_map_->getNodeNumElements(); 
-//      for(int i = 0; i<nn1; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<f_1d[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
-     
-
-//     {
-//       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
-//       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
-//     }
-//     f_overlap->print(std::cout);
-//     f_vec->print(std::cout);
-//     auto fv_view = f_vec->getLocalView<Kokkos::HostSpace>();
-//     auto fv_1d = Kokkos::subview (fv_view, Kokkos::ALL (), 0);
-//      const int nn = x_owned_map_->getNodeNumElements();
-//     for(int i = 0; i<nn; i++)std::cout<<comm_->getRank()<<": "<<i<<" "<<fv_1d[i]<<" "<<x_owned_map_->getGlobalElement(i)<<std::endl;
-//      std::cout<<"***********"<<std::endl;
-    
-     //exit(0);
 
   }//get_f
 
 
-  //cn it also seems that the boundary condition is not exactly correct????
-  //cn the boundary nodes don't seem to be converging to zero
+  //cn it also seems that the boundary condition is done on overlap map as well...
 
 
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
     const RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
+
     std::vector<int> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     
-    //we need a runtime way of deciding on Kokkos::Cuda or Kokkos::Host
+    Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+      f_overlap->doImport(*f_vec,*importer_,Tpetra::INSERT);
+    }
+
+    //u is already imported to overlap_map here
     auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
-    auto f_view = f_vec->getLocalView<Kokkos::DefaultExecutionSpace>();
+    auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
     
     
     //auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
@@ -404,42 +361,25 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 
- 	for ( int j = 0; j < num_node_ns; j++ ){
-	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
+ 	//for ( int j = 0; j < num_node_ns; j++ ){
+	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
 			       const int lid = node_set_view(j);//could use Kokkos::vector here...
+			       //std::cout<<comm_->getRank()<<":: "<<j<<"  "<<lid<<"  "<<x_overlap_map_->getGlobalElement(lid)<<std::endl;
 			       const double val1 = 0.;
 			       const double val = u_1dra(lid)  - val1;
 			       f_1d(lid) = val;
-			       //});
-	}//j
-#if 0
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
-	  
-			       int lid = node_set_view(j);
-	  int gid = node_num_map[lid];
-	  //std::cout<<ns_id<<" "<<gid<<" "<<mesh_->get_node_set(ns_id).size()<<std::endl;
-	  int row = numeqs_*gid;//global row
-	  //int row = numeqs_*lid;//local row
-	  double x = mesh_->get_x(lid);
-	  double y = mesh_->get_y(lid);
-	  double z = mesh_->get_z(lid);
-	      
-	  int row1 = row + k;
-	  double val1 = (it->second)(x,y,z,time_);//the function pointer eval
-	  double val = uv[numeqs_*lid + k]  - val1;
-	  f_vec->replaceGlobalValue (row1, val);
-	});//parallel_for
-	  //}//j
-#endif    
+			     });
+			       //}//j  
 
       }//it
     }//k
-
-//     const int nn1 = x_owned_map_->getNodeNumElements(); 
-//     for(int i = 0; i<nn1; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<f_1d[i]<<" "<<x_owned_map_->getGlobalElement(i)<<std::endl;
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      f_vec->doExport(*f_overlap, *exporter_, Tpetra::INSERT);
+    }
      
   }//get_f
-
+  //exit(0);
 #if 0
   //cn this will be for a get_W_prec() not a get_W_op()
   const RCP<Tpetra::CrsMatrix<scalar_type, int> > W =

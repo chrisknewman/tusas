@@ -122,33 +122,18 @@ void elem_color::create_colorer()
   //int default_color_=map_coloring_->DefaultColor();
 
   for(int i = 1; i < num_color_+1; i++){
-    //int num_elem = map_coloring_->NumElementsWithColor(color_list_[i]);
     int num_elem = elem_colorer_->numElemsWithColor(i);
     elem_LIDS_[i-1].resize(num_elem);
     elem_colorer_->elemsWithColor(i,
 		&elem_LIDS_[i-1][0],
 		num_elem ) ;	
-    //elem_LIDS_[i].assign(map_coloring_->ColorLIDList(color_list_[i]),map_coloring_->ColorLIDList(color_list_[i])+num_elem);
-    //elem_LIDS_[i].assign(map_coloring_->ColorLIDList(i),map_coloring_->ColorLIDList(i)+num_elem);
-
-    //std::cout<<color_list_[i]<<" ("<<map_coloring_->NumElementsWithColor(color_list_[i])<<") "; 
+ 
   }
 
   graph_ = Teuchos::null;
 
   std::cout<<std::endl<<"elem_color::create_colorer() ended on proc "<<mypid<<". With num_color_ = "<<num_color_<<std::endl<<std::endl;
 
-//   std::cout<<std::endl<<std::endl;
-//   std::cout<<mypid<<": "<<elem_colorer_->numColors()<<": "<<num_color_<<std::endl<<std::endl;
-//   for(int cc =1; cc<=elem_colorer_->numColors();cc++){
-//     std::cout<<mypid<<" "<<cc<<" "<<elem_colorer_->numElemsWithColor(cc)<<std::endl;
-//     for(int ne = 0; ne < elem_colorer_->numElemsWithColor(cc); ne++){
-//       const int lid = elem_LIDS_[cc-1][ne];
-//       std::cout<<"   "<<mypid<<" "<<cc<<" "<<elem_LIDS_[cc-1][ne]<<" "<<(*(mesh_->get_elem_num_map()))[lid]<<std::endl;
-//     }
-//   }
-
-  //exit(0);
 }
 void elem_color::init_mesh_data()
 {
@@ -217,16 +202,12 @@ void elem_color::insert_off_proc_elems(){
 
   Teuchos::RCP<const Epetra_Map> onetoone_shared_node_map_ = 
     Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*shared_map_)));
-  //onetoone_shared_node_map_->Print(std::cout);
 
-//   Teuchos::RCP<const Epetra_Map> rep_shared_node_map_ 
-//     = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *shared_map_, -1))); 
   Teuchos::RCP<const Epetra_Map> rep_shared_node_map_ 
     = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *onetoone_shared_node_map_, -1))); 	
   //rep_shared_node_map_->Print(std::cout);
 
   for(int i = 0; i < rep_shared_node_map_->NumMyElements (); i++){
-  //for(int i = 0; i < 2; i++){
     const int rsgid = rep_shared_node_map_->GID(i);
     const int ogid = overlap_map_->LID(rsgid);
     std::vector<int> mypatch;
@@ -278,49 +259,7 @@ void elem_color::insert_off_proc_elems(){
     
     
   }//i
-#if 0
-  for(int i = 0; i < rep_shared_node_map_->NumMyElements (); i++){
-    int rsgid = rep_shared_node_map_->GID(i);
-    int ogid = overlap_map_->LID(rsgid);
-    std::cout<<i<<" "<<rsgid<<" "<<ogid<<std::endl;
-    if(ogid != -1){
-      std::vector<int> mypatch = mesh_->get_nodal_patch_overlap(ogid);
-      int p_size = mypatch.size();
-      int max_size = 0;
-      comm_->MaxAll(&p_size,
-		    &max_size,
-		    (int)1 );
-      int count = comm_->NumProc()*max_size;
-      std::vector<int> AllVals(count,-99);
-      
-      std::vector<int> gidmypatch(mypatch);
-      for(int j = 0; j < p_size; j++){
-	gidmypatch[j] = elem_map_->GID(mypatch[j]);     
-	//std::cout<<gidmypatch[j]<<" "<<mypatch[j]<<" "<<p_size<<" "<<comm_->MyPID()<<std::endl;
-      }
-      
-      comm_->GatherAll(&gidmypatch[0],
-		       &AllVals[0],
-		       max_size );
-      
-      //std::cout<<comm_->MyPID()<<" : "<<p_size<<" "<<rsgid<<" "<<ogid<<" "<<AllVals.size()<<std::endl;
-      
-      for(int j = 0; j< AllVals.size() ;j++){
-	std::cout<<"   "<<comm_->MyPID()<<" "<<j<<" "<<AllVals[j]<<" "<<rsgid<<std::endl;
-      }
-      
-      //for(int j = 0; j< AllVals.size() ;j++){
-      for(int j = 0; j< p_size ;j++){
-	//std::cout<<"          "<<AllVals[j]<<std::endl;	
-	int egid = elem_map_->GID(mypatch[j]);
-	//std::cout<<comm_->MyPID()<<" "<<egid<<" "<<rsgid<<" "<<std::endl;
-	if(egid != -1){
-	  graph_->InsertGlobalIndices(egid, (int)(AllVals.size()), &AllVals[0]);
-	}//if
-      }//j 
-    }//if
-  }//i
-#endif
+
   //graph_->Print(std::cout);
   //exit(0);
   return;

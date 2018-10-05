@@ -120,18 +120,29 @@ void elem_color::create_colorer()
   //int default_color_=map_coloring_->DefaultColor();
 
   for(int i = 1; i < num_color_+1; i++){
+    //int num_elem = map_coloring_->NumElementsWithColor(color_list_[i]);
     int num_elem = elem_colorer_->numElemsWithColor(i);
     elem_LIDS_[i-1].resize(num_elem);
     elem_colorer_->elemsWithColor(i,
 		&elem_LIDS_[i-1][0],
 		num_elem ) ;	
- 
+    //elem_LIDS_[i].assign(map_coloring_->ColorLIDList(color_list_[i]),map_coloring_->ColorLIDList(color_list_[i])+num_elem);
+    //elem_LIDS_[i].assign(map_coloring_->ColorLIDList(i),map_coloring_->ColorLIDList(i)+num_elem);
+
+    //std::cout<<color_list_[i]<<" ("<<map_coloring_->NumElementsWithColor(color_list_[i])<<") "; 
   }
 
   graph_ = Teuchos::null;
 
   std::cout<<std::endl<<"elem_color::create_colorer() ended on proc "<<mypid<<". With num_color_ = "<<num_color_<<std::endl<<std::endl;
 
+  //std::cout<<std::endl<<std::endl;
+  //std::cout<<mypid<<" "<<elem_colorer_->numColors()<<" "<<num_color_<<std::endl;
+  //for(int cc =1; cc<=elem_colorer_->numColors();cc++){
+  //  std::cout<<mypid<<" "<<cc<<" "<<elem_colorer_->numElemsWithColor(cc)<<std::endl;
+  //}
+
+  //exit(0);
 }
 void elem_color::init_mesh_data()
 {
@@ -221,7 +232,7 @@ void elem_color::insert_off_proc_elems(){
     std::vector<int> gidmypatch(max_size,-99);
     for(int j = 0; j < p_size; j++){
       gidmypatch[j] = elem_map_->GID(mypatch[j]);     
-      //std::cout<<comm_->MyPID()<<" "<<i<<" "<<gidmypatch[j]<<" "<<rsgid<<std::endl;
+      //std::cout<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
     }
       
     int count = comm_->NumProc()*max_size;

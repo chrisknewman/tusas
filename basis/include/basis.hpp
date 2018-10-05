@@ -10,7 +10,8 @@
 
 #ifndef _NOX_EXAMPLE_EPETRA_LINEAR_BASIS_H
 #define _NOX_EXAMPLE_EPETRA_LINEAR_BASIS_H
-
+	
+#include <Kokkos_Core.hpp>
 /// Base class for computation of finite element basis.
 /** All basis classes inherit from this. */
 class Basis {
@@ -520,6 +521,11 @@ OMPBasisLQuad(){
   
 }
 
+KOKKOS_INLINE_FUNCTION
+void getBasis(const int gp,const  double x[4], const  double y[4],  const double z[4],const  double u[4],const  double uold[4]) const {
+  return;
+}
+
 void getBasis(const int gp,const  double x[4], const  double y[4],  const double z[4],const  double u[4],const  double uold[4],const  double uoldold[4]) {
 
   // Caculate basis function and derivative at GP.
@@ -683,6 +689,250 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
   /// Access the number of Gauss weights.
   double nwt[4];
 
+
+};
+#ifdef KOKKOS_HAVE_CUDA
+#define TUSAS_CUDA_CALLABLE_MEMBER __host__ __device__
+#else
+#define TUSAS_CUDA_CALLABLE_MEMBER
+#endif
+
+//cn it seems that we might only need to wrap functions in the basis class with TUSAS_CUDA_CALLABLE_MEMBER ?
+//to make it all work????
+
+
+
+class GPUBasisLQuad{
+public:
+
+  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuad(){
+  sngp =2;
+  ngp = sngp*sngp;
+  //phi = new double[4];//number of nodes
+  //dphidxi = new double[4];
+  //dphideta = new double[4];
+  //dphidzta = new double[4];
+  //dphidx = new double[4];
+  //dphidy = new double[4];
+  //dphidz = new double[4];
+  //abscissa = new double[sngp];//number guass pts
+  //weight = new double[sngp];
+  //setN(sngp, abscissa, weight);
+  abscissa[0] = -1.0L/1.732050807568877;
+  abscissa[1] =  1.0L/1.732050807568877;
+  weight[0] = 1.0;
+  weight[1] = 1.0;
+
+  //xi  = new double[ngp];
+  //eta = new double[ngp];
+  //nwt  = new double[ngp];
+
+
+  //cn right now, changing the order when ngp = 4 breaks all the quad tests
+  //cn so we leave it for now...
+  xi[0]  = abscissa[0];
+  eta[0] = abscissa[0];
+  nwt[0]  = weight[0] * weight[0];
+  
+  xi[1]  = abscissa[1];
+  eta[1] = abscissa[0];
+  nwt[1]  = weight[0] * weight[1];
+  
+  xi[2]  = abscissa[1];
+  eta[2] = abscissa[1];
+  nwt[2]  = weight[1] * weight[1];
+  
+  xi[3]  = abscissa[0];
+  eta[3] = abscissa[1];
+  nwt[3]  = weight[0] * weight[1];
+  }
+  
+  TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLQuad(){}
+  TUSAS_CUDA_CALLABLE_MEMBER void getBasis(const int gp,const  double x[4], const  double y[4],  const double z[4],const  double u[4],const  double uold[4]) {
+
+  // Calculate basis function and derivatives at nodal pts
+  phi[0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
+  phi[1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
+  phi[2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
+  phi[3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
+
+  dphidxi[0]=-(1.0-eta[gp])/4.0;
+  dphidxi[1]= (1.0-eta[gp])/4.0;
+  dphidxi[2]= (1.0+eta[gp])/4.0;
+  dphidxi[3]=-(1.0+eta[gp])/4.0;
+
+  dphideta[0]=-(1.0-xi[gp])/4.0;
+  dphideta[1]=-(1.0+xi[gp])/4.0;
+  dphideta[2]= (1.0+xi[gp])/4.0;
+  dphideta[3]= (1.0-xi[gp])/4.0;
+  
+  // Caculate basis function and derivative at GP.
+  //std::cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<x[3]<<std::endl;
+  double dxdxi  = .25*( (x[1]-x[0])*(1.-eta[gp])+(x[2]-x[3])*(1.+eta[gp]) );
+  double dxdeta = .25*( (x[3]-x[0])*(1.- xi[gp])+(x[2]-x[1])*(1.+ xi[gp]) );
+  double dydxi  = .25*( (y[1]-y[0])*(1.-eta[gp])+(y[2]-y[3])*(1.+eta[gp]) );
+  double dydeta = .25*( (y[3]-y[0])*(1.- xi[gp])+(y[2]-y[1])*(1.+ xi[gp]) );
+  double dzdxi  = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
+  double dzdeta = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
+
+
+
+  wt = nwt[gp];
+
+  //jac = dxdxi * dydeta - dxdeta * dydxi;
+  jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
+	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
+	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
+
+  dxidx = dydeta / jac;
+  dxidy = -dxdeta / jac;
+  dxidz = 0.;
+  detadx = -dydxi / jac;
+  detady = dxdxi / jac;
+  detadz =0.;
+  dztadx =0.;
+  dztady =0.;
+  dztadz =0.;
+  // Caculate basis function and derivative at GP.
+  xx=0.0;
+  yy=0.0;
+  zz=0.0;
+  uu=0.0;
+  uuold=0.0;
+  uuoldold=0.0;
+  dudx=0.0;
+  dudy=0.0;
+  dudz=0.0;
+  duolddx = 0.;
+  duolddy = 0.;
+  duolddz = 0.;
+  duoldolddx = 0.;
+  duoldolddy = 0.;
+  duoldolddz = 0.;
+  // x[i] is a vector of node coords, x(j, k) 
+  for (int i=0; i < 4; i++) {
+    xx += x[i] * phi[i];
+    yy += y[i] * phi[i];
+    zz += z[i] * phi[i];
+    dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx;
+    dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady;
+    dphidz[i] = 0.0;
+    dphidzta[i]= 0.0;
+    if( u ){
+      uu += u[i] * phi[i];
+      dudx += u[i] * dphidx[i];
+      dudy += u[i]* dphidy[i];
+    }
+    if( uold ){
+      uuold += uold[i] * phi[i];
+      duolddx += uold[i] * dphidx[i];
+      duolddy += uold[i]* dphidy[i];
+    }
+//     if( uoldold ){
+//       uuoldold += uoldold[i] * phi[i];
+//       duoldolddx += uoldold[i] * dphidx[i];
+//       duoldolddy += uoldold[i]* dphidy[i];
+//     }
+  }
+  
+  return;
+  }
+
+  double phi[4];
+  double dphidxi[4];
+  double dphideta[4];
+
+  /// Access value of u at the current Gauss point.
+  double uu;
+  /// Access value of u_old at the current Gauss point.
+  double uuold;
+  /// Access value of du / dx at the current Gauss point.
+  double dudx;
+  /// Access value of du / dy at the current Gauss point.
+  double dudy;
+  /// Access value of dxi / dx  at the current Gauss point.
+  double dxidx;
+  /// Access value of dxi / dy  at the current Gauss point.
+  double dxidy;
+  /// Access value of deta / dx  at the current Gauss point.
+  double detadx;
+  /// Access value of deta / dy  at the current Gauss point.
+  double detady;
+  /// Access value of the derivative of the basis function wrt to x at the current Gauss point.
+  double dphidx[4];
+  /// Access value of the derivative of the basis function wrt to y at the current Gauss point.
+  double dphidy[4];
+
+  /// Access value of the Gauss weight  at the current Gauss point.
+  double wt;
+  /// Access value of the mapping Jacobian.
+  double jac;
+
+private:
+
+  // Variables that are calculated at the gauss point
+  /// Access number of Gauss points.
+  int ngp;
+  /// Access number of Gauss points.
+  int sngp;
+  /// Access value of dphi / dzta  at the current Gauss point.
+  double dphidzta[4];
+  
+  /// Access value of dxi / dz  at the current Gauss point.
+  double dxidz;
+
+  /// Access value of deta / dz  at the current Gauss point.
+  double detadz;
+
+  /// Access value of dzta / dx  at the current Gauss point.
+  double dztadx;
+  /// Access value of dzta / dy  at the current Gauss point.
+  double dztady;
+  /// Access value of dzta / dz  at the current Gauss point.
+  double dztadz;
+
+  /// Access value of du / dz at the current Gauss point.
+  double dudz;
+
+  /// Access value of du_old / dx at the current Gauss point.
+  double duolddx;
+  /// Access value of du_old / dy at the current Gauss point.
+  double duolddy;
+  /// Access value of du_old / dz at the current Gauss point.
+  double duolddz;
+
+  /// Access value of u_old_old at the current Gauss point.
+  double uuoldold;
+  /// Access value of du_old_old / dx at the current Gauss point.
+  double duoldolddx;
+  /// Access value of du_old_old / dy at the current Gauss point.
+  double duoldolddy;
+  /// Access value of du_old_old / dz at the current Gauss point.
+  double duoldolddz;
+
+  /// Access value of x coordinate in real space at the current Gauss point.
+  double xx;
+  /// Access value of y coordinate in real space at the current Gauss point.
+  double yy;
+  /// Access value of z coordinate in real space at the current Gauss point.
+  double zz;
+
+  /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
+  double dphidz[4];
+  //protected:
+  /// Access a pointer to the coordinates of the Gauss points in canonical space.
+  double abscissa[4];
+  /// Access a pointer to the Gauss weights.
+  double weight[4];
+  /// Access a pointer to the xi coordinate at each Gauss point.
+  double xi[4];
+  //double *xi;
+  /// Access a pointer to the eta coordinate at each Gauss point.
+  double eta[4];
+  /// Access a pointer to the zta coordinate at each Gauss point.
+  double zta[4];
+  /// Access the number of Gauss weights.
+  double nwt[4];
 
 };
 

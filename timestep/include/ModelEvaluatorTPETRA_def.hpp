@@ -138,6 +138,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Total Residual Fill Time");
   //ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
+  ts_time_view= Teuchos::TimeMonitor::getNewTimer("Total View Time");
 
   //HACK
   //cn 8-28-18 currently elem_color takes an epetra_mpi_comm....
@@ -241,17 +242,24 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       const int num_elem = elem_map.size();
 
+
       Kokkos::vector<int> elem_map_k(num_elem);
       for(int i = 0; i<num_elem; i++) {
 	elem_map_k[i] = elem_map[i];
 	//std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
       }
       //exit(0);
+ 
 
-      //#pragma omp parallel for
+   
+
       //for (int ne=0; ne < num_elem; ne++) { 
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+			     //const int elem = elem_map[ne];
 
+
+			     //we will need to enable arbitrary guass pts also
+	GPUBasisLQuad BGPU;
 	const int elem = elem_map_k[ne];
 	double xx[4];
 	double yy[4];
@@ -259,77 +267,48 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	double uu[4];
 	double uu_old[4];
 	for(int k = 0; k < n_nodes_per_elem; k++){
-
+	  
 	  //const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
 	  const int nodeid = meshc[elem*n_nodes_per_elem+k];
 	  
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
-	  zz[k] = z_1d(nodeid);
+	  zz[k] = z_1dra(nodeid);
 	  uu[k] = u_1dra(nodeid); 
 	  uu_old[k] = uold_1dra(nodeid);
 	}//k
 
 	for (int i=0; i< n_nodes_per_elem; i++) {//i
 	  for(int gp=0; gp < 4; gp++) {//gp
-	    //B.getBasis(gp, xx, yy, zz, uu, uu_old, uu_old_old);
-	    const double dxdxi  = .25*( (xx[1]-xx[0])*(1.-B.eta[gp])+(xx[2]-xx[3])*(1.+B.eta[gp]) );
-	    const double dxdeta = .25*( (xx[3]-xx[0])*(1.- B.xi[gp])+(xx[2]-xx[1])*(1.+ B.xi[gp]) );
-	    const double dydxi  = .25*( (yy[1]-yy[0])*(1.- B.eta[gp])+(yy[2]-yy[3])*(1.+ B.eta[gp]) );
-	    const double dydeta = .25*( (yy[3]-yy[0])*(1.-  B.xi[gp])+(yy[2]-yy[1])*(1.+  B.xi[gp]) );
-	    const double jac = dxdxi * dydeta - dxdeta * dydxi;
-	    const double dxidx = dydeta / jac;
-	    const double dxidy = -dxdeta / jac;
-	    const double detadx = -dydxi / jac;
-	    const double detady = dxdxi / jac;
-	    double uuu = 0.;
-	    double uuuold = 0.;
-	    double dudx = 0.;
-	    double dudy = 0.;
-	    for (int ii=0; ii < n_nodes_per_elem; ii++) {
-	      uuu += uu[ii] * B.phi1[ii][gp];
-	      uuuold +=uu_old[ii] * B.phi1[ii][gp];
-	      dudx += uu[ii] * (B.dphidxi1[ii][gp]*dxidx+B.dphideta1[ii][gp]*detadx);
-	      dudy += uu[ii] * (B.dphidxi1[ii][gp]*dxidy+B.dphideta1[ii][gp]*detady);
-	    }//ii
-	    const double wt = B.weight[0];
-	    const double val = jac*wt*(
-			 (uuu-uuuold)/dt*B.phi1[i][gp] 
-			 + dudx*(B.dphidxi1[i][gp]*dxidx + B.dphideta1[i][gp]*detadx)
-			 + dudy*(B.dphidxi1[i][gp]*dxidy + B.dphideta1[i][gp]*detady)
-			 );
+	    BGPU.getBasis(gp, xx, yy, zz, uu, uu_old);
+
+	    const double val = BGPU.jac*BGPU.wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));;
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
-
-	    f_1d(lid) += val;
-
+	    f_1d[lid] += val;
 	  }//gp
 	}//i
 	});//parallel_for
 	//}//ne
 
+
     }//c 
-    
-    //f_overlap->sync<Kokkos::HostSpace> ();
-
-
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
-      f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
+      f_vec->doExport(*f_overlap, *exporter_, Tpetra::INSERT);
     }
-
+//     f_overlap->print(std::cout);
+//     f_vec->print(std::cout);
+//     auto f_view = f_overlap->getLocalView<Kokkos::HostSpace>();
+//     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+//     for(int i = 0; i<15; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<f_1d[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
+    //exit(0);
 
   }//get_f
-
-
-  //cn it also seems that the boundary condition is done on overlap map as well...
-
-
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
     const RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
-
     std::vector<int> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     
@@ -361,15 +340,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 
+	
  	//for ( int j = 0; j < num_node_ns; j++ ){
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
 			       const int lid = node_set_view(j);//could use Kokkos::vector here...
-			       //std::cout<<comm_->getRank()<<":: "<<j<<"  "<<lid<<"  "<<x_overlap_map_->getGlobalElement(lid)<<std::endl;
-			       const double val1 = 0.;
+			       const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,0.);
 			       const double val = u_1dra(lid)  - val1;
 			       f_1d(lid) = val;
-			     });
-			       //}//j  
+	});
+			       //}//j
 
       }//it
     }//k
@@ -377,9 +356,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::INSERT);
     }
-     
   }//get_f
-  //exit(0);
+
 #if 0
   //cn this will be for a get_W_prec() not a get_W_op()
   const RCP<Tpetra::CrsMatrix<scalar_type, int> > W =
@@ -652,7 +630,11 @@ template<class scalar_type>
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 {
-  ArrayRCP<scalar_type> uv = u->get1dViewNonConst();
+  //ArrayRCP<scalar_type> uv = u->get1dViewNonConst();
+
+  auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+  
   const size_t localLength = num_owned_nodes_;
   for( int k = 0; k < numeqs_; k++ ){
     //#pragma omp parallel for
@@ -665,12 +647,8 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
       const double y = mesh_->get_y(lid_overlap);
       const double z = mesh_->get_z(lid_overlap);
   
-
-
-
-
-      uv[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
-      //std::cout<<uv[numeqs_*nn+k]<<" "<<x<<" "<<y<<std::endl;
+      //uv[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+      u_1d[numeqs_*nn+k] = tusastpetra::init_heat_test_(x,y,z,k);
     }
 
 
@@ -766,7 +744,7 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     itp->update_scalar_data(time_);
   }
 
-  delete temp;
+
 #endif
 
   Elem_col->update_mesh_data();

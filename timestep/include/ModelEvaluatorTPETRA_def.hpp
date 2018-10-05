@@ -295,7 +295,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }//c 
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
-      f_vec->doExport(*f_overlap, *exporter_, Tpetra::INSERT);
+      f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
     }
 //     f_overlap->print(std::cout);
 //     f_vec->print(std::cout);

@@ -198,13 +198,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     const int blk = 0;
     const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
     //std::cout<<num_color<<" "<<colors[0].size()<<" "<<(Elem_col->get_color(0)).size()<<std::endl;
-    OMPBasisLQuad B;
+    //OMPBasisLQuad B;
 
     Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
     for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
-
-    Kokkos::vector<int> meshn = ((mesh_->get_node_num_map()).size());
-    for(int i = 0; i<((mesh_->get_node_num_map())).size(); i++) meshn[i]=(mesh_->get_node_num_map())[i];
 
     double dt = dt_; //cuda 8 lambdas dont capture private data
 

@@ -179,7 +179,6 @@ int main(int argc, char *argv[])
     model->finalize();
     
     Comm.Barrier();
-    Kokkos::finalize();
     
     if(1 != numproc ) {
       if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis") join(mypid, numproc);
@@ -190,6 +189,7 @@ int main(int argc, char *argv[])
     delete in_mesh;
   }
   write_timers();
+  Kokkos::finalize();
   return 0;
 }
 

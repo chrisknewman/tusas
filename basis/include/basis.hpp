@@ -453,7 +453,9 @@ class BasisQBar : public Basis {
  public:
   // Variables that are calculated at the gauss point
   int sngp;
-};class OMPBasisLQuad{
+};
+
+class OMPBasisLQuad{
 public:
   int sngp;
 

@@ -91,12 +91,12 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   num_overlap_nodes_ = x_overlap_map_->getNodeNumElements()/numeqs_;
 
   Teuchos::ArrayView<int> NV(node_num_map);
-
   node_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
 						NV,
 						indexBase,
 						comm_
 						));
+
   //cn we could store previous time values in a multivector
   u_old_ = Teuchos::rcp(new vector_type(x_owned_map_));
 
@@ -255,7 +255,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	const int elem = elem_map_k[ne];
 	double xx[4];
 	double yy[4];
-	//double zz[4];
+	double zz[4];
 	double uu[4];
 	double uu_old[4];
 	for(int k = 0; k < n_nodes_per_elem; k++){
@@ -265,7 +265,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
-	  //zz[k] = z_1d(nodeid);
+	  zz[k] = z_1d(nodeid);
 	  uu[k] = u_1dra(nodeid); 
 	  uu_old[k] = uold_1dra(nodeid);
 	}//k
@@ -708,7 +708,6 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
   update_mesh_data();
 
   //not sre what the bug is here...
-  //mesh_->write_exodus_no_elem(ex_id_,output_step_,time_);
   mesh_->write_exodus(ex_id_,output_step_,time_);
   output_step_++;
 }
@@ -767,15 +766,11 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     itp->update_scalar_data(time_);
   }
 
-  //#ifdef TUSAS_COLOR_CPU
-  Elem_col->update_mesh_data();
-  //#endif
-
   delete temp;
 #endif
-  //#ifdef TUSAS_COLOR_CPU
+
   Elem_col->update_mesh_data();
-  //#endif
+
   return err;
 }
 template<class scalar_type>

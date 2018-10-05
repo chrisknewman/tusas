@@ -75,9 +75,7 @@ void elem_color::compute_graph()
       graph_->InsertGlobalIndices(row, (int)(col.size()), &col[0]);
     }
   }
-  //cn not sure if we need this...
   insert_off_proc_elems();
-
   //if (graph_->GlobalAssemble() != 0){
   if (graph_->FillComplete() != 0){
     std::cout<<"error graph_->GlobalAssemble()"<<std::endl;

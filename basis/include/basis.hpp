@@ -19,10 +19,10 @@ class Basis {
  public:
 
   /// Constructor
-  Basis(){};
+  Basis():stype("unknown"){};
 
   /// Destructor
-  virtual ~Basis(){}
+  virtual ~Basis(){};
 
   /// Evaluate the basis functions at the specified gauss point
   /** Evaluate the 2D basis functions at Gauss point gp given x, y. This function needs to be called before any accessor function.*/
@@ -63,7 +63,7 @@ class Basis {
 			 const double *u, ///< u (solution)  array (input)  
 			 const double *uold, ///< uold (solution)  array (input) 
 			 const double *uoldold///< uoldold (solution)  array (input)
-			 ){exit(0);};
+			 ) {return;};
   /// Evaluate the basis functions at the specified at point xx, yy ,zz
   /** Evaluate the 3D basis functions at  xx, yy, zz and interpolate u.  True if xx, yy, zz is in this element. Returns val = u(xx,yy,zz)*/
   virtual bool evalBasis( const double *x,  ///< x array (input) 
@@ -74,7 +74,7 @@ class Basis {
 			  const double yy_,///< yy
 			  const double zz_,///< zz
 			  double &val ///< return val
-			 ){exit(0);};
+			 ){return false;};
 
   /// Set the number of Gauss points.
   void setN(const int N, ///< number of Gauss points (input)
@@ -83,9 +83,9 @@ class Basis {
 	    );    
 
   /// Required for particular implementation
-  virtual Basis* clone() const {exit(0);};
+  virtual Basis* clone() const {return new Basis(*this);};
   /// Required for particular implementation
-  virtual char type() {exit(0);};
+  virtual const char * type() const {return stype.c_str();};
 
  public:
   // Variables that are calculated at the gauss point
@@ -179,6 +179,8 @@ protected:
   double *zta;
   /// Access the number of Gauss weights.
   double *nwt;
+
+  std::string stype;
 };
 
 /// Implementation of 2-D bilinear triangle element.
@@ -203,8 +205,8 @@ class BasisLTri : public Basis {
 		 const double *uoldold ///< uoldold (solution)  array (input)
 		 );
 
-  BasisLTri* clone() const{ return new BasisLTri(*this); }
-  char type() { return 1; }
+  BasisLTri* clone() const{ return new BasisLTri(*this); };
+  const char * type() const {return stype.c_str();};
 
  public:
 };
@@ -243,8 +245,8 @@ class BasisLQuad : public Basis {
 		  double &val ///< return val
 		  );
 
-  BasisLQuad* clone() const{ return new BasisLQuad(*this); }
-  char type() { return 1; }
+  BasisLQuad* clone() const{ return new BasisLQuad(*this); };
+  const char * type() const {return stype.c_str();};
 
  public:
   // Variables that are calculated at the gauss point
@@ -272,8 +274,8 @@ class BasisQTri : public Basis {
 		 const double *uoldold ///< uoldold (solution)  array (input)
 		 );
 
-  BasisQTri* clone() const{ return new BasisQTri(*this); }
-  char type() { return 1; }
+  BasisQTri* clone() const{ return new BasisQTri(*this); };
+  const char * type() const {return stype.c_str();};
 
  public:
 
@@ -300,8 +302,8 @@ class BasisQQuad : public Basis {
 		 const double *uoldold ///< uoldold (solution)  array (input)
 		 );    
 
-  BasisQQuad* clone() const{ return new BasisQQuad(*this); }
-  char type() { return 1; }
+  BasisQQuad* clone() const{ return new BasisQQuad(*this); };
+  const char * type() const {return stype.c_str();};
 
  public:
   // Variables that are calculated at the gauss point
@@ -343,8 +345,8 @@ class BasisLHex : public Basis {
 		  double &val ///< return val
 		  );
  
-  BasisLHex* clone() const{ return new BasisLHex(*this); }
-  char type() { return 1; }
+  BasisLHex* clone() const{ return new BasisLHex(*this); };
+  const char * type() const {return stype.c_str();};
 
   // Calculates the values of u and x at the specified gauss point
   void getBasis(const int gp,    ///< current Gauss point (input)
@@ -370,8 +372,8 @@ class BasisLTet : public Basis {
   /// Destructor
   ~BasisLTet();
 
-  BasisLTet* clone() const{ return new BasisLTet(*this); }
-  char type() { return 1; }
+  BasisLTet* clone() const{ return new BasisLTet(*this); };
+  const char * type() const {return stype.c_str();};
 
   void getBasis( const int gp,   ///< current Gauss point (input) 
 		 const double *x,   ///< x array (input) 
@@ -416,8 +418,8 @@ class BasisLBar : public Basis {
 		 const double *uoldold ///< uoldold (solution)  array (input)
 		 );  
 
-  BasisLBar* clone() const{ return new BasisLBar(*this); }
-  char type() { return 1; }
+  BasisLBar* clone() const{ return new BasisLBar(*this); };
+  const char * type() const {return stype.c_str();};
 
  public:
   // Variables that are calculated at the gauss point
@@ -448,8 +450,8 @@ class BasisQBar : public Basis {
 		 const double *uoldold ///< uoldold (solution)  array (input)
 		 );  
 
-  BasisQBar* clone() const{ return new BasisQBar(*this); }
-  char type() { return 1; }
+  BasisQBar* clone() const{ return new BasisQBar(*this); };
+  const char * type() const {return stype.c_str();};
 
  public:
   // Variables that are calculated at the gauss point

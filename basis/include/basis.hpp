@@ -206,7 +206,6 @@ class BasisLTri : public Basis {
 		 );
 
   BasisLTri* clone() const{ return new BasisLTri(*this); };
-  const char * type() const {return stype.c_str();};
 
  public:
 };
@@ -246,7 +245,6 @@ class BasisLQuad : public Basis {
 		  );
 
   BasisLQuad* clone() const{ return new BasisLQuad(*this); };
-  const char * type() const {return stype.c_str();};
 
  public:
   // Variables that are calculated at the gauss point
@@ -275,7 +273,6 @@ class BasisQTri : public Basis {
 		 );
 
   BasisQTri* clone() const{ return new BasisQTri(*this); };
-  const char * type() const {return stype.c_str();};
 
  public:
 
@@ -303,7 +300,6 @@ class BasisQQuad : public Basis {
 		 );    
 
   BasisQQuad* clone() const{ return new BasisQQuad(*this); };
-  const char * type() const {return stype.c_str();};
 
  public:
   // Variables that are calculated at the gauss point
@@ -346,7 +342,6 @@ class BasisLHex : public Basis {
 		  );
  
   BasisLHex* clone() const{ return new BasisLHex(*this); };
-  const char * type() const {return stype.c_str();};
 
   // Calculates the values of u and x at the specified gauss point
   void getBasis(const int gp,    ///< current Gauss point (input)
@@ -373,7 +368,6 @@ class BasisLTet : public Basis {
   ~BasisLTet();
 
   BasisLTet* clone() const{ return new BasisLTet(*this); };
-  const char * type() const {return stype.c_str();};
 
   void getBasis( const int gp,   ///< current Gauss point (input) 
 		 const double *x,   ///< x array (input) 
@@ -419,7 +413,6 @@ class BasisLBar : public Basis {
 		 );  
 
   BasisLBar* clone() const{ return new BasisLBar(*this); };
-  const char * type() const {return stype.c_str();};
 
  public:
   // Variables that are calculated at the gauss point
@@ -451,7 +444,6 @@ class BasisQBar : public Basis {
 		 );  
 
   BasisQBar* clone() const{ return new BasisQBar(*this); };
-  const char * type() const {return stype.c_str();};
 
  public:
   // Variables that are calculated at the gauss point

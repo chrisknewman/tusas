@@ -222,7 +222,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 //     auto y_1d = Kokkos::subview (y_view, Kokkos::ALL (), 0);
 //     auto z_1d = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
-    auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+    //auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+    Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
 
     //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
     //this will utilize texture memory not available on tesla or earlier gpus
@@ -249,6 +250,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
  
 
    
+      //GPUBasis * B;
+      //B = new GPUBasisLQuad();
+
+      //GPUBasisLQuad * BGPU = new GPUBasisLQuad();
 
       //for (int ne=0; ne < num_elem; ne++) { 
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
@@ -256,13 +261,20 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
 			     //we will need to enable arbitrary guass pts also
-	GPUBasisLQuad BGPU;
+	
+			     //GPUBasis * B;
+	//B = new GPUBasisLQuad();
+	//GPUBasis * BGPU = new GPUBasisLQuad();
+	GPUBasisLQuad B;
+	GPUBasisLQuad * BGPU = &B;
+	const int ngp = BGPU->ngp;
 	const int elem = elem_map_k[ne];
-	double xx[4];
-	double yy[4];
-	double zz[4];
-	double uu[4];
-	double uu_old[4];
+
+	double xx[BASIS_NODES_PER_ELEM];
+	double yy[BASIS_NODES_PER_ELEM];
+	double zz[BASIS_NODES_PER_ELEM];
+	double uu[BASIS_NODES_PER_ELEM];
+	double uu_old[BASIS_NODES_PER_ELEM];
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
 	  //const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
@@ -276,18 +288,21 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}//k
 
 	for (int i=0; i< n_nodes_per_elem; i++) {//i
-	  for(int gp=0; gp < 4; gp++) {//gp
-	    BGPU.getBasis(gp, xx, yy, zz, uu, uu_old);
+	  for(int gp=0; gp < ngp; gp++) {//gp
+	    BGPU->getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
+	    //BGPU.getBasis(gp, xx, yy, zz, uu, uu_old);
 
-	    const double val = BGPU.jac*BGPU.wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));;
+	    const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(*BGPU,i,dt,1.,0.,0));
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
 	    f_1d[lid] += val;
 	  }//gp
 	}//i
+	//delete BGPU;
 	});//parallel_for
 	//}//ne
 
+	//delete B;
 
     }//c 
     {

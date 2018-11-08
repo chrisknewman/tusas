@@ -12,7 +12,7 @@
 #include <iostream>
 
 #include "basis.hpp"
-
+#if 0
 void Basis::setN(const int N, double *abscissa, double *weight){
 
  if ( N == 2 ) {
@@ -223,7 +223,6 @@ void BasisLTri::getBasis( const int gp,  const double *x,  const double *y,  con
 
   return;
 }
-
 
 // Constructor
 BasisLQuad::BasisLQuad(int n) :sngp(n){
@@ -478,7 +477,6 @@ void BasisLQuad::getBasis(const int gp,const  double *x, const  double *y,  cons
   return;
 }
 
-
 //Constructor
 BasisQTri::BasisQTri(int n){
 
@@ -642,7 +640,6 @@ void BasisQTri::getBasis( const int gp,  const double *x,  const double *y,  con
 
   return;
 }
-
 // Constructor
 BasisQQuad::BasisQQuad(int n) :sngp(n){
   ngp = sngp*sngp; // number of Gauss points
@@ -891,6 +888,7 @@ void BasisQQuad::getBasis( const int gp,  const double *x,  const double *y,  co
   //printf("getBasis done\n");
   return;
 }
+
 
 //  3D basis...
 
@@ -1463,7 +1461,6 @@ void BasisLTet::getBasis( const int gp,  const double *x,  const double *y,  con
   return;
 }
 
-
 // Constructor
 BasisLBar::BasisLBar(int n) :sngp(n){
   ngp = sngp;
@@ -1701,3 +1698,6 @@ void BasisQBar::getBasis(const int gp,const  double *x, const  double *y,  const
   }
   return;
 }
+
+
+#endif

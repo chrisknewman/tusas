@@ -249,12 +249,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //exit(0);
  
 
-   
-      //GPUBasis * B;
-      //B = new GPUBasisLQuad();
-
-      //GPUBasisLQuad * BGPU = new GPUBasisLQuad();
-
       //for (int ne=0; ne < num_elem; ne++) { 
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
 			     //const int elem = elem_map[ne];
@@ -264,7 +258,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	
 			     //GPUBasis * B;
 	//B = new GPUBasisLQuad();
-	//GPUBasis * BGPU = new GPUBasisLQuad();
+	//GPUBasis * BG = new GPUBasisLQuad();
 	GPUBasisLQuad B;
 	GPUBasisLQuad * BGPU = &B;
 	const int ngp = BGPU->ngp;
@@ -287,18 +281,18 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  uu_old[k] = uold_1dra(nodeid);
 	}//k
 
-	for (int i=0; i< n_nodes_per_elem; i++) {//i
-	  for(int gp=0; gp < ngp; gp++) {//gp
-	    BGPU->getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
-	    //BGPU.getBasis(gp, xx, yy, zz, uu, uu_old);
+	for(int gp=0; gp < ngp; gp++) {//gp
+	  BGPU->getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
+	  //BGPU.getBasis(gp, xx, yy, zz, uu, uu_old);
+	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
-	    const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(*BGPU,i,dt,1.,0.,0));
+	    const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
 	    f_1d[lid] += val;
-	  }//gp
-	}//i
-	//delete BGPU;
+	  }//i
+	}//gp
+	//delete BG;
 	});//parallel_for
 	//}//ne
 

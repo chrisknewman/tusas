@@ -4998,7 +4998,7 @@ RES_FUNC(residual_eta_kkspp_)
 }//namespace pfhub2
 
 
-#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis &basis, \
+#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis *basis, \
                                     const int &i,\
                                     const double &dt_,\
 			            const double &t_theta_,\
@@ -5026,10 +5026,14 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_heat_test_)
 {
 
-  return (basis.uu-basis.uuold)/dt_*basis.phi[i]
-			 + basis.dudx*basis.dphidx[i]
-			 + basis.dudy*basis.dphidy[i]
-			 + basis.dudz*basis.dphidz[i];
+//   return (basis.uu-basis.uuold)/dt_*basis.phi[i]
+// 			 + basis.dudx*basis.dphidx[i]
+// 			 + basis.dudy*basis.dphidy[i]
+// 			 + basis.dudz*basis.dphidz[i];
+  return (basis->uu-basis->uuold)/dt_*basis->phi[i]
+			 + basis->dudx*basis->dphidx[i]
+			 + basis->dudy*basis->dphidy[i]
+			 + basis->dudz*basis->dphidz[i];
 }
 
 }//namespace tusastpetra

@@ -127,6 +127,7 @@ int main(int argc, char *argv[])
   }
   if(0 != dval) {
     write_timers();
+    Kokkos::finalize();
     return 0;
   }
  
@@ -310,7 +311,7 @@ int decomp(const int mypid,
 	  std::cout<<"Error running nemslice: "<<sliceStr<<"\n";
 	  exit(0);
 	}
-      }
+      }//if
       
       if( writedecomp ){
 	std::string spreadFile="./nem_spread.inp";
@@ -328,7 +329,7 @@ int decomp(const int mypid,
 	
 	decompfile
 	  <<spreadStr<<" "<<spreadArg[1]<<"\n";
-      }
+      }//if
       else {
 	std::string spreadFile=decompPath+"nem_spread.inp";
 	std::ofstream spreadfile;

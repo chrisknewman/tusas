@@ -19,14 +19,6 @@
 #define TUSAS_CUDA_CALLABLE_MEMBER
 #endif
 
-//cn it seems that we might only need to wrap functions in the basis class with TUSAS_CUDA_CALLABLE_MEMBER ?
-//to make it all work????
-
-
-//cn we need to address sqrt:
-//warning: calling a __host__ function("__builtin_sqrtl") from a __host__ __device__ function("BasisLHex::BasisLHex") is not allowed
-
-
 /// Base class for computation of finite element basis.
 /** All basis classes inherit from this. */
 class Basis {
@@ -34,10 +26,10 @@ class Basis {
  public:
 
   /// Constructor
-  Basis():stype("unknown") {};
+  Basis():stype("unknown"){};
 
   /// Destructor
-  virtual ~Basis(){}
+  virtual ~Basis(){};
 
   /// Evaluate the basis functions at the specified gauss point
   /** Evaluate the 2D basis functions at Gauss point gp given x, y. This function needs to be called before any accessor function.*/
@@ -78,7 +70,8 @@ class Basis {
 			 const double *u, ///< u (solution)  array (input)  
 			 const double *uold, ///< uold (solution)  array (input) 
 			 const double *uoldold///< uoldold (solution)  array (input)
-			 ){};
+			 ) {return;};
+
   /// Evaluate the basis functions at the specified at point xx, yy ,zz
   /** Evaluate the 3D basis functions at  xx, yy, zz and interpolate u.  True if xx, yy, zz is in this element. Returns val = u(xx,yy,zz)*/
   virtual bool evalBasis( const double *x,  ///< x array (input) 
@@ -418,8 +411,7 @@ class BasisLTri : public Basis {
   return;
 };
 
-  BasisLTri* clone() const{ return new BasisLTri(*this); }
-  //char type() { return 1; }
+  BasisLTri* clone() const{ return new BasisLTri(*this); };
 
  public:
 };
@@ -699,8 +691,7 @@ class BasisLQuad : public Basis {
   return true;
 };
 
-  BasisLQuad* clone() const{ return new BasisLQuad(*this); }
-  //char type() { return 1; }
+  BasisLQuad* clone() const{ return new BasisLQuad(*this); };
 
  public:
   // Variables that are calculated at the gauss point
@@ -883,8 +874,8 @@ class BasisQTri : public Basis {
   return;
 };
 
-  BasisQTri* clone() const{ return new BasisQTri(*this); }
-  //char type() { return 1; }
+
+  BasisQTri* clone() const{ return new BasisQTri(*this); };
 
  public:
 
@@ -1151,8 +1142,7 @@ class BasisQQuad : public Basis {
   return;
 };    
 
-  BasisQQuad* clone() const{ return new BasisQQuad(*this); }
-  //char type() { return 1; }
+  BasisQQuad* clone() const{ return new BasisQQuad(*this); };
 
  public:
   // Variables that are calculated at the gauss point
@@ -1528,8 +1518,7 @@ class BasisLHex : public Basis {
   return true;
 };
  
-  BasisLHex* clone() const{ return new BasisLHex(*this); }
-  //char type() { return 1; }
+  BasisLHex* clone() const{ return new BasisLHex(*this); };
 
   // Calculates the values of u and x at the specified gauss point
   void getBasis(const int gp,    ///< current Gauss point (input)
@@ -1646,8 +1635,7 @@ class BasisLTet : public Basis {
   delete [] nwt;
 };
 
-  BasisLTet* clone() const{ return new BasisLTet(*this); }
-  //char type() { return 1; }
+  BasisLTet* clone() const{ return new BasisLTet(*this); };
 
   void getBasis( const int gp,   ///< current Gauss point (input) 
 		 const double *x,   ///< x array (input) 
@@ -1908,8 +1896,7 @@ class BasisLBar : public Basis {
   return;
 };  
 
-  BasisLBar* clone() const{ return new BasisLBar(*this); }
-  //char type() { return 1; }
+  BasisLBar* clone() const{ return new BasisLBar(*this); };
 
  public:
   // Variables that are calculated at the gauss point
@@ -2049,8 +2036,7 @@ class BasisQBar : public Basis {
   return;
 };  
 
-  BasisQBar* clone() const{ return new BasisQBar(*this); }
-  //char type() { return 1; }
+  BasisQBar* clone() const{ return new BasisQBar(*this); };
 
  public:
   // Variables that are calculated at the gauss point

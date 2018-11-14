@@ -264,6 +264,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}else{
 	  BGPU = &Bh;
 	}
+
+	RESFUNC residualfunc_ = &tusastpetra::residual_heat_test_;
 	
 	//BGPU = new GPUBasisLQuad;  //causes segfaults
 
@@ -291,11 +293,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	for(int gp=0; gp < ngp; gp++) {//gp
 	  BGPU->getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
-	  //B.getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
-	    //const double val = B.jac*B.wt*(tusastpetra::residual_heat_test_(&B,i,dt,1.,0.,0));
-	    const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));
+	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));
+	    const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
 	    f_1d[lid] += val;

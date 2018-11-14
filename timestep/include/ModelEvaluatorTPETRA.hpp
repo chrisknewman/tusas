@@ -140,6 +140,13 @@ private:
 
   std::vector<std::string> *varnames_;
 
+  typedef double (*RESFUNC)(const GPUBasis *basis, 
+			    const int &i, 
+			    const double &dt_, 
+			    const double &t_theta_, 
+			    const double &time,
+			    const int &eqn_id);
+
   typedef double (*DBCFUNC)(const double &x,
 			    const double &y,
 			    const double &z,
@@ -153,8 +160,6 @@ private:
 			     const int &eqn_id);
 
   std::vector<INITFUNC> *initfunc_;
-
-
 
   RCP<Teuchos::Time> ts_time_import;
   RCP<Teuchos::Time> ts_time_resfill;

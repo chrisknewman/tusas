@@ -255,13 +255,21 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
 			     //we will need to enable arbitrary guass pts also
+	GPUBasis * BGPU;
 	
-			     //GPUBasis * B;
-	//B = new GPUBasisLQuad();
-	//GPUBasis * BG = new GPUBasisLQuad();
-	GPUBasisLQuad B;
-	GPUBasisLQuad * BGPU = &B;
+	GPUBasisLQuad Bq;
+	GPUBasisLHex Bh;//we could allocate a LHEX here temporarily...dont really want to do this
+	if(4 == n_nodes_per_elem) {
+	  BGPU = &Bq;
+	}else{
+	  BGPU = &Bh;
+	}
+	
+	//BGPU = new GPUBasisLQuad;  //causes segfaults
+
+	//const int ngp = B.ngp;
 	const int ngp = BGPU->ngp;
+
 	const int elem = elem_map_k[ne];
 
 	double xx[BASIS_NODES_PER_ELEM];
@@ -283,16 +291,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	for(int gp=0; gp < ngp; gp++) {//gp
 	  BGPU->getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
-	  //BGPU.getBasis(gp, xx, yy, zz, uu, uu_old);
+	  //B.getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
+	    //const double val = B.jac*B.wt*(tusastpetra::residual_heat_test_(&B,i,dt,1.,0.,0));
 	    const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
 	    f_1d[lid] += val;
 	  }//i
 	}//gp
-	//delete BG;
 	});//parallel_for
 	//}//ne
 

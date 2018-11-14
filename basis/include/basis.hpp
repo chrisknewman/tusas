@@ -2279,7 +2279,10 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
 
 };
 
-#define BASIS_NODES_PER_ELEM 27
+//#define BASIS_NODES_PER_ELEM 27
+#define BASIS_NODES_PER_ELEM 8
+//#define BASIS_NGPS_PER_ELEM 27
+#define BASIS_NGPS_PER_ELEM 8
 
 class GPUBasis{
 
@@ -2300,8 +2303,8 @@ public:
   int ngp;
 
   double phi[BASIS_NODES_PER_ELEM];
-  double dphidxi[BASIS_NODES_PER_ELEM];
-  double dphideta[BASIS_NODES_PER_ELEM];
+  //double dphidxi[BASIS_NODES_PER_ELEM];
+  //double dphideta[BASIS_NODES_PER_ELEM];
 
   /// Access value of u at the current Gauss point.
   double uu;
@@ -2376,6 +2379,14 @@ public:
 
   /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
   double dphidz[BASIS_NODES_PER_ELEM];
+
+  double phinew[BASIS_NGPS_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidxinew[BASIS_NGPS_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidetanew[BASIS_NGPS_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidztanew[BASIS_NGPS_PER_ELEM][BASIS_NODES_PER_ELEM];
+
+  //we could also do phi[BASIS_NODES_PER_ELEM] and set each element explicity below...
+  //double *phi;
   
 protected:
   /// Access a pointer to the coordinates of the Gauss points in canonical space.
@@ -2399,65 +2410,78 @@ class GPUBasisLQuad:public GPUBasis{
 public:
 
   TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuad(){
-  sngp =2;
-  ngp = sngp*sngp;
-  //phi = new double[4];//number of nodes
-  //dphidxi = new double[4];
-  //dphideta = new double[4];
-  //dphidzta = new double[4];
-  //dphidx = new double[4];
-  //dphidy = new double[4];
-  //dphidz = new double[4];
-  //abscissa = new double[sngp];//number guass pts
-  //weight = new double[sngp];
-  //setN(sngp, abscissa, weight);
-  abscissa[0] = -1.0/1.732050807568877;
-  abscissa[1] =  1.0/1.732050807568877;
-  weight[0] = 1.0;
-  weight[1] = 1.0;
-
-  //xi  = new double[ngp];
-  //eta = new double[ngp];
-  //nwt  = new double[ngp];
-
-
-  //cn right now, changing the order when ngp = 4 breaks all the quad tests
-  //cn so we leave it for now...
-  xi[0]  = abscissa[0];
-  eta[0] = abscissa[0];
-  nwt[0]  = weight[0] * weight[0];
-  
-  xi[1]  = abscissa[1];
-  eta[1] = abscissa[0];
-  nwt[1]  = weight[0] * weight[1];
-  
-  xi[2]  = abscissa[1];
-  eta[2] = abscissa[1];
-  nwt[2]  = weight[1] * weight[1];
-  
-  xi[3]  = abscissa[0];
-  eta[3] = abscissa[1];
-  nwt[3]  = weight[0] * weight[1];
+    sngp =2;
+    ngp = sngp*sngp;
+    abscissa[0] = -1.0/1.732050807568877;
+    abscissa[1] =  1.0/1.732050807568877;
+    weight[0] = 1.0;
+    weight[1] = 1.0;
+    
+    //cn right now, changing the order when ngp = 4 breaks all the quad tests
+    //cn so we leave it for now...
+    xi[0]  = abscissa[0];
+    eta[0] = abscissa[0];
+    nwt[0]  = weight[0] * weight[0];
+    
+    xi[1]  = abscissa[1];
+    eta[1] = abscissa[0];
+    nwt[1]  = weight[0] * weight[1];
+    
+    xi[2]  = abscissa[1];
+    eta[2] = abscissa[1];
+    nwt[2]  = weight[1] * weight[1];
+    
+    xi[3]  = abscissa[0];
+    eta[3] = abscissa[1];
+    nwt[3]  = weight[0] * weight[1];
+    
+    for(int gp = 0; gp < ngp; gp++){
+      phinew[gp][0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
+      phinew[gp][1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
+      phinew[gp][2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
+      phinew[gp][3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
+      
+      dphidxinew[gp][0]=-(1.0-eta[gp])/4.0;
+      dphidxinew[gp][1]= (1.0-eta[gp])/4.0;
+      dphidxinew[gp][2]= (1.0+eta[gp])/4.0;
+      dphidxinew[gp][3]=-(1.0+eta[gp])/4.0;
+      
+      dphidetanew[gp][0]=-(1.0-xi[gp])/4.0;
+      dphidetanew[gp][1]=-(1.0+xi[gp])/4.0;
+      dphidetanew[gp][2]= (1.0+xi[gp])/4.0;
+      dphidetanew[gp][3]= (1.0-xi[gp])/4.0;
+    }    
   }
   
   TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLQuad(){}
-  TUSAS_CUDA_CALLABLE_MEMBER void getBasis(const int gp,const  double x[BASIS_NODES_PER_ELEM], const  double y[BASIS_NODES_PER_ELEM],  const double z[BASIS_NODES_PER_ELEM],const  double u[BASIS_NODES_PER_ELEM],const  double uold[BASIS_NODES_PER_ELEM],const  double uoldold[BASIS_NODES_PER_ELEM]) {
+  TUSAS_CUDA_CALLABLE_MEMBER void getBasis(const int gp,
+					   const double x[BASIS_NODES_PER_ELEM], 
+					   const double y[BASIS_NODES_PER_ELEM],  
+					   const double z[BASIS_NODES_PER_ELEM],
+					   const double u[BASIS_NODES_PER_ELEM],
+					   const double uold[BASIS_NODES_PER_ELEM],
+					   const double uoldold[BASIS_NODES_PER_ELEM]) {
 
   // Calculate basis function and derivatives at nodal pts
-  phi[0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
-  phi[1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
-  phi[2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
-  phi[3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
+//   phi[0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
+//   phi[1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
+//   phi[2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
+//   phi[3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
 
-  dphidxi[0]=-(1.0-eta[gp])/4.0;
-  dphidxi[1]= (1.0-eta[gp])/4.0;
-  dphidxi[2]= (1.0+eta[gp])/4.0;
-  dphidxi[3]=-(1.0+eta[gp])/4.0;
+    //phi=phinew[gp];
+  for (int i=0; i < 4; i++) {
+    phi[i]=phinew[gp][i];
+  }
 
-  dphideta[0]=-(1.0-xi[gp])/4.0;
-  dphideta[1]=-(1.0+xi[gp])/4.0;
-  dphideta[2]= (1.0+xi[gp])/4.0;
-  dphideta[3]= (1.0-xi[gp])/4.0;
+//   dphidxi[0]=-(1.0-eta[gp])/4.0;
+//   dphidxi[1]= (1.0-eta[gp])/4.0;
+//   dphidxi[2]= (1.0+eta[gp])/4.0;
+//   dphidxi[3]=-(1.0+eta[gp])/4.0;
+
+//   dphideta[0]=-(1.0-xi[gp])/4.0;
+//   dphideta[1]=-(1.0+xi[gp])/4.0;
+//   dphideta[2]= (1.0+xi[gp])/4.0;
+//   dphideta[3]= (1.0-xi[gp])/4.0;
   
   // Caculate basis function and derivative at GP.
   //std::cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<x[3]<<std::endl;
@@ -2504,20 +2528,20 @@ public:
   duoldolddz = 0.;
   // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < 4; i++) {
-    xx += x[i] * phi[i];
-    yy += y[i] * phi[i];
+    xx += x[i] * phinew[gp][i];
+    yy += y[i] * phinew[gp][i];
     zz += z[i] * phi[i];
-    dphidx[i] = dphidxi[i]*dxidx+dphideta[i]*detadx;
-    dphidy[i] = dphidxi[i]*dxidy+dphideta[i]*detady;
+    dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx;
+    dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady;
     dphidz[i] = 0.0;
     dphidzta[i]= 0.0;
     if( u ){
-      uu += u[i] * phi[i];
+      uu += u[i] * phinew[gp][i];
       dudx += u[i] * dphidx[i];
       dudy += u[i]* dphidy[i];
     }
     if( uold ){
-      uuold += uold[i] * phi[i];
+      uuold += uold[i] * phinew[gp][i];
       duolddx += uold[i] * dphidx[i];
       duolddy += uold[i]* dphidy[i];
     }
@@ -2530,7 +2554,197 @@ public:
   
   return;
   }
+};
 
+class GPUBasisLHex:public GPUBasis{
+public:
+
+  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLHex(){
+    sngp =2;
+    ngp = sngp*sngp*sngp;
+
+    abscissa[0] = -1.0/1.732050807568877;
+    abscissa[1] =  1.0/1.732050807568877;
+    weight[0] = 1.0;
+    weight[1] = 1.0;
+
+    xi[0] = abscissa[0];  // 0, 0, 0
+    eta[0] = abscissa[0];
+    zta[0] = abscissa[0];
+    nwt[0] = weight[0] * weight[0] * weight[0];
+
+    xi[1] = abscissa[1]; // 1, 0, 0
+    eta[1] = abscissa[0];
+    zta[1] = abscissa[0];
+    nwt[1] = weight[0] * weight[1] * weight[0];
+
+    xi[2] = abscissa[1]; // 1, 1, 0
+    eta[2] = abscissa[1];
+    zta[2] = abscissa[0];
+    nwt[2] = weight[1] * weight[1] * weight[0];
+
+    xi[3] = abscissa[0];  //0, 1, 0
+    eta[3] = abscissa[1];
+    zta[3] = abscissa[0];
+    nwt[3] = weight[0] * weight[1] * weight[0];
+
+    xi[4] = abscissa[0];  // 0, 0, 1
+    eta[4] = abscissa[0];
+    zta[4] = abscissa[1];
+    nwt[4] = weight[0] * weight[0] * weight[1];
+
+    xi[5] = abscissa[1]; // 1, 0, 1
+    eta[5] = abscissa[0];
+    zta[5] = abscissa[1];
+    nwt[5] = weight[0] * weight[1] * weight[1];
+
+    xi[6] = abscissa[1]; // 1, 1, 1
+    eta[6] = abscissa[1];
+    zta[6] = abscissa[1];
+    nwt[6] = weight[1] * weight[1] * weight[1];
+
+    xi[7] = abscissa[0];  //0, 1, 1
+    eta[7] = abscissa[1];
+    zta[7] = abscissa[1];
+    nwt[7] = weight[0] * weight[1] * weight[1];
+
+    for(int gp = 0; gp < ngp; gp++){
+      phinew[gp][0]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+      phinew[gp][1]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+      phinew[gp][2]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+      phinew[gp][3]   =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+      phinew[gp][4]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+      phinew[gp][5]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+      phinew[gp][6]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+      phinew[gp][7]   =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+   
+      dphidxinew[gp][0] = -0.125 * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+      dphidxinew[gp][1] =  0.125 * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+      dphidxinew[gp][2] =  0.125 * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+      dphidxinew[gp][3] = -0.125 * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+      dphidxinew[gp][4] = -0.125 * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+      dphidxinew[gp][5] =  0.125 * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+      dphidxinew[gp][6] =  0.125 * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+      dphidxinew[gp][7] = -0.125 * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+      
+      dphidetanew[gp][0] = -0.125 * (1.0 - xi[gp]) * (1.0 - zta[gp]);
+      dphidetanew[gp][1] = -0.125 * (1.0 + xi[gp]) * (1.0 - zta[gp]);
+      dphidetanew[gp][2] =  0.125 * (1.0 + xi[gp]) * (1.0 - zta[gp]);
+      dphidetanew[gp][3] =  0.125 * (1.0 - xi[gp]) * (1.0 - zta[gp]);
+      dphidetanew[gp][4] = -0.125 * (1.0 - xi[gp]) * (1.0 + zta[gp]);
+      dphidetanew[gp][5] = -0.125 * (1.0 + xi[gp]) * (1.0 + zta[gp]);
+      dphidetanew[gp][6] =  0.125 * (1.0 + xi[gp]) * (1.0 + zta[gp]);
+      dphidetanew[gp][7] =  0.125 * (1.0 - xi[gp]) * (1.0 + zta[gp]);
+      
+      dphidztanew[gp][0] = -0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]);
+      dphidztanew[gp][1] = -0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]);
+      dphidztanew[gp][2] = -0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]);
+      dphidztanew[gp][3] = -0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]);
+      dphidztanew[gp][4] =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]);
+      dphidztanew[gp][5] =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]);
+      dphidztanew[gp][6] =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]);
+      dphidztanew[gp][7] =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]);
+    }
+  }
+  
+  TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLHex(){}
+  
+  TUSAS_CUDA_CALLABLE_MEMBER virtual void getBasis(const int gp,
+						   const double x[BASIS_NODES_PER_ELEM], 
+						   const double y[BASIS_NODES_PER_ELEM],  
+						   const double z[BASIS_NODES_PER_ELEM],
+						   const double u[BASIS_NODES_PER_ELEM],
+						   const double uold[BASIS_NODES_PER_ELEM],
+						   const double uoldold[BASIS_NODES_PER_ELEM]) {
+  
+    for (int i=0; i < 8; i++) {
+      phi[i]=phinew[gp][i];
+    }  
+    // Caculate basis function and derivative at GP.
+    double dxdxi  = 0.125*( (x[1]-x[0])*(1.-eta[gp])*(1.-zta[gp]) + (x[2]-x[3])*(1.+eta[gp])*(1.-zta[gp]) 
+			    + (x[5]-x[4])*(1.-eta[gp])*(1.+zta[gp]) + (x[6]-x[7])*(1.+eta[gp])*(1.+zta[gp]) );
+    double dxdeta = 0.125*( (x[3]-x[0])*(1.- xi[gp])*(1.-zta[gp]) + (x[2]-x[1])*(1.+ xi[gp])*(1.-zta[gp]) 
+			    + (x[7]-x[4])*(1.- xi[gp])*(1.+zta[gp]) + (x[6]-x[5])*(1.+ xi[gp])*(1.+zta[gp]) );
+    double dxdzta = 0.125*( (x[4]-x[0])*(1.- xi[gp])*(1.-eta[gp]) + (x[5]-x[1])*(1.+ xi[gp])*(1.-eta[gp])
+			    + (x[6]-x[2])*(1.+ xi[gp])*(1.+eta[gp]) + (x[7]-x[3])*(1.- xi[gp])*(1.+eta[gp]) );
+    
+    double dydxi  = 0.125*( (y[1]-y[0])*(1.-eta[gp])*(1.-zta[gp]) + (y[2]-y[3])*(1.+eta[gp])*(1.-zta[gp])
+			    + (y[5]-y[4])*(1.-eta[gp])*(1.+zta[gp]) + (y[6]-y[7])*(1.+eta[gp])*(1.+zta[gp]) );
+    double dydeta = 0.125*( (y[3]-y[0])*(1.- xi[gp])*(1.-zta[gp]) + (y[2]-y[1])*(1.+ xi[gp])*(1.-zta[gp]) 
+			    + (y[7]-y[4])*(1.- xi[gp])*(1.+zta[gp]) + (y[6]-y[5])*(1.+ xi[gp])*(1.+zta[gp]) );
+    double dydzta = 0.125*( (y[4]-y[0])*(1.- xi[gp])*(1.-eta[gp]) + (y[5]-y[1])*(1.+ xi[gp])*(1.-eta[gp])
+			    + (y[6]-y[2])*(1.+ xi[gp])*(1.+eta[gp]) + (y[7]-y[3])*(1.- xi[gp])*(1.+eta[gp]) );
+    
+    double dzdxi  = 0.125*( (z[1]-z[0])*(1.-eta[gp])*(1.-zta[gp]) + (z[2]-z[3])*(1.+eta[gp])*(1.-zta[gp])
+			    + (z[5]-z[4])*(1.-eta[gp])*(1.+zta[gp]) + (z[6]-z[7])*(1.+eta[gp])*(1.+zta[gp]) );
+    double dzdeta = 0.125*( (z[3]-z[0])*(1.- xi[gp])*(1.-zta[gp]) + (z[2]-z[1])*(1.+ xi[gp])*(1.-zta[gp]) 
+			    + (z[7]-z[4])*(1.- xi[gp])*(1.+zta[gp]) + (z[6]-z[5])*(1.+ xi[gp])*(1.+zta[gp]) );
+    double dzdzta = 0.125*( (z[4]-z[0])*(1.- xi[gp])*(1.-eta[gp]) + (z[5]-z[1])*(1.+ xi[gp])*(1.-eta[gp])
+			    + (z[6]-z[2])*(1.+ xi[gp])*(1.+eta[gp]) + (z[7]-z[3])*(1.- xi[gp])*(1.+eta[gp]) );
+    
+    wt = nwt[gp];
+    
+    jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
+      + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
+    
+    
+    dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
+    dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
+    dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;
+    
+    detadx =  ( dydzta*dzdxi - dydxi*dzdzta) / jac;
+    detady =  (-dxdzta*dzdxi + dxdxi*dzdzta) / jac;
+    detadz =  ( dxdzta*dydxi - dxdxi*dydzta) / jac;
+    
+    dztadx =  ( dydxi*dzdeta - dydeta*dzdxi) / jac;
+    dztady =  (-dxdxi*dzdeta + dxdeta*dzdxi) / jac;
+    dztadz =  ( dxdxi*dydeta - dxdeta*dydxi) / jac;
+    // Caculate basis function and derivative at GP.
+    xx=0.0;
+    yy=0.0;
+    zz=0.0;
+    uu=0.0;
+    uuold=0.0;
+    uuoldold=0.0;
+    dudx=0.0;
+    dudy=0.0;
+    dudz=0.0;
+    duolddx = 0.;
+    duolddy = 0.;
+    duolddz = 0.;
+    duoldolddx = 0.;
+    duoldolddy = 0.;
+    duoldolddz = 0.;
+    // x[i] is a vector of node coords, x(j, k) 
+    for (int i=0; i < 8; i++) {
+      xx += x[i] * phinew[gp][i];
+      yy += y[i] * phinew[gp][i];
+      zz += z[i] * phinew[gp][i];
+      dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx+dphidztanew[gp][i]*dztadx;
+      dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady+dphidztanew[gp][i]*dztady;
+      dphidz[i] = dphidxinew[gp][i]*dxidz+dphidetanew[gp][i]*detadz+dphidztanew[gp][i]*dztadz;
+      if( u ){
+	uu += u[i] * phinew[gp][i];
+	dudx += u[i] * dphidx[i];
+	dudy += u[i] * dphidy[i];
+	dudz += u[i] * dphidz[i];
+      }
+      if( uold ){
+	uuold += uold[i] * phinew[gp][i];
+	duolddx += uold[i] * dphidx[i];
+	duolddy += uold[i] * dphidy[i];
+	duolddz += uold[i] * dphidz[i];
+	//exit(0);
+      }
+//       if( uoldold ){
+// 	uuoldold += uoldold[i] * phinew[gp][i];
+// 	duoldolddx += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
+// 	duoldolddy += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
+// 	duoldolddz += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
+//       }
+    }
+    return;
+  }
 };
 
 #endif

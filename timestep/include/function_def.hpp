@@ -5036,7 +5036,6 @@ RES_FUNC_TPETRA(residual_heat_test_)
 			 + basis->dudz*basis->dphidz[i];
 }
 
-
 }//namespace tusastpetra
 
 #endif

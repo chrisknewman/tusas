@@ -200,10 +200,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //std::cout<<num_color<<" "<<colors[0].size()<<" "<<(Elem_col->get_color(0)).size()<<std::endl;
     //OMPBasisLQuad B;
 
+//     std::string elem_type=mesh_->get_blk_elem_type(blk);
+//     std::string * elem_type_p = &elem_type;
+
     Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
     for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
 
     double dt = dt_; //cuda 8 lambdas dont capture private data
+    int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
 
     const int num_color = Elem_col->get_num_color();
 
@@ -258,18 +262,24 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	GPUBasis * BGPU;
 	
 	GPUBasisLQuad Bq;
-	GPUBasisLHex Bh;//we could allocate a LHEX here temporarily...dont really want to do this
-	if(4 == n_nodes_per_elem) {
+	GPUBasisLHex Bh;//cn allocating here is slow ...dont really want to do this
+	if(4 == n_nodes_per_elem)  {
 	  BGPU = &Bq;
 	}else{
 	  BGPU = &Bh;
 	}
 
-	RESFUNC residualfunc_ = &tusastpetra::residual_heat_test_;
+	//cn malloc ing this function pointer inside the loop is slow as fuck, we need to move it outside somehow....
+
+
+	//RESFUNC residualfunc_;//cn nomalloc
+	RESFUNC *residualfunc_ = (RESFUNC *)malloc(numeqs*sizeof(RESFUNC));//cn malloc
+
+	//residualfunc_ = &tusastpetra::residual_heat_test_;//cn nomalloc
+	residualfunc_[0] = &tusastpetra::residual_heat_test_;//cn malloc
 	
 	//BGPU = new GPUBasisLQuad;  //causes segfaults
 
-	//const int ngp = B.ngp;
 	const int ngp = BGPU->ngp;
 
 	const int elem = elem_map_k[ne];
@@ -296,12 +306,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));
-	    const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);
+	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);//cn nomalloc
+	    const double val = BGPU->jac*BGPU->wt*residualfunc_[0](BGPU,i,dt,1.,0.,0);//cn malloc
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
 	    f_1d[lid] += val;
 	  }//i
 	}//gp
+	free((void *) residualfunc_);//cn malloc
 	});//parallel_for
 	//}//ne
 

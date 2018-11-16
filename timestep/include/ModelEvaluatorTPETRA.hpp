@@ -171,7 +171,10 @@ private:
   Teuchos::RCP<elem_color> Elem_col;
   Teuchos::RCP<const Epetra_Comm>  Comm;
   //Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra;
-  //Kokkos::View<const double*> x_1dra;
+  //Kokkos::View<const double*> x_1dra; 
+  
+  //TUSAS_CUDA_CALLABLE_MEMBER void set_basis( GPUBasis &basis, const std::string elem_type) const;
+
 };
 
 //==================================================================

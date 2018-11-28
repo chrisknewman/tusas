@@ -11,6 +11,7 @@
 #include "post_process.h"
 
 #include <iostream>
+#include <fstream>
 
 //template<class Scalar>
 post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm, 

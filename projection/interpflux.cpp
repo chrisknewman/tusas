@@ -30,6 +30,10 @@ interpflux::~interpflux()
 
 void interpflux::read_file()
 {
+  //cn right now there is some kind of conflict with std::getline and nvcc
+  //   I am #if ing it out for now, since this is used with truchas coupling
+  exit(0);
+#if 0
   int mypid = comm_->MyPID();
 
   if(mypid == 0) {
@@ -53,7 +57,7 @@ void interpflux::read_file()
 	  }
       }
   }    
-
+#endif
   return;
 }
   

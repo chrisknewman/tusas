@@ -107,6 +107,12 @@ projection::~projection()
 
 void projection::read_file_time_interp(const int timeindex, const double theta)
 {
+
+  //cn right now there is some kind of conflict with std::getline and nvcc
+  //   I am #if ing it out for now, since this is used with truchas coupling
+  exit(0);
+#if 0
+
   int mypid = comm_->MyPID();
 
   if(mypid == 0) {
@@ -157,10 +163,15 @@ void projection::read_file_time_interp(const int timeindex, const double theta)
 					) ;	
     }
   }
+#endif
   return;
 }
 void projection::read_file()
 {
+  //cn right now there is some kind of conflict with std::getline and nvcc
+  //   I am #if ing it out for now, since this is used with truchas coupling
+  exit(0);
+#if 0
   int mypid = comm_->MyPID();
 
   if(mypid == 0) {
@@ -203,6 +214,7 @@ void projection::read_file()
     }
   }
   //source_elem_->Print(std::cout);
+#endif
   return;
 }
 void projection::update_mesh_data()

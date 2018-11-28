@@ -17,6 +17,7 @@
 #endif
 
 #include <unordered_set>
+#include <set>
 
 periodic_bc::periodic_bc(const int ns_id1, 
 			 const int ns_id2,

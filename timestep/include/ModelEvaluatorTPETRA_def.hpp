@@ -17,6 +17,7 @@
 
 //#include <Kokkos_View.hpp> 	
 #include <Kokkos_Vector.hpp>
+#include <Kokkos_Core.hpp>
 
 #include <Tpetra_Core.hpp>
 #include <Tpetra_Map.hpp>
@@ -226,8 +227,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 //     auto y_1d = Kokkos::subview (y_view, Kokkos::ALL (), 0);
 //     auto z_1d = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
-    //auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
-    Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+    auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+    //Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
 
     //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
     //this will utilize texture memory not available on tesla or earlier gpus
@@ -236,7 +237,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
-
+    
+    //typedef Kokkos::TeamPolicy<schedule, Kokkos::LaunchBounds<64,4> > team_policy;
+    //typedef Kokkos::LaunchBounds<64,4> launch_bounds;
+    //typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace, Kokkos::LaunchBounds<128,2> > team_policy;
+    //typedef Kokkos::TeamPolicy< Kokkos::Schedule<Kokkos::Static> > team_policy;
 
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
@@ -254,9 +259,19 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
  
 
       //for (int ne=0; ne < num_elem; ne++) { 
+#define USE_TEAM
+#ifdef USE_TEAM
+      int numthreadsperteam = 512;
+      typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type member_type;
+      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy ((int)(num_elem/numthreadsperteam)+1, numthreadsperteam );
+      Kokkos::parallel_for (policy, KOKKOS_LAMBDA (member_type team_member) {
+        // Calculate a global thread id
+        int ne = team_member.league_rank () * team_member.team_size () +
+                team_member.team_rank ();
+	if(ne < num_elem) {
+#else
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
-			     //const int elem = elem_map[ne];
-
+#endif
 
 			     //we will need to enable arbitrary guass pts also
 	GPUBasis * BGPU;
@@ -272,11 +287,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	//cn malloc ing this function pointer inside the loop is slow as fuck, we need to move it outside somehow....
 
 
-	//RESFUNC residualfunc_;//cn nomalloc
-	RESFUNC *residualfunc_ = (RESFUNC *)malloc(numeqs*sizeof(RESFUNC));//cn malloc
+	RESFUNC residualfunc_;//cn nomalloc
+	//RESFUNC *residualfunc_ = (RESFUNC *)malloc(numeqs*sizeof(RESFUNC));//cn malloc
 
-	//residualfunc_ = &tusastpetra::residual_heat_test_;//cn nomalloc
-	residualfunc_[0] = &tusastpetra::residual_heat_test_;//cn malloc
+	residualfunc_ = &tusastpetra::residual_heat_test_;//cn nomalloc
+	//residualfunc_[0] = &tusastpetra::residual_heat_test_;//cn malloc
 	
 	//BGPU = new GPUBasisLQuad;  //causes segfaults
 
@@ -306,15 +321,20 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));
-	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);//cn nomalloc
-	    const double val = BGPU->jac*BGPU->wt*residualfunc_[0](BGPU,i,dt,1.,0.,0);//cn malloc
+	    const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);//cn nomalloc
+	    //const double val = BGPU->jac*BGPU->wt*residualfunc_[0](BGPU,i,dt,1.,0.,0);//cn malloc
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
 	    f_1d[lid] += val;
 	  }//i
 	}//gp
-	free((void *) residualfunc_);//cn malloc
+	//free((void *) residualfunc_);//cn malloc
+#ifdef USE_TEAM
+			   }
+#else
+#endif
 	});//parallel_for
+
 	//}//ne
 
 	//delete B;

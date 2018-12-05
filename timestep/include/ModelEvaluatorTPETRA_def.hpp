@@ -259,7 +259,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
  
 
       //for (int ne=0; ne < num_elem; ne++) { 
-#define USE_TEAM
+      //#define USE_TEAM
 #ifdef USE_TEAM
       int numthreadsperteam = 512;
       typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type member_type;

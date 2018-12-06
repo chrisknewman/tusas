@@ -44,7 +44,7 @@ public:
 
   //we could point to the underlying isorropia data instead, in the future
   /// Return a std::vector of elements in the i-th color.
-  std::vector<int> get_color(int i ///<color index
+  std::vector<int> get_color(const int i ///<color index
 			     ){return elem_LIDS_[i];}
   std::vector< std::vector< int > > get_colors(){return elem_LIDS_;}
   /// Return the number of colors.
@@ -79,6 +79,7 @@ private:
 
   //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
   Teuchos::RCP<Teuchos::Time> ts_time_color;
+  //Teuchos::RCP<Teuchos::Time> ts_time_create;
 
 };
 #endif

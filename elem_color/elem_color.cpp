@@ -18,9 +18,11 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
   comm_(comm),
   mesh_(mesh)
 {
+  //ts_time_create= Teuchos::TimeMonitor::getNewTimer("Total Elem Create Color Time");
   //ts_time_elemadj= Teuchos::TimeMonitor::getNewTimer("Total Elem Adj Fill Time");
   ts_time_color= Teuchos::TimeMonitor::getNewTimer("Total Elem Color Time");
   Teuchos::TimeMonitor ElemcolTimer(*ts_time_color);
+
   mesh_->compute_nodal_patch_overlap();
   compute_graph();
   create_colorer();
@@ -34,8 +36,6 @@ elem_color::~elem_color()
 
 void elem_color::compute_graph()
 {
-
-  //will need to get this working in parallel
 
   int mypid = comm_->MyPID();
   if( 0 == mypid )
@@ -100,14 +100,18 @@ void elem_color::create_colorer()
   Teuchos::ParameterList paramList;
   paramList.set("DISTANCE","1","");
 
-  Teuchos::RCP<Isorropia::Epetra::Colorer> elem_colorer_ = rcp(new Isorropia::Epetra::Colorer(  graph_.getConst(), paramList, true));
-
+  //cn this call is very expensive......it seems that it might be mpi-only and not threaded in any way
+  Teuchos::RCP<Isorropia::Epetra::Colorer> elem_colorer_;
+  {
+    //Teuchos::TimeMonitor ElemcreTimer(*ts_time_create);
+    elem_colorer_ = rcp(new Isorropia::Epetra::Colorer(  graph_.getConst(), paramList, true));
+  }
   Teuchos::RCP< Epetra_MapColoring > map_coloring_ = rcp( 
-		      new Epetra_MapColoring(
-					     *(elem_colorer_->Isorropia::Epetra::Colorer::generateRowMapColoring())
-					     )
-		      );
-
+			new Epetra_MapColoring(
+					       *(elem_colorer_->Isorropia::Epetra::Colorer::generateRowMapColoring())
+					       )
+			);
+  
   //map_coloring_->Print(std::cout);
 
   num_color_ = elem_colorer_->numColors();

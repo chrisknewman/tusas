@@ -14,7 +14,9 @@
 #include <Teuchos_Describable.hpp>
 #include <Teuchos_ArrayViewDecl.hpp>
 #include <Teuchos_TimeMonitor.hpp>
-
+#include <Teuchos_ParameterList.hpp>
+#include <Teuchos_XMLParameterListCoreHelpers.hpp>
+#include "Teuchos_AbstractFactoryStd.hpp"
 //#include <Kokkos_View.hpp> 	
 #include <Kokkos_Vector.hpp>
 #include <Kokkos_Core.hpp>
@@ -26,6 +28,20 @@
 
 #include <Thyra_TpetraThyraWrappers.hpp>
 #include <Thyra_VectorBase.hpp>
+#include "Thyra_PreconditionerFactoryBase.hpp"
+#include <Thyra_TpetraLinearOp_decl.hpp>
+
+//#include <MueLu_ParameterListInterpreter_decl.hpp>
+//#include <MueLu_MLParameterListInterpreter_decl.hpp>
+#include <MueLu_ML2MueLuParameterTranslator.hpp>
+//#include <MueLu_HierarchyManager.hpp>
+//#include <MueLu_Hierarchy_decl.hpp> 
+#include <MueLu_CreateTpetraPreconditioner.hpp>
+#include "Thyra_MueLuPreconditionerFactory.hpp"
+
+#include <Stratimikos_MueLuHelpers.hpp>
+
+//#include <string>
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
@@ -81,7 +97,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   //x_overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_DEFAULT );
 
-  x_owned_map_ = Teuchos::rcp(new map_type(*(createOneToOne(x_overlap_map_))));
+  x_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(x_overlap_map_))));
   //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_DEFAULT );
   
   importer_ = Teuchos::rcp(new import_type(x_owned_map_, x_overlap_map_));
@@ -120,6 +136,38 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   x0_ = Teuchos::rcp(new vector_type(x_owned_map_));
   x0_->putScalar(Teuchos::ScalarTraits<scalar_type>::zero());
 
+  bool precon = paramList.get<bool> (TusaspreconNameString);
+  if(precon){
+    // Initialize the graph for W CrsMatrix object
+    W_graph_ = createGraph();
+    P_ = rcp(new matrix_type(W_graph_));
+    //cn we need to fill the matrix for muelu
+    P_->setAllToScalar((scalar_type)1.0); 
+    P_->fillComplete();
+    //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+    
+
+    Teuchos::ParameterList *MLList;
+    MLList = &paramList.sublist ( TusasmlNameString, false );
+    MLList->set("aggregation: type","Uncoupled");
+    //std::string SA="SA";
+    RCP<Teuchos::ParameterList> mueluParamList;
+
+//     mueluParamList->set("verbosity", "low");
+//     mueluParamList->set("max levels", 3);
+//     mueluParamList->set("coarse: max size", 10);
+//     mueluParamList->set("multigrid algorithm", "sa");
+
+
+    mueluParamList = Teuchos::getParametersFromXmlString(MueLu::ML2MueLuParameterTranslator::translate(*MLList));//,SA);
+    //mueluParamList->print(std::cout, 2, true, true );
+    //prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_, *mueluParamList, *mueluParamList);
+    std::string optionsFile = "mueluOptions.xml";    
+    prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_,optionsFile  );
+    //exit(0);
+  }
+
+
   Thyra::ModelEvaluatorBase::InArgsSetup<scalar_type> inArgs;
   inArgs.setModelEvalDescription(this->description());
   inArgs.setSupports(Thyra::ModelEvaluatorBase::IN_ARG_x);
@@ -128,18 +176,18 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   Thyra::ModelEvaluatorBase::OutArgsSetup<scalar_type> outArgs;
   outArgs.setModelEvalDescription(this->description());
   outArgs.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_f);
-  //outArgs.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_W_prec);
+  outArgs.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_W_prec);
   prototypeOutArgs_ = outArgs;
   nominalValues_ = inArgs;
   //nominalValues_.set_x(x0_);;
   nominalValues_.set_x(Thyra::createVector(x0_, x_space_));
   time_=0.;
   
-  ts_time_import= Teuchos::TimeMonitor::getNewTimer("Total Import Time");
-  ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Total Residual Fill Time");
-  //ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
-  ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
-  ts_time_view= Teuchos::TimeMonitor::getNewTimer("Total View Time");
+  ts_time_import= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Import Time");
+  ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Fill Time");
+  ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
+  ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
+  ts_time_view= Teuchos::TimeMonitor::getNewTimer("Tusas: Total View Time");
 
   //HACK
   //cn 8-28-18 currently elem_color takes an epetra_mpi_comm....
@@ -149,6 +197,53 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   init_nox();
 
+}
+
+template<class Scalar>
+Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::createGraph()
+{
+  Teuchos::RCP<crs_graph_type> W_graph;
+
+  int numind = 9*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
+                         //this was causing problems with clang
+  if(3 == mesh_->get_num_dim() ) numind = 27*numeqs_;
+
+  size_t ni = numind;
+
+  W_graph = Teuchos::rcp(new crs_graph_type(x_owned_map_, ni));
+
+  for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+    
+    int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+    for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
+      for (int i=0; i< n_nodes_per_elem; i++) {
+	int row = numeqs_*(
+			   mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
+			   ); 
+	for(int j=0;j < n_nodes_per_elem; j++) {
+	  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
+
+	  for( int k = 0; k < numeqs_; k++ ){
+	    global_ordinal_type row1 = row + k;
+	    global_ordinal_type column1 = column + k;
+	    Teuchos::ArrayView<global_ordinal_type> CV(&column1,1);
+
+	    //W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
+	    //W_graph->insertGlobalIndices(row1, (local_ordinal_type)1, column1);
+	    W_graph->insertGlobalIndices(row1, CV);
+
+	  }
+	}
+      }
+    }
+  }
+
+  W_graph->fillComplete();
+
+  //W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );;
+//   exit(0);
+
+  return W_graph;
 }
 
 template<class Scalar>
@@ -187,6 +282,25 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     uold->doImport(*u_old_,*importer_,Tpetra::INSERT);
   }
 
+  auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>();
+  //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
+  //this will utilize texture memory not available on tesla or earlier gpus
+  Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra = Kokkos::subview (x_view, Kokkos::ALL (), 0);
+  Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
+  Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
+
+  const int blk = 0;
+  const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
+  const int num_color = Elem_col->get_num_color();
+
+  Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
+  for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
+
+  double dt = dt_; //cuda 8 lambdas dont capture private data
+  int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
+
   if (nonnull(outArgs.get_f())){
 
     const RCP<vector_type> f_vec =
@@ -196,31 +310,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     f_vec->scale(0.);
     f_overlap->scale(0.);
     Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
-    const int blk = 0;
-    const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
     //std::cout<<num_color<<" "<<colors[0].size()<<" "<<(Elem_col->get_color(0)).size()<<std::endl;
     //OMPBasisLQuad B;
 
 //     std::string elem_type=mesh_->get_blk_elem_type(blk);
 //     std::string * elem_type_p = &elem_type;
 
-    Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
-    for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
-
-    double dt = dt_; //cuda 8 lambdas dont capture private data
-    int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
-
-    const int num_color = Elem_col->get_num_color();
-
     auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
     auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
-    auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>();
-    auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>();
-    auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>();
     
     auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
-    
-    
+        
 //     auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
 //     auto uold_1d = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
 //     auto x_1d = Kokkos::subview (x_view, Kokkos::ALL (), 0);
@@ -232,9 +332,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
     //this will utilize texture memory not available on tesla or earlier gpus
-    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra = Kokkos::subview (x_view, Kokkos::ALL (), 0);
-    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
-    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
     
@@ -404,20 +501,147 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::INSERT);
     }
   }//get_f
+      
+  if( nonnull(outArgs.get_W_prec() )){
 
-#if 0
-  //cn this will be for a get_W_prec() not a get_W_op()
-  const RCP<Tpetra::CrsMatrix<scalar_type, int> > W =
-    Teuchos::rcp_dynamic_cast<Tpetra::CrsMatrix<scalar_type,int> >(
-      ConverterT::getTpetraOperator(outArgs.get_W_op()),
-      true
-      );
-  if (nonnull(W)) {
-    W->setAllToscalar_type(ST::zero());
-    W->sumIntoGlobalValues(0, tuple<int>(0, 1), tuple<scalar_type>(1.0, 2.0*x[1]));
-    W->sumIntoGlobalValues(1, tuple<int>(0, 1), tuple<scalar_type>(2.0*d_*x[0], -d_));
-  }
-#endif
+    Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
+
+    P_->resumeFill();
+    P_->setAllToScalar((scalar_type)0.0); 
+
+    for(int c = 0; c < num_color; c++){
+      //std::vector<int> elem_map = colors[c];
+      std::vector<int> elem_map = Elem_col->get_color(c);
+
+      const int num_elem = elem_map.size();
+
+
+      Kokkos::vector<int> elem_map_k(num_elem);
+      for(int i = 0; i<num_elem; i++) {
+	elem_map_k[i] = elem_map[i];
+	//std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
+      }
+      //exit(0);
+
+
+      for(int ne = 0; ne < num_elem; ne++){
+
+	GPUBasis * BGPU;
+	
+	GPUBasisLQuad Bq;
+	GPUBasisLHex Bh;//cn allocating here is slow ...dont really want to do this
+	if(4 == n_nodes_per_elem)  {
+	  BGPU = &Bq;
+	}else{
+	  BGPU = &Bh;
+	}
+
+	PREFUNC preconfunc_;
+	preconfunc_ = &tusastpetra::prec_heat_test_;
+
+	const int ngp = BGPU->ngp;
+
+	const int elem = elem_map_k[ne];
+
+	double xx[BASIS_NODES_PER_ELEM];
+	double yy[BASIS_NODES_PER_ELEM];
+	double zz[BASIS_NODES_PER_ELEM];
+	//double uu[BASIS_NODES_PER_ELEM];
+	//double uu_old[BASIS_NODES_PER_ELEM];
+	for(int k = 0; k < n_nodes_per_elem; k++){
+	  
+	  const int nodeid = meshc[elem*n_nodes_per_elem+k];
+	  
+	  xx[k] = x_1dra(nodeid);
+	  yy[k] = y_1dra(nodeid);
+	  zz[k] = z_1dra(nodeid);
+// 	  uu[k] = u_1dra(nodeid); 
+	}//k
+
+	for(int gp=0; gp < ngp; gp++) {//gp
+	  //cn we will want uu in here also....
+	  BGPU->getBasis(gp, xx, yy, zz, NULL, NULL,NULL);
+	  for (int i=0; i< n_nodes_per_elem; i++) {//i
+	    const int lrow = meshc[elem*n_nodes_per_elem+i];
+	    for(int j=0;j < n_nodes_per_elem; j++) {
+	      const int lcol = meshc[elem*n_nodes_per_elem+j];
+	      const double val = BGPU->jac*BGPU->wt*(*preconfunc_)(BGPU,i,j,dt,0.,0);
+	      //cn probably better to fill a view for val and lcol for each column
+	      P_->sumIntoLocalValues(lrow,1,&val,&lcol,false);
+	      
+
+		
+	    }//j
+	    
+	  }//i
+
+	}//gp
+
+
+      }//ne
+
+
+ 
+    }//c
+
+    //cn we may need to do a similar comm here...
+
+    P_->fillComplete();
+
+  }//outArgs.get_W_prec() 
+
+
+  if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
+    Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
+    P_->resumeFill();
+    std::vector<int> node_num_map(mesh_->get_node_num_map());
+    std::map<int,DBCFUNC>::iterator it;
+    for( int k = 0; k < numeqs_; k++ ){
+      for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
+	const int ns_id = it->first;
+	const int num_node_ns = mesh_->get_node_set(ns_id).size();
+  
+	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
+	Kokkos::View <double*> node_set_view("nsv",ns_size);
+	for (size_t i = 0; i < ns_size; ++i) {
+	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+        }
+	
+ 	for ( int j = 0; j < num_node_ns; j++ ){    
+	  const int lrow = node_set_view(j);
+	  int ncol = 0;//P_->getNumEntriesInLocalRow (lrow);
+	  const int * inds;
+	  const Scalar * val;
+	  //std::cout<<lrow<<" "<<ncol<<std::endl;
+	  P_->getLocalRowViewRaw( lrow, ncol, inds, val );
+	  Scalar * vals = new Scalar[ncol];
+	  for(int i = 0; i<ncol; i++){
+	    vals[i] = 0.0;
+	  }
+	  P_->replaceLocalValues(lrow, ncol, vals, inds );
+	  vals[0] = 1.0;
+	  P_->replaceLocalValues(lrow, 1 , vals, &lrow );
+	  delete[] vals;
+	}//j
+
+      }//it
+    }//k
+    
+    P_->fillComplete();
+  }//outArgs.get_W_prec() && dirichletfunc_
+
+  if( nonnull(outArgs.get_W_prec() )){
+
+    MueLu::ReuseTpetraPreconditioner( P_, *prec_  );
+
+    //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+    //P_->print(std::cout);
+    //prec_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+    
+    //exit(0);
+
+  }//outArgs.get_W_prec() 
+
   return;
 }
 
@@ -434,9 +658,13 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   nnewt_=0;
 
   ::Stratimikos::DefaultLinearSolverBuilder builder;
-
   Teuchos::RCP<Teuchos::ParameterList> lsparams =
     Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusaslsNameString)));
+   
+  //::Stratimikos::enableMueLu<local_ordinal_type,global_ordinal_type, node_type>(builder); 
+  using Base = Thyra::PreconditionerFactoryBase<scalar_type>;
+  using Impl = Thyra::MueLuPreconditionerFactory<scalar_type,local_ordinal_type,global_ordinal_type, node_type>;
+  builder.setPreconditioningStrategyFactory(Teuchos::abstractFactoryStd<Base,Impl>(), "MueLu");
 
   builder.setParameterList(lsparams);
 
@@ -485,11 +713,9 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   bool precon = paramList.get<bool> (TusaspreconNameString);
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
   if(precon){
-#if 0
     Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp = thyraModel->create_W_prec();
     nox_group =
       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null));
-#endif
   }
   else {
     nox_group =
@@ -559,6 +785,30 @@ void ModelEvaluatorTPETRA<Scalar>::
 set_W_factory(const Teuchos::RCP<const ::Thyra::LinearOpWithSolveFactoryBase<Scalar> >& W_factory)
 {
   W_factory_ = W_factory;
+}
+
+template<class Scalar>
+Teuchos::RCP< ::Thyra::PreconditionerBase<Scalar> >
+ModelEvaluatorTPETRA<Scalar>::create_W_prec() const
+{
+
+  //cn prec_ is MueLu::TpetraOperator
+  //cn which inherits from Tpetra::Operator
+  //cn need to cast prec_ to a Tpetra::Operator
+
+  Teuchos::RCP<Tpetra::Operator<scalar_type,local_ordinal_type, global_ordinal_type, node_type> > Tprec =
+    Teuchos::rcp_dynamic_cast<Tpetra::Operator<scalar_type,local_ordinal_type, global_ordinal_type, node_type> >(prec_,true);
+
+  const Teuchos::RCP<Thyra::LinearOpBase< scalar_type > > P_op = 
+    Thyra::tpetraLinearOp<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(f_space_,x_space_,Tprec);
+
+  Teuchos::RCP<Thyra::DefaultPreconditioner<Scalar> > prec =
+    Teuchos::rcp(new Thyra::DefaultPreconditioner<Scalar>(Teuchos::null,P_op));
+
+  //prec->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  //exit(0);
+
+  return prec;
 }
 
 template<class scalar_type>
@@ -715,6 +965,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   (*initfunc_)[0] = &heat::init_heat_test_;
   
   // numeqs_ number of variables(equations) 
+
+#if 0
+  dirichletfunc_ = NULL;
+#endif
   dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
   
   //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here

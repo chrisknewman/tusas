@@ -11,6 +11,8 @@
 #ifndef INTERPFLUX_H
 #define INTERPFLUX_H
 
+#include <vector>
+
 // Epetra support
 #include "Epetra_Comm.h"
 

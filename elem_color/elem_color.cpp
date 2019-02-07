@@ -20,7 +20,7 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
 {
   //ts_time_create= Teuchos::TimeMonitor::getNewTimer("Total Elem Create Color Time");
   //ts_time_elemadj= Teuchos::TimeMonitor::getNewTimer("Total Elem Adj Fill Time");
-  ts_time_color= Teuchos::TimeMonitor::getNewTimer("Total Elem Color Time");
+  ts_time_color= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Elem Color Time");
   Teuchos::TimeMonitor ElemcolTimer(*ts_time_color);
 
   mesh_->compute_nodal_patch_overlap();

@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 #ifdef TUSAS_KOKKOS_PRINT_CONFIG
   Kokkos::print_configuration( std::cout , false );
 #endif
-  RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Total Run Time");
+  RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Run Time");
   Teuchos::ParameterList paramList;
 
   // Create a communicator for Epetra objects

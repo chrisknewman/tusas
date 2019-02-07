@@ -1,4 +1,9 @@
 #!/bin/bash
 rm -rf results.e
-mpirun -np 4 $1/tusas --input-file=tusas.xml
+rm -rf decomp
+rm -rf decompscript
+rm -rf nem_spread.inp
+mpirun -np 4 $1/tusas --input-file=tusas.xml --writedecomp
+bash decompscript
+mpirun -np 4 $1/tusas --input-file=tusas.xml --skipdecomp
 ../exodiff -Floor 2.4e-15 Gold.e results.e

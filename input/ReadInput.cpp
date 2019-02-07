@@ -23,7 +23,7 @@
 
 void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &paramList, int mypid )
 {
-  Teuchos::RCP<Teuchos::Time> ts_time_read = Teuchos::TimeMonitor::getNewTimer("Total Read Input Time");
+  Teuchos::RCP<Teuchos::Time> ts_time_read = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Read Input Time");
   Teuchos::TimeMonitor ReadTimer(*ts_time_read);
   //set defaults here
   paramList.set(TusasmeshNameString,"meshes/dendquad300_q.e",TusasmeshDocString);
@@ -68,27 +68,30 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasexaConstitNameString,(bool)false,TusasexaConstitDocString);
 
-  //ML parameters
+  //ML parameters for ML and MueLu
   Teuchos::ParameterList *MLList;
   MLList = &paramList.sublist ( TusasmlNameString, false );
-  ML_Epetra::SetDefaults("SA",paramList.sublist (TusasmlNameString ));
+  if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis"
+     || paramList.get<std::string> (TusasmethodNameString)  == "tpetra") {
+    ML_Epetra::SetDefaults("SA",paramList.sublist (TusasmlNameString ));
     //MLList.set("coarse: max size",(int)128);
-  //    MLList->set("cycle applications",(int)2);
-//     MLList.set("prec type","full-MGV");
-//     MLList.set("smoother: type","Chebyshev");
+    //    MLList->set("cycle applications",(int)2);
+    //     MLList.set("prec type","full-MGV");
+    //     MLList.set("smoother: type","Chebyshev");
     MLList->set("smoother: type","Jacobi");
     MLList->set("smoother: sweeps",(int)2); 
-//     MLList.set("smoother: damping factor", 1.0);
-
-//    MLList.set("coarse: type","Chebyshev");
-//     MLList.set("coarse: type","Jacobi"); 
-//     MLList.set("coarse: sweeps",4);
+    //     MLList.set("smoother: damping factor", 1.0);
     
-//     MLList.set("coarse: damping factor", 1.0);
+    //    MLList.set("coarse: type","Chebyshev");
+    //     MLList.set("coarse: type","Jacobi"); 
+    //     MLList.set("coarse: sweeps",4);
     
-//     MLList.set("ML output",10);
-
-//    MLList->set("PDE equations",1);
+    //     MLList.set("coarse: damping factor", 1.0);
+    
+    //     MLList.set("ML output",10);
+    
+    //    MLList->set("PDE equations",1);
+  }
 
   //Linear solver parameters
   Teuchos::ParameterList *LSList;

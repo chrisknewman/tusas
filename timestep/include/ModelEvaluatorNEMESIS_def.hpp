@@ -159,12 +159,11 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   x0_ = ::Thyra::createMember(x_space_);
   V_S(x0_.ptr(), ST::zero());
 
-  // Initialize the graph for W CrsMatrix object
-  W_graph_ = createGraph();
-  //W_graph_->Print(std::cout);
-
   bool precon = paramList.get<bool> (TusaspreconNameString);
   if(precon){
+    // Initialize the graph for W CrsMatrix object
+    W_graph_ = createGraph();
+    //W_graph_->Print(std::cout);
     P_ = rcp(new Epetra_FECrsMatrix(Copy,*W_graph_));
     prec_ = Teuchos::rcp(new preconditioner<Scalar>(P_, comm_, paramList.sublist("ML")));
   }
@@ -198,10 +197,10 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   nominalValues_.set_x(x0_);
   time_=0.;
 
-  ts_time_import= Teuchos::TimeMonitor::getNewTimer("Total Import Time");
-  ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Total Residual Fill Time");
-  ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Total Preconditioner Fill Time");
-  ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Total Nonlinear Solver Time");
+  ts_time_import= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Import Time");
+  ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Fill Time");
+  ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
+  ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
 
 #ifdef TUSAS_COLOR_CPU
   Elem_col = rcp(new elem_color(comm_,mesh_));

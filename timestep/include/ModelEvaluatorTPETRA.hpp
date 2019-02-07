@@ -17,6 +17,11 @@
 #include <Tpetra_Map_decl.hpp>
 #include <Tpetra_Import.hpp>
 #include <Tpetra_Export.hpp>
+#include <Tpetra_CrsGraph_decl.hpp>
+#include <Tpetra_CrsMatrix_decl.hpp>
+
+//#include <MueLu_HierarchyManager.hpp>
+#include <MueLu_TpetraOperator_fwd.hpp>
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 
@@ -57,6 +62,8 @@ public:
   void set_x0(const Teuchos::ArrayView<const Scalar> &x0);
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const{return nominalValues_;};
+  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
+  Teuchos::RCP< ::Thyra::PreconditionerBase< Scalar > > create_W_prec() const;
 
   void initialize();
   void finalize();
@@ -72,8 +79,11 @@ private:
 
   typedef Tpetra::Vector<>::global_ordinal_type global_ordinal_type;
   typedef Tpetra::Vector<>::local_ordinal_type local_ordinal_type;
-  typedef Tpetra::global_size_t global_size_t;
   typedef Tpetra::Vector<>::node_type node_type;
+  typedef Tpetra::CrsMatrix<scalar_type,local_ordinal_type, global_ordinal_type,
+                         node_type>::crs_graph_type crs_graph_type;
+
+  typedef Tpetra::global_size_t global_size_t;
   typedef Tpetra::Vector<scalar_type, local_ordinal_type,
 			 global_ordinal_type, node_type> vector_type;
   typedef Tpetra::Map<local_ordinal_type, global_ordinal_type, node_type> map_type;
@@ -81,11 +91,14 @@ private:
                          node_type> import_type;
   typedef Tpetra::Export<local_ordinal_type, global_ordinal_type,
                          node_type> export_type;
+  typedef Tpetra::CrsMatrix<scalar_type,local_ordinal_type, global_ordinal_type,
+                         node_type> matrix_type;
 
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
 
+  /// Allocates and returns the Jacobian matrix graph.
+  virtual Teuchos::RCP<crs_graph_type> createGraph(); 
 
-//Teuchos::RCP<Mesh> mesh_;
   Mesh* mesh_;
 
   int update_mesh_data();
@@ -118,6 +131,11 @@ private:
   Teuchos::RCP<vector_type> y_;
   Teuchos::RCP<vector_type> z_;
 
+  Teuchos::RCP<crs_graph_type>  W_graph_;
+  Teuchos::RCP<matrix_type> P_;
+//Teuchos::RCP<MueLu::HierarchyManager<scalar_type,local_ordinal_type, global_ordinal_type, node_type>> mueluFactory_;
+  Teuchos::RCP<MueLu::TpetraOperator<scalar_type,local_ordinal_type, global_ordinal_type, node_type> > prec_;
+  
   int nnewt_;
   double dt_;
   double t_theta_;
@@ -147,6 +165,14 @@ private:
 			    const double &time,
 			    const int &eqn_id);
 
+  typedef double (*PREFUNC)(const GPUBasis *basis, 
+			    const int &i,
+			    const int &j, 
+			    const double &dt_, 
+			    const double &t_theta_, 
+			    const int &eqn_id);
+
+
   typedef double (*DBCFUNC)(const double &x,
 			    const double &y,
 			    const double &z,
@@ -163,7 +189,7 @@ private:
 
   RCP<Teuchos::Time> ts_time_import;
   RCP<Teuchos::Time> ts_time_resfill;
-  //RCP<Teuchos::Time> ts_time_precfill;
+  RCP<Teuchos::Time> ts_time_precfill;
   RCP<Teuchos::Time> ts_time_nsolve;
   RCP<Teuchos::Time> ts_time_view;
 

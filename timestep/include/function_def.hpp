@@ -5005,6 +5005,14 @@ RES_FUNC(residual_eta_kkspp_)
                                     const double &time,\
 				    const int &eqn_id)
 
+#define PRE_FUNC_TPETRA(NAME)  double NAME(const GPUBasis *basis, \
+                                    const int &i,\
+				    const int &j,\
+				    const double &dt_,\
+				    const double &t_theta_,\
+				    const int &eqn_id)
+
+
 namespace tusastpetra {//we can just put the KOKKOS... around the other dbc_zero_ later...
 
 KOKKOS_INLINE_FUNCTION 
@@ -5034,6 +5042,14 @@ RES_FUNC_TPETRA(residual_heat_test_)
 			 + basis->dudx*basis->dphidx[i]
 			 + basis->dudy*basis->dphidy[i]
 			 + basis->dudz*basis->dphidz[i];
+}
+
+PRE_FUNC_TPETRA(prec_heat_test_)
+{
+  return basis->phi[j]/dt_*basis->phi[i]
+			 + basis->dphidx[j]*basis->dphidx[i]
+			 + basis->dphidy[j]*basis->dphidy[i]
+			 + basis->dphidz[j]*basis->dphidz[i];
 }
 
 }//namespace tusastpetra

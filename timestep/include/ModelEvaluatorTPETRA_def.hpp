@@ -238,6 +238,53 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 }
 
 template<class Scalar>
+Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::createOverlapGraph()
+{
+  Teuchos::RCP<crs_graph_type> W_graph;
+
+  int numind = 9*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
+                         //this was causing problems with clang
+  if(3 == mesh_->get_num_dim() ) numind = 27*numeqs_;
+
+  size_t ni = numind;
+
+  W_graph = Teuchos::rcp(new crs_graph_type(x_owned_map_, ni));
+
+  for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+    
+    int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+    for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
+      for (int i=0; i< n_nodes_per_elem; i++) {
+	int row = numeqs_*(
+			   mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
+			   ); 
+	for(int j=0;j < n_nodes_per_elem; j++) {
+	  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
+
+	  for( int k = 0; k < numeqs_; k++ ){
+	    global_ordinal_type row1 = row + k;
+	    global_ordinal_type column1 = column + k;
+	    Teuchos::ArrayView<global_ordinal_type> CV(&column1,1);
+
+	    //W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
+	    //W_graph->insertGlobalIndices(row1, (local_ordinal_type)1, column1);
+	    W_graph->insertGlobalIndices(row1, CV);
+
+	  }
+	}
+      }
+    }
+  }
+
+  W_graph->fillComplete();
+
+  //W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );;
+//   exit(0);
+
+  return W_graph;
+}
+
+template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::set_x0(const Teuchos::ArrayView<const Scalar> &x0_in)
 {
 #ifdef TEUCHOS_DEBUG
@@ -412,6 +459,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);//cn nomalloc
 	    //const double val = BGPU->jac*BGPU->wt*residualfunc_[0](BGPU,i,dt,1.,0.,0);//cn malloc
 
+	    //cn this works because we are filling an overlap map and exporting to a node map below...
+
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
 	    f_1d[lid] += val;
 	  }//i
@@ -560,6 +609,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      const int lcol = meshc[elem*n_nodes_per_elem+j];
 	      const double val = BGPU->jac*BGPU->wt*(*preconfunc_)(BGPU,i,j,dt,0.,0);
 	      //cn probably better to fill a view for val and lcol for each column
+
+
+
+	      //cn we need to do this globally
+	      //cn we need to do this like above, fill a matrix on an overlap map and export to P
+
+	      //cn to do this we need an overlap graph
+
 	      P->sumIntoLocalValues(lrow,1,&val,&lcol,false);
 	      
 
@@ -580,6 +637,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //cn we may need to do a similar comm here...
 
     P_->fillComplete();
+
+    P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+    exit(0);
 
   }//outArgs.get_W_prec() 
 

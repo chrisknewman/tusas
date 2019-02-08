@@ -129,6 +129,8 @@ private:
   /// Allocates and returns the Jacobian matrix graph.
   virtual Teuchos::RCP<crs_graph_type> createGraph(); 
 
+  Teuchos::RCP<crs_graph_type> createOverlapGraph(); 
+
   Mesh* mesh_;
 
   int update_mesh_data();

@@ -71,8 +71,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   //ML parameters for ML and MueLu
   Teuchos::ParameterList *MLList;
   MLList = &paramList.sublist ( TusasmlNameString, false );
-  if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis"
-     || paramList.get<std::string> (TusasmethodNameString)  == "tpetra") {
+  if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis"){
     ML_Epetra::SetDefaults("SA",paramList.sublist (TusasmlNameString ));
     //MLList.set("coarse: max size",(int)128);
     //    MLList->set("cycle applications",(int)2);

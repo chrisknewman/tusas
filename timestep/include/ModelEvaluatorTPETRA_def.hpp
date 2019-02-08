@@ -33,7 +33,7 @@
 
 //#include <MueLu_ParameterListInterpreter_decl.hpp>
 //#include <MueLu_MLParameterListInterpreter_decl.hpp>
-#include <MueLu_ML2MueLuParameterTranslator.hpp>
+//#include <MueLu_ML2MueLuParameterTranslator.hpp>
 //#include <MueLu_HierarchyManager.hpp>
 //#include <MueLu_Hierarchy_decl.hpp> 
 #include <MueLu_CreateTpetraPreconditioner.hpp>
@@ -95,10 +95,10 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 					     comm_
 					     ));
 
-  //x_overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_DEFAULT );
-
-  x_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(x_overlap_map_))));
-  //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_DEFAULT );
+  //x_overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  GreedyTieBreak<local_ordinal_type,global_ordinal_type> greedy_tie_break;
+  x_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(x_overlap_map_,greedy_tie_break))));
+  //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   
   importer_ = Teuchos::rcp(new import_type(x_owned_map_, x_overlap_map_));
   //exporter_ = Teuchos::rcp(new export_type(x_owned_map_, x_overlap_map_));
@@ -146,24 +146,15 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     P_->fillComplete();
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     
+    Teuchos::ParameterList mueluParamList;
 
-    Teuchos::ParameterList *MLList;
-    MLList = &paramList.sublist ( TusasmlNameString, false );
-    MLList->set("aggregation: type","Uncoupled");
-    //std::string SA="SA";
-    RCP<Teuchos::ParameterList> mueluParamList;
-
-//     mueluParamList->set("verbosity", "low");
-//     mueluParamList->set("max levels", 3);
-//     mueluParamList->set("coarse: max size", 10);
-//     mueluParamList->set("multigrid algorithm", "sa");
-
-
-    mueluParamList = Teuchos::getParametersFromXmlString(MueLu::ML2MueLuParameterTranslator::translate(*MLList));//,SA);
-    //mueluParamList->print(std::cout, 2, true, true );
-    //prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_, *mueluParamList, *mueluParamList);
-    std::string optionsFile = "mueluOptions.xml";    
-    prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_,optionsFile  );
+    std::string optionsFile = "mueluOptions.xml";  
+    Teuchos::updateParametersFromXmlFileAndBroadcast(optionsFile,Teuchos::Ptr<Teuchos::ParameterList>(&mueluParamList), *P_->getComm());
+    if( 0 == comm_->getRank() )
+      std::cout << "\nReading MueLu parameter list from the XML file \""<<optionsFile<<"\" ...\n";
+    mueluParamList.print(std::cout, 2, true, true );
+    prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_, mueluParamList, mueluParamList);
+    //prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_,optionsFile  );
     //exit(0);
   }
 
@@ -509,6 +500,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     P_->resumeFill();
     P_->setAllToScalar((scalar_type)0.0); 
 
+    Teuchos::RCP<matrix_type> P = P_;
+
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
       std::vector<int> elem_map = Elem_col->get_color(c);
@@ -567,7 +560,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      const int lcol = meshc[elem*n_nodes_per_elem+j];
 	      const double val = BGPU->jac*BGPU->wt*(*preconfunc_)(BGPU,i,j,dt,0.,0);
 	      //cn probably better to fill a view for val and lcol for each column
-	      P_->sumIntoLocalValues(lrow,1,&val,&lcol,false);
+	      P->sumIntoLocalValues(lrow,1,&val,&lcol,false);
 	      
 
 		
@@ -596,6 +589,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     P_->resumeFill();
     std::vector<int> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
+    Teuchos::RCP<matrix_type> P = P_;
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	const int ns_id = it->first;
@@ -613,14 +607,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  const int * inds;
 	  const Scalar * val;
 	  //std::cout<<lrow<<" "<<ncol<<std::endl;
-	  P_->getLocalRowViewRaw( lrow, ncol, inds, val );
+	  P->getLocalRowViewRaw( lrow, ncol, inds, val );
 	  Scalar * vals = new Scalar[ncol];
 	  for(int i = 0; i<ncol; i++){
 	    vals[i] = 0.0;
 	  }
-	  P_->replaceLocalValues(lrow, ncol, vals, inds );
+	  P->replaceLocalValues(lrow, ncol, vals, inds );
 	  vals[0] = 1.0;
-	  P_->replaceLocalValues(lrow, 1 , vals, &lrow );
+	  P->replaceLocalValues(lrow, 1 , vals, &lrow );
 	  delete[] vals;
 	}//j
 

@@ -140,7 +140,9 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   if(precon){
     // Initialize the graph for W CrsMatrix object
     W_graph_ = createGraph();
+    W_overlap_graph_ = createOverlapGraph();
     P_ = rcp(new matrix_type(W_graph_));
+    P = rcp(new matrix_type(W_overlap_graph_));
     //cn we need to fill the matrix for muelu
     P_->setAllToScalar((scalar_type)1.0); 
     P_->fillComplete();
@@ -231,7 +233,7 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 
   W_graph->fillComplete();
 
-  //W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );;
+  //  W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );;
 //   exit(0);
 
   return W_graph;
@@ -248,12 +250,15 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 
   size_t ni = numind;
 
-  W_graph = Teuchos::rcp(new crs_graph_type(x_owned_map_, ni));
+  W_graph = Teuchos::rcp(new crs_graph_type(x_overlap_map_, ni));
 
   for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
     
     int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
-    for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
+
+    const int num_elem = (*mesh_->get_elem_num_map()).size();
+
+    for (int ne=0; ne < num_elem; ne++) {
       for (int i=0; i< n_nodes_per_elem; i++) {
 	int row = numeqs_*(
 			   mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
@@ -279,7 +284,7 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
   W_graph->fillComplete();
 
   //W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );;
-//   exit(0);
+  //exit(0);
 
   return W_graph;
 }
@@ -538,7 +543,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }//k
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
-      f_vec->doExport(*f_overlap, *exporter_, Tpetra::INSERT);
+      f_vec->doExport(*f_overlap, *exporter_, Tpetra::REPLACE);//REPLACE ???
     }
   }//get_f
       
@@ -549,7 +554,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     P_->resumeFill();
     P_->setAllToScalar((scalar_type)0.0); 
 
-    Teuchos::RCP<matrix_type> P = P_;
+    P->resumeFill();
+    P->setAllToScalar((scalar_type)0.0); 
 
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
@@ -566,7 +572,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //exit(0);
 
 
-      for(int ne = 0; ne < num_elem; ne++){
+      //for(int ne = 0; ne < num_elem; ne++){
+      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
 
 	GPUBasis * BGPU;
 	
@@ -628,20 +635,31 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}//gp
 
 
-      }//ne
+      
+	});//parallel_for
+	//}//ne
 
 
  
     }//c
 
-    //cn we may need to do a similar comm here...
+    //cn we need to do a similar comm here...
+    P->fillComplete();
+
+    //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      P_->doExport(*P, *exporter_, Tpetra::ADD);
+    }
 
     P_->fillComplete();
 
-    P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-    exit(0);
+    //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+    //exit(0);
 
   }//outArgs.get_W_prec() 
+
 
 
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
@@ -649,7 +667,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     P_->resumeFill();
     std::vector<int> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
-    Teuchos::RCP<matrix_type> P = P_;
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	const int ns_id = it->first;
@@ -661,27 +678,37 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 	
- 	for ( int j = 0; j < num_node_ns; j++ ){    
-	  const int lrow = node_set_view(j);
-	  int ncol = 0;//P_->getNumEntriesInLocalRow (lrow);
-	  const int * inds;
-	  const Scalar * val;
-	  //std::cout<<lrow<<" "<<ncol<<std::endl;
-	  P->getLocalRowViewRaw( lrow, ncol, inds, val );
-	  Scalar * vals = new Scalar[ncol];
-	  for(int i = 0; i<ncol; i++){
-	    vals[i] = 0.0;
-	  }
-	  P->replaceLocalValues(lrow, ncol, vals, inds );
-	  vals[0] = 1.0;
-	  P->replaceLocalValues(lrow, 1 , vals, &lrow );
-	  delete[] vals;
-	}//j
+ 	//for ( int j = 0; j < num_node_ns; j++ ){
+	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){    
+	  const int lid_overlap = node_set_view(j);
+	  const int gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
+	  const int lrow = x_owned_map_->getLocalElement(gid_overlap);
+	  //std::cout<<comm_->getRank()<<"  "<<gid_overlap<<" "<<lrow<<" "<<Teuchos::OrdinalTraits<local_ordinal_type>::invalid()<<std::endl;
+	  if(Teuchos::OrdinalTraits<local_ordinal_type>::invalid() != lrow){
+	    int ncol = 0;//P_->getNumEntriesInLocalRow (lrow);
+	    const int * inds;
+	    const Scalar * val;
+	    //std::cout<<lrow<<" "<<ncol<<std::endl;
+	    P_->getLocalRowViewRaw( lrow, ncol, inds, val );
+	    Scalar * vals = new Scalar[ncol];
+	    for(int i = 0; i<ncol; i++){
+	      vals[i] = 0.0;
+	    }
+	    P_->replaceLocalValues(lrow, ncol, vals, inds );
+	    vals[0] = 1.0;
+	    P_->replaceLocalValues(lrow, 1 , vals, &lrow );
+	    delete[] vals;
+	  }//if
+	
+	});//parallel_for
+	//}//j
 
       }//it
     }//k
     
     P_->fillComplete();
+    //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+    //exit(0);
   }//outArgs.get_W_prec() && dirichletfunc_
 
   if( nonnull(outArgs.get_W_prec() )){
@@ -1023,6 +1050,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 #if 0
   dirichletfunc_ = NULL;
 #endif
+  //#if 0
   dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
   
   //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
@@ -1032,6 +1060,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   (*dirichletfunc_)[0][1] = &dbc_zero_;						 
   (*dirichletfunc_)[0][2] = &dbc_zero_;						 
   (*dirichletfunc_)[0][3] = &dbc_zero_;
+  //#endif
 }
 
 template<class scalar_type>

@@ -71,6 +71,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   //ML parameters for ML and MueLu
   Teuchos::ParameterList *MLList;
   MLList = &paramList.sublist ( TusasmlNameString, false );
+
+  //cn right now this does not make sense as the xml file, namely the method string has not been read--need to fix
   if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis"){
     ML_Epetra::SetDefaults("SA",paramList.sublist (TusasmlNameString ));
     //MLList.set("coarse: max size",(int)128);

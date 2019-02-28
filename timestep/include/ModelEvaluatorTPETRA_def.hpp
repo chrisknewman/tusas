@@ -572,8 +572,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //exit(0);
 
 
-      //for(int ne = 0; ne < num_elem; ne++){
-      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+      for(int ne = 0; ne < num_elem; ne++){
+	//Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
 
 	GPUBasis * BGPU;
 	
@@ -636,8 +636,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
       
-	});//parallel_for
-	//}//ne
+	//});//parallel_for
+	}//ne
 
 
  

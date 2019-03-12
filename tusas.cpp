@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright (c) Los Alamos National Security, LLC.  This file is part of the
+//  Copyright (c) Triad National Security, LLC.  This file is part of the
 //  Tusas code (LA-CC-17-001) and is subject to the revised BSD license terms
 //  in the LICENSE file found in the top-level directory of this distribution.
 //
@@ -465,15 +465,15 @@ void print_copyright(const int mypid)
 {
   if(0 == mypid){
     std::cout<<"\n"
-	     <<"Copyright (c) 2016, Los Alamos National Security, LLC"<<"\n"
+	     <<"Copyright (c) 2016, Triad National Security, LLC"<<"\n"
 	     <<"\n"
 	     <<"All rights reserved."<<"\n"
 	     <<"\n"
-	     <<"This software was produced under U.S. Government contract DE-AC52-06NA25396"<<"\n"
-	     <<"for Los Alamos National Laboratory (LANL), which is operated by Los Alamos"<<"\n"
+	     <<"This software was produced under U.S. Government contract 89233218CNA000001"<<"\n"
+	     <<"for Los Alamos National Laboratory (LANL), which is operated by Triad"<<"\n"
 	     <<"National Security, LLC for the U.S. Department of Energy. The U.S. Government"<<"\n"
 	     <<"has rights to use, reproduce, and distribute this software.  NEITHER THE"<<"\n" 
-	     <<"GOVERNMENT NOR LOS ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS"<<"\n" 
+	     <<"GOVERNMENT NOR TRIAD NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS"<<"\n" 
 	     <<"OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If software"<<"\n" 
 	     <<"is modified to produce derivative works, such modified software should be"<<"\n" 
 	     <<"clearly marked, so as not to confuse it with the version available from LANL."<<"\n"
@@ -489,15 +489,15 @@ void print_copyright(const int mypid)
 	     <<"   this list of conditions and the following disclaimer in the documentation"<<"\n" 
 	     <<"   and/or other materials provided with the distribution."<<"\n"
 	     <<"\n"
-	     <<"3. Neither the name of Los Alamos National Security, LLC, Los Alamos National"<<"\n" 
+	     <<"3. Neither the name of Triad National Security, LLC, Los Alamos National"<<"\n" 
 	     <<"   Laboratory, LANL, the U.S. Government, nor the names of its contributors"<<"\n"
 	     <<"   may be used to endorse or promote products derived from this software"<<"\n" 
 	     <<"   without specific prior written permission."<<"\n"
 	     <<"\n"
-	     <<"THIS SOFTWARE IS PROVIDED BY LOS ALAMOS NATIONAL SECURITY, LLC AND"<<"\n" 
+	     <<"THIS SOFTWARE IS PROVIDED BY TRIAD NATIONAL SECURITY, LLC AND"<<"\n" 
 	     <<"CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,"<<"\n" 
 	     <<"BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS"<<"\n" 
-	     <<"FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL LOS ALAMOS"<<"\n"
+	     <<"FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL TRIAD"<<"\n"
 	     <<"NATIONAL SECURITY, LLC OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,"<<"\n" 
 	     <<"INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT"<<"\n" 
 	     <<"NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,"<<"\n" 

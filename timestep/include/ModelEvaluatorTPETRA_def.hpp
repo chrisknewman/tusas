@@ -557,6 +557,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     P->resumeFill();
     P->setAllToScalar((scalar_type)0.0); 
 
+    auto PV = P->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
+
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
       std::vector<int> elem_map = Elem_col->get_color(c);
@@ -569,8 +571,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	elem_map_k[i] = elem_map[i];
 	//std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
       }
-      //exit(0);
-
+      //exit(0);	
 
       //for(int ne = 0; ne < num_elem; ne++){
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
@@ -597,6 +598,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	double zz[BASIS_NODES_PER_ELEM];
 	//double uu[BASIS_NODES_PER_ELEM];
 	//double uu_old[BASIS_NODES_PER_ELEM];
+
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
 	  const int nodeid = meshc[elem*n_nodes_per_elem+k];
@@ -611,21 +613,18 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  //cn we will want uu in here also....
 	  BGPU->getBasis(gp, xx, yy, zz, NULL, NULL,NULL);
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
-	    const int lrow = meshc[elem*n_nodes_per_elem+i];
+	    const local_ordinal_type lrow = meshc[elem*n_nodes_per_elem+i];
 	    for(int j=0;j < n_nodes_per_elem; j++) {
-	      const int lcol = meshc[elem*n_nodes_per_elem+j];
-	      const double val = BGPU->jac*BGPU->wt*(*preconfunc_)(BGPU,i,j,dt,0.,0);
+	      local_ordinal_type lcol[1] = {meshc[elem*n_nodes_per_elem+j]};
+	      scalar_type val[1] = {BGPU->jac*BGPU->wt*(*preconfunc_)(BGPU,i,j,dt,0.,0)};
 	      //cn probably better to fill a view for val and lcol for each column
 
 
+	      //cn this call seems to be what is crashing the cuda version
 
-	      //cn we need to do this globally
-	      //cn we need to do this like above, fill a matrix on an overlap map and export to P
+	      //P->sumIntoLocalValues(lrow,(local_ordinal_type)1,val,lcol,false);
+	      PV.sumIntoValues (lrow, lcol,(local_ordinal_type)1,val);
 
-	      //cn to do this we need an overlap graph
-
-	      P->sumIntoLocalValues(lrow,1,&val,&lcol,false);
-	      
 
 		
 	    }//j
@@ -634,10 +633,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	}//gp
 
-
       
-	});//parallel_for
-	//}//ne
+      });//parallel_for
+    //}//ne
 
 
  
@@ -673,13 +671,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
   
 	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
+
 	Kokkos::View <double*> node_set_view("nsv",ns_size);
+
 	for (size_t i = 0; i < ns_size; ++i) {
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 	
- 	//for ( int j = 0; j < num_node_ns; j++ ){
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){    
+ 	for ( int j = 0; j < num_node_ns; j++ ){
+	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){    
 	  const int lid_overlap = node_set_view(j);
 	  const int gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
 	  const int lrow = x_owned_map_->getLocalElement(gid_overlap);
@@ -700,8 +700,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    delete[] vals;
 	  }//if
 	
-	});//parallel_for
-	//}//j
+	  //});//parallel_for
+	}//j
 
       }//it
     }//k

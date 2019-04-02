@@ -5044,6 +5044,7 @@ RES_FUNC_TPETRA(residual_heat_test_)
 			 + basis->dudz*basis->dphidz[i];
 }
 
+KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
   return basis->phi[j]/dt_*basis->phi[i]

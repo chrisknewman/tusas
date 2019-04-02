@@ -1,4 +1,4 @@
 NODAL VARIABLES all
-	grad0x floor 7.e-12
-	grad0y floor 7.8e-12
+	grad0x floor 1.1e-11
+	grad0y floor 1.33e-11
 	u

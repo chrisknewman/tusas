@@ -663,6 +663,70 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
     P_->resumeFill();
+#if 0
+    P->resumeFill();
+    auto PV = P->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
+    std::vector<int> node_num_map(mesh_->get_node_num_map());
+    std::map<int,DBCFUNC>::iterator it;
+    for( int k = 0; k < numeqs_; k++ ){
+      for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
+	const int ns_id = it->first;
+	const int num_node_ns = mesh_->get_node_set(ns_id).size();
+  
+	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
+
+	Kokkos::View <double*> node_set_view("nsv",ns_size);
+
+	for (size_t i = 0; i < ns_size; ++i) {
+	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+        }
+	
+ 	//for ( int j = 0; j < num_node_ns; j++ ){
+	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){    
+	  const int lid_overlap = node_set_view(j);
+
+	  //cn these next 2 lines will need to be changed for execution on gpu
+	  //const int gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
+	  //const int lrow = x_owned_map_->getLocalElement(gid_overlap);
+
+	  const int lrow = lid_overlap;
+
+	  //std::cout<<comm_->getRank()<<"  "<<gid_overlap<<" "<<lrow<<" "<<Teuchos::OrdinalTraits<local_ordinal_type>::invalid()<<std::endl;
+	  if(Teuchos::OrdinalTraits<local_ordinal_type>::invalid() != lrow){
+	    int ncol = 0;//P_->getNumEntriesInLocalRow (lrow);
+	    auto RV = PV.row(lrow);
+
+	    ncol = RV.length;
+
+	    Scalar * vals = new Scalar[ncol];
+	    local_ordinal_type * cols = new local_ordinal_type[ncol];
+	    for(int i = 0; i<ncol; i++){
+	      vals[i] = 0.0;
+	      cols[i] = RV.colidx(i);
+	    }
+	    
+	    PV.replaceValues(lrow,cols,ncol,vals);
+
+	    vals[0] = 1.0;
+	    PV.replaceValues(lrow,&lrow,1,vals);
+	    delete[] vals;
+	    delete[] cols;
+	  }//if
+	
+	});//parallel_for
+	//}//j
+
+      }//it
+    }//k
+    
+    //cn this comm is probably overly expensive. Better to use a map for the dirichlet nodes rather than entire mesh?
+    P->fillComplete();
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      P_->doExport(*P, *exporter_, Tpetra::REPLACE);
+    }
+#endif
+#if 0
     auto PV = P_->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
     std::vector<int> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
@@ -683,7 +747,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){    
 	  const int lid_overlap = node_set_view(j);
 
+
 	  //cn these next 2 lines will need to be changed for execution on gpu
+	  //cn is it possible to do everything on the overlap matrix P, and communicate to P_ as above?..Probably this is the way
+
 	  const int gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
 	  const int lrow = x_owned_map_->getLocalElement(gid_overlap);
 
@@ -714,7 +781,49 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       }//it
     }//k
-    
+#endif    
+#if 1
+    std::vector<int> node_num_map(mesh_->get_node_num_map());
+    std::map<int,DBCFUNC>::iterator it;
+    for( int k = 0; k < numeqs_; k++ ){
+      for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
+	const int ns_id = it->first;
+	const int num_node_ns = mesh_->get_node_set(ns_id).size();
+  
+	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
+	Kokkos::View <double*> node_set_view("nsv",ns_size);
+	for (size_t i = 0; i < ns_size; ++i) {
+	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+        }
+	
+ 	for ( int j = 0; j < num_node_ns; j++ ){
+	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){    
+	  const int lid_overlap = node_set_view(j);
+	  const int gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
+	  const int lrow = x_owned_map_->getLocalElement(gid_overlap);
+	  //std::cout<<comm_->getRank()<<"  "<<gid_overlap<<" "<<lrow<<" "<<Teuchos::OrdinalTraits<local_ordinal_type>::invalid()<<std::endl;
+	  if(Teuchos::OrdinalTraits<local_ordinal_type>::invalid() != lrow){
+	    int ncol = 0;//P_->getNumEntriesInLocalRow (lrow);
+	    const int * inds;
+	    const Scalar * val;
+	    //std::cout<<lrow<<" "<<ncol<<std::endl;
+	    P_->getLocalRowViewRaw( lrow, ncol, inds, val );
+	    Scalar * vals = new Scalar[ncol];
+	    for(int i = 0; i<ncol; i++){
+	      vals[i] = 0.0;
+	    }
+	    P_->replaceLocalValues(lrow, ncol, vals, inds );
+	    vals[0] = 1.0;
+	    P_->replaceLocalValues(lrow, 1 , vals, &lrow );
+	    delete[] vals;
+	  }//if
+	
+	  //});//parallel_for
+	}//j
+
+      }//it
+    }//k
+#endif
     P_->fillComplete();
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     //exit(0);

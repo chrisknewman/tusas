@@ -383,6 +383,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace, Kokkos::LaunchBounds<128,2> > team_policy;
     //typedef Kokkos::TeamPolicy< Kokkos::Schedule<Kokkos::Static> > team_policy;
 
+    const size_t Neq = 1;
+    Kokkos::View<tusastpetra::res_heat_func_*> rv("rv",Neq);
+    tusastpetra::res_heat_func_ rf1;
+    rv(0) = rf1;
+
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
       std::vector<int> elem_map = Elem_col->get_color(c);
@@ -424,13 +429,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  BGPU = &Bh;
 	}
 
+
+	//tusastpetra::res_heat_func_ rf;
+
 	//cn malloc ing this function pointer inside the loop is slow as fuck, we need to move it outside somehow....
 
 
-	RESFUNC residualfunc_;//cn nomalloc
+	//RESFUNC residualfunc_;//cn nomalloc
 	//RESFUNC *residualfunc_ = (RESFUNC *)malloc(numeqs*sizeof(RESFUNC));//cn malloc
 
-	residualfunc_ = &tusastpetra::residual_heat_test_;//cn nomalloc
+	//residualfunc_ = &tusastpetra::residual_heat_test_;//cn nomalloc
 	//residualfunc_[0] = &tusastpetra::residual_heat_test_;//cn malloc
 	
 	//BGPU = new GPUBasisLQuad;  //causes segfaults
@@ -460,9 +468,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  BGPU->getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
-	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));
-	    const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);//cn nomalloc
+	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
+	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);//cn nomalloc
 	    //const double val = BGPU->jac*BGPU->wt*residualfunc_[0](BGPU,i,dt,1.,0.,0);//cn malloc
+	    const double dz=0.;const int iz =0;
+	    //const double val = BGPU->jac*BGPU->wt*rf(BGPU,i,dt,dz,dz,iz);//cn functor
+	    const double val = BGPU->jac*BGPU->wt*rv(0)(BGPU,i,dt,dz,dz,iz);//cn view
 
 	    //cn this works because we are filling an overlap map and exporting to a node map below...
 

@@ -5033,24 +5033,62 @@ INI_FUNC(init_heat_test_)
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_heat_test_)
 {
-
-//   return (basis.uu-basis.uuold)/dt_*basis.phi[i]
-// 			 + basis.dudx*basis.dphidx[i]
-// 			 + basis.dudy*basis.dphidy[i]
-// 			 + basis.dudz*basis.dphidz[i];
   return (basis->uu-basis->uuold)/dt_*basis->phi[i]
-			 + basis->dudx*basis->dphidx[i]
-			 + basis->dudy*basis->dphidy[i]
-			 + basis->dudz*basis->dphidz[i];
+    + (basis->dudx*basis->dphidx[i]
+       + basis->dudy*basis->dphidy[i]
+       + basis->dudz*basis->dphidz[i]);
 }
+
+class resfunctor {
+public:
+
+  KOKKOS_INLINE_FUNCTION 
+  resfunctor(){};
+
+  KOKKOS_INLINE_FUNCTION 
+  ~resfunctor(){};
+
+//   KOKKOS_INLINE_FUNCTION 
+//   virtual double operator() (const GPUBasis *basis, 
+// 		     const int &i,
+// 		     const double &dt_,
+// 		     const double &t_theta_,
+// 		     const double &time,
+// 			     const int &eqn_id) const = 0;
+
+  KOKKOS_INLINE_FUNCTION 
+  virtual RES_FUNC_TPETRA( operator() ) const = 0;
+};
+
+
+//class res_heat_func_:public resfunctor {
+class res_heat_func_ {
+  
+public:
+
+  KOKKOS_INLINE_FUNCTION 
+  res_heat_func_(){};
+
+  KOKKOS_INLINE_FUNCTION 
+  ~res_heat_func_(){};
+
+  KOKKOS_INLINE_FUNCTION 
+  RES_FUNC_TPETRA( operator() ) const
+  {
+    return (basis->uu-basis->uuold)/dt_*basis->phi[i]
+      + (basis->dudx*basis->dphidx[i]
+	 + basis->dudy*basis->dphidy[i]
+	 + basis->dudz*basis->dphidz[i]);
+  }
+};
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
   return basis->phi[j]/dt_*basis->phi[i]
-			 + basis->dphidx[j]*basis->dphidx[i]
-			 + basis->dphidy[j]*basis->dphidy[i]
-			 + basis->dphidz[j]*basis->dphidz[i];
+    + (basis->dphidx[j]*basis->dphidx[i]
+       + basis->dphidy[j]*basis->dphidy[i]
+       + basis->dphidz[j]*basis->dphidz[i]);
 }
 
 }//namespace tusastpetra

@@ -3510,7 +3510,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 }else if("pfhub2kkspp" == paramList.get<std::string> (TusastestNameString)){
 
-    //same as above with c_alpha and c_beta coupled independently
+    //same as above with c_alpha and c_beta coupled fully
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
@@ -3543,7 +3543,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &pfhub2::init_c_;
-    (*initfunc_)[1] = &pfhub2::init_c_;
+    (*initfunc_)[1] = &pfhub2::init_c_alpha_;
     (*initfunc_)[2] = &pfhub2::init_c_beta_;
     (*initfunc_)[3] = &pfhub2::init_eta_;
     if( 4 == numeta){

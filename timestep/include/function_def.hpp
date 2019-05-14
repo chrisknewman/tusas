@@ -314,6 +314,15 @@ double dgs2_2dtheta_karma_(const double &theta, const double &M, const double &e
   return g;
 }
 
+/*
+@inproceedings{inproceedings,
+author = {Cummins, Sharen and J Quirk, James and Kothe, Douglas},
+year = {2002},
+month = {11},
+pages = {},
+title = {An Exploration of the Phase Field Technique for Microstructure Solidification Modeling}
+}
+*/
 namespace cummins
 {
 
@@ -4542,6 +4551,8 @@ namespace pfhub2 {
 //     return 2. - 12.*eta[eqn_id] + 12.*eta[eqn_id]*eta[eqn_id] + alpha_*4.*aval - 4.*alpha_*eta[eqn_id]*eta[eqn_id];
 //   }
 
+
+
   //void solve_kks(double &c_a, double &c_b, const double c, double phi)//const double phi
   void solve_kks(const double c, double *phi)//const double phi
   {
@@ -4549,8 +4560,12 @@ namespace pfhub2 {
     double delta_c_b = 0.;
     int max_iter = 20;
     double tol = 1.e-8;
-    c_a[0] = c;c_b[0]=c;
     double hh = h(phi);
+    //c_a[0] = (1.-hh)*c;
+    c_a[0] = c - hh*(c_beta_ - c_alpha_);
+
+    //c_b[0]=hh*c;
+    c_b[0]= c - (1.-hh)*(c_beta_ - c_alpha_);
 
     //std::cout<<"-1"<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
     for(int i = 0; i < max_iter; i++){
@@ -4567,6 +4582,7 @@ namespace pfhub2 {
     std::cout<<"###################################  solve_kks falied to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
 	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
     //if(delta_c_a*delta_c_a+delta_c_b*delta_c_b > 0) exit(0);
+    exit(0);
     return;
   }
 
@@ -4819,15 +4835,15 @@ RES_FUNC(residual_c_alpha_)
 
   double test = basis[eqn_id].phi[i];
   double c = basis[0].uu;
-  double c_a = basis[1].uu;
-  double c_b = basis[2].uu;
+  double ca = basis[1].uu;
+  double cb = basis[2].uu;
   double eta_array[N_];
   for( int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off].uu;
   }
 
-  return (h(eta_array)*c_b + (1.- h(eta_array))*c_a - c)*test;
+  return (h(eta_array)*cb + (1.- h(eta_array))*ca - c)*test;
 }
 
 PRE_FUNC(prec_c_alpha_)
@@ -4845,9 +4861,9 @@ PRE_FUNC(prec_c_alpha_)
   RES_FUNC(residual_c_beta_)
 {
   double test = basis[eqn_id].phi[i];
-  double c_a = basis[1].uu;
-  double c_b = basis[2].uu;
-  return (df_betadc(c_b) - df_alphadc(c_a))*test;
+  double ca = basis[1].uu;
+  double cb = basis[2].uu;
+  return (df_betadc(cb) - df_alphadc(ca))*test;
 }
 
 PRE_FUNC(prec_c_beta_)
@@ -4862,13 +4878,13 @@ INI_FUNC(init_c_alpha_)
 {
    double c = init_c_(x,y,z,0);
 
-//   double eta_array[N_];
-//   for( int kk = 0; kk < N_; kk++){
-//     int kk_off = kk + eqn_off_;
-//     eta_array[kk] = init_eta(x,y,z,kk_off);
-//   }
+  double eta_array[N_];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = init_eta_(x,y,z,kk_off);
+  }
 
-   return c;
+  return c-h(eta_array)*(c_beta_ - c_alpha_);
 }
 
 INI_FUNC(init_c_beta_)
@@ -4881,7 +4897,7 @@ INI_FUNC(init_c_beta_)
     eta_array[kk] = init_eta_(x,y,z,kk_off);
   }
 
-  return c*h(eta_array);
+  return c+(1-h(eta_array))*(c_beta_ - c_alpha_);
 }
 
 PPR_FUNC(postproc_c_b_)
@@ -4923,32 +4939,45 @@ RES_FUNC(residual_c_kkspp_)
   double dhdx[2] = {0., 0.};
   double dhdy[2] = {0., 0.};
 
+  double eta_array[N_];
+  double eta_array_old[N_];
   for( int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
-    dhdx[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudx;
-    dhdx[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddx;
-    dhdy[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudy;
-    dhdy[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddy;
+//     dhdx[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudx;
+//     dhdx[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddx;
+//     dhdy[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudy;
+//     dhdy[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddy;
+    eta_array[kk] = basis[kk_off].uu;
+    eta_array_old[kk] = basis[kk_off].uuold;
   }
 
   double ct = (c[0]-c[1])/dt_*test;
 
-  double c_a[2] = {basis[1].uu, basis[1].uuold};
-  double c_b[2] = {basis[2].uu, basis[2].uuold};
+//   double ca[2] = {basis[1].uu, basis[1].uuold};
+//   double cb[2] = {basis[2].uu, basis[2].uuold};
 
-  double DfDc[2] = {c_b[0] - c_a[0],
-		    c_b[1] - c_a[1]};
+//   double DfDc[2] = {cb[0] - ca[0],
+// 		    cb[1] - ca[1]};
 
   double D2fDc2 = 1.;
   //double D2fDc2 = 1.*d2fdc2();
 
-  double dfdx[2] = {M_*(DfDc[0]*dhdx[0] + D2fDc2*dcdx[0]),
-		    M_*(DfDc[1]*dhdx[1] + D2fDc2*dcdx[1])};
-  double dfdy[2] = {M_*(DfDc[0]*dhdy[0] + D2fDc2*dcdy[0]),
-		    M_*(DfDc[1]*dhdy[1] + D2fDc2*dcdy[1])};
+//   double dfdx[2] = {M_*(DfDc[0]*dhdx[0] + D2fDc2*dcdx[0]),
+// 		    M_*(DfDc[1]*dhdx[1] + D2fDc2*dcdx[1])};]
+//   double dfdy[2] = {M_*(DfDc[0]*dhdy[0] + D2fDc2*dcdy[0]),
+// 		    M_*(DfDc[1]*dhdy[1] + D2fDc2*dcdy[1])};
 
-  double divgradc[2] = {dfdx[0]*dtestdx + dfdy[0]*dtestdy,
-			dfdx[1]*dtestdx + dfdy[1]*dtestdy};
+//   double divgradc[2] = {dfdx[0]*dtestdx + dfdy[0]*dtestdy,
+// 			dfdx[1]*dtestdx + dfdy[1]*dtestdy};
+
+  //double eta[1] =  {basis[3].uu};
+
+  double divgradc[2] = { M_*((1.-h(eta_array))*basis[1].dudx + h(eta_array)*basis[2].dudx)*dtestdx
+			+M_*((1.-h(eta_array))*basis[1].dudy + h(eta_array)*basis[2].dudy)*dtestdy,
+			 M_*((1.-h(eta_array_old))*basis[1].duolddx + h(eta_array_old)*basis[2].duolddx)*dtestdx
+			+M_*((1.-h(eta_array_old))*basis[1].duolddy + h(eta_array_old)*basis[2].duolddy)*dtestdy
+			};
+
 
   return ct + t_theta_*divgradc[0] + (1.-t_theta_)*divgradc[1];
 }
@@ -4979,11 +5008,13 @@ RES_FUNC(residual_eta_kkspp_)
 
   double etat = (eta[0]-eta[1])/dt_*test;
 
-  double c_a[2] = {basis[1].uu, basis[1].uuold};
-  double c_b[2] = {basis[2].uu, basis[2].uuold};
+  double ca[2] = {basis[1].uu, basis[1].uuold};
+  double cb[2] = {basis[2].uu, basis[2].uuold};
 
-  double F[2] = {f_beta(c_b[0])-f_alpha(c_a[0]) - (c_b[0] - c_a[0])*df_betadc(c_b[0]),
-		 f_beta(c_b[1])-f_alpha(c_a[1]) - (c_b[1] - c_a[1])*df_betadc(c_b[1])};
+//   double F[2] = {f_beta(c[0])-f_alpha(c[0]),
+// 		 f_beta(c[1])-f_alpha(c[1])};
+  double F[2] = {f_beta(cb[0])-f_alpha(ca[0]) - (cb[0] - ca[0])*df_betadc(cb[0]),
+ 		 f_beta(cb[1])-f_alpha(ca[1]) - (cb[1] - ca[1])*df_betadc(cb[1])};
 
   int k = eqn_id - eqn_off_;
   double dfdeta[2] = {L_*(F[0]*dhdeta(eta[0]) + w_*dgdeta(eta_array,k))*test,
@@ -5092,5 +5123,30 @@ PRE_FUNC_TPETRA(prec_heat_test_)
 }
 
 }//namespace tusastpetra
+
+namespace puga
+{
+
+RES_FUNC(residual_)
+{
+  return 0.;
+}
+
+PRE_FUNC(prec_)
+{
+  return 0.;
+}
+
+INI_FUNC(init_)
+{
+  return 0.;
+}
+
+PARAM_FUNC(param_)
+{
+  //delta_ = plist->get<double>("delta");
+}
+
+}//namespace puga
 
 #endif

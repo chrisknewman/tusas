@@ -2317,6 +2317,29 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     paramfunc_ = cummins::param_;
 
+  }else if("puga" == paramList.get<std::string> (TusastestNameString)){
+    
+    numeqs_ = 1;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &puga::residual_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &puga::prec_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &puga::init_;
+    //(*initfunc_)[0] = &cummins::init_heat_const_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+    paramfunc_ = puga::param_;
+
   }else if("heat" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;
@@ -3510,7 +3533,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 }else if("pfhub2kkspp" == paramList.get<std::string> (TusastestNameString)){
 
-    //same as above with c_alpha and c_beta coupled independently
+    //same as above with c_alpha and c_beta coupled fully
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
@@ -3543,7 +3566,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &pfhub2::init_c_;
-    (*initfunc_)[1] = &pfhub2::init_c_;
+    (*initfunc_)[1] = &pfhub2::init_c_alpha_;
     (*initfunc_)[2] = &pfhub2::init_c_beta_;
     (*initfunc_)[3] = &pfhub2::init_eta_;
     if( 4 == numeta){

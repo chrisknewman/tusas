@@ -4963,7 +4963,7 @@ RES_FUNC(residual_c_kkspp_)
   //double D2fDc2 = 1.*d2fdc2();
 
 //   double dfdx[2] = {M_*(DfDc[0]*dhdx[0] + D2fDc2*dcdx[0]),
-// 		    M_*(DfDc[1]*dhdx[1] + D2fDc2*dcdx[1])};
+// 		    M_*(DfDc[1]*dhdx[1] + D2fDc2*dcdx[1])};]
 //   double dfdy[2] = {M_*(DfDc[0]*dhdy[0] + D2fDc2*dcdy[0]),
 // 		    M_*(DfDc[1]*dhdy[1] + D2fDc2*dcdy[1])};
 
@@ -5123,5 +5123,30 @@ PRE_FUNC_TPETRA(prec_heat_test_)
 }
 
 }//namespace tusastpetra
+
+namespace puga
+{
+
+RES_FUNC(residual_)
+{
+  return 0.;
+}
+
+PRE_FUNC(prec_)
+{
+  return 0.;
+}
+
+INI_FUNC(init_)
+{
+  return 0.;
+}
+
+PARAM_FUNC(param_)
+{
+  //delta_ = plist->get<double>("delta");
+}
+
+}//namespace puga
 
 #endif

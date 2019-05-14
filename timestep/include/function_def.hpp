@@ -5043,10 +5043,10 @@ class resfunctor {
 public:
 
   KOKKOS_INLINE_FUNCTION 
-  resfunctor(){};
+  resfunctor(){}
 
   KOKKOS_INLINE_FUNCTION 
-  ~resfunctor(){};
+  ~resfunctor(){}
 
 //   KOKKOS_INLINE_FUNCTION 
 //   virtual double operator() (const GPUBasis *basis, 
@@ -5057,7 +5057,7 @@ public:
 // 			     const int &eqn_id) const = 0;
 
   KOKKOS_INLINE_FUNCTION 
-  virtual RES_FUNC_TPETRA( operator() ) const = 0;
+  virtual RES_FUNC_TPETRA( operator() ) const {return 0.;}// const = 0;
 };
 
 
@@ -5067,10 +5067,10 @@ class res_heat_func_ {
 public:
 
   KOKKOS_INLINE_FUNCTION 
-  res_heat_func_(){};
+  res_heat_func_(){}
 
   KOKKOS_INLINE_FUNCTION 
-  ~res_heat_func_(){};
+  ~res_heat_func_(){}
 
   KOKKOS_INLINE_FUNCTION 
   RES_FUNC_TPETRA( operator() ) const

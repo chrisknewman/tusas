@@ -8,8 +8,8 @@
 
 
 
-#ifndef _NOX_EXAMPLE_EPETRA_LINEAR_BASIS_H
-#define _NOX_EXAMPLE_EPETRA_LINEAR_BASIS_H
+#ifndef BASIS_H
+#define BASIS_H
 	
 #include <Kokkos_Core.hpp>
 

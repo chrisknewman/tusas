@@ -383,17 +383,27 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace, Kokkos::LaunchBounds<128,2> > team_policy;
     //typedef Kokkos::TeamPolicy< Kokkos::Schedule<Kokkos::Static> > team_policy;
 
-    const size_t Neq = 1;
-    Kokkos::View<tusastpetra::res_heat_func_*> rv("rv",Neq);
-    tusastpetra::res_heat_func_ rf1;
-    rv(0) = rf1;
+    //the problem here is that polymorphism is unsupported...... and View requires a type with a concrete constructor
+    //const size_t Neq = numeqs_;
+    //Kokkos::View<tusastpetra::res_heat_func_*> rv("rv",Neq);
+    //tusastpetra::res_heat_func_ rf1;
+    //rv(0) = rf1;
+
+#ifdef KOKKOS_HAVE_CUDA
+    RESFUNC * h_rf;
+    RESFUNC * d_rf;
+    h_rf = (RESFUNC*)malloc(numeqs_*sizeof(RESFUNC));
+    cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
+    cudaMemcpyFromSymbol( &h_rf[0], tusastpetra::residual_heat_test_dp_, sizeof(RESFUNC));
+
+    cudaMemcpy(d_rf,h_rf,numeqs_*sizeof(RESFUNC),cudaMemcpyHostToDevice);
+#endif
 
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
       std::vector<int> elem_map = Elem_col->get_color(c);
 
       const int num_elem = elem_map.size();
-
 
       Kokkos::vector<int> elem_map_k(num_elem);
       for(int i = 0; i<num_elem; i++) {
@@ -402,7 +412,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }
       //exit(0);
  
-
       //for (int ne=0; ne < num_elem; ne++) { 
       //#define USE_TEAM
 #ifdef USE_TEAM
@@ -468,12 +477,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  BGPU->getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
+#ifdef KOKKOS_HAVE_CUDA
+	    const double val = BGPU->jac*BGPU->wt*(d_rf[0](BGPU,i,dt,1.,0.,0));
+#else
+	    const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
+#endif
 	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
 	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);//cn nomalloc
 	    //const double val = BGPU->jac*BGPU->wt*residualfunc_[0](BGPU,i,dt,1.,0.,0);//cn malloc
-	    const double dz=0.;const int iz =0;
-	    //const double val = BGPU->jac*BGPU->wt*rf(BGPU,i,dt,dz,dz,iz);//cn functor
-	    const double val = BGPU->jac*BGPU->wt*rv(0)(BGPU,i,dt,dz,dz,iz);//cn view
+	    //const double dz=0.;const int iz =0;
+	    //const double val = BGPU->jac*BGPU->wt*rf1(BGPU,i,dt,dz,dz,iz);//cn functor
+	    //const double val = BGPU->jac*BGPU->wt*rv(0)(BGPU,i,dt,dz,dz,iz);//cn view
 
 	    //cn this works because we are filling an overlap map and exporting to a node map below...
 
@@ -493,6 +507,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	//delete B;
 
     }//c 
+
+#ifdef KOKKOS_HAVE_CUDA
+  cudaFree(d_rf);
+  free(h_rf);
+#endif
+
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
@@ -1166,7 +1186,12 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 {
+  // numeqs_ number of variables(equations) 
   numeqs_ = 1;
+
+  residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+  //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
+  (*residualfunc_)[0] = tusastpetra::residual_heat_test_dp_;
 
   varnames_ = new std::vector<std::string>(numeqs_);
   (*varnames_)[0] = "u";
@@ -1174,12 +1199,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   initfunc_ = new  std::vector<INITFUNC>(numeqs_);
   (*initfunc_)[0] = &heat::init_heat_test_;
   
-  // numeqs_ number of variables(equations) 
 
-#if 0
-  dirichletfunc_ = NULL;
-#endif
-  //#if 0
   dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
   
   //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
@@ -1189,7 +1209,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   (*dirichletfunc_)[0][1] = &dbc_zero_;						 
   (*dirichletfunc_)[0][2] = &dbc_zero_;						 
   (*dirichletfunc_)[0][3] = &dbc_zero_;
-  //#endif
+
 }
 
 template<class scalar_type>

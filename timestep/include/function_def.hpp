@@ -5069,6 +5069,11 @@ RES_FUNC_TPETRA(residual_heat_test_)
        + basis->dudy*basis->dphidy[i]
        + basis->dudz*basis->dphidz[i]);
 }
+#ifdef KOKKOS_HAVE_CUDA
+__device__ RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
+#else
+RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
+#endif
 
 class resfunctor {
 public:

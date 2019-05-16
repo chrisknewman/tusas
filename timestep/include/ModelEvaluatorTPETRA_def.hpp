@@ -389,14 +389,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //tusastpetra::res_heat_func_ rf1;
     //rv(0) = rf1;
 
-#ifdef KOKKOS_HAVE_CUDA
     RESFUNC * h_rf;
-    RESFUNC * d_rf;
     h_rf = (RESFUNC*)malloc(numeqs_*sizeof(RESFUNC));
+#ifdef KOKKOS_HAVE_CUDA
+    RESFUNC * d_rf;
     cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
     cudaMemcpyFromSymbol( &h_rf[0], tusastpetra::residual_heat_test_dp_, sizeof(RESFUNC));
 
     cudaMemcpy(d_rf,h_rf,numeqs_*sizeof(RESFUNC),cudaMemcpyHostToDevice);
+#else
+    //it seems that evaluating the function via pointer ie h_rf[0] is way faster that evaluation via (*residualfunc_)[0]
+    h_rf = &(*residualfunc_)[0];
 #endif
 
     for(int c = 0; c < num_color; c++){
@@ -480,9 +483,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #ifdef KOKKOS_HAVE_CUDA
 	    const double val = BGPU->jac*BGPU->wt*(d_rf[0](BGPU,i,dt,1.,0.,0));
 #else
-	    const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
-#endif
+	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
+	    const double val = BGPU->jac*BGPU->wt*(h_rf[0](BGPU,i,dt,1.,0.,0));
+#endif
 	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);//cn nomalloc
 	    //const double val = BGPU->jac*BGPU->wt*residualfunc_[0](BGPU,i,dt,1.,0.,0);//cn malloc
 	    //const double dz=0.;const int iz =0;

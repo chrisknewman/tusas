@@ -349,8 +349,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
   for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
 
-  double dt = dt_; //cuda 8 lambdas dont capture private data
-  int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
+  const double dt = dt_; //cuda 8 lambdas dont capture private data
+  const double t_theta = t_theta_; //cuda 8 lambdas dont capture private data
+  const double time = time_; //cuda 8 lambdas dont capture private data
+  const int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
 
   if (nonnull(outArgs.get_f())){
 
@@ -454,18 +456,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  BGPU = &Bh;
 	}
 
-
-	//tusastpetra::res_heat_func_ rf;
-
-	//cn malloc ing this function pointer inside the loop is slow as fuck, we need to move it outside somehow....
-
-
-	//RESFUNC residualfunc_;//cn nomalloc
-	//RESFUNC *residualfunc_ = (RESFUNC *)malloc(numeqs*sizeof(RESFUNC));//cn malloc
-
-	//residualfunc_ = &tusastpetra::residual_heat_test_;//cn nomalloc
-	//residualfunc_[0] = &tusastpetra::residual_heat_test_;//cn malloc
-	
 	//BGPU = new GPUBasisLQuad;  //causes segfaults
 
 	const int ngp = BGPU->ngp;
@@ -475,8 +465,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];
 	double zz[BASIS_NODES_PER_ELEM];
+
+	//these need to be sized numeqs_*BASIS_NODES_PER_ELEM
+	//and we need to order them some way...
 	double uu[BASIS_NODES_PER_ELEM];
 	double uu_old[BASIS_NODES_PER_ELEM];
+
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
 	  //const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
@@ -485,35 +479,40 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
 	  zz[k] = z_1dra(nodeid);
-	  uu[k] = u_1dra(nodeid); 
-	  uu_old[k] = uold_1dra(nodeid);
+
+	//these need to be sized numeqs_*BASIS_NODES_PER_ELEM
+	//and we need to order them some way...
+// 	  for( int neq = 0; neq < numeqs_; neq++ ){
+	    uu[k] = u_1dra(nodeid); 
+	    uu_old[k] = uold_1dra(nodeid);
+// 	    uu[k] = u_1dra(numeqs_*nodeid+neq); 
+// 	    uu_old[k] = uold_1dra(numeqs_*nodeid+neq);
+// 	  }//neq
 	}//k
 
 	for(int gp=0; gp < ngp; gp++) {//gp
-	  BGPU->getBasis(gp, xx, yy, zz, uu, uu_old,NULL);
+
+	  //we need a basis object that stores all equations here..
+	  BGPU->getBasis(gp, xx, yy, zz, &uu[0], &uu_old[0],NULL);
+
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
+	    const int k = 0;
+
 #ifdef KOKKOS_HAVE_CUDA
-	    const double val = BGPU->jac*BGPU->wt*(d_rf[0](BGPU,i,dt,1.,0.,0));
+	    const double val = BGPU->jac*BGPU->wt*(d_rf[0](BGPU,i,dt,t_theta,time,k));
 	    //const double val = BGPU->jac*BGPU->wt*((td_rf[])(BGPU,i,dt,1.,0.,0));
 #else
 	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	    const double val = BGPU->jac*BGPU->wt*(h_rf[0](BGPU,i,dt,1.,0.,0));
+	    const double val = BGPU->jac*BGPU->wt*(h_rf[0](BGPU,i,dt,t_theta,time,k));
 #endif
-	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)(BGPU,i,dt,1.,0.,0);//cn nomalloc
-	    //const double val = BGPU->jac*BGPU->wt*residualfunc_[0](BGPU,i,dt,1.,0.,0);//cn malloc
-	    //const double dz=0.;const int iz =0;
-	    //const double val = BGPU->jac*BGPU->wt*rf1(BGPU,i,dt,dz,dz,iz);//cn functor
-	    //const double val = BGPU->jac*BGPU->wt*rv(0)(BGPU,i,dt,dz,dz,iz);//cn view
-
 	    //cn this works because we are filling an overlap map and exporting to a node map below...
 
 	    const int lid = meshc[elem*n_nodes_per_elem+i];
 	    f_1d[lid] += val;
 	  }//i
 	}//gp
-	//free((void *) residualfunc_);//cn malloc
 #ifdef USE_TEAM
 			   }
 #else
@@ -580,19 +579,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 #ifdef TUSAS_RUN_ON_CPU	
  	for ( int j = 0; j < num_node_ns; j++ ){
-	  const int lid = node_set_view(j);//could use Kokkos::vector here...
-	  //const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,0.);
-	  const double val1 = (it->second)(0.,0.,0.,0.);
-	  const double val = u_1dra(numeqs_*lid + k)  - val1;
-	  f_1d(numeqs_*lid + k) = val;
-	}//j
 #else
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
+#endif
 			       const int lid = node_set_view(j);//could use Kokkos::vector here...
-			       const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,0.);
-			       const double val = u_1dra(lid)  - val1;
-			       f_1d(lid) = val;
-	});
+
+#ifdef TUSAS_RUN_ON_CPU	
+			       const double val1 = (it->second)(0.,0.,0.,time);
+#else
+			       const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,time);
+#endif
+			       const double val = u_1dra(numeqs_*lid + k)  - val1;
+			       f_1d(numeqs_*lid + k) = val;
+#ifdef TUSAS_RUN_ON_CPU	
+			     }//j
+#else
+			     });//parallel_for
 #endif
       }//it
     }//k
@@ -674,7 +676,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    const local_ordinal_type lrow = meshc[elem*n_nodes_per_elem+i];
 	    for(int j=0;j < n_nodes_per_elem; j++) {
 	      local_ordinal_type lcol[1] = {meshc[elem*n_nodes_per_elem+j]};
-	      scalar_type val[1] = {BGPU->jac*BGPU->wt*(*preconfunc_)(BGPU,i,j,dt,0.,0)};
+	      const int k = 0;
+	      scalar_type val[1] = {BGPU->jac*BGPU->wt*(*preconfunc_)(BGPU,i,j,dt,t_theta,k)};
 	      //cn probably better to fill a view for val and lcol for each column
 
 

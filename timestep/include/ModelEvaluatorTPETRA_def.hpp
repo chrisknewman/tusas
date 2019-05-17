@@ -43,6 +43,14 @@
 
 //#include <string>
 
+// #ifdef KOKKOS_HAVE_CUDA
+// #include <thrust/device_vector.h>
+// #endif
+
+
+#define TUSAS_RUN_ON_CPU
+
+
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
 modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
@@ -397,6 +405,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     cudaMemcpyFromSymbol( &h_rf[0], tusastpetra::residual_heat_test_dp_, sizeof(RESFUNC));
 
     cudaMemcpy(d_rf,h_rf,numeqs_*sizeof(RESFUNC),cudaMemcpyHostToDevice);
+
+    //cn need to cast to raw_ptr
+//     thrust::device_vector<RESFUNC *> td_rf(numeqs_);
+//     td_rf[0]=&tusastpetra::residual_heat_test_dp_;
+
 #else
     //it seems that evaluating the function via pointer ie h_rf[0] is way faster that evaluation via (*residualfunc_)[0]
     h_rf = &(*residualfunc_)[0];
@@ -482,6 +495,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 #ifdef KOKKOS_HAVE_CUDA
 	    const double val = BGPU->jac*BGPU->wt*(d_rf[0](BGPU,i,dt,1.,0.,0));
+	    //const double val = BGPU->jac*BGPU->wt*((td_rf[])(BGPU,i,dt,1.,0.,0));
 #else
 	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
@@ -564,16 +578,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 
-	
- 	//for ( int j = 0; j < num_node_ns; j++ ){
+#ifdef TUSAS_RUN_ON_CPU	
+ 	for ( int j = 0; j < num_node_ns; j++ ){
+	  const int lid = node_set_view(j);//could use Kokkos::vector here...
+	  //const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,0.);
+	  const double val1 = (it->second)(0.,0.,0.,0.);
+	  const double val = u_1dra(numeqs_*lid + k)  - val1;
+	  f_1d(numeqs_*lid + k) = val;
+	}//j
+#else
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
 			       const int lid = node_set_view(j);//could use Kokkos::vector here...
 			       const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,0.);
 			       const double val = u_1dra(lid)  - val1;
 			       f_1d(lid) = val;
 	});
-			       //}//j
-
+#endif
       }//it
     }//k
     {
@@ -608,8 +628,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }
       //exit(0);	
 
-      //for(int ne = 0; ne < num_elem; ne++){
+#ifdef TUSAS_RUN_ON_CPU	
+      for(int ne = 0; ne < num_elem; ne++){
+#else
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+#endif
 
 	GPUBasis * BGPU;
 	
@@ -669,8 +692,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}//gp
 
       
+#ifdef TUSAS_RUN_ON_CPU	
+      }//ne
+#else
       });//parallel_for
-    //}//ne
+#endif
 
 
  
@@ -817,7 +843,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }//it
     }//k
 #endif    
-#if 1
+#ifdef TUSAS_RUN_ON_CPU
     std::vector<int> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     for( int k = 0; k < numeqs_; k++ ){
@@ -858,6 +884,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       }//it
     }//k
+#else
 #endif
     P_->fillComplete();
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
@@ -1177,9 +1204,11 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
       const double x = mesh_->get_x(lid_overlap);
       const double y = mesh_->get_y(lid_overlap);
       const double z = mesh_->get_z(lid_overlap);
-  
-      //uv[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+#ifdef TUSAS_RUN_ON_CPU
+      u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+#else
       u_1d[numeqs_*nn+k] = tusastpetra::init_heat_test_(x,y,z,k);
+#endif
     }
 
 
@@ -1201,7 +1230,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   (*varnames_)[0] = "u";
 
   initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-  (*initfunc_)[0] = &heat::init_heat_test_;
+  (*initfunc_)[0] = &tusastpetra::init_heat_test_;
   
 
   dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);

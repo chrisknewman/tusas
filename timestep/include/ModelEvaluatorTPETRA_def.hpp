@@ -399,11 +399,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //tusastpetra::res_heat_func_ rf1;
     //rv(0) = rf1;
 
+
     RESFUNC * h_rf;
     h_rf = (RESFUNC*)malloc(numeqs_*sizeof(RESFUNC));
+
 #ifdef KOKKOS_HAVE_CUDA
     RESFUNC * d_rf;
     cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
+
+    //cn this will need to be done for each equation
     cudaMemcpyFromSymbol( &h_rf[0], tusastpetra::residual_heat_test_dp_, sizeof(RESFUNC));
 
     cudaMemcpy(d_rf,h_rf,numeqs_*sizeof(RESFUNC),cudaMemcpyHostToDevice);
@@ -416,6 +420,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //it seems that evaluating the function via pointer ie h_rf[0] is way faster that evaluation via (*residualfunc_)[0]
     h_rf = &(*residualfunc_)[0];
 #endif
+
 
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
@@ -445,7 +450,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
 #endif
 
+			     //We could probably set this in a cuda array as we do with d_rf
+			     //at the block level, and could discern different
+			     //element types as below
 			     //we will need to enable arbitrary guass pts also
+			     //this is kind of an issue because allocation on device is a pain
+			     //right now we hardcode array lengths 
+			     //we could then then pass an int to constructor and code different loops
+			     //based on number of gp???
+			     //easiest hack approach is to have an individual basis for number of gps
+			     //ie GPUBasisLQuad4, GPUBasisLQuad8,...
 	GPUBasis * BGPU;
 	
 	GPUBasisLQuad Bq;
@@ -459,6 +473,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	//BGPU = new GPUBasisLQuad;  //causes segfaults
 
 	const int ngp = BGPU->ngp;
+
+
 
 	const int elem = elem_map_k[ne];
 

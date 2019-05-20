@@ -2297,6 +2297,9 @@ public:
 						   const double u[BASIS_NODES_PER_ELEM],
 						   const double uold[BASIS_NODES_PER_ELEM],
 						   const double uoldold[BASIS_NODES_PER_ELEM]) {};
+  TUSAS_CUDA_CALLABLE_MEMBER virtual void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
+						   const double y[BASIS_NODES_PER_ELEM],  
+						   const double z[BASIS_NODES_PER_ELEM]) {};
 
   
     /// Access number of Gauss points.
@@ -2403,6 +2406,9 @@ protected:
   /// Access the number of Gauss weights.
   double nwt[BASIS_NODES_PER_ELEM];
 
+  /// difference in nodal coordinates
+  double nodaldiff[36];//12 for lquad, 36 for lhex
+
 
 };
 
@@ -2450,10 +2456,30 @@ public:
       dphidetanew[gp][1]=-(1.0+xi[gp])/4.0;
       dphidetanew[gp][2]= (1.0+xi[gp])/4.0;
       dphidetanew[gp][3]= (1.0-xi[gp])/4.0;
-    }    
+    }  
   }
   
   TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLQuad(){}
+
+  TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
+						   const double y[BASIS_NODES_PER_ELEM],  
+						   const double z[BASIS_NODES_PER_ELEM]) {
+    nodaldiff[0] = x[1]-x[0];
+    nodaldiff[1] = x[3]-x[0];
+    nodaldiff[2] = y[1]-y[0];
+    nodaldiff[3] = y[3]-y[0];
+    nodaldiff[4] = z[1]-z[0];
+    nodaldiff[5] = z[3]-z[0];
+
+    nodaldiff[6] = x[2]-x[3];
+    nodaldiff[7] = x[2]-x[1];
+    nodaldiff[8] = y[2]-y[3];
+    nodaldiff[9] = y[2]-y[1];
+    nodaldiff[10] = z[2]-z[3];
+    nodaldiff[11] = z[2]-z[1];
+
+}
+
   TUSAS_CUDA_CALLABLE_MEMBER void getBasis(const int gp,
 					   const double x[BASIS_NODES_PER_ELEM], 
 					   const double y[BASIS_NODES_PER_ELEM],  
@@ -2485,12 +2511,19 @@ public:
   
   // Caculate basis function and derivative at GP.
   //std::cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<x[3]<<std::endl;
-  double dxdxi  = .25*( (x[1]-x[0])*(1.-eta[gp])+(x[2]-x[3])*(1.+eta[gp]) );
-  double dxdeta = .25*( (x[3]-x[0])*(1.- xi[gp])+(x[2]-x[1])*(1.+ xi[gp]) );
-  double dydxi  = .25*( (y[1]-y[0])*(1.-eta[gp])+(y[2]-y[3])*(1.+eta[gp]) );
-  double dydeta = .25*( (y[3]-y[0])*(1.- xi[gp])+(y[2]-y[1])*(1.+ xi[gp]) );
-  double dzdxi  = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
-  double dzdeta = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
+//   double dxdxi  = .25*( (x[1]-x[0])*(1.-eta[gp])+(x[2]-x[3])*(1.+eta[gp]) );
+//   double dxdeta = .25*( (x[3]-x[0])*(1.- xi[gp])+(x[2]-x[1])*(1.+ xi[gp]) );
+//   double dydxi  = .25*( (y[1]-y[0])*(1.-eta[gp])+(y[2]-y[3])*(1.+eta[gp]) );
+//   double dydeta = .25*( (y[3]-y[0])*(1.- xi[gp])+(y[2]-y[1])*(1.+ xi[gp]) );
+//   double dzdxi  = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
+//   double dzdeta = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
+
+  double dxdxi  = .25*( (nodaldiff[0])*(1.-eta[gp])+(nodaldiff[6])*(1.+eta[gp]) );
+  double dxdeta = .25*( (nodaldiff[1])*(1.- xi[gp])+(nodaldiff[7])*(1.+ xi[gp]) );
+  double dydxi  = .25*( (nodaldiff[2])*(1.-eta[gp])+(nodaldiff[8])*(1.+eta[gp]) );
+  double dydeta = .25*( (nodaldiff[3])*(1.- xi[gp])+(nodaldiff[9])*(1.+ xi[gp]) );
+  double dzdxi  = .25*( (nodaldiff[4])*(1.-eta[gp])+(nodaldiff[10])*(1.+eta[gp]) );
+  double dzdeta = .25*( (nodaldiff[5])*(1.- xi[gp])+(nodaldiff[11])*(1.+ xi[gp]) );
 
 
 
@@ -2648,6 +2681,51 @@ public:
   }
   
   TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLHex(){}
+
+  TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
+						   const double y[BASIS_NODES_PER_ELEM],  
+						   const double z[BASIS_NODES_PER_ELEM]) {
+    nodaldiff[0] = x[1]-x[0];
+    nodaldiff[1] = x[3]-x[0];
+    nodaldiff[2] = x[4]-x[0];
+    nodaldiff[3] = y[1]-y[0];
+    nodaldiff[4] = y[3]-y[0];
+    nodaldiff[5] = y[4]-y[0];
+    nodaldiff[6] = z[1]-z[0];
+    nodaldiff[7] = z[3]-z[0];
+    nodaldiff[8] = z[4]-z[0];
+
+    nodaldiff[9] = x[2]-x[3];
+    nodaldiff[10] = x[2]-x[1];
+    nodaldiff[11] = x[5]-x[1];
+    nodaldiff[12] = y[2]-y[3];
+    nodaldiff[13] = y[2]-y[1];
+    nodaldiff[14] = y[5]-y[1];
+    nodaldiff[15] = z[2]-z[3];
+    nodaldiff[16] = z[2]-z[1];
+    nodaldiff[17] = z[5]-z[1];
+
+    nodaldiff[18] = x[5]-x[4];
+    nodaldiff[19] = x[7]-x[4];
+    nodaldiff[20] = x[6]-x[2];
+    nodaldiff[21] = y[5]-y[4];
+    nodaldiff[22] = y[7]-y[4];
+    nodaldiff[23] = y[6]-y[2];
+    nodaldiff[24] = z[5]-z[4];
+    nodaldiff[25] = z[7]-z[4];
+    nodaldiff[26] = z[6]-z[2];
+
+    nodaldiff[27] = x[6]-x[7];
+    nodaldiff[28] = x[6]-x[5];
+    nodaldiff[29] = x[7]-x[3];
+    nodaldiff[30] = y[6]-y[7];
+    nodaldiff[31] = y[6]-y[5];
+    nodaldiff[32] = y[7]-y[3];
+    nodaldiff[33] = z[6]-z[7];
+    nodaldiff[34] = z[6]-z[5];
+    nodaldiff[35] = z[7]-z[3];
+
+}
   
   TUSAS_CUDA_CALLABLE_MEMBER virtual void getBasis(const int gp,
 						   const double x[BASIS_NODES_PER_ELEM], 
@@ -2661,26 +2739,47 @@ public:
       phi[i]=phinew[gp][i];
     }  
     // Caculate basis function and derivative at GP.
-    double dxdxi  = 0.125*( (x[1]-x[0])*(1.-eta[gp])*(1.-zta[gp]) + (x[2]-x[3])*(1.+eta[gp])*(1.-zta[gp]) 
-			    + (x[5]-x[4])*(1.-eta[gp])*(1.+zta[gp]) + (x[6]-x[7])*(1.+eta[gp])*(1.+zta[gp]) );
-    double dxdeta = 0.125*( (x[3]-x[0])*(1.- xi[gp])*(1.-zta[gp]) + (x[2]-x[1])*(1.+ xi[gp])*(1.-zta[gp]) 
-			    + (x[7]-x[4])*(1.- xi[gp])*(1.+zta[gp]) + (x[6]-x[5])*(1.+ xi[gp])*(1.+zta[gp]) );
-    double dxdzta = 0.125*( (x[4]-x[0])*(1.- xi[gp])*(1.-eta[gp]) + (x[5]-x[1])*(1.+ xi[gp])*(1.-eta[gp])
-			    + (x[6]-x[2])*(1.+ xi[gp])*(1.+eta[gp]) + (x[7]-x[3])*(1.- xi[gp])*(1.+eta[gp]) );
+//     double dxdxi  = 0.125*( (x[1]-x[0])*(1.-eta[gp])*(1.-zta[gp]) + (x[2]-x[3])*(1.+eta[gp])*(1.-zta[gp]) 
+// 			    + (x[5]-x[4])*(1.-eta[gp])*(1.+zta[gp]) + (x[6]-x[7])*(1.+eta[gp])*(1.+zta[gp]) );
+//     double dxdeta = 0.125*( (x[3]-x[0])*(1.- xi[gp])*(1.-zta[gp]) + (x[2]-x[1])*(1.+ xi[gp])*(1.-zta[gp]) 
+// 			    + (x[7]-x[4])*(1.- xi[gp])*(1.+zta[gp]) + (x[6]-x[5])*(1.+ xi[gp])*(1.+zta[gp]) );
+//     double dxdzta = 0.125*( (x[4]-x[0])*(1.- xi[gp])*(1.-eta[gp]) + (x[5]-x[1])*(1.+ xi[gp])*(1.-eta[gp])
+// 			    + (x[6]-x[2])*(1.+ xi[gp])*(1.+eta[gp]) + (x[7]-x[3])*(1.- xi[gp])*(1.+eta[gp]) );
     
-    double dydxi  = 0.125*( (y[1]-y[0])*(1.-eta[gp])*(1.-zta[gp]) + (y[2]-y[3])*(1.+eta[gp])*(1.-zta[gp])
-			    + (y[5]-y[4])*(1.-eta[gp])*(1.+zta[gp]) + (y[6]-y[7])*(1.+eta[gp])*(1.+zta[gp]) );
-    double dydeta = 0.125*( (y[3]-y[0])*(1.- xi[gp])*(1.-zta[gp]) + (y[2]-y[1])*(1.+ xi[gp])*(1.-zta[gp]) 
-			    + (y[7]-y[4])*(1.- xi[gp])*(1.+zta[gp]) + (y[6]-y[5])*(1.+ xi[gp])*(1.+zta[gp]) );
-    double dydzta = 0.125*( (y[4]-y[0])*(1.- xi[gp])*(1.-eta[gp]) + (y[5]-y[1])*(1.+ xi[gp])*(1.-eta[gp])
-			    + (y[6]-y[2])*(1.+ xi[gp])*(1.+eta[gp]) + (y[7]-y[3])*(1.- xi[gp])*(1.+eta[gp]) );
+//     double dydxi  = 0.125*( (y[1]-y[0])*(1.-eta[gp])*(1.-zta[gp]) + (y[2]-y[3])*(1.+eta[gp])*(1.-zta[gp])
+// 			    + (y[5]-y[4])*(1.-eta[gp])*(1.+zta[gp]) + (y[6]-y[7])*(1.+eta[gp])*(1.+zta[gp]) );
+//     double dydeta = 0.125*( (y[3]-y[0])*(1.- xi[gp])*(1.-zta[gp]) + (y[2]-y[1])*(1.+ xi[gp])*(1.-zta[gp]) 
+// 			    + (y[7]-y[4])*(1.- xi[gp])*(1.+zta[gp]) + (y[6]-y[5])*(1.+ xi[gp])*(1.+zta[gp]) );
+//     double dydzta = 0.125*( (y[4]-y[0])*(1.- xi[gp])*(1.-eta[gp]) + (y[5]-y[1])*(1.+ xi[gp])*(1.-eta[gp])
+// 			    + (y[6]-y[2])*(1.+ xi[gp])*(1.+eta[gp]) + (y[7]-y[3])*(1.- xi[gp])*(1.+eta[gp]) );
     
-    double dzdxi  = 0.125*( (z[1]-z[0])*(1.-eta[gp])*(1.-zta[gp]) + (z[2]-z[3])*(1.+eta[gp])*(1.-zta[gp])
-			    + (z[5]-z[4])*(1.-eta[gp])*(1.+zta[gp]) + (z[6]-z[7])*(1.+eta[gp])*(1.+zta[gp]) );
-    double dzdeta = 0.125*( (z[3]-z[0])*(1.- xi[gp])*(1.-zta[gp]) + (z[2]-z[1])*(1.+ xi[gp])*(1.-zta[gp]) 
-			    + (z[7]-z[4])*(1.- xi[gp])*(1.+zta[gp]) + (z[6]-z[5])*(1.+ xi[gp])*(1.+zta[gp]) );
-    double dzdzta = 0.125*( (z[4]-z[0])*(1.- xi[gp])*(1.-eta[gp]) + (z[5]-z[1])*(1.+ xi[gp])*(1.-eta[gp])
-			    + (z[6]-z[2])*(1.+ xi[gp])*(1.+eta[gp]) + (z[7]-z[3])*(1.- xi[gp])*(1.+eta[gp]) );
+//     double dzdxi  = 0.125*( (z[1]-z[0])*(1.-eta[gp])*(1.-zta[gp]) + (z[2]-z[3])*(1.+eta[gp])*(1.-zta[gp])
+// 			    + (z[5]-z[4])*(1.-eta[gp])*(1.+zta[gp]) + (z[6]-z[7])*(1.+eta[gp])*(1.+zta[gp]) );
+//     double dzdeta = 0.125*( (z[3]-z[0])*(1.- xi[gp])*(1.-zta[gp]) + (z[2]-z[1])*(1.+ xi[gp])*(1.-zta[gp]) 
+// 			    + (z[7]-z[4])*(1.- xi[gp])*(1.+zta[gp]) + (z[6]-z[5])*(1.+ xi[gp])*(1.+zta[gp]) );
+//     double dzdzta = 0.125*( (z[4]-z[0])*(1.- xi[gp])*(1.-eta[gp]) + (z[5]-z[1])*(1.+ xi[gp])*(1.-eta[gp])
+// 			    + (z[6]-z[2])*(1.+ xi[gp])*(1.+eta[gp]) + (z[7]-z[3])*(1.- xi[gp])*(1.+eta[gp]) );
+
+    double dxdxi  = 0.125*( (nodaldiff[0])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[9])*(1.+eta[gp])*(1.-zta[gp]) 
+			    + (nodaldiff[18])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[27])*(1.+eta[gp])*(1.+zta[gp]) );
+    double dxdeta = 0.125*( (nodaldiff[1])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[10])*(1.+ xi[gp])*(1.-zta[gp]) 
+			    + (nodaldiff[19])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[28])*(1.+ xi[gp])*(1.+zta[gp]) );
+    double dxdzta = 0.125*( (nodaldiff[2])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[11])*(1.+ xi[gp])*(1.-eta[gp])
+			    + (nodaldiff[20])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[29])*(1.- xi[gp])*(1.+eta[gp]) );
+    
+    double dydxi  = 0.125*( (nodaldiff[3])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[12])*(1.+eta[gp])*(1.-zta[gp])
+			    + (nodaldiff[21])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[30])*(1.+eta[gp])*(1.+zta[gp]) );
+    double dydeta = 0.125*( (nodaldiff[4])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[13])*(1.+ xi[gp])*(1.-zta[gp]) 
+			    + (nodaldiff[22])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[31])*(1.+ xi[gp])*(1.+zta[gp]) );
+    double dydzta = 0.125*( (nodaldiff[5])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[14])*(1.+ xi[gp])*(1.-eta[gp])
+			    + (nodaldiff[23])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[32])*(1.- xi[gp])*(1.+eta[gp]) );
+    
+    double dzdxi  = 0.125*( (nodaldiff[6])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[15])*(1.+eta[gp])*(1.-zta[gp])
+			    + (nodaldiff[24])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[33])*(1.+eta[gp])*(1.+zta[gp]) );
+    double dzdeta = 0.125*( (nodaldiff[7])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[16])*(1.+ xi[gp])*(1.-zta[gp]) 
+			    + (nodaldiff[25])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[34])*(1.+ xi[gp])*(1.+zta[gp]) );
+    double dzdzta = 0.125*( (nodaldiff[8])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[17])*(1.+ xi[gp])*(1.-eta[gp])
+			    + (nodaldiff[26])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[35])*(1.- xi[gp])*(1.+eta[gp]) );
     
     wt = nwt[gp];
     

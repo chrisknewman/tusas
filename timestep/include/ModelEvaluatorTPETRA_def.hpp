@@ -505,11 +505,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 // 	    uu_old[k] = uold_1dra(numeqs_*nodeid+neq);
 // 	  }//neq
 	}//k
-
+	BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
 	for(int gp=0; gp < ngp; gp++) {//gp
 
 	  //we need a basis object that stores all equations here..
-	  BGPU->getBasis(gp, xx, yy, zz, &uu[0], &uu_old[0],NULL);
+	  BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0],NULL);
 
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
@@ -684,6 +684,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  zz[k] = z_1dra(nodeid);
 // 	  uu[k] = u_1dra(nodeid); 
 	}//k
+
+	BGPU->computeElemData(xx, yy, zz);
 
 	for(int gp=0; gp < ngp; gp++) {//gp
 	  //cn we will want uu in here also....

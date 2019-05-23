@@ -50,6 +50,7 @@
 
 #define TUSAS_RUN_ON_CPU
 
+#define TUSAS_MAX_NUMEQS 1
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
@@ -412,9 +413,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     cudaMemcpy(d_rf,h_rf,numeqs_*sizeof(RESFUNC),cudaMemcpyHostToDevice);
 
-    //cn need to cast to raw_ptr
-//     thrust::device_vector<RESFUNC *> td_rf(numeqs_);
-//     td_rf[0]=&tusastpetra::residual_heat_test_dp_;
 
 #else
     //it seems that evaluating the function via pointer ie h_rf[0] is way faster that evaluation via (*residualfunc_)[0]
@@ -460,21 +458,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			     //based on number of gp???
 			     //easiest hack approach is to have an individual basis for number of gps
 			     //ie GPUBasisLQuad4, GPUBasisLQuad8,...
-	GPUBasis * BGPU;
+	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
-	GPUBasisLQuad Bq;
-	GPUBasisLHex Bh;//cn allocating here is slow ...dont really want to do this
+	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS];
+	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS];//cn allocating here is slow ...dont really want to do this
 	if(4 == n_nodes_per_elem)  {
-	  BGPU = &Bq;
+	  BGPU[0] = &Bq[0];
 	}else{
-	  BGPU = &Bh;
+	  BGPU[0] = &Bh[0];
 	}
 
-	//BGPU = new GPUBasisLQuad;  //causes segfaults
-
-	const int ngp = BGPU->ngp;
-
-
+	const int ngp = BGPU[0]->ngp;
 
 	const int elem = elem_map_k[ne];
 
@@ -505,23 +499,25 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 // 	    uu_old[k] = uold_1dra(numeqs_*nodeid+neq);
 // 	  }//neq
 	}//k
-	BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
+	BGPU[0]->computeElemData(&xx[0], &yy[0], &zz[0]);
+	//(&BGPUarr[0])->computeElemData(&xx[0], &yy[0], &zz[0]);
 	for(int gp=0; gp < ngp; gp++) {//gp
 
 	  //we need a basis object that stores all equations here..
-	  BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0],NULL);
+	  BGPU[0]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0],NULL);
+	  //BGPUarr[0].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0],NULL);
 
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    const int k = 0;
 
 #ifdef KOKKOS_HAVE_CUDA
-	    const double val = BGPU->jac*BGPU->wt*(d_rf[0](BGPU,i,dt,t_theta,time,k));
-	    //const double val = BGPU->jac*BGPU->wt*((td_rf[])(BGPU,i,dt,1.,0.,0));
+	    //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,k));
+	    const double val = BGPU[0]->jac*BGPU[0]->wt*((d_rf[0])(BGPU[0],i,dt,t_theta,time,k));
 #else
 	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	    const double val = BGPU->jac*BGPU->wt*(h_rf[0](BGPU,i,dt,t_theta,time,k));
+	    const double val = BGPU[0]->jac*BGPU[0]->wt*(h_rf[0](BGPU[0],i,dt,t_theta,time,k));
 #endif
 	    //cn this works because we are filling an overlap map and exporting to a node map below...
 
@@ -534,10 +530,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #else
 #endif
 	});//parallel_for
-
-	//}//ne
-
-	//delete B;
 
     }//c 
 
@@ -1240,29 +1232,41 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 {
-  // numeqs_ number of variables(equations) 
-  numeqs_ = 1;
+  {
+    // numeqs_ number of variables(equations) 
+    numeqs_ = 1;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
+    (*residualfunc_)[0] = tusastpetra::residual_heat_test_dp_;
+    
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tusastpetra::init_heat_test_;
+    
+    
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]
+    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+  }
 
-  residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-  //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-  (*residualfunc_)[0] = tusastpetra::residual_heat_test_dp_;
 
-  varnames_ = new std::vector<std::string>(numeqs_);
-  (*varnames_)[0] = "u";
-
-  initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-  (*initfunc_)[0] = &tusastpetra::init_heat_test_;
-  
-
-  dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
-  
-  //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
-  //               [numeq][nodeset id]
-//  [variable index][nodeset index]
-  (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-  (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-  (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-  (*dirichletfunc_)[0][3] = &dbc_zero_;
+  if(numeqs_ > TUSAS_MAX_NUMEQS){
+    auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+    if( 0 == comm_->getRank() ){
+      std::cout<<std::endl<<std::endl<<"numeqs_ > TUSAS_MAX_NUMEQS; increase TUSAS_MAX_NUMEQS to "
+	       <<TUSAS_MAX_NUMEQS<<" and recompile." <<std::endl<<std::endl<<std::endl;
+    }
+    exit(0);
+  }
 
 }
 
@@ -1349,7 +1353,7 @@ void ModelEvaluatorTPETRA<scalar_type>::finalize()
 
   write_exodus();
 
-  std::cout<<(solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")<<std::endl;
+  //std::cout<<(solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")<<std::endl;
   int ngmres = 0;
 
   if ( (solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")

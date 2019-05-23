@@ -2284,6 +2284,36 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
 //#define BASIS_NGPS_PER_ELEM 27
 #define BASIS_NGPS_PER_ELEM 8
 
+class Unified {
+public:
+#ifdef KOKKOS_HAVE_CUDA
+/** Allocate instances in CPU/GPU unified memory */
+  void *operator new(size_t len) {
+    void *ptr;
+    cudaMallocManaged(&ptr, len);
+    cudaDeviceSynchronize();
+    return ptr;
+  }
+  void operator delete(void *ptr) {
+    cudaDeviceSynchronize();
+    cudaFree(ptr);
+  }
+
+/** Allocate all arrays in CPU/GPU unified memory */
+  void* operator new[] (std::size_t size) {
+    void *ptr; 
+    cudaMallocManaged(&ptr,size);
+    cudaDeviceSynchronize();
+    return ptr;
+  }
+  void operator delete[] (void* ptr) {
+    cudaDeviceSynchronize();
+    cudaFree(ptr);
+  }
+#endif
+};
+
+//class GPUBasis:public Unified{
 class GPUBasis{
 
 public:
@@ -2391,6 +2421,10 @@ public:
   //we could also do phi[BASIS_NODES_PER_ELEM] and set each element explicity below...
   //double *phi;
   
+
+  //also looks like abscissa[2], wt[2], xi[4],...,nwt[4]
+  //for linear quad.  need to change this below
+  //in general probably want abscissa[3] (or more) and xi[3*3*3], etc
 protected:
   /// Access a pointer to the coordinates of the Gauss points in canonical space.
   double abscissa[BASIS_NODES_PER_ELEM];

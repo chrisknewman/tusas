@@ -5074,7 +5074,7 @@ __device__ RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
 #else
 RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
 #endif
-
+#if 0
 class resfunctor {
 public:
 
@@ -5117,7 +5117,7 @@ public:
 	 + basis->dudz*basis->dphidz[i]);
   }
 };
-
+#endif
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)
 {

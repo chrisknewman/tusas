@@ -187,7 +187,15 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     //LSList->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").remove("Output Frequency");
     LSList->sublist("Linear Solver Types").remove("AztecOO");
   }
- 
+
+  //also want to remove ml if methodname is Tpetra
+  bool remove_ml = !( paramList.get<bool> (TusaspreconNameString) )
+    || (paramList.get<std::string> (TusasmethodNameString)  == "tpetra");
+  if( remove_ml ){
+    paramList.remove(TusasmlNameString);
+    //exit(0);
+  }
+
   if( 0 == mypid ){
     paramList.print(std::cout, 2, true, true );
     std::cout<<"\n"<<"Initial parameter list completed."<<"\n"<<"\n"<<"\n";

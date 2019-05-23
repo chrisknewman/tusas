@@ -408,11 +408,18 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     RESFUNC * d_rf;
     cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
 
-    //cn this will need to be done for each equation
-    cudaMemcpyFromSymbol( &h_rf[0], tusastpetra::residual_heat_test_dp_, sizeof(RESFUNC));
+    if("heat" == paramList.get<std::string> (TusastestNameString)){
+      //cn this will need to be done for each equation
+      cudaMemcpyFromSymbol( &h_rf[0], tusastpetra::residual_heat_test_dp_, sizeof(RESFUNC));
+    } else {
+      if( 0 == comm_->getRank() ){
+	std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
+		 <<" not found. (void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(...))" <<std::endl<<std::endl<<std::endl;
+      }
+      exit(0);
+    }
 
     cudaMemcpy(d_rf,h_rf,numeqs_*sizeof(RESFUNC),cudaMemcpyHostToDevice);
-
 
 #else
     //it seems that evaluating the function via pointer ie h_rf[0] is way faster that evaluation via (*residualfunc_)[0]
@@ -448,9 +455,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
 #endif
 
-			     //We could probably set this in a cuda array as we do with d_rf
-			     //at the block level, and could discern different
-			     //element types as below
+			     //We could probably just have a vector<GPUBasis*> on host and skip
+			     //this code on host...ie just like NEMESIS class
 			     //we will need to enable arbitrary guass pts also
 			     //this is kind of an issue because allocation on device is a pain
 			     //right now we hardcode array lengths 
@@ -1232,7 +1238,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 {
-  {
+  if("heat" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
     numeqs_ = 1;
     
@@ -1256,8 +1262,14 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][1] = &dbc_zero_;						 
     (*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &dbc_zero_;
+  } else {
+    auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+    if( 0 == comm_->getRank() ){
+      std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
+	       <<" not found. (void ModelEvaluatorTPETRA<scalar_type>::set_test_case())" <<std::endl<<std::endl<<std::endl;
+    }
+    exit(0);
   }
-
 
   if(numeqs_ > TUSAS_MAX_NUMEQS){
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

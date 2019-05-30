@@ -5045,7 +5045,7 @@ RES_FUNC(residual_eta_kkspp_)
 
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
-  namespace heat{
+  //namespace heat{
 KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
 {
@@ -5132,7 +5132,7 @@ __device__ PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
 #else
 PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
 #endif
-}//namespace heat
+//}//namespace heat
 
 
 namespace cummins {

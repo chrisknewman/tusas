@@ -48,6 +48,9 @@
 
 #define TUSAS_MAX_NUMEQS 2
 
+// IMPORATANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
+#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 16
+
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
 modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
@@ -406,7 +409,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     if("heat" == paramList.get<std::string> (TusastestNameString)){
       //cn this will need to be done for each equation
-      cudaMemcpyFromSymbol( &h_rf[0], tusastpetra::residual_heat_test_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
+    }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[1], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
+
     } else {
       if( 0 == comm_->getRank() ){
 	std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
@@ -460,10 +467,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			     //based on number of gp???
 			     //easiest hack approach is to have an individual basis for number of gps
 			     //ie GPUBasisLQuad4, GPUBasisLQuad8,...
+
 	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
 	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS];
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS];//cn allocating here is slow ...dont really want to do this
+	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS];
 	if(4 == n_nodes_per_elem)  {
 	  for( int neq = 0; neq < numeqs; neq++ )
 	    BGPU[neq] = &Bq[neq];
@@ -482,8 +490,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	//these need to be sized numeqs_*BASIS_NODES_PER_ELEM
 	//and we need to order them some way...
-	double uu[TUSAS_MAX_NUMEQS*BASIS_NODES_PER_ELEM];
-	double uu_old[TUSAS_MAX_NUMEQS*BASIS_NODES_PER_ELEM];
+	double uu[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
+	double uu_old[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
 
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
@@ -497,15 +505,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    //std::cout<<numeqs*k+neq<<"           "<<n_nodes_per_elem*neq+k <<"      "<<nodeid<<"    "<<numeqs_*nodeid+neq<<std::endl;
 
-	    uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs_*nodeid+neq); 
-	    uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs_*nodeid+neq);
+	    uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); 
+	    uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs*nodeid+neq);
 	  }//neq
 	}//k
-
-
-
-
-	//std::cout<<"HERE"<<std::endl;
 
 	for( int neq = 0; neq < numeqs; neq++ ){
 	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
@@ -668,7 +671,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}
 
 	PREFUNC preconfunc_;
-	preconfunc_ = &tpetra::heat::prec_heat_test_;
+
+	preconfunc_ = &tpetra::prec_heat_test_;
 
 	const int ngp = BGPU->ngp;
 
@@ -1253,16 +1257,16 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
+    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
 
 //     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-//     (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
+//     (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
     
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
+    (*initfunc_)[0] = &tpetra::init_heat_test_;
     
     
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
@@ -1281,17 +1285,17 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
 
-    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
-    (*residualfunc_)[1] = tpetra::heat::residual_heat_test_dp_;
+    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
+    (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
 
 //     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-//     (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
-//     (*preconfunc_)[1] = tpetra::heat::prec_heat_test_dp_;
+//     (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+//     (*preconfunc_)[1] = tpetra::prec_heat_test_dp_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
 
-    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
-    (*initfunc_)[1] = &tpetra::heat::init_heat_test_;
+    (*initfunc_)[0] = &tpetra::init_heat_test_;
+    (*initfunc_)[1] = &tpetra::init_heat_test_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -1321,8 +1325,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
 //     (*residualfunc_)[0] = &cummins::residual_heat_;
 //     (*residualfunc_)[1] = &cummins::residual_phase_;
-    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
-    (*residualfunc_)[1] = tpetra::heat::residual_heat_test_dp_;
+    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
+    (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
 
 //     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
 //     (*preconfunc_)[0] = &cummins::prec_heat_;
@@ -1331,8 +1335,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &cummins::init_heat_;
     //(*initfunc_)[1] = &cummins::init_phase_;
-    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
-    (*initfunc_)[1] = &tpetra::heat::init_heat_test_;
+    (*initfunc_)[0] = &tpetra::init_heat_test_;
+    (*initfunc_)[1] = &tpetra::init_heat_test_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -1355,8 +1359,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   if(numeqs_ > TUSAS_MAX_NUMEQS){
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){
-      std::cout<<std::endl<<std::endl<<"numeqs_ > TUSAS_MAX_NUMEQS; increase TUSAS_MAX_NUMEQS to "
-	       <<TUSAS_MAX_NUMEQS<<" and recompile." <<std::endl<<std::endl<<std::endl;
+      std::cout<<std::endl<<std::endl<<"numeqs_ > TUSAS_MAX_NUMEQS; 1. increase TUSAS_MAX_NUMEQS to "
+	       <<numeqs_<<" ; 2. adjust TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM appropriately and recompile." <<std::endl<<std::endl<<std::endl;
     }
     exit(0);
   } 

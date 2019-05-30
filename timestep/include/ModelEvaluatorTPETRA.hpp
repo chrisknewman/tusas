@@ -225,6 +225,10 @@ private:
 
   std::vector<INITFUNC> *initfunc_;
 
+  typedef void (*PARAMFUNC)(Teuchos::ParameterList *plist);
+
+  PARAMFUNC paramfunc_;
+
   RCP<Teuchos::Time> ts_time_import;
   RCP<Teuchos::Time> ts_time_resfill;
   RCP<Teuchos::Time> ts_time_precfill;

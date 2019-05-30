@@ -43,14 +43,10 @@
 
 //#include <string>
 
-// #ifdef KOKKOS_HAVE_CUDA
-// #include <thrust/device_vector.h>
-// #endif
-
 
 #define TUSAS_RUN_ON_CPU
 
-#define TUSAS_MAX_NUMEQS 1
+#define TUSAS_MAX_NUMEQS 2
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
@@ -364,8 +360,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     f_vec->scale(0.);
     f_overlap->scale(0.);
     Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
-    //std::cout<<num_color<<" "<<colors[0].size()<<" "<<(Elem_col->get_color(0)).size()<<std::endl;
-    //OMPBasisLQuad B;
 
 //     std::string elem_type=mesh_->get_blk_elem_type(blk);
 //     std::string * elem_type_p = &elem_type;
@@ -386,8 +380,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
     //this will utilize texture memory not available on tesla or earlier gpus
-    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
-    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
+      u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
+      uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
     
     //typedef Kokkos::TeamPolicy<schedule, Kokkos::LaunchBounds<64,4> > team_policy;
     //typedef Kokkos::LaunchBounds<64,4> launch_bounds;
@@ -469,11 +465,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS];
 	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS];//cn allocating here is slow ...dont really want to do this
 	if(4 == n_nodes_per_elem)  {
-	  BGPU[0] = &Bq[0];
+	  for( int neq = 0; neq < numeqs; neq++ )
+	    BGPU[neq] = &Bq[neq];
 	}else{
-	  BGPU[0] = &Bh[0];
+	  for( int neq = 0; neq < numeqs; neq++ )
+	    BGPU[neq] = &Bh[neq];
 	}
-
+	
 	const int ngp = BGPU[0]->ngp;
 
 	const int elem = elem_map_k[ne];
@@ -484,8 +482,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	//these need to be sized numeqs_*BASIS_NODES_PER_ELEM
 	//and we need to order them some way...
-	double uu[BASIS_NODES_PER_ELEM];
-	double uu_old[BASIS_NODES_PER_ELEM];
+	double uu[TUSAS_MAX_NUMEQS*BASIS_NODES_PER_ELEM];
+	double uu_old[TUSAS_MAX_NUMEQS*BASIS_NODES_PER_ELEM];
 
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
@@ -496,39 +494,48 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  yy[k] = y_1dra(nodeid);
 	  zz[k] = z_1dra(nodeid);
 
-	//these need to be sized numeqs_*BASIS_NODES_PER_ELEM
-	//and we need to order them some way...
-// 	  for( int neq = 0; neq < numeqs_; neq++ ){
-	    uu[k] = u_1dra(nodeid); 
-	    uu_old[k] = uold_1dra(nodeid);
-// 	    uu[k] = u_1dra(numeqs_*nodeid+neq); 
-// 	    uu_old[k] = uold_1dra(numeqs_*nodeid+neq);
-// 	  }//neq
+	  for( int neq = 0; neq < numeqs; neq++ ){
+	    //std::cout<<numeqs*k+neq<<"           "<<n_nodes_per_elem*neq+k <<"      "<<nodeid<<"    "<<numeqs_*nodeid+neq<<std::endl;
+
+	    uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs_*nodeid+neq); 
+	    uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs_*nodeid+neq);
+	  }//neq
 	}//k
-	BGPU[0]->computeElemData(&xx[0], &yy[0], &zz[0]);
+
+
+
+
+	//std::cout<<"HERE"<<std::endl;
+
+	for( int neq = 0; neq < numeqs; neq++ ){
+	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
 	//(&BGPUarr[0])->computeElemData(&xx[0], &yy[0], &zz[0]);
+	}//neq
 	for(int gp=0; gp < ngp; gp++) {//gp
 
-	  //we need a basis object that stores all equations here..
-	  BGPU[0]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0],NULL);
-	  //BGPUarr[0].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0],NULL);
+	  for( int neq = 0; neq < numeqs; neq++ ){
+	    //we need a basis object that stores all equations here..
+	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],NULL);
+	    //BGPUarr[0].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0],NULL);
+	  }//neq
 
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
-	    const int k = 0;
 
+	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef KOKKOS_HAVE_CUDA
-	    //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,k));
-	    const double val = BGPU[0]->jac*BGPU[0]->wt*((d_rf[0])(BGPU[0],i,dt,t_theta,time,k));
+	      //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,neq));
+	      const double val = BGPU[0]->jac*BGPU[0]->wt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
 #else
-	    //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
-	    //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	    const double val = BGPU[0]->jac*BGPU[0]->wt*(h_rf[0](BGPU[0],i,dt,t_theta,time,k));
+	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
+	      //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
+	      const double val = BGPU[0]->jac*BGPU[0]->wt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq));
 #endif
-	    //cn this works because we are filling an overlap map and exporting to a node map below...
-
-	    const int lid = meshc[elem*n_nodes_per_elem+i];
-	    f_1d[lid] += val;
+	      //cn this works because we are filling an overlap map and exporting to a node map below...
+	      //do we need neq here?
+	      const int lid = numeqs*meshc[elem*n_nodes_per_elem+i]+neq;
+	      f_1d[lid] += val;
+	    }//neq
 	  }//i
 	}//gp
 #ifdef USE_TEAM
@@ -661,7 +668,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}
 
 	PREFUNC preconfunc_;
-	preconfunc_ = &tusastpetra::prec_heat_test_;
+	preconfunc_ = &tpetra::heat::prec_heat_test_;
 
 	const int ngp = BGPU->ngp;
 
@@ -1238,19 +1245,24 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 {
+  paramfunc_ = NULL;
+
   if("heat" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
     numeqs_ = 1;
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tusastpetra::residual_heat_test_dp_;
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
+
+//     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+//     (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
     
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tusastpetra::init_heat_test_;
+    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
     
     
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
@@ -1262,6 +1274,75 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][1] = &dbc_zero_;						 
     (*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+  }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
+    
+    numeqs_ = 2;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
+    (*residualfunc_)[1] = tpetra::heat::residual_heat_test_dp_;
+
+//     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+//     (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
+//     (*preconfunc_)[1] = tpetra::heat::prec_heat_test_dp_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+
+    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
+    (*initfunc_)[1] = &tpetra::heat::init_heat_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    //dirichletfunc_ = NULL;
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]
+    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+    (*dirichletfunc_)[1][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[1][1] = &dbc_zero_;						 
+    (*dirichletfunc_)[1][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[1][3] = &dbc_zero_;
+
+//     neumannfunc_ = NULL;
+
+  }else if("cummins" == paramList.get<std::string> (TusastestNameString)){
+    
+    numeqs_ = 2;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+//     (*residualfunc_)[0] = &cummins::residual_heat_;
+//     (*residualfunc_)[1] = &cummins::residual_phase_;
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
+    (*residualfunc_)[1] = tpetra::heat::residual_heat_test_dp_;
+
+//     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+//     (*preconfunc_)[0] = &cummins::prec_heat_;
+//     (*preconfunc_)[1] = &cummins::prec_phase_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    //(*initfunc_)[0] = &cummins::init_heat_;
+    //(*initfunc_)[1] = &cummins::init_phase_;
+    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
+    (*initfunc_)[1] = &tpetra::heat::init_heat_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+//     neumannfunc_ = NULL;
+
+    paramfunc_ = cummins::param_;
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){
@@ -1278,7 +1359,17 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 	       <<TUSAS_MAX_NUMEQS<<" and recompile." <<std::endl<<std::endl<<std::endl;
     }
     exit(0);
+  } 
+
+  //set the params in the test case now...
+  Teuchos::ParameterList *problemList;
+  problemList = &paramList.sublist ( "ProblemParams", false );
+  
+  if ( NULL != paramfunc_ ){
+    
+    paramfunc_(problemList);
   }
+  
 
 }
 

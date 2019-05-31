@@ -210,6 +210,8 @@ private:
 			    const double &t_theta_, 
 			    const int &eqn_id);
 
+  std::vector<PREFUNC> *preconfunc_;
+
 
   typedef double (*DBCFUNC)(const double &x,
 			    const double &y,

@@ -342,6 +342,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
+  auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+  Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
+    u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+
   const int blk = 0;
   const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
   const int num_color = Elem_col->get_num_color();
@@ -367,7 +371,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 //     std::string elem_type=mesh_->get_blk_elem_type(blk);
 //     std::string * elem_type_p = &elem_type;
 
-    auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
     auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
     
     auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
@@ -383,8 +386,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
     //this will utilize texture memory not available on tesla or earlier gpus
-    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
-      u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
       uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
     
@@ -417,7 +418,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     } else {
       if( 0 == comm_->getRank() ){
 	std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
-		 <<" not found. (void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(...))" <<std::endl<<std::endl<<std::endl;
+		 <<" residual function not found. (void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(...))" <<std::endl<<std::endl<<std::endl;
       }
       exit(0);
     }
@@ -488,8 +489,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	double yy[BASIS_NODES_PER_ELEM];
 	double zz[BASIS_NODES_PER_ELEM];
 
-	//these need to be sized numeqs_*BASIS_NODES_PER_ELEM
-	//and we need to order them some way...
 	double uu[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
 	double uu_old[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
 
@@ -521,22 +520,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],NULL);
 	    //BGPUarr[0].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0],NULL);
 	  }//neq
-
+	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
+	    const int lrow = numeqs*meshc[elem*n_nodes_per_elem+i];
 
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef KOKKOS_HAVE_CUDA
 	      //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,neq));
-	      const double val = BGPU[0]->jac*BGPU[0]->wt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
+	      const double val = jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	      const double val = BGPU[0]->jac*BGPU[0]->wt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq));
+	      const double val = jacwt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq));
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
-	      //do we need neq here?
-	      const int lid = numeqs*meshc[elem*n_nodes_per_elem+i]+neq;
+	      const int lid = lrow+neq;
 	      f_1d[lid] += val;
 	    }//neq
 	  }//i
@@ -640,6 +639,36 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     auto PV = P->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
 
+
+    PREFUNC * h_pf;
+    h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
+
+#ifdef KOKKOS_HAVE_CUDA
+    PREFUNC * d_pf;
+    cudaMalloc((double**)&d_pf,numeqs_*sizeof(PREFUNC));
+
+    if("heat" == paramList.get<std::string> (TusastestNameString)){
+      //cn this will need to be done for each equation
+      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
+    }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
+      cudaMemcpyFromSymbol( &h_pf[1], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
+
+    } else {
+      if( 0 == comm_->getRank() ){
+	std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
+		 <<" precon function not found. (void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(...))" <<std::endl<<std::endl<<std::endl;
+      }
+      exit(0);
+    }
+
+    cudaMemcpy(d_pf,h_pf,numeqs_*sizeof(PREFUNC),cudaMemcpyHostToDevice);
+
+#else
+    h_pf = &(*preconfunc_)[0];
+#endif
+
+
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
       std::vector<int> elem_map = Elem_col->get_color(c);
@@ -654,35 +683,29 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }
       //exit(0);	
 
-#ifdef TUSAS_RUN_ON_CPU	
-      for(int ne = 0; ne < num_elem; ne++){
-#else
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
-#endif
 
-	GPUBasis * BGPU;
+
+	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
-	GPUBasisLQuad Bq;
-	GPUBasisLHex Bh;//cn allocating here is slow ...dont really want to do this
+	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS];
+	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS];//cn allocating here is slow ...dont really want to do this
 	if(4 == n_nodes_per_elem)  {
-	  BGPU = &Bq;
+	  for( int neq = 0; neq < numeqs; neq++ )
+	    BGPU[neq] = &Bq[neq];
 	}else{
-	  BGPU = &Bh;
+	  for( int neq = 0; neq < numeqs; neq++ )
+	    BGPU[neq] = &Bh[neq];
 	}
-
-	PREFUNC preconfunc_;
-
-	preconfunc_ = &tpetra::prec_heat_test_;
-
-	const int ngp = BGPU->ngp;
+	
+	const int ngp = BGPU[0]->ngp;
 
 	const int elem = elem_map_k[ne];
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];
 	double zz[BASIS_NODES_PER_ELEM];
-	//double uu[BASIS_NODES_PER_ELEM];
-	//double uu_old[BASIS_NODES_PER_ELEM];
+	double uu[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
 
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
@@ -691,29 +714,43 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
 	  zz[k] = z_1dra(nodeid);
-// 	  uu[k] = u_1dra(nodeid); 
+
+	  for( int neq = 0; neq < numeqs; neq++ ){
+	    uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); 
+	  }//neq
 	}//k
 
-	BGPU->computeElemData(xx, yy, zz);
+	for( int neq = 0; neq < numeqs; neq++ ){
+	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
+	}//neq
 
 	for(int gp=0; gp < ngp; gp++) {//gp
-	  //cn we will want uu in here also....
-	  BGPU->getBasis(gp, xx, yy, zz, NULL, NULL,NULL);
+	  for( int neq = 0; neq < numeqs; neq++ ){
+	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);
+	  }//neq
+	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
-	    const local_ordinal_type lrow = meshc[elem*n_nodes_per_elem+i];
+	    const local_ordinal_type lrow = numeqs*meshc[elem*n_nodes_per_elem+i];
 	    for(int j=0;j < n_nodes_per_elem; j++) {
-	      local_ordinal_type lcol[1] = {meshc[elem*n_nodes_per_elem+j]};
-	      const int k = 0;
-	      scalar_type val[1] = {BGPU->jac*BGPU->wt*(*preconfunc_)(BGPU,i,j,dt,t_theta,k)};
-	      //cn probably better to fill a view for val and lcol for each column
-
-
-	      //cn this call seems to be what is crashing the cuda version
-
+	      local_ordinal_type lcol[1] = {numeqs*meshc[elem*n_nodes_per_elem+j]};
+	      
+	      for( int neq = 0; neq < numeqs; neq++ ){
+#ifdef KOKKOS_HAVE_CUDA
+		scalar_type val[1] = {jacwt*d_pf[neq](*BGPU,i,j,dt,t_theta,neq)};
+#else
+		scalar_type val[1] = {jacwt*h_pf[neq](*BGPU,i,j,dt,t_theta,neq)};
+#endif
+		
+		//cn probably better to fill a view for val and lcol for each column
+		const local_ordinal_type row = lrow +neq; 
+		local_ordinal_type col[1] = {lcol[0] + neq};
+		
+		//cn this call seems to be what is crashing the cuda version
+		
 	      //P->sumIntoLocalValues(lrow,(local_ordinal_type)1,val,lcol,false);
-	      PV.sumIntoValues (lrow, lcol,(local_ordinal_type)1,val);
-
-
+		PV.sumIntoValues (row, col,(local_ordinal_type)1,val);
+		
+	      }//neq
 		
 	    }//j
 	    
@@ -721,16 +758,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	}//gp
 
-      
-#ifdef TUSAS_RUN_ON_CPU	
-      }//ne
-#else
       });//parallel_for
-#endif
 
-
- 
     }//c
+
+#ifdef KOKKOS_HAVE_CUDA
+  cudaFree(d_pf);
+  free(h_pf);
+#endif
 
     //cn we need to do a similar comm here...
     P->fillComplete();
@@ -1259,8 +1294,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
     (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
 
-//     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-//     (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -1288,9 +1323,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
     (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
 
-//     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-//     (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
-//     (*preconfunc_)[1] = tpetra::prec_heat_test_dp_;
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+    (*preconfunc_)[1] = tpetra::prec_heat_test_dp_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
 

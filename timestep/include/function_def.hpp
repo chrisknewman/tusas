@@ -5074,50 +5074,7 @@ __device__ RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
 #else
 RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
 #endif
-#if 0
-class resfunctor {
-public:
 
-  KOKKOS_INLINE_FUNCTION 
-  resfunctor(){}
-
-  KOKKOS_INLINE_FUNCTION 
-  ~resfunctor(){}
-
-//   KOKKOS_INLINE_FUNCTION 
-//   virtual double operator() (const GPUBasis *basis, 
-// 		     const int &i,
-// 		     const double &dt_,
-// 		     const double &t_theta_,
-// 		     const double &time,
-// 			     const int &eqn_id) const = 0;
-
-  KOKKOS_INLINE_FUNCTION 
-  virtual RES_FUNC_TPETRA( operator() ) const {return 0.;}// const = 0;
-};
-
-
-//class res_heat_func_:public resfunctor {
-class res_heat_func_ {
-  
-public:
-
-  KOKKOS_INLINE_FUNCTION 
-  res_heat_func_(){}
-
-  KOKKOS_INLINE_FUNCTION 
-  ~res_heat_func_(){}
-
-  KOKKOS_INLINE_FUNCTION 
-  RES_FUNC_TPETRA( operator() ) const
-  {
-    return (basis->uu-basis->uuold)/dt_*basis->phi[i]
-      + (basis->dudx*basis->dphidx[i]
-	 + basis->dudy*basis->dphidy[i]
-	 + basis->dudz*basis->dphidz[i]);
-  }
-};
-#endif
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)
 {

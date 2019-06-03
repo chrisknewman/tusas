@@ -160,9 +160,10 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
     std::string optionsFile = "mueluOptions.xml";  
     Teuchos::updateParametersFromXmlFileAndBroadcast(optionsFile,Teuchos::Ptr<Teuchos::ParameterList>(&mueluParamList), *P_->getComm());
-    if( 0 == comm_->getRank() )
+    if( 0 == comm_->getRank() ){
       std::cout << "\nReading MueLu parameter list from the XML file \""<<optionsFile<<"\" ...\n";
-    mueluParamList.print(std::cout, 2, true, true );
+      mueluParamList.print(std::cout, 2, true, true );
+    }
     prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_, mueluParamList, mueluParamList);
     //prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_,optionsFile  );
     //exit(0);

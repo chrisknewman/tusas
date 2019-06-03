@@ -459,8 +459,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
 #endif
 
-			     //We could probably just have a vector<GPUBasis*> on host and skip
-			     //this code on host...ie just like NEMESIS class
 			     //we will need to enable arbitrary guass pts also
 			     //this is kind of an issue because allocation on device is a pain
 			     //right now we hardcode array lengths 
@@ -933,14 +931,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    const int * inds;
 	    const Scalar * val;
 	    //std::cout<<lrow<<" "<<ncol<<std::endl;
-	    P_->getLocalRowViewRaw( lrow, ncol, inds, val );
+	    const int row = numeqs*lrow +k;
+	    P_->getLocalRowViewRaw( row, ncol, inds, val );
 	    Scalar * vals = new Scalar[ncol];
 	    for(int i = 0; i<ncol; i++){
 	      vals[i] = 0.0;
 	    }
-	    P_->replaceLocalValues(lrow, ncol, vals, inds );
+	    P_->replaceLocalValues(row, ncol, vals, inds );
 	    vals[0] = 1.0;
-	    P_->replaceLocalValues(lrow, 1 , vals, &lrow );
+	    P_->replaceLocalValues(row, 1 , vals, &row );
 	    delete[] vals;
 	  }//if
 	
@@ -952,8 +951,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #else
 #endif
     P_->fillComplete();
-    //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-    //exit(0);
+//     P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+//     exit(0);
   }//outArgs.get_W_prec() && dirichletfunc_
 
   if( nonnull(outArgs.get_W_prec() )){

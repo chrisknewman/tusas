@@ -358,7 +358,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const double t_theta = t_theta_; //cuda 8 lambdas dont capture private data
   const double time = time_; //cuda 8 lambdas dont capture private data
   const int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
-
+  const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+  if (4 <  LTP_quadrature_order ){
+      if( 0 == comm_->getRank() ){
+	std::cout<<std::endl<<std::endl<<"4 <  LTP_quadrature_order" <<std::endl<<std::endl<<std::endl;
+      }
+      exit(0);
+  }
+  
   if (nonnull(outArgs.get_f())){
 
     const RCP<vector_type> f_vec =
@@ -470,8 +477,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
-	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS];
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS];
+	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
 	if(4 == n_nodes_per_elem)  {
 	  for( int neq = 0; neq < numeqs; neq++ )
 	    BGPU[neq] = &Bq[neq];

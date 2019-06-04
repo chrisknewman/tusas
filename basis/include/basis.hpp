@@ -2281,8 +2281,9 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
 
 //#define BASIS_NODES_PER_ELEM 27
 #define BASIS_NODES_PER_ELEM 8
-//#define BASIS_NGPS_PER_ELEM 27
-#define BASIS_NGPS_PER_ELEM 8
+#define BASIS_NGP_PER_ELEM 64
+//#define BASIS_NGP_PER_ELEM 8
+#define BASIS_SNGP_PER_ELEM 4
 
 class Unified {
 public:
@@ -2413,10 +2414,10 @@ public:
   /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
   double dphidz[BASIS_NODES_PER_ELEM];
 
-  double phinew[BASIS_NGPS_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidxinew[BASIS_NGPS_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidetanew[BASIS_NGPS_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidztanew[BASIS_NGPS_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double phinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidxinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidetanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
 
   //we could also do phi[BASIS_NODES_PER_ELEM] and set each element explicity below...
   //double *phi;
@@ -2427,9 +2428,9 @@ public:
   //in general probably want abscissa[3] (or more) and xi[3*3*3], etc
 protected:
   /// Access a pointer to the coordinates of the Gauss points in canonical space.
-  double abscissa[BASIS_NODES_PER_ELEM];
+  double abscissa[BASIS_SNGP_PER_ELEM];
   /// Access a pointer to the Gauss weights.
-  double weight[BASIS_NODES_PER_ELEM];
+  double weight[BASIS_SNGP_PER_ELEM];
   /// Access a pointer to the xi coordinate at each Gauss point.
   double xi[BASIS_NODES_PER_ELEM];
   //double *xi;
@@ -2446,35 +2447,47 @@ protected:
 
 };
 
+//note that quadrature is exact for polynomials of degree 2*sngp - 1
+
 class GPUBasisLQuad:public GPUBasis{
 public:
 
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuad(){
-    sngp =2;
+  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuad(const int n = 2){
+    sngp = n;
+    if( 3 == n){
+      abscissa[0] = -3.872983346207417/5.0;
+      abscissa[1] =  0.0;
+      abscissa[2] =  3.872983346207417/5.0;
+      weight[0] = 5.0/9.0;
+      weight[1] = 8.0/9.0;
+      weight[2] = 5.0/9.0;
+    } else if ( 4 == n ) {
+      abscissa[0] =  -30.13977090579184/35.0;
+      abscissa[1] =  -11.89933652546997/35.0;
+      abscissa[2] =   11.89933652546997/35.0;
+      abscissa[3] =   30.13977090579184/35.0;
+      weight[0] = (18.0-5.477225575051661)/36.0;
+      weight[1] = (18.0+5.477225575051661)/36.0;
+      weight[2] = (18.0+5.477225575051661)/36.0;
+      weight[3] = (18.0-5.477225575051661)/36.0;
+    } else {
+      sngp = 2;
+      abscissa[0] = -1.0/1.732050807568877;
+      abscissa[1] =  1.0/1.732050807568877;
+      weight[0] = 1.0;
+      weight[1] = 1.0;
+    }
     ngp = sngp*sngp;
-    abscissa[0] = -1.0/1.732050807568877;
-    abscissa[1] =  1.0/1.732050807568877;
-    weight[0] = 1.0;
-    weight[1] = 1.0;
     
-    //cn right now, changing the order when ngp = 4 breaks all the quad tests
-    //cn so we leave it for now...
-    xi[0]  = abscissa[0];
-    eta[0] = abscissa[0];
-    nwt[0]  = weight[0] * weight[0];
-    
-    xi[1]  = abscissa[1];
-    eta[1] = abscissa[0];
-    nwt[1]  = weight[0] * weight[1];
-    
-    xi[2]  = abscissa[1];
-    eta[2] = abscissa[1];
-    nwt[2]  = weight[1] * weight[1];
-    
-    xi[3]  = abscissa[0];
-    eta[3] = abscissa[1];
-    nwt[3]  = weight[0] * weight[1];
-    
+    int c = 0;
+    for( int i = 0; i < sngp; i++ ){
+      for( int j = 0; j < sngp; j++ ){
+	xi[i+j+c]  = abscissa[i];
+	eta[i+j+c] = abscissa[j];
+	nwt[i+j+c]  = weight[i] * weight[j];
+      }
+      c = c + sngp - 1;
+    }
     for(int gp = 0; gp < ngp; gp++){
       phinew[gp][0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
       phinew[gp][1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
@@ -2626,15 +2639,33 @@ public:
 class GPUBasisLHex:public GPUBasis{
 public:
 
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLHex(){
-    sngp =2;
-    ngp = sngp*sngp*sngp;
+  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLHex(const int n = 2){
+    sngp = n;
+    if( 3 == n){
+      abscissa[0] = -3.872983346207417/5.0;
+      abscissa[1] =  0.0;
+      abscissa[2] =  3.872983346207417/5.0;
+      weight[0] = 5.0/9.0;
+      weight[1] = 8.0/9.0;
+      weight[2] = 5.0/9.0;
+    } else if ( 4 == n ) {
+      abscissa[0] =  -30.13977090579184/35.0;
+      abscissa[1] =  -11.89933652546997/35.0;
+      abscissa[2] =   11.89933652546997/35.0;
+      abscissa[3] =   30.13977090579184/35.0;
+      weight[0] = (18.0-5.477225575051661)/36.0;
+      weight[1] = (18.0+5.477225575051661)/36.0;
+      weight[2] = (18.0+5.477225575051661)/36.0;
+      weight[3] = (18.0-5.477225575051661)/36.0;
+    } else {
+      sngp = 2;
+      abscissa[0] = -1.0/1.732050807568877;
+      abscissa[1] =  1.0/1.732050807568877;
+      weight[0] = 1.0;
+      weight[1] = 1.0;
+    }
 
-    abscissa[0] = -1.0/1.732050807568877;
-    abscissa[1] =  1.0/1.732050807568877;
-    weight[0] = 1.0;
-    weight[1] = 1.0;
-
+#if 0
     xi[0] = abscissa[0];  // 0, 0, 0
     eta[0] = abscissa[0];
     zta[0] = abscissa[0];
@@ -2674,6 +2705,22 @@ public:
     eta[7] = abscissa[1];
     zta[7] = abscissa[1];
     nwt[7] = weight[0] * weight[1] * weight[1];
+#endif
+    int c = 0;
+    for( int i = 0; i < sngp; i++ ){
+      for( int j = 0; j < sngp; j++ ){
+	for( int k = 0; k < sngp; k++ ){
+	  xi[i+j+k+c]  = abscissa[i];
+	  eta[i+j+k+c] = abscissa[j];
+	  zta[i+j+k+c] = abscissa[k];
+	  nwt[i+j+k+c]  = weight[i] * weight[j] * weight[k]; 
+	}   
+	c = c + sngp - 1;
+      }
+      c = c + sngp - 1;
+    }
+
+    ngp = sngp*sngp*sngp;
 
     for(int gp = 0; gp < ngp; gp++){
       phinew[gp][0]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);

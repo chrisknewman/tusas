@@ -135,6 +135,8 @@ private:
 
   int update_mesh_data();
 
+  void restart(Teuchos::RCP<vector_type> u);//,Teuchos::RCP<vector_type> u_old);
+
   void set_test_case();
 
   double time_;

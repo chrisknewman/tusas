@@ -1237,9 +1237,9 @@ template<class scalar_type>
     write_exodus();
   }
 
-#if 0
+
   else{
-    restart(u_old_,u_old_old_);
+    restart(u_old_);//,u_old_old_);
 //     if(1==comm_->MyPID())
 //       std::cout<<"Restart unavailable"<<std::endl<<std::endl;
 //     exit(0);
@@ -1247,7 +1247,7 @@ template<class scalar_type>
       mesh_->add_nodal_field((*varnames_)[k]);
     }
   }
-#endif    
+   
   if( 0 == comm_->getRank()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
 }
 template<class scalar_type>
@@ -1554,5 +1554,147 @@ void ModelEvaluatorTPETRA<scalar_type>::finalize()
 }
 
 
+template<class scalar_type>
+  void ModelEvaluatorTPETRA<scalar_type>::restart(Teuchos::RCP<vector_type> u)//,Teuchos::RCP<vector_type> u_old)
+{
+  //cn we need to get u_old_ and u_old_old_
+  //and start_time and start_step and modify time_
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+  int mypid = comm_->getRank();
+  int numproc = comm_->getSize();
+  if( 0 == mypid )
+    std::cout<<std::endl<<"Entering restart: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
+  
+  if( 1 == numproc ){//cn for now
+    //if( 0 == mypid ){
+    const char *outfilename = "results.e";
+    ex_id_ = mesh_->open_exodus(outfilename);
+
+    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
+    
+  }
+  else{
+    std::string decompPath="decomp/";
+    //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
+    
+    std::string mypidstring;
+
+    if( numproc < 10 ){
+      mypidstring = std::to_string(mypid);
+    }
+    if( numproc > 9 && numproc < 100 ){
+      if ( mypid < 10 ){
+	mypidstring = std::to_string(0)+std::to_string(mypid);
+      }
+      else{
+	mypidstring = std::to_string(mypid);
+      }
+    }
+    if( numproc > 99 && numproc < 1000 ){
+      if ( mypid < 10 ){
+	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+      }
+      else if ( mypid > 9 && mypid < 100 ){
+	mypidstring = std::to_string(0)+std::to_string(mypid);
+      }
+      else{
+	mypidstring = std::to_string(mypid);
+      }
+      if( numproc > 999 && numproc < 10000 ){
+	if ( mypid < 10 ){
+	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+	}
+	else if ( mypid > 9 && mypid < 100 ){
+	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+	}
+	else if ( mypid > 99 && mypid < 1000 ){
+	  mypidstring = std::to_string(0)+std::to_string(mypid);
+	}
+	else{
+	  mypidstring = std::to_string(mypid);
+	}
+      }
+    }
+     
+    std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
+    ex_id_ = mesh_->open_exodus(pfile.c_str());
+    
+    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<pfile<<std::endl;
+
+    //cn we want to check the number of procs listed in the nem file as well    
+    int nem_proc = -99;
+    int error = mesh_->read_num_proc_nemesis(ex_id_, &nem_proc);
+    if( 0 > error ) {
+      std::cout<<"Error obtaining restart num procs in file"<<std::endl;
+      exit(0);
+    }
+    if( nem_proc != numproc ){
+      std::cout<<"Error restart nem_proc = "<<nem_proc<<" does not equal numproc = "<<numproc<<std::endl;
+      exit(0);
+    }
+  }
+  int step = -99;
+  int error = mesh_->read_last_step_exodus(ex_id_,step);
+  if( 0 == mypid )
+    std::cout<<"  Reading restart last step = "<<step<<std::endl;
+  if( 0 > error ) {
+    std::cout<<"Error obtaining restart last step"<<std::endl;
+    exit(0);
+  }
+
+  double time = -99.99;
+  error = mesh_->read_time_exodus(ex_id_, step, time);
+  if( 0 == mypid )
+    std::cout<<"  Reading restart last time = "<<time<<std::endl;
+  if( 0 > error ) {
+    std::cout<<"Error obtaining restart last time"<<std::endl;
+    exit(0);
+  }
+
+
+  std::vector<std::vector<double>> inputu(numeqs_,std::vector<double>(num_overlap_nodes_));
+
+  for( int k = 0; k < numeqs_; k++ ){
+    int ex_index = k+1;
+    error = mesh_->read_nodal_data_exodus(ex_id_,step,ex_index,&inputu[k][0]);
+    if( 0 > error ) {
+      std::cout<<"Error reading u at step "<<step<<std::endl;
+      exit(0);
+    }
+  }
+
+  //cn for now just put current values into old values, 
+  //cn ie just start with an initial condition
+
+  //cn lets not worry about two different time steps for normal simulations
+
+  Teuchos::RCP< vector_type> u_temp = Teuchos::rcp(new vector_type(x_overlap_map_));
+  //Teuchos::RCP< Epetra_Vector> u_old_temp = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
+
+  auto u_view = u_temp->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+  for( int k = 0; k < numeqs_; k++ ){
+    for (int nn=0; nn < num_overlap_nodes_; nn++) {
+      u_1d[numeqs_*nn+k] = inputu[k][nn];
+      //(*u_old_temp)[numeqs_*nn+k] = inputu[k][nn];
+    }
+  }
+
+  u->doExport(*u_temp,*exporter_, Tpetra::INSERT);
+  //u_old->doExport(*u_temp,*exporter_, Tpetra::INSERT);
+
+  this->start_time = time;
+  int ntstep = (int)(time/dt_);
+  //this->start_step = step-1;//this corresponds to the output frequency, not the actual timestep
+  this->start_step = ntstep;
+  time_=time;
+  output_step_ = step+1;
+  //   u->Print(std::cout);
+  //   exit(0);
+  if( 0 == mypid ){
+    std::cout<<"Restarting at time = "<<time<<" and step = "<<step<<std::endl<<std::endl;
+    std::cout<<"Exiting restart"<<std::endl<<std::endl;
+  }
+}
 
 #endif

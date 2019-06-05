@@ -465,15 +465,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	if(ne < num_elem) {
 #else
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+			     //for(int ne =0; ne<num_elem; ne++){
 #endif
-
-			     //we will need to enable arbitrary guass pts also
-			     //this is kind of an issue because allocation on device is a pain
-			     //right now we hardcode array lengths 
-			     //we could then then pass an int to constructor and code different loops
-			     //based on number of gp???
-			     //easiest hack approach is to have an individual basis for number of gps
-			     //ie GPUBasisLQuad4, GPUBasisLQuad8,...
 
 	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
@@ -524,7 +517,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    //we need a basis object that stores all equations here..
 	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],NULL);
-	    //BGPUarr[0].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0],NULL);
 	  }//neq
 	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
@@ -550,7 +542,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			   }
 #else
 #endif
-	});//parallel_for
+      });//parallel_for
+		     //};//ne
 
     }//c 
 

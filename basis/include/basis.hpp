@@ -2432,14 +2432,14 @@ protected:
   /// Access a pointer to the Gauss weights.
   double weight[BASIS_SNGP_PER_ELEM];
   /// Access a pointer to the xi coordinate at each Gauss point.
-  double xi[BASIS_NODES_PER_ELEM];
+  double xi[BASIS_NGP_PER_ELEM];
   //double *xi;
   /// Access a pointer to the eta coordinate at each Gauss point.
-  double eta[BASIS_NODES_PER_ELEM];
+  double eta[BASIS_NGP_PER_ELEM];
   /// Access a pointer to the zta coordinate at each Gauss point.
-  double zta[BASIS_NODES_PER_ELEM];
+  double zta[BASIS_NGP_PER_ELEM];
   /// Access the number of Gauss weights.
-  double nwt[BASIS_NODES_PER_ELEM];
+  double nwt[BASIS_NGP_PER_ELEM];
 
   /// difference in nodal coordinates
   double nodaldiff[36];//12 for lquad, 36 for lhex
@@ -2482,6 +2482,7 @@ public:
     int c = 0;
     for( int i = 0; i < sngp; i++ ){
       for( int j = 0; j < sngp; j++ ){
+	//std::cout<<i+j+c<<"   "<<i<<"   "<<j<<std::endl;
 	xi[i+j+c]  = abscissa[i];
 	eta[i+j+c] = abscissa[j];
 	nwt[i+j+c]  = weight[i] * weight[j];
@@ -2511,6 +2512,7 @@ public:
   TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM]) {
+    //std::cout<<"lquad 1"<<std::endl;
     nodaldiff[0] = x[1]-x[0];
     nodaldiff[1] = x[3]-x[0];
     nodaldiff[2] = y[1]-y[0];
@@ -2524,6 +2526,7 @@ public:
     nodaldiff[9] = y[2]-y[1];
     nodaldiff[10] = z[2]-z[3];
     nodaldiff[11] = z[2]-z[1];
+    //std::cout<<"lquad 2"<<std::endl;
 
 }
 
@@ -2664,6 +2667,7 @@ public:
       weight[0] = 1.0;
       weight[1] = 1.0;
     }
+    ngp = sngp*sngp*sngp;
 
 #if 0
     xi[0] = abscissa[0];  // 0, 0, 0
@@ -2710,6 +2714,7 @@ public:
     for( int i = 0; i < sngp; i++ ){
       for( int j = 0; j < sngp; j++ ){
 	for( int k = 0; k < sngp; k++ ){
+	  //std::cout<<i+j+k+c<<"   "<<i<<"   "<<j<<"   "<<k<<std::endl;
 	  xi[i+j+k+c]  = abscissa[i];
 	  eta[i+j+k+c] = abscissa[j];
 	  zta[i+j+k+c] = abscissa[k];
@@ -2719,8 +2724,7 @@ public:
       }
       c = c + sngp - 1;
     }
-
-    ngp = sngp*sngp*sngp;
+    //exit(0);
 
     for(int gp = 0; gp < ngp; gp++){
       phinew[gp][0]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
@@ -2805,6 +2809,7 @@ public:
     nodaldiff[33] = z[6]-z[7];
     nodaldiff[34] = z[6]-z[5];
     nodaldiff[35] = z[7]-z[3];
+    //std::cout<<"lhex"<<std::endl;
 
 }
   

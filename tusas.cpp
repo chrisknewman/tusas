@@ -431,7 +431,8 @@ int join(const int mypid, const int numproc)
     std::string epuFile="./epuscript";
     epufile.open(epuFile.c_str());
     epufile<<"#!/bin/bash"<<"\n";
-    epufile<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<comArg[3]<<"\n";
+    //epufile<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<comArg[3]<<"\n";
+    epufile<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<"decomp/results.e."<<std::to_string(numproc)<<".000"<<"\n";
     epufile.close();
     //if(-1 == system(comStr.c_str()) ){
     if(-1 == do_sys_call(comStr.c_str(), comArg) ){

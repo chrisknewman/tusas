@@ -33,6 +33,7 @@
 #include "Epetra_Vector.h"
 #include "Epetra_FEVector.h"
 #include "Epetra_Import.h"
+#include "Epetra_Export.h"
 #include "Epetra_FECrsGraph.h"
 #include "Epetra_FECrsMatrix.h"
 #include "EpetraExt_VectorOut.h"
@@ -2137,12 +2138,20 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   }
 #endif
 
+  Teuchos::RCP< Epetra_Vector> u_temp = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
+  //Teuchos::RCP< Epetra_Vector> u_old_temp = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
+
   for( int k = 0; k < numeqs_; k++ ){
-    for (int nn=0; nn < num_my_nodes_; nn++) {
-      (*u)[numeqs_*nn+k] = inputu[k][nn];
-      (*u_old)[numeqs_*nn+k] = inputu[k][nn];
+    for (int nn=0; nn < num_nodes_; nn++) {
+      (*u_temp)[numeqs_*nn+k] = inputu[k][nn];
+      //(*u_old_temp)[numeqs_*nn+k] = inputu[k][nn];
     }
   }
+
+  Teuchos::RCP< Epetra_Export > exporter = Teuchos::rcp(new Epetra_Export(*x_overlap_map_, *x_owned_map_));
+
+  u->Export(*u_temp,*exporter, Insert);
+  u_old->Export(*u_temp,*exporter, Insert);
   this->start_time = time;
   int ntstep = (int)(time/dt_);
   //this->start_step = step-1;//this corresponds to the output frequency, not the actual timestep

@@ -1499,9 +1499,10 @@ void ModelEvaluatorTPETRA<scalar_type>::finalize()
   int ngmres = 0;
 
   if ( (solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
-       .getEntryPtr("Total Number of Linear Iterations") != NULL)
+       .sublist("Output").getEntryPtr("Cumulative Iteration Count") != NULL)
     ngmres = ((solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
-	      .getEntry("Total Number of Linear Iterations")).getValue(&ngmres);
+	      .sublist("Output").getEntry("Cumulative Iteration Count")).getValue(&ngmres);
+
   if( 0 == mypid ){
     int numstep = paramList.get<int> (TusasntNameString) - this->start_step;
     std::cout<<std::endl

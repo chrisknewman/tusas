@@ -351,8 +351,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
   const int num_color = Elem_col->get_num_color();
 
-  Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
-  for(int i = 0; i<((mesh_->connect)[0]).size(); i++) meshc[i]=(mesh_->connect)[0][i];
+  Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
+
+  //Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
+  for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
+    //meshc[i]=(mesh_->connect)[0][i];
+    meshc_1d(i)=(mesh_->connect)[0][i];
+  }
 
   const double dt = dt_; //cuda 8 lambdas dont capture private data
   const double t_theta = t_theta_; //cuda 8 lambdas dont capture private data
@@ -383,12 +388,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     
     auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
         
-//     auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
-//     auto uold_1d = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
-//     auto x_1d = Kokkos::subview (x_view, Kokkos::ALL (), 0);
-//     auto y_1d = Kokkos::subview (y_view, Kokkos::ALL (), 0);
-//     auto z_1d = Kokkos::subview (z_view, Kokkos::ALL (), 0);
-
     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
     //Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
 
@@ -396,18 +395,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //this will utilize texture memory not available on tesla or earlier gpus
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
       uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
-    
-    //typedef Kokkos::TeamPolicy<schedule, Kokkos::LaunchBounds<64,4> > team_policy;
-    //typedef Kokkos::LaunchBounds<64,4> launch_bounds;
-    //typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace, Kokkos::LaunchBounds<128,2> > team_policy;
-    //typedef Kokkos::TeamPolicy< Kokkos::Schedule<Kokkos::Static> > team_policy;
-
-    //the problem here is that polymorphism is unsupported...... and View requires a type with a concrete constructor
-    //const size_t Neq = numeqs_;
-    //Kokkos::View<tusastpetra::res_heat_func_*> rv("rv",Neq);
-    //tusastpetra::res_heat_func_ rf1;
-    //rv(0) = rf1;
-
 
     RESFUNC * h_rf;
     h_rf = (RESFUNC*)malloc(numeqs_*sizeof(RESFUNC));
@@ -482,6 +469,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	
 	const int ngp = BGPU[0]->ngp;
 
+	//this is also a kokkos::vector
 	const int elem = elem_map_k[ne];
 
 	double xx[BASIS_NODES_PER_ELEM];
@@ -491,10 +479,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	double uu[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
 	double uu_old[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
 
+	const int elemrow = elem*n_nodes_per_elem;
+
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
-	  //const int nodeid = mesh_->get_node_id(blk, elem, k);//cn this is the local id
-	  const int nodeid = meshc[elem*n_nodes_per_elem+k];
+	  //meshc is a kokkos::vector, not sure how efficient this is
+	  //maybe a view is better?
+	  //const int nodeid = meshc[elemrow+k];//cn this is the local id
+	  const int nodeid = meshc_1d(elemrow+k);//cn this is the local id
 	  
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
@@ -521,7 +513,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
-	    const int lrow = numeqs*meshc[elem*n_nodes_per_elem+i];
+	    //const int lrow = numeqs*meshc[elemrow+i];
+	    const int lrow = numeqs*meshc_1d(elemrow+i);
 
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef KOKKOS_HAVE_CUDA
@@ -688,7 +681,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
 	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS];
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS];//cn allocating here is slow ...dont really want to do this
+	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS];
 	if(4 == n_nodes_per_elem)  {
 	  for( int neq = 0; neq < numeqs; neq++ )
 	    BGPU[neq] = &Bq[neq];
@@ -706,9 +699,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	double zz[BASIS_NODES_PER_ELEM];
 	double uu[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
 
+	const int elemrow = elem*n_nodes_per_elem;
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
-	  const int nodeid = meshc[elem*n_nodes_per_elem+k];
+	  //const int nodeid = meshc[elemrow+k];
+	  const int nodeid = meshc_1d(elemrow+k);
 	  
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
@@ -729,9 +724,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  }//neq
 	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
-	    const local_ordinal_type lrow = numeqs*meshc[elem*n_nodes_per_elem+i];
+	    //const local_ordinal_type lrow = numeqs*meshc[elemrow+i];
+	    const local_ordinal_type lrow = numeqs*meshc_1d(elemrow+i);
 	    for(int j=0;j < n_nodes_per_elem; j++) {
-	      local_ordinal_type lcol[1] = {numeqs*meshc[elem*n_nodes_per_elem+j]};
+	      //local_ordinal_type lcol[1] = {numeqs*meshc[elemrow+j]};
+	      local_ordinal_type lcol[1] = {numeqs*meshc_1d(elemrow+j)};
 	      
 	      for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef KOKKOS_HAVE_CUDA

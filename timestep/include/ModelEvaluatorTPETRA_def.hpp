@@ -432,10 +432,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       const int num_elem = elem_map.size();
 
-      Kokkos::vector<int> elem_map_k(num_elem);
+      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
+      //Kokkos::vector<int> elem_map_k(num_elem);
       for(int i = 0; i<num_elem; i++) {
-	elem_map_k[i] = elem_map[i];
-	//std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
+	//elem_map_k[i] = elem_map[i]; 
+	elem_map_1d(i) = elem_map[i]; 
       }
       //exit(0);
  
@@ -470,7 +471,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	const int ngp = BGPU[0]->ngp;
 
 	//this is also a kokkos::vector
-	const int elem = elem_map_k[ne];
+	const int elem = elem_map_1d(ne);
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];
@@ -668,9 +669,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       const int num_elem = elem_map.size();
 
 
-      Kokkos::vector<int> elem_map_k(num_elem);
+      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
+      //Kokkos::vector<int> elem_map_k(num_elem);
       for(int i = 0; i<num_elem; i++) {
-	elem_map_k[i] = elem_map[i];
+	//elem_map_k[i] = elem_map[i];
+	elem_map_1d(i) = elem_map[i]; 
 	//std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
       }
       //exit(0);	
@@ -692,7 +695,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	
 	const int ngp = BGPU[0]->ngp;
 
-	const int elem = elem_map_k[ne];
+	//const int elem = elem_map_k[ne];
+	const int elem = elem_map_1d(ne);
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];

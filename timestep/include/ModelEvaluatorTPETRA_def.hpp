@@ -439,21 +439,31 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	elem_map_1d(i) = elem_map[i]; 
       }
       //exit(0);
+      //auto elem_map_2d = Kokkos::subview(elem_map_1d, Kokkos::ALL (), Kokkos::ALL (), 0);
+      //std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
  
       //for (int ne=0; ne < num_elem; ne++) { 
-      //#define USE_TEAM
+#define USE_TEAM
 #ifdef USE_TEAM
+#ifdef KOKKOS_HAVE_CUDA
       int numthreadsperteam = 512;
+#else
+      int numthreadsperteam = 1;//openmp
+#endif
+      Kokkos::View<const int*,Kokkos::DefaultExecutionSpace> elem_map_1dConst(elem_map_1d);
       typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type member_type;
       Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy ((int)(num_elem/numthreadsperteam)+1, numthreadsperteam );
+      //std::cout<<policy.league_size()<<"    "<<policy.team_size()<<std::endl;
       Kokkos::parallel_for (policy, KOKKOS_LAMBDA (member_type team_member) {
         // Calculate a global thread id
         int ne = team_member.league_rank () * team_member.team_size () +
                 team_member.team_rank ();
 	if(ne < num_elem) {
+	  const int elem = elem_map_1dConst(ne);
 #else
-      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+	  Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
+	const int elem = elem_map_1d(ne);
 #endif
 
 	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
@@ -469,9 +479,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}
 	
 	const int ngp = BGPU[0]->ngp;
-
-	//this is also a kokkos::vector
-	const int elem = elem_map_1d(ne);
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];

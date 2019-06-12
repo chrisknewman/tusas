@@ -353,6 +353,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
 
+
+  Kokkos::View<int**,Kokkos::DefaultExecutionSpace> meshc_2d("meshc_2d",n_nodes_per_elem,(*mesh_->get_elem_num_map()).size());
+
+  //std::cout<<n_nodes_per_elem*(*mesh_->get_elem_num_map()).size()<<"  "<<((mesh_->connect)[0]).size()<<std::endl;
+
   //Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
   for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
     //meshc[i]=(mesh_->connect)[0][i];
@@ -451,6 +456,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       int numthreadsperteam = 1;//openmp
 #endif
       Kokkos::View<const int*,Kokkos::DefaultExecutionSpace> elem_map_1dConst(elem_map_1d);
+
+//       int strides[1]; // any integer type works in stride()
+//       elem_map_1dConst.stride (strides);
+//       std::cout<<strides[0]<<std::endl;
+
+
       typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type member_type;
       Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy ((int)(num_elem/numthreadsperteam)+1, numthreadsperteam );
       //std::cout<<policy.league_size()<<"    "<<policy.team_size()<<std::endl;

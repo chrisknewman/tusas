@@ -442,13 +442,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
  
       //for (int ne=0; ne < num_elem; ne++) { 
-#define USE_TEAM
+      //#define USE_TEAM
 #ifdef USE_TEAM
 #ifdef KOKKOS_HAVE_CUDA
-      int numthreadsperteam = 512;
+      int team_size = 512;//this is teamsize (#of threads in team) < 1024; preferably 256
 #else
-      int numthreadsperteam = 1;//openmp
+      int team_size = 1;//openmp
 #endif
+      int num_teams = (num_elem/team_size)+1;//this is # of thread teams (also league size); unlimited
       Kokkos::View<const int*,Kokkos::DefaultExecutionSpace> elem_map_1dConst(elem_map_1d);
 
 //       int strides[1]; // any integer type works in stride()
@@ -456,7 +457,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 //       std::cout<<strides[0]<<std::endl;
 
       typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type member_type;
-      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy ((int)(num_elem/numthreadsperteam)+1, numthreadsperteam );
+
+      //TeamPolicy <ExecutionSpace >( numberOfTeams , teamSize)
+      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy (num_teams, team_size );
       //std::cout<<policy.league_size()<<"    "<<policy.team_size()<<std::endl;
       Kokkos::parallel_for (policy, KOKKOS_LAMBDA (member_type team_member) {
         // Calculate a global thread id
@@ -544,7 +547,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  }//i
 	}//gp
 #ifdef USE_TEAM
-			   }
+			       }//if ne
 #else
 #endif
       });//parallel_for

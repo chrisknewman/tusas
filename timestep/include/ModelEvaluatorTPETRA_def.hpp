@@ -360,9 +360,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   //Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
   for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
-    //meshc[i]=(mesh_->connect)[0][i];
     meshc_1d(i)=(mesh_->connect)[0][i];
   }
+  Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
 
   const double dt = dt_; //cuda 8 lambdas dont capture private data
   const double t_theta = t_theta_; //cuda 8 lambdas dont capture private data
@@ -448,13 +448,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
  
       //for (int ne=0; ne < num_elem; ne++) { 
-#define USE_TEAM
+      //#define USE_TEAM
 #ifdef USE_TEAM
 #ifdef KOKKOS_HAVE_CUDA
-      int numthreadsperteam = 512;
+      int team_size = 512;//this is teamsize (#of threads in team) < 1024; preferably 256
 #else
-      int numthreadsperteam = 1;//openmp
+      int team_size = 1;//openmp
 #endif
+      int num_teams = (num_elem/team_size)+1;//this is # of thread teams (also league size); unlimited
       Kokkos::View<const int*,Kokkos::DefaultExecutionSpace> elem_map_1dConst(elem_map_1d);
 
 //       int strides[1]; // any integer type works in stride()
@@ -463,7 +464,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
       typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type member_type;
-      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy ((int)(num_elem/numthreadsperteam)+1, numthreadsperteam );
+
+      //TeamPolicy <ExecutionSpace >( numberOfTeams , teamSize)
+      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy (num_teams, team_size );
       //std::cout<<policy.league_size()<<"    "<<policy.team_size()<<std::endl;
       Kokkos::parallel_for (policy, KOKKOS_LAMBDA (member_type team_member) {
         // Calculate a global thread id
@@ -505,7 +508,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  //meshc is a kokkos::vector, not sure how efficient this is
 	  //maybe a view is better?
 	  //const int nodeid = meshc[elemrow+k];//cn this is the local id
-	  const int nodeid = meshc_1d(elemrow+k);//cn this is the local id
+	  const int nodeid = meshc_1dra(elemrow+k);//cn this is the local id
 	  
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
@@ -533,7 +536,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const int lrow = numeqs*meshc[elemrow+i];
-	    const int lrow = numeqs*meshc_1d(elemrow+i);
+	    const int lrow = numeqs*meshc_1dra(elemrow+i);
 
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef KOKKOS_HAVE_CUDA
@@ -551,7 +554,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  }//i
 	}//gp
 #ifdef USE_TEAM
-			   }
+			       }//if ne
 #else
 #endif
       });//parallel_for

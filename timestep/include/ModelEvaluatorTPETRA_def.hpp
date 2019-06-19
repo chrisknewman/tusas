@@ -1565,13 +1565,13 @@ void ModelEvaluatorTPETRA<scalar_type>::finalize()
   if(!u_old_.is_null()) u_old_=Teuchos::null;
   if(!dudt_.is_null()) dudt_=Teuchos::null;
 
+#endif
   delete residualfunc_;
   delete preconfunc_;
   delete initfunc_;
-#endif
   delete varnames_;
-#if 0
   if( NULL != dirichletfunc_) delete dirichletfunc_;
+#if 0
 #ifdef PERIODIC_BC
 #else
   if( NULL != periodicbc_) delete periodicbc_;

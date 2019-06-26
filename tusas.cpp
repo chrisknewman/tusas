@@ -68,6 +68,9 @@ int main(int argc, char *argv[])
 {
   Teuchos::TimeMonitor::zeroOutTimers();
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
+ //  auto comm_ = Teuchos::DefaultComm<int>::getComm();
+//   comm_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  
   Kokkos::initialize(argc, argv);
 #ifdef TUSAS_KOKKOS_PRINT_CONFIG
   Kokkos::print_configuration( std::cout , false );
@@ -190,6 +193,9 @@ int main(int argc, char *argv[])
   }
   write_timers();
   Kokkos::finalize();
+#ifdef TUSAS_HAVE_SUMMIT_MPI
+  MPI_Finalize();  //enable this to force an abort on summit (summit ibm-mpi hangs here...)
+#endif
   return 0;
 }
 

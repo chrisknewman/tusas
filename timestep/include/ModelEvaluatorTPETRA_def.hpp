@@ -1408,6 +1408,32 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 //     neumannfunc_ = NULL;
 
     paramfunc_ = cummins::param_;
+
+  }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
+    //farzadi test
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &farzadi::init_conc_farzadi_;
+    (*initfunc_)[1] = &tpetra::farzadi3d::init_phase_farzadi_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::farzadi3d::residual_conc_farzadi_;
+    (*residualfunc_)[1] = &tpetra::farzadi3d::residual_phase_farzadi_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::farzadi3d::prec_conc_farzadi_;
+    (*preconfunc_)[1] = &tpetra::farzadi3d::prec_phase_farzadi_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+    paramfunc_ = farzadi::param_;
+
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){

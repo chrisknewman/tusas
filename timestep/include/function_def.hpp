@@ -5092,11 +5092,163 @@ PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
 //}//namespace heat
 
 
-namespace cummins {
+namespace farzadi3d
+{
 
-}//namespace tpetra::cummins
+  const double absphi = .98;
 
+double a(const double &p,const double &px,const double &py,const double &pz)
+{
+  return (p*p < absphi) ? (1.-3.*farzadi::eps_)*(1.+4.*farzadi::eps_/(1.-3.*farzadi::eps_)*
+				    (px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz))
+    : 1. + farzadi::eps_;
+}
 
+double ap(const double &p,const double &px,const double &py,const double &pz,const double &pd)
+{
+  return (p*p < absphi) ? 4.*farzadi::eps_*
+				    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
+				    /(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)
+    : 0.;
+}
+
+RES_FUNC_TPETRA(residual_phase_farzadi_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[eqn_id].dphidx[i];
+  const double dtestdy = basis[eqn_id].dphidy[i];
+  const double dtestdz = basis[eqn_id].dphidz[i];
+  //test function
+  const double test = basis[0].phi[i];
+  //u, phi
+  const double u = basis[0].uu;
+  const double uold = basis[0].uuold;
+  const double phi = basis[1].uu;
+  const double phiold = basis[1].uuold;
+
+  const double dphidx = basis[1].dudx;
+  const double dphidy = basis[1].dudy;
+  const double dphidz = basis[1].dudz;
+
+  //double theta_ = theta(basis[1].duolddx,basis[1].duolddy);
+  //double theta_ = cummins::theta(basis[1].dudx,basis[1].dudy);
+
+  //double m = (1.+(1.-farzadi::k_)*u)*cummins::m_cummins_(theta_, farzadi::M_, farzadi::eps_);//cn we probably need u and uold here for CN...
+  //double m = m_cummins_(theta_, M_, eps_);//cn we probably need u and uold here for CN...
+  //double theta_old = theta(dphidx,dphidy);
+  //double mold = (1+(1-k_)*uold)*m_cummins_(theta_old, M_, eps_);
+
+  //double phit = (t_theta_*m+(1.-t_theta_)*mold)*(phi-phiold)/dt_*test;
+  //double phit = m*(phi-phiold)/dt_*test;
+
+  //double gs2 = cummins::gs2_cummins_(theta_, farzadi::M_, farzadi::eps_,0.);
+  const double as = a(phi,dphidx,dphidy,dphidz);
+  //double gs2 = as*as;
+
+  const double divgradphi = as*as*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);//(grad u,grad phi)
+
+  const double phit = (1.+(1.-farzadi::k_)*u)*as*as*(phi-phiold)/dt_*test;
+
+  //double dgdtheta = cummins::dgs2_2dtheta_cummins_(theta_, farzadi::M_, farzadi::eps_, 0.);	
+  //double dgdpsi = 0.;
+  //double curlgrad = -dgdtheta*dphidy*dtestdx + dgdtheta*dphidx*dtestdy;
+  const double curlgrad = as*(dphidx*dphidx + dphidy*dphidy + dphidz*dphidz)
+    *(ap(phi,dphidx,dphidy,dphidz,dphidx)*dtestdx + ap(phi,dphidx,dphidy,dphidz,dphidy)*dtestdy + ap(phi,dphidx,dphidy,dphidz,dphidz)*dtestdz);
+
+  const double gp1 = -(phi - phi*phi*phi);
+  const double phidel2 = gp1*test;
+
+  const double x = basis[0].xx;
+  double t_scale = farzadi::tscale_(x,time);
+
+  const double hp1 = farzadi::lambda*(1. - phi*phi)*(1. - phi*phi)*(u+t_scale);
+  const double phidel = hp1*test;
+  
+  const double rhs = divgradphi + curlgrad + phidel2 + phidel;
+
+  return phit + t_theta_*rhs;// + (1.-t_theta_)*rhs_old*0.;
+}
+
+RES_FUNC_TPETRA(residual_conc_farzadi_)
+{
+  //right now, if explicit, we will have some problems with time derivates below
+  const double dtestdx = basis[eqn_id].dphidx[i];
+  const double dtestdy = basis[eqn_id].dphidy[i];
+  const double dtestdz = basis[eqn_id].dphidz[i];
+  const double test = basis[0].phi[i];
+  const double u = basis[0].uu;
+  const double uold = basis[0].uuold;
+  const double phi = basis[1].uu;
+  const double phiold = basis[1].uuold;
+  const double dphidx = basis[1].dudx;
+  const double dphidy = basis[1].dudy;
+  const double dphidz = basis[1].dudz;
+
+  const double ut = (1.+farzadi::k_)/2.*(u-uold)/dt_*test;
+  const double divgradu = farzadi::D*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+
+  const double normd = (phi*phi < absphi) ? 1./sqrt(dphidx*dphidx + dphidy*dphidy + dphidz*dphidz) : 0.; //cn lim grad phi/|grad phi| may -> 1 here?
+
+  const double j_coef = (1.+(1.-farzadi::k_)*u)/sqrt(8.)*normd*(phi-phiold)/dt_;
+  const double divj = j_coef*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);
+
+  double phitu = -.5*(phi-phiold)/dt_*(1.+(1.-farzadi::k_)*u)*test; 
+
+  return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
+}
+
+PRE_FUNC_TPETRA(prec_phase_farzadi_)
+{
+  const double dtestdx = basis[eqn_id].dphidx[i];
+  const double dtestdy = basis[eqn_id].dphidy[i];
+  const double dtestdz = basis[eqn_id].dphidz[i];
+  const double dbasisdx = basis[eqn_id].dphidx[j];
+  const double dbasisdy = basis[eqn_id].dphidy[j];
+  const double dbasisdz = basis[eqn_id].dphidz[j];
+
+  const double test = basis[1].phi[i];
+  
+  const double dphidx = basis[1].dudx;
+  const double dphidy = basis[1].dudy;
+  const double dphidz = basis[1].dudz;
+
+  const double u = basis[0].uu;
+  const double phi = basis[1].uu;
+
+  const double as = a(phi,dphidx,dphidy,dphidz);
+
+  const double m = (1.+(1.-farzadi::k_)*u*0.)*as*as;
+  const double phit = m*(basis[1].phi[j])/dt_*test;
+
+  const double divgrad = as*as*(dbasisdx*dtestdx + dbasisdy*dtestdy + dbasisdz*dtestdz);
+
+  return phit + t_theta_*(divgrad);
+}
+PRE_FUNC_TPETRA(prec_conc_farzadi_)
+{
+  const double dtestdx = basis[eqn_id].dphidx[i];
+  const double dtestdy = basis[eqn_id].dphidy[i];
+  const double dtestdz = basis[eqn_id].dphidz[i];
+  const double dbasisdx = basis[eqn_id].dphidx[j];
+  const double dbasisdy = basis[eqn_id].dphidy[j];
+  const double dbasisdz = basis[eqn_id].dphidz[j];
+
+  const double test = basis[0].phi[i];
+  const double divgrad = farzadi::D*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+
+  const double u_t =(1.+farzadi::k_)/2.*test * basis[0].phi[j]/dt_;
+
+  return u_t + t_theta_*(divgrad);
+
+}
+INI_FUNC(init_phase_farzadi_)
+{
+  const double r = farzadi::ll*(1.+farzadi::ff(y)*farzadi::ff(y/2.)*farzadi::ff(y/4.));
+  const double rz = (1.+farzadi::ff(z)*farzadi::ff(z/2.)*farzadi::ff(z/4.))/9.;
+
+  return (x < r*rz) ? 1. : -1.;
+}
+}//namespace farzadi3d
 }//namespace tpetra
 
 

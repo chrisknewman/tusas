@@ -47,10 +47,10 @@
 #include "ReadInput.h"
 #include "tusas.h"
 
+#include <sys/wait.h>
 #if 0
 #include <unistd.h>
 #include <spawn.h>
-#include <sys/wait.h>
 
 extern char **environ;
 #endif

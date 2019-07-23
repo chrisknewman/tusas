@@ -59,7 +59,7 @@ using namespace std;
 
 int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const bool skipdecomp, const bool writedecomp, const Epetra_Comm * comm);
 int do_sys_call(const char* command, char * const arg[] = NULL );
-int join(const int mypid, const int numproc);
+int join(const int mypid, const int numproc, const bool skipdecomp);
 void print_disclaimer(const int mypid);
 void print_copyright(const int mypid);
 void write_timers();
@@ -184,8 +184,10 @@ int main(int argc, char *argv[])
     Comm.Barrier();
     
     if(1 != numproc ) {
-      if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis") join(mypid, numproc);
-      if(paramList.get<std::string> (TusasmethodNameString)  == "tpetra") join(mypid, numproc);
+      if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis") join(mypid, numproc, 
+		    paramList.get<bool> (TusasskipdecompNameString));
+      if(paramList.get<std::string> (TusasmethodNameString)  == "tpetra") join(mypid, numproc, 
+		    paramList.get<bool> (TusasskipdecompNameString));
     }
 
     delete model;
@@ -417,7 +419,8 @@ int decomp(const int mypid,
   }
   return 0;
 }
-int join(const int mypid, const int numproc)
+int join(const int mypid, const int numproc, 
+	   const bool skipdecomp)
 {
   if( 0 == mypid ){
     std::cout<<"Entering join: PID "<<mypid<<" NumProcs "<<numproc<<"\n"<<"\n";
@@ -429,7 +432,6 @@ int join(const int mypid, const int numproc)
     char * comArg[] = {(char*)"epu",(char*)"-auto", (char*)"-add_processor_id",
 		       const_cast<char*>(("decomp/results.e."+std::to_string(numproc)+".000").c_str()),(char*)NULL};
  
-    std::cout<<"Running epu command: "<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<comArg[3]<<"\n";
     std::ofstream epufile;
     std::string epuFile="./epuscript";
     epufile.open(epuFile.c_str());
@@ -437,10 +439,13 @@ int join(const int mypid, const int numproc)
     //epufile<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<comArg[3]<<"\n";
     epufile<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<"decomp/results.e."<<std::to_string(numproc)<<".000"<<"\n";
     epufile.close();
-    //if(-1 == system(comStr.c_str()) ){
-    if(-1 == do_sys_call(comStr.c_str(), comArg) ){
-      std::cout<<"Error running epu: "<<comStr<<"\n";
-      return -1;
+    if( !skipdecomp){
+      //if(-1 == system(comStr.c_str()) ){
+      std::cout<<"Running epu command: "<<comStr<<" "<<comArg[1]<<" "<<comArg[2]<<" "<<comArg[3]<<"\n";
+      if(-1 == do_sys_call(comStr.c_str(), comArg) ){
+	std::cout<<"Error running epu: "<<comStr<<"\n";
+	return -1;
+      }
     }
   }
   return 0;

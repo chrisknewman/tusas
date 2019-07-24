@@ -5196,7 +5196,7 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
 
   return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
 }
-
+//do not use now
 PRE_FUNC_TPETRA(prec_phase_farzadi_)
 {
   const double dtestdx = basis[eqn_id].dphidx[i];
@@ -5224,6 +5224,7 @@ PRE_FUNC_TPETRA(prec_phase_farzadi_)
 
   return phit + t_theta_*(divgrad);
 }
+//do not use now
 PRE_FUNC_TPETRA(prec_conc_farzadi_)
 {
   const double dtestdx = basis[eqn_id].dphidx[i];
@@ -5247,6 +5248,10 @@ INI_FUNC(init_phase_farzadi_)
   const double rz = (1.+farzadi::ff(z)*farzadi::ff(z/2.)*farzadi::ff(z/4.))/9.;
 
   return (x < r*rz) ? 1. : -1.;
+}
+INI_FUNC(init_conc_farzadi_)
+{
+  return -1.;
 }
 }//namespace farzadi3d
 }//namespace tpetra

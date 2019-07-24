@@ -1415,7 +1415,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 2;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &farzadi::init_conc_farzadi_;
+    (*initfunc_)[0] = &tpetra::farzadi3d::init_conc_farzadi_;
     (*initfunc_)[1] = &tpetra::farzadi3d::init_phase_farzadi_;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);

@@ -1142,9 +1142,10 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
   // Create the initial guess
   Teuchos::RCP< ::Thyra::VectorBase<double> >
     initial_guess = this->getNominalValues().get_x()->clone_v();
-  Teuchos::RCP<Epetra_Vector> e_weight = Teuchos::rcp(new Epetra_Vector(*f_owned_map_,1.));
-  Teuchos::RCP<Thyra::VectorBase<double> >
-      weight = Thyra::create_Vector( e_weight, x_space_ );
+
+//   Teuchos::RCP<Epetra_Vector> e_weight = Teuchos::rcp(new Epetra_Vector(*f_owned_map_,1.));
+//   Teuchos::RCP<Thyra::VectorBase<double> >
+//       weight = Thyra::create_Vector( e_weight, x_space_ );
   //weight = Teuchos::null;
 
   Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
@@ -1176,22 +1177,12 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
   if(precon){
     Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp = thyraModel->create_W_prec();
-#if 0
     nox_group =
-      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null,weight));
-#else
-    nox_group =
-      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null));
-#endif
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null, Teuchos::null, Teuchos::null));
   }
   else {
-#if 0
     nox_group =
-      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null,Teuchos::null, weight ));
-#else
-    nox_group =
-      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null));
-#endif
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null, Teuchos::null, Teuchos::null));
    }
 
   nox_group->computeF();

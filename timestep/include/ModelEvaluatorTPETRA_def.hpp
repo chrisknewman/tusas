@@ -194,6 +194,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
   ts_time_view= Teuchos::TimeMonitor::getNewTimer("Tusas: Total View Time");
+  ts_time_iowrite= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Write Time");
+  //ts_time_ioread= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Read Time");
 
   //HACK
   //cn 8-28-18 currently elem_color takes an epetra_mpi_comm....
@@ -1471,6 +1473,7 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
   update_mesh_data();
 
   //not sre what the bug is here...
+  Teuchos::TimeMonitor IOWriteTimer(*ts_time_iowrite);
   mesh_->write_exodus(ex_id_,output_step_,time_);
   output_step_++;
 }

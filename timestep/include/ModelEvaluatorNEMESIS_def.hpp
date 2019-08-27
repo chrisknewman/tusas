@@ -831,7 +831,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    // on threads in each mpi process. This caused segfault with mpi+omp here.
 
 
-#pragma omp parallel for
+	    //#pragma omp parallel for
 	    for ( int j = 0; j < mesh_->get_node_set(ns_id).size(); j++ ){
 	      
 	      int lid = mesh_->get_node_set_entry(ns_id, j);

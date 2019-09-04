@@ -216,7 +216,7 @@ int decomp(const int mypid,
 
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
-  RCP<Teuchos::Time> ts_time_decomp = Teuchos::TimeMonitor::getNewTimer("Total Decomp Time");
+  RCP<Teuchos::Time> ts_time_decomp = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Decomp Time");
   Teuchos::TimeMonitor DecompTimer(*ts_time_decomp);
   if( 0 == mypid ){
     if( !restart && !skipdecomp){

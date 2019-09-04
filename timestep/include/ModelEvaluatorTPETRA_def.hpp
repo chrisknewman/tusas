@@ -185,7 +185,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   outArgs.setSupports(Thyra::ModelEvaluatorBase::OUT_ARG_W_prec);
   prototypeOutArgs_ = outArgs;
   nominalValues_ = inArgs;
-  //nominalValues_.set_x(x0_);;
+  //nominalValues_.set_x(x0_);
   nominalValues_.set_x(Thyra::createVector(x0_, x_space_));
   time_=0.;
   
@@ -1243,7 +1243,8 @@ template<class scalar_type>
       
     }
     else{
-      std::string decompPath="decomp/";
+      //std::string decompPath="decomp/";
+      std::string decompPath=paramList.get<std::string> (TusasoutputpathNameString);
       //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
       
       std::string mypidstring;

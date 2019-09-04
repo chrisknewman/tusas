@@ -153,6 +153,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   clp.setOption( "skipdecomp","noskipdecomp", &skipdecomp );
   bool writedecomp = false;
   clp.setOption( "writedecomp","nowritedecomp", &writedecomp );
+  std::string outputPathName = "decomp/";
+  clp.setOption("output-path",&outputPathName,"Output path (must exist)");
 
   clp.setDocString( "Document string for this program. Right now, not much going on here." );
   Teuchos::CommandLineProcessor::EParseCommandLineReturn parse_return = clp.parse(argc,argv);
@@ -182,6 +184,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   paramList.set(TusasrestartNameString,restart,TusasrestartDocString);
   paramList.set(TusasskipdecompNameString,skipdecomp,TusasskipdecompDocString);
   paramList.set(TusaswritedecompNameString,writedecomp,TusaswritedecompDocString);
+
+  paramList.set(TusasoutputpathNameString,outputPathName,TusasoutputpathDocString);
 
   if( 0 !=(LSList->get<std::string>("Linear Solver Type")).compare("AztecOO") ) {
     //LSList->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").remove("Output Frequency");

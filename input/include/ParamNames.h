@@ -73,7 +73,7 @@ std::string const TusasnlsDocString = "over ride nonlinear solver parameters";
 /// Create error estimator for this variable.
 std::string const TusaserrorestimatorNameString = "errorestimator";
 /// Create error estimator for this variable.
-std::string const TusaserrorestimatorDocString = "variables to estimate error for, {} corrsponds to none, {0,3} corresponds to 1 and 3 (string): default none";
+std::string const TusaserrorestimatorDocString = "variables to estimate error for, {} corrsponds to none, {0,3} corresponds to 1 and 4 (string): default none";
 /// Quadrature order.
 std::string const TusasltpquadordNameString = "ltpquadord";
 /// Quadrature order.
@@ -108,5 +108,9 @@ std::string const TusasskipdecompDocString = "skipdecomp (bool): false (default)
 std::string const TusaswritedecompNameString = "writedecomp";
 /// Write the decomposition script.
 std::string const TusaswritedecompDocString = "writedecomp (bool): false (default); true";
+/// File path for output.
+std::string const TusasoutputpathNameString = "outputpath";
+/// File path for output.
+std::string const TusasoutputpathDocString = "outputpath (string): default decomp/ (path must exist)";
 
 #endif

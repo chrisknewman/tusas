@@ -1124,6 +1124,35 @@ int Mesh::get_nodal_field_index(std::string name){
 }
 
 
+int Mesh::read_elem_data_exodus(const int ex_id, const int timestep, const int index, double *data){
+  const int block = 1;//hack exodus blocks start at 1
+  int ex_err = ex_get_elem_var (ex_id, timestep, index, block, num_elem, &data[0]);
+  return ex_err;
+}
+
+int Mesh::read_elem_data_exodus(const int ex_id, const int timestep, std::string name, double *data){
+  int index = get_elem_field_index(name) + 1;//exodus starts at 1
+  const int block = 1;//hack exodus blocks start at 1
+  int ex_err = ex_get_elem_var (ex_id, timestep, index, block, num_elem, &data[0]);
+  return ex_err;
+}
+
+int Mesh::get_elem_field_index(std::string name){
+  int index = -1;
+  for (int i = 0; i < num_elem_fields; i++){
+    if(name == elem_field_names[i]){
+      index = i;
+    }
+  }
+  if(0 > index){
+    std::cout<<name<<" not found"<<std::endl<<std::endl;
+    exit(0);
+  }
+  return index;
+}
+
+
+
 /*
 int Mesh::add_nodal_data(std::string &name, std::vector<double> &data){
 

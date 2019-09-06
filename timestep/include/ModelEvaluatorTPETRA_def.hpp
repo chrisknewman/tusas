@@ -201,7 +201,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //cn 8-28-18 currently elem_color takes an epetra_mpi_comm....
   //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
   //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
-  Elem_col = Teuchos::rcp(new elem_color(Comm,mesh));
+  bool dorestart = paramList.get<bool> (TusasrestartNameString);
+  Elem_col = Teuchos::rcp(new elem_color(Comm,mesh,dorestart));
 
   init_nox();
 

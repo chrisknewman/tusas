@@ -37,7 +37,8 @@ class elem_color
 public:
   /// Constructor
   elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,   ///< MPI communicator
-	     Mesh *mesh ///< mesh object
+	     Mesh *mesh, ///< mesh object
+	     bool dorestart = false ///< do restart
 	     );
   ///Destructor
   ~elem_color();
@@ -76,6 +77,8 @@ private:
   void insert_off_proc_elems();
   /// List of color ids.
   std::vector<int> color_list_;
+  /// Populate elem_LIDS_
+  void restart();
 
   //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
   Teuchos::RCP<Teuchos::Time> ts_time_color;

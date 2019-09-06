@@ -59,6 +59,10 @@ class Mesh
   int read_nodal_data_exodus(const int ex_id, const int timestep, std::string name, double *data);
   /// Read the number of processors from Nemesis file with exodus id ex_id.
   int read_num_proc_nemesis(int ex_id, int *nproc);
+  /// Read elem data by variable index index at timestep index timestep.
+  int read_elem_data_exodus(const int ex_id, const int timestep, const int index, double *data);
+  /// Read elem data by variable name name at timestep index timestep.
+  int read_elem_data_exodus(const int ex_id, const int timestep, std::string name, double *data);
 
 // We need a set of convenient functions to retrieve data from this object, and write data to it
 
@@ -269,6 +273,7 @@ class Mesh
   int close_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
   int get_nodal_field_index(std::string name);
+  int get_elem_field_index(std::string name);
   //std::vector<int> node_num_map;
   std::vector<int> elem_num_map;
 

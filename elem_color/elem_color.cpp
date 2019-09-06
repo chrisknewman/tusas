@@ -14,7 +14,8 @@
 #include <Epetra_Util.h>
 
 elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm, 
-				 Mesh *mesh):  
+		       Mesh *mesh,
+		       bool dorestart):  
   comm_(comm),
   mesh_(mesh)
 {
@@ -23,10 +24,19 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_color= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Elem Color Time");
   Teuchos::TimeMonitor ElemcolTimer(*ts_time_color);
 
-  mesh_->compute_nodal_patch_overlap();
-  compute_graph();
-  create_colorer();
-  init_mesh_data();
+  //cn to revert to old functionality uncomment:
+
+  //dorestart = false;
+
+
+  if(dorestart){
+    restart();
+  } else {
+    mesh_->compute_nodal_patch_overlap();
+    compute_graph();
+    create_colorer();
+    init_mesh_data();
+  }
 }
 
 elem_color::~elem_color()
@@ -137,6 +147,7 @@ void elem_color::create_colorer()
   }
 
   graph_ = Teuchos::null;
+  elem_map_ = Teuchos::null;
 
   std::cout<<std::endl<<"elem_color::create_colorer() ended on proc "<<mypid<<". With num_color_ = "<<num_color_<<std::endl<<std::endl;
 
@@ -277,4 +288,135 @@ void elem_color::insert_off_proc_elems(){
   //exit(0);
   return;
 
+}
+
+void elem_color::restart(){
+  //we will first read in a vector of size num elem on this proc
+  // fill it with color
+  //find the min and max values to determine the number of colors
+  //allocate first dimension of elem_LIDS_ to num colors
+  //fill each color with elem ids via push back
+  //verify that this is by LID
+
+  int mypid = comm_->MyPID();
+  int numproc = comm_->NumProc();
+
+  std::cout<<std::endl<<"elem_color::restart() started on proc "<<mypid<<std::endl<<std::endl;
+
+  const int num_elem = mesh_->get_num_elem();
+
+  int ex_id_;
+
+  //this code is replicated in a number of places.  Need to have a function for this somewhere
+  if( 1 == numproc ){//cn for now
+    //if( 0 == mypid ){
+    const char *outfilename = "results.e";
+    ex_id_ = mesh_->open_exodus(outfilename);
+
+    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
+    
+  }
+  else{
+    std::string decompPath="decomp/";
+    //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
+    
+    std::string mypidstring;
+
+    if( numproc < 10 ){
+      mypidstring = std::to_string(mypid);
+    }
+    if( numproc > 9 && numproc < 100 ){
+      if ( mypid < 10 ){
+	mypidstring = std::to_string(0)+std::to_string(mypid);
+      }
+      else{
+	mypidstring = std::to_string(mypid);
+      }
+    }
+    if( numproc > 99 && numproc < 1000 ){
+      if ( mypid < 10 ){
+	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+      }
+      else if ( mypid > 9 && mypid < 100 ){
+	mypidstring = std::to_string(0)+std::to_string(mypid);
+      }
+      else{
+	mypidstring = std::to_string(mypid);
+      }
+      if( numproc > 999 && numproc < 10000 ){
+	if ( mypid < 10 ){
+	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+	}
+	else if ( mypid > 9 && mypid < 100 ){
+	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+	}
+	else if ( mypid > 99 && mypid < 1000 ){
+	  mypidstring = std::to_string(0)+std::to_string(mypid);
+	}
+	else{
+	  mypidstring = std::to_string(mypid);
+	}
+      }
+    }
+     
+    std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
+    ex_id_ = mesh_->open_exodus(pfile.c_str());
+    
+    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<pfile<<std::endl;
+
+    //cn we want to check the number of procs listed in the nem file as well    
+    int nem_proc = -99;
+    int error = mesh_->read_num_proc_nemesis(ex_id_, &nem_proc);
+    if( 0 > error ) {
+      std::cout<<"Error obtaining restart num procs in file"<<std::endl;
+      exit(0);
+    }
+    if( nem_proc != numproc ){
+      std::cout<<"Error restart nem_proc = "<<nem_proc<<" does not equal numproc = "<<numproc<<std::endl;
+      exit(0);
+    }
+  }
+
+  int step = -99;
+  int error = mesh_->read_last_step_exodus(ex_id_,step);
+  if( 0 == mypid )
+    std::cout<<"  Reading restart last step = "<<step<<std::endl;
+  if( 0 > error ) {
+    std::cout<<"Error obtaining restart last step"<<std::endl;
+    exit(0);
+  }
+
+
+
+  //we read a double from exodus; convert to int below
+  std::vector<double> colors(num_elem);
+
+  //note that in the future (and in case of nemesis) there may be other elem data in the file, ie error_est or procid
+  //we will need to sort through this
+  init_mesh_data();
+  std::string cstring="color";
+  error = mesh_->read_elem_data_exodus(ex_id_,step,cstring,&colors[0]);
+  if( 0 > error ) {
+    std::cout<<"Error reading color at step "<<step<<std::endl;
+    exit(0);
+  }
+
+  int max_color = (int)(*max_element(colors.begin(), colors.end()));
+  int min_color = (int)(*min_element(colors.begin(), colors.end()));
+  num_color_ = max_color - min_color+1;
+  elem_LIDS_.resize(num_color_);
+
+  
+  for(int i = 0; i < num_elem; i++){
+    const int c = (int)colors[i];
+    const int lid = i;
+    //std::cout<<mypid<<" : "<<c<<"   "<<lid<<std::endl;
+    elem_LIDS_[c].push_back(lid);
+
+  }
+  //std::cout<<mypid<<" : "<<*max_element(colors.begin(), colors.end())<<"  "<<num_color_<<std::endl;
+
+
+  std::cout<<std::endl<<"elem_color::restart() ended on proc "<<mypid<<std::endl<<std::endl;
+  //exit(0);
 }

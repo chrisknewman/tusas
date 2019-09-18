@@ -1344,6 +1344,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &dbc_zero_;
 
+    paramfunc_ = tpetra::param_;
+
   }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
     
     numeqs_ = 2;

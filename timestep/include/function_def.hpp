@@ -5048,7 +5048,13 @@ namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ late
   //namespace heat{
 
 
+
 double k_ = 1.;
+
+#ifdef KOKKOS_HAVE_CUDA
+__device__
+#endif
+double * kp_;// = &k_;
 
 KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
@@ -5069,7 +5075,7 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_heat_test_)
 {
   return (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i]
-    + k_*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
+    + *kp_*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dudz*basis[eqn_id].dphidz[i]);
 }
@@ -5083,7 +5089,7 @@ KOKKOS_INLINE_FUNCTION
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
   return basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
-    + k_*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+    + *kp_*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 }
@@ -5093,6 +5099,14 @@ __device__ PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
 #else
 PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
 #endif
+
+PARAM_FUNC(param_)
+{
+  //double k = plist->get<double>("k",1.);
+  k_ = plist->get<double>("k",1.);
+  kp_ = &k_;
+}
+
 //}//namespace heat
 
 

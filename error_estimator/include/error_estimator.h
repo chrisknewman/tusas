@@ -22,6 +22,7 @@
 #include "Epetra_Import.h"
 #include <Teuchos_TimeMonitor.hpp>
 
+#include <Tpetra_Vector.hpp>
 
 //#define ERROR_ESTIMATOR_OMP
 
@@ -43,9 +44,15 @@ public:
   /// Estimate the gradient at each node.
   void estimate_gradient(const Teuchos::RCP<Epetra_Vector>& ///< solution vector (input)
 			 );
+  /// Estimate the gradient at each node.
+  void estimate_gradient(const Teuchos::RCP<Tpetra::Vector<> >& ///< solution vector (input)
+			 );
   /// Estimate the error on each element.
   void estimate_error(const Teuchos::RCP<Epetra_Vector>& ///< solution vector (input)
 		      );
+  /// Estimate the error on each element.
+  void estimate_error(const Teuchos::RCP<Tpetra::Vector<> >& ///< solution vector (input)
+			 );
   /// A helper function to test the Lapack implementation.
   void test_lapack();
   /// Output the nodal gradient and the elemental error contribution to the exodus file.
@@ -85,6 +92,13 @@ private:
   /// Timing object.
   Teuchos::RCP<Teuchos::Time> ts_time_error;
 
+  /// Estimate the gradient at each node.
+  void estimate_gradient(const double * uvec ///< solution vector (input)
+			 );
+
+  /// Estimate the error on each element.
+  void estimate_error(const double * uvec ///< solution vector (input)
+			 );
 };
 
 #endif

@@ -16,5 +16,4 @@
     <Parameter name="Linear Solver Type" type="string" value="Belos"/>
   </ParameterList> 
 
-
 </ParameterList>

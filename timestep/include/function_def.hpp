@@ -2438,10 +2438,7 @@ PRE_FUNC(prec_stress_test_)
 PPR_FUNC(postproc_stress_x_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double strain[2];//x,y,z,yx,zy,zx
@@ -2460,10 +2457,7 @@ PPR_FUNC(postproc_stress_x_)
 PPR_FUNC(postproc_stress_xd_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double strain[2];//x,y,z,yx,zy,zx
@@ -2482,10 +2476,7 @@ PPR_FUNC(postproc_stress_xd_)
 PPR_FUNC(postproc_stress_y_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double strain[2];//x,y,z,yx,zy,zx
@@ -2504,10 +2495,7 @@ PPR_FUNC(postproc_stress_y_)
 PPR_FUNC(postproc_stress_xy_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double phi = u[0];
@@ -2523,12 +2511,7 @@ PPR_FUNC(postproc_stress_xy_)
 PPR_FUNC(postproc_stress_eq_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double strain[3], stress[3];//x,y,z,yx,zy,zx
@@ -2558,12 +2541,7 @@ PPR_FUNC(postproc_stress_eq_)
 PPR_FUNC(postproc_stress_eqd_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double strain[3], stress[3];//x,y,z,yx,zy,zx
@@ -2596,10 +2574,7 @@ PPR_FUNC(postproc_stress_eqd_)
 PPR_FUNC(postproc_phi_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double phi = u[0];
@@ -2611,10 +2586,7 @@ PPR_FUNC(postproc_phi_)
 PPR_FUNC(postproc_strain_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double phi = u[0];
@@ -2977,12 +2949,7 @@ PRE_FUNC(prec_stress_test_)
 PPR_FUNC(postproc_stress_x_)
 {
   //u is u0,u1,...
-  //gradu is d0dx,d0dy,d1dx...
-  //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
 
@@ -2996,11 +2963,7 @@ PPR_FUNC(postproc_stress_x_)
 PPR_FUNC(postproc_stress_y_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
-
 
   double strain[2];//x,y,z,yx,zy,zx
   strain[0] = gradu[0];//var 0 dx
@@ -3012,10 +2975,7 @@ PPR_FUNC(postproc_stress_y_)
 PPR_FUNC(postproc_stress_xy_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double strain = gradu[1] + gradu[3];
@@ -3261,10 +3221,7 @@ PRE_FUNC(prec_)
 PPR_FUNC(postproc_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double s =0.;
@@ -3753,10 +3710,7 @@ INI_FUNC(phiinit_)
 PPR_FUNC(postproc_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double y = xyz[1];
@@ -4419,10 +4373,7 @@ INI_FUNC(init_)
 PPR_FUNC(postproc_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   double x = xyz[0];
@@ -4435,10 +4386,7 @@ PPR_FUNC(postproc_)
 PPR_FUNC(postproc_error)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
-  //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-  //we will need to fix all the indices to be both 2d and 3d compliant
 
 
   // x is in nondimensional space, tscale_ takes in nondimensional and converts to um
@@ -5074,9 +5022,12 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_heat_test_)
 {
   return (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i]
-    + k_*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
+    + t_theta_*k_*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
-       + basis[eqn_id].dudz*basis[eqn_id].dphidz[i]);
+       + basis[eqn_id].dudz*basis[eqn_id].dphidz[i])
+    +(1. - t_theta_)*k_*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
+		   + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
+		   + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i]);
 }
 #ifdef KOKKOS_HAVE_CUDA
 __device__ RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
@@ -5088,7 +5039,7 @@ KOKKOS_INLINE_FUNCTION
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
   return basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
-    + k_*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+    + t_theta_*k_*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 }

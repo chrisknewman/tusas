@@ -32,6 +32,8 @@
 #include "Epetra_SerialComm.h"
 #endif
 
+#include <Teuchos_ArrayViewDecl.hpp>
+
 //template<class Scalar>
 error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm, 
 				 Mesh *mesh, 
@@ -130,8 +132,21 @@ error_estimator::~error_estimator()
   //delete mesh_;
 }
 
-void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in){
+void error_estimator::estimate_gradient(const Teuchos::RCP<Tpetra::Vector<> >& u_in){
+  auto uview = u_in->get1dView();
+  const int n = (int)(uview.size());
+  std::vector<double> uvec(uview.get(),uview.get()+n);
+  estimate_gradient(&uvec[0]);
+}
 
+void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in){
+  const int n = u_in->MyLength();
+  std::vector<double> uvec(n);
+  u_in->ExtractCopy(&uvec[0]);
+  estimate_gradient(&uvec[0]);
+}
+
+void error_estimator::estimate_gradient(const double * uvec ){
   //according to the ainsworth book, for bilinear quads it is better to sample
   //at centroids, rather than guass pts as is done here. This is due to
   //superconvergence at centroids. Guass pts are used for biquadratic quads.
@@ -184,7 +199,8 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
   Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
 #pragma omp parallel for 
   for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
-    (*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
+    //(*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
+    (*u1)[nn]=uvec[numeqs_*nn+index_]; 
   }
 
   Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
@@ -394,7 +410,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     
     //note that we fill a by column
     a = new double[lda*n];
-    //#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2)
     for(int j = 0; j < n; j++){
       for(int i = 0; i < m; i++){
 	a[j*lda+i] = p[i][j];
@@ -682,7 +698,21 @@ void error_estimator::update_mesh_data(){
   delete tempz;
 }
 
+void error_estimator::estimate_error(const Teuchos::RCP<Tpetra::Vector<> >& u_in){
+  auto uview = u_in->get1dView();
+  const int n = (int)(uview.size());
+  std::vector<double> uvec(uview.get(),uview.get()+n);
+  estimate_error(&uvec[0]);
+}
+
 void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
+  const int n = u_in->MyLength();
+  std::vector<double> uvec(n);
+  u_in->ExtractCopy(&uvec[0]);
+  estimate_error(&uvec[0]);
+}
+
+void error_estimator::estimate_error(const double * uvec ){
   
   Teuchos::TimeMonitor ErrorEstTimer(*ts_time_error); 
 
@@ -691,7 +721,8 @@ void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
   Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
 #pragma omp parallel for 
   for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
-    (*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
+    //(*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
+    (*u1)[nn]=uvec[numeqs_*nn+index_]; 
   }
 
   Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));

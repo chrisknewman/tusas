@@ -271,13 +271,13 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     std::vector<std::vector<double>> p(q);//q rows
 
     for(int i = 0; i < q; i++) p[i].resize(dimp);//dimp cols
-    //the vector b will be q rows and 2 cols, grad u evaluated at the quadrature points
+    //the vector b will be q rows and dimp cols, grad u evaluated at the quadrature points
 
     int m = q;
     int n = dimp;
     int lda = q;
     int ldb = q;//b needs to hold the solution on return
-    if ( n > m ) {ldb = n;}//cn need to really figure out what ldb is
+    if ( n > m ) {ldb = n;}//cn need to really figure out what ldb is--- I think this is a corner case
     double * b = new double[ldb*nrhs];
 
     int row = 0;
@@ -394,7 +394,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
     
     //note that we fill a by column
     a = new double[lda*n];
-#pragma omp parallel for collapse(2)
+    //#pragma omp parallel for collapse(2)
     for(int j = 0; j < n; j++){
       for(int i = 0; i < m; i++){
 	a[j*lda+i] = p[i][j];
@@ -488,7 +488,7 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
       grady = grady + p[0][i]*b[i+ldb];
       if(3 == nrhs) {
 	gradz = gradz + p[0][i]*b[i+2*ldb];
-	//std::cout<<i<<" "<<b[i+2*ldb]<<std::endl;
+	//std::cout<<i<<" "<<b[i+2*ldb]<<"    "<<gradz<<std::endl;
       }
     }
     //std::cout<<nn<<" "<<x<<" "<<y<<" "<<gradx<<" "<<grady<<std::endl;

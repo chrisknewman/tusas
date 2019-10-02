@@ -23,7 +23,7 @@
 #include <Teuchos_TimeMonitor.hpp>
 
 
-#define ERROR_ESTIMATOR_OMP
+//#define ERROR_ESTIMATOR_OMP
 
 //template<class Scalar>
 /// Gradient recovery / error estimation.

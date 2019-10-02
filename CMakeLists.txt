@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.9)
 
 #---------------------------------------------------------------------------------
 # Define path variables
@@ -76,6 +76,15 @@ ${DIR_7}/projection/interpflux.cpp
 PROJECT( TUSAS )
 
 ADD_EXECUTABLE( tusas ${SOURCES} )
+
+
+#see https://cmake.org/cmake/help/git-stage/policy/CMP0069.html
+#include(CheckIPOSupported)
+#check_ipo_supported(RESULT result)
+#if(result)
+#  message(STATUS "IPO / LTO enabled")
+#  set_property(TARGET tusas PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+#endif()
 
 
 #---------------------------------------------------------------------------------

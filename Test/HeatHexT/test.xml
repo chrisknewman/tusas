@@ -16,4 +16,6 @@
     <Parameter name="Linear Solver Type" type="string" value="Belos"/>
   </ParameterList> 
 
+  <Parameter name="errorestimator" type="string" value = "{0}"/>
+
 </ParameterList>

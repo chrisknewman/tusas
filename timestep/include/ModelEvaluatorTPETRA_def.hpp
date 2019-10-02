@@ -205,7 +205,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   Elem_col = Teuchos::rcp(new elem_color(Comm,mesh,dorestart));
 
   init_nox();
-#if 0
+
   std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,
 								       TusaserrorestimatorNameString)).toVector();
   std::vector<int>::iterator it;
@@ -214,7 +214,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     int error_index = *it;
     Error_est.push_back(new error_estimator(Comm,mesh_,numeqs_,error_index));
   }
-#endif
+
 
 }
 
@@ -1221,13 +1221,15 @@ void ModelEvaluatorTPETRA<scalar_type>::advance()
 
   time_ +=dt_;
 
-#if 0  
   for(boost::ptr_vector<error_estimator>::iterator it = Error_est.begin();it != Error_est.end();++it){
     //it->test_lapack();
+
     it->estimate_gradient(u_old_);
     it->estimate_error(u_old_);
+
   }
-  
+
+#if 0    
   postprocess();
 #endif
 }
@@ -1534,12 +1536,12 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     mesh_->update_nodal_data((*varnames_)[k], &output[k][0]);
   }
 
-#if 0
   boost::ptr_vector<error_estimator>::iterator it;
   for(it = Error_est.begin();it != Error_est.end();++it){
     it->update_mesh_data();
   }
 
+#if 0
   boost::ptr_vector<post_process>::iterator itp;
   for(itp = post_proc.begin();itp != post_proc.end();++itp){
     itp->update_mesh_data();

@@ -26,9 +26,9 @@
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 
 #include "Mesh.h"
-#if 0
+
 #include "error_estimator.h"
-#endif
+
 #include "elem_color.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
@@ -253,9 +253,9 @@ private:
   //Kokkos::View<const double*> x_1dra; 
   
   //TUSAS_CUDA_CALLABLE_MEMBER void set_basis( GPUBasis &basis, const std::string elem_type) const;
-#if 0
+
   boost::ptr_vector<error_estimator> Error_est;
-#endif
+
 };
 
 //==================================================================

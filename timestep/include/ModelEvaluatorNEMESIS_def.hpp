@@ -3786,7 +3786,7 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
   //fixing the error_estimator to always do gradz
 
   //then we will fix dim = 3
-  int dim = 2;
+  const int dim = 3;
 
   std::vector<double> uu(numeqs_);
   std::vector<double> ug(dim*numee);
@@ -3800,7 +3800,7 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
     for( int k = 0; k < numee; k++ ){
       ug[k*dim] = (*(Error_est[k].gradx_))[nn];
       ug[k*dim+1] = (*(Error_est[k].grady_))[nn];
-      //ug[k*dim+2] = (*(Error_est[k].grady_))[nn];
+      ug[k*dim+2] = (*(Error_est[k].gradz_))[nn];
     }
 
     boost::ptr_vector<post_process>::iterator itp;

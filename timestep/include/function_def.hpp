@@ -2438,7 +2438,7 @@ PRE_FUNC(prec_stress_test_)
 PPR_FUNC(postproc_stress_x_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
+  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
   //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
   //we will need to fix all the indices to be both 2d and 3d compliant
@@ -2452,7 +2452,7 @@ PPR_FUNC(postproc_stress_x_)
 //   strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
 //   strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
   strain[0] = gradu[0] - alpha*u[1];// - 30.*beta*h*phi;//var 0 dx
-  strain[1] = gradu[3] - alpha*u[1];// - 30.*beta*h*phi;//var 1 dy
+  strain[1] = gradu[4] - alpha*u[1];// - 30.*beta*h*phi;//var 1 dy
 
   return c1*strain[0] + c2*strain[1];
 }
@@ -2460,7 +2460,7 @@ PPR_FUNC(postproc_stress_x_)
 PPR_FUNC(postproc_stress_xd_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
+  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
   //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
   //we will need to fix all the indices to be both 2d and 3d compliant
@@ -2474,7 +2474,7 @@ PPR_FUNC(postproc_stress_xd_)
 //   strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
 //   strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
   strain[0] = gradu[0];//var 0 dx
-  strain[1] = gradu[3];//var 1 dy
+  strain[1] = gradu[4];//var 1 dy
 
   return c1*strain[0] + c2*strain[1];
 }
@@ -2482,7 +2482,7 @@ PPR_FUNC(postproc_stress_xd_)
 PPR_FUNC(postproc_stress_y_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
+  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
   //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
   //we will need to fix all the indices to be both 2d and 3d compliant
@@ -2496,7 +2496,7 @@ PPR_FUNC(postproc_stress_y_)
 //   strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
 //   strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
   strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
-  strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
+  strain[1] = gradu[4] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
 
   return c2*strain[0] + c1*strain[1];
 }
@@ -2515,7 +2515,7 @@ PPR_FUNC(postproc_stress_xy_)
   if(phi > 1.) phi = 1.;
   double h = phi*phi*(1.-phi)*(1.-phi);
 
-  double strain = gradu[1] + gradu[2] - alpha*u[1] - 30.*beta*h*phi;
+  double strain = gradu[1] + gradu[3] - alpha*u[1] - 30.*beta*h*phi;
 
   return c3*strain;
 }
@@ -2538,8 +2538,8 @@ PPR_FUNC(postproc_stress_eq_)
   double h = phi*phi*(1.-phi)*(1.-phi);
 
   strain[0] = gradu[0] - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
-  strain[1] = gradu[3] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
-  strain[2] = gradu[1] + gradu[2];// - alpha*u[1] - 30.*beta*h*phi;
+  strain[1] = gradu[4] - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
+  strain[2] = gradu[1] + gradu[3];// - alpha*u[1] - 30.*beta*h*phi;
 
   stress[0] = c1*strain[0] + c2*strain[1];
   stress[1] = c2*strain[0] + c1*strain[1];
@@ -2573,8 +2573,8 @@ PPR_FUNC(postproc_stress_eqd_)
   double h = phi*phi*(1.-phi)*(1.-phi);
 
   strain[0] = gradu[0];// - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
-  strain[1] = gradu[3];// - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
-  strain[2] = gradu[1] + gradu[2];// + gradu[2];// - alpha*u[1] - 30.*beta*h*phi;
+  strain[1] = gradu[4];// - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
+  strain[2] = gradu[1] + gradu[3];// + gradu[2];// - alpha*u[1] - 30.*beta*h*phi;
 
   stress[0] = c1*strain[0] + c2*strain[1];
   stress[1] = c2*strain[0] + c1*strain[1];
@@ -2979,7 +2979,7 @@ PPR_FUNC(postproc_stress_x_)
   //u is u0,u1,...
   //gradu is d0dx,d0dy,d1dx...
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
+  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
   //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
   //we will need to fix all the indices to be both 2d and 3d compliant
@@ -2988,7 +2988,7 @@ PPR_FUNC(postproc_stress_x_)
 
   double strain[2];//x,y,z,yx,zy,zx
   strain[0] = gradu[0];//var 0 dx
-  strain[1] = gradu[3];//var 1 dy
+  strain[1] = gradu[4];//var 1 dy
 
   return c1*strain[0] + c2*strain[1];
 }
@@ -2996,7 +2996,7 @@ PPR_FUNC(postproc_stress_x_)
 PPR_FUNC(postproc_stress_y_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
+  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
   //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
   //we will need to fix all the indices to be both 2d and 3d compliant
@@ -3004,7 +3004,7 @@ PPR_FUNC(postproc_stress_y_)
 
   double strain[2];//x,y,z,yx,zy,zx
   strain[0] = gradu[0];//var 0 dx
-  strain[1] = gradu[3];//var 1 dy
+  strain[1] = gradu[4];//var 1 dy
 
   return c2*strain[0] + c1*strain[1];
 }
@@ -3012,13 +3012,13 @@ PPR_FUNC(postproc_stress_y_)
 PPR_FUNC(postproc_stress_xy_)
 {
   //u is u0,u1,...
-  //gradu is dee0dx,dee0dy,dee1dx...
+  //gradu is dee0dx,dee0dy,dee0dz,dee1dx...
   //when we enable 3d, we will have
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
   //we will need to fix all the indices to be both 2d and 3d compliant
 
 
-  double strain = gradu[1] + gradu[2];
+  double strain = gradu[1] + gradu[3];
 
   return c3*strain;
 }

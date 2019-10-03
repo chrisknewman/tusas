@@ -3779,13 +3779,8 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
   if(0 == post_proc.size() ) return;
 
   int numee = Error_est.size();
+  //ordering is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz
 
-  if( 3 == mesh_->get_num_dim() && 0 < numee ) exit(0);//need to fix ordering in 3d and add gradz
-  //right now ordering is dee0/dx,dee0/dy,dee1/dx,dee1/dy
-  //we want dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz all the time this will require
-  //fixing the error_estimator to always do gradz
-
-  //then we will fix dim = 3
   const int dim = 3;
 
   std::vector<double> uu(numeqs_);

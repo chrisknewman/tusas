@@ -5001,7 +5001,9 @@ namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ late
 #ifdef KOKKOS_HAVE_CUDA
 __device__
 #endif
-double k_ = 1.;
+double k_d = 2.;
+
+double k_h = 2.;
 
 KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
@@ -5022,10 +5024,10 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_heat_test_)
 {
   return (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i]
-    + t_theta_*k_*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
+    + t_theta_*k_d*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dudz*basis[eqn_id].dphidz[i])
-    +(1. - t_theta_)*k_*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
+    +(1. - t_theta_)*k_d*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
 		   + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
 		   + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i]);
 }
@@ -5039,7 +5041,7 @@ KOKKOS_INLINE_FUNCTION
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
   return basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
-    + t_theta_*k_*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+    + t_theta_*k_d*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 }
@@ -5055,10 +5057,25 @@ PARAM_FUNC(param_)
   double kk = plist->get<double>("k_",1.);
 
 #ifdef KOKKOS_HAVE_CUDA
-  cudaMemcpyToSymbol(k_,&kk,sizeof(double));
+  cudaMemcpyToSymbol(k_d,&kk,sizeof(double));
 #else
-  k_ = kk;
+  k_d = kk;
 #endif
+  k_h = kk;
+}
+//double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
+PPR_FUNC(postproc_)
+{
+  //exact solution is: u[x,y,t]=exp(-2 pi^2 k t)sin(pi x)sin(pi y)
+  const double uu = u[0];
+  const double x = xyz[0];
+  const double y = xyz[1];
+
+  const double pi = 3.141592653589793;
+
+  const double s= exp(-2.*k_h*pi*pi*time)*sin(pi*x)*sin(pi*y);
+
+  return s-uu;
 }
 
 //}//namespace heat

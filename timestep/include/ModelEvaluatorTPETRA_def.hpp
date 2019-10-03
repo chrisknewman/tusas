@@ -1228,10 +1228,9 @@ void ModelEvaluatorTPETRA<scalar_type>::advance()
     it->estimate_error(u_old_);
 
   }
-
-#if 0    
+   
   postprocess();
-#endif
+
 }
 
 template<class scalar_type>
@@ -1357,6 +1356,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][3] = &dbc_zero_;
 
     paramfunc_ = tpetra::param_;
+
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::postproc_;
 
   }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
     
@@ -1541,15 +1543,11 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     it->update_mesh_data();
   }
 
-#if 0
   boost::ptr_vector<post_process>::iterator itp;
   for(itp = post_proc.begin();itp != post_proc.end();++itp){
     itp->update_mesh_data();
     itp->update_scalar_data(time_);
   }
-
-
-#endif
 
   Elem_col->update_mesh_data();
 
@@ -1767,6 +1765,41 @@ template<class scalar_type>
     std::cout<<"Restarting at time = "<<time<<" and step = "<<step<<std::endl<<std::endl;
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
+}
+
+template<class Scalar>
+void ModelEvaluatorTPETRA<Scalar>::postprocess()
+{
+  if(0 == post_proc.size() ) return;
+
+  int numee = Error_est.size();
+  //ordering is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz
+
+  const int dim = 3;
+
+  std::vector<double> uu(numeqs_);
+  std::vector<double> ug(dim*numee);
+
+  auto uview = u_old_->get1dView();
+
+  for (int nn=0; nn < num_owned_nodes_; nn++) {
+
+    for( int k = 0; k < numeqs_; k++ ){
+      uu[k] = uview[numeqs_*nn+k];
+    }
+
+    for( int k = 0; k < numee; k++ ){
+      ug[k*dim] = (*(Error_est[k].gradx_))[nn];
+      ug[k*dim+1] = (*(Error_est[k].grady_))[nn];
+      ug[k*dim+2] = (*(Error_est[k].gradz_))[nn];
+    }
+
+    boost::ptr_vector<post_process>::iterator itp;
+    for(itp = post_proc.begin();itp != post_proc.end();++itp){
+      itp->process(nn,&uu[0],&ug[0],time_);
+    }
+
+  }//nn
 }
 
 #endif

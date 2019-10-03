@@ -255,6 +255,8 @@ private:
   //TUSAS_CUDA_CALLABLE_MEMBER void set_basis( GPUBasis &basis, const std::string elem_type) const;
 
   boost::ptr_vector<error_estimator> Error_est;
+  boost::ptr_vector<post_process> post_proc;
+  void postprocess();
 
 };
 

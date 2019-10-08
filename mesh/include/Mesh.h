@@ -273,6 +273,7 @@ class Mesh
   int close_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
   int get_nodal_field_index(std::string name);
+  int read_nodal_field_index(const int ex_id, std::string name);
   int get_elem_field_index(std::string name);
   //std::vector<int> node_num_map;
   std::vector<int> elem_num_map;

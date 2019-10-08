@@ -1104,12 +1104,48 @@ int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, const int 
 }
 
 int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, std::string name, double *data){
-  int index = get_nodal_field_index(name) + 1;//exodus starts at 1
+  //int index = get_nodal_field_index(name) + 1;//exodus starts at 1
+  int index = read_nodal_field_index(ex_id, name) + 1;//exodus starts at 1
   int ex_err = ex_get_nodal_var (ex_id, timestep, index, num_nodes, &data[0]);
   return ex_err;
 }
 
+int Mesh::read_nodal_field_index(const int ex_id, std::string name){
+  //cn this should be the index in the exodus file, since we have not populated these names yet
+
+  int index = -1;
+
+  int num_node_vars;
+  int error = ex_get_var_param (ex_id, "n" , &num_node_vars);
+
+  //std::cout<<num_node_vars<<std::endl;
+
+  char ** var_names;
+  var_names = new char*[num_node_vars];
+  for (int i = 0; i < num_node_vars; i++) var_names[i] = new char[TUSAS_MAX_LINE_LENGTH];
+
+
+  error = ex_get_var_names (ex_id, "n", num_node_vars, var_names);
+  for (int i = 0; i < num_node_vars; i++){
+    //std::cout<<std::string(var_names[i])<<std::endl;
+    if( name == std::string(var_names[i])) index = i;
+  }
+
+  for (int i = 0; i < num_node_vars; i++) delete [] var_names[i];
+  delete [] var_names;
+
+  if(0 > index){
+    std::cout<<name<<" not found"<<std::endl<<std::endl;
+    exit(0);
+  }
+  //std::cout<<index<<std::endl;
+
+  //exit(0);
+  return index;
+}
+
 int Mesh::get_nodal_field_index(std::string name){
+
   int index = -1;
   for (int i = 0; i < num_nodal_fields; i++){
     if(name == nodal_field_names[i]){

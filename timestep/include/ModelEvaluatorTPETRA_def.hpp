@@ -124,6 +124,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   //cn we could store previous time values in a multivector
   u_old_ = Teuchos::rcp(new vector_type(x_owned_map_));
+  u_old_->putScalar(Teuchos::ScalarTraits<scalar_type>::zero());
 
   x_ = Teuchos::rcp(new vector_type(node_overlap_map_));
   y_ = Teuchos::rcp(new vector_type(node_overlap_map_));
@@ -1721,12 +1722,22 @@ template<class scalar_type>
     exit(0);
   }
 
+  const double dt = paramList.get<double> (TusasdtNameString);
+  const int numSteps = paramList.get<int> (TusasntNameString);
+
+  if( step > numSteps || time >numSteps*dt ){
+    if( 0 == mypid ){
+      std::cout<<"  Error reading restart last time = "<<time<<std::endl;
+      std::cout<<"    is greater than    "<<numSteps*dt<<std::endl<<std::endl<<std::endl;
+      exit(0);
+    }
+  }
 
   std::vector<std::vector<double>> inputu(numeqs_,std::vector<double>(num_overlap_nodes_));
 
   for( int k = 0; k < numeqs_; k++ ){
-    int ex_index = k+1;
-    error = mesh_->read_nodal_data_exodus(ex_id_,step,ex_index,&inputu[k][0]);
+    error = mesh_->read_nodal_data_exodus(ex_id_,step,(*varnames_)[k],&inputu[k][0]);
+
     if( 0 > error ) {
       std::cout<<"Error reading u at step "<<step<<std::endl;
       exit(0);
@@ -1747,6 +1758,7 @@ template<class scalar_type>
     for (int nn=0; nn < num_overlap_nodes_; nn++) {
       u_1d[numeqs_*nn+k] = inputu[k][nn];
       //(*u_old_temp)[numeqs_*nn+k] = inputu[k][nn];
+      //std::cout<<u_1d[numeqs_*nn+k]<<"   "<<inputu[k][nn]<<"  "<<k<<"  "<<nn<<std::endl;
     }
   }
 
@@ -1756,7 +1768,7 @@ template<class scalar_type>
   this->start_time = time;
   int ntstep = (int)(time/dt_);
   //this->start_step = step-1;//this corresponds to the output frequency, not the actual timestep
-  this->start_step = ntstep;
+  this->start_step = ntstep+1;
   time_=time;
   output_step_ = step+1;
   //   u->Print(std::cout);
@@ -1765,6 +1777,7 @@ template<class scalar_type>
     std::cout<<"Restarting at time = "<<time<<" and step = "<<step<<std::endl<<std::endl;
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
+  //exit(0);
 }
 
 template<class Scalar>

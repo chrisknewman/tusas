@@ -2100,8 +2100,8 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   std::vector<std::vector<double>> inputu(numeqs_,std::vector<double>(num_nodes_));
 
   for( int k = 0; k < numeqs_; k++ ){
-    int ex_index = k+1;
-    error = mesh_->read_nodal_data_exodus(ex_id_,step,ex_index,&inputu[k][0]);
+
+    error = mesh_->read_nodal_data_exodus(ex_id_,step,(*varnames_)[k],&inputu[k][0]);
     if( 0 > error ) {
       std::cout<<"Error reading u at step "<<step<<std::endl;
       exit(0);
@@ -2147,7 +2147,7 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   this->start_time = time;
   int ntstep = (int)(time/dt_);
   //this->start_step = step-1;//this corresponds to the output frequency, not the actual timestep
-  this->start_step = ntstep;
+  this->start_step = ntstep+1;
   time_=time;
   output_step_ = step+1;
   //   u->Print(std::cout);

@@ -1453,7 +1453,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    paramfunc_ = farzadi::param_;
+    paramfunc_ = tpetra::farzadi3d::param_;
+    //paramfunc_ = farzadi::param_;
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

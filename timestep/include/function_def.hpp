@@ -5084,18 +5084,86 @@ PPR_FUNC(postproc_)
 namespace farzadi3d
 {
 
-  const double absphi = .98;
+  const double absphi = 0.999999;	//1.
+  
+  double pi = 3.141592653589793;
+
+  double k = 0.14;					//0.5
+  double eps = 0.0;
+  double lambda = 10.;
+  double D_liquid = 3.e-9;			//1.e-11				//m^2/s
+  
+  double m = -2.6;					//-2.6 100.
+  double c_inf = 3.;				//1.
+  
+  double G = 3.e5;											//k/m
+  double R = 0.003;											//m/s
+  double V = R;												//m/s
+  double d0 = 5.e-9;				//4.e-9					//m
+  
+  
+  // parameters to scale dimensional quantities
+  double delta_T0 = abs(m)*c_inf*(1.-k)/k;
+  double w0 = lambda*d0/0.8839;
+  double tau0 = (lambda*0.6267*w0*w0)/D_liquid;
+  
+  double Vp0 = V*tau0/w0; 
+  double l_T0 = delta_T0/(G*w0);
+  double D_liquid_ = D_liquid*tau0/(w0*w0);
+  
+  double base_height = 15.;
+  double amplitude = 0.2;
+  
+   //double tl = 925.2;//k
+  //double ts = 877.3;//k
+  //double t0 = ts;
+  //double t0 = 900.;//k
+  //double dt0 = tl-ts;
+  
+  //for the farzadiQuad1000x360mmr.e mesh...
+  //double pp = 360.;
+  //double ll = 40.;
+  //double aa = 14.;
+  
+  
+  	PARAM_FUNC(param_)
+	{
+	  k = plist->get<double>("k", 0.14);
+	  eps = plist->get<double>("eps", 0.0);
+	  lambda = plist->get<double>("lambda", 10.);
+	  d0 = plist->get<double>("d0", 5.e-9);
+	  D_liquid = plist->get<double>("D_liquid", 3.e-9);
+	  m = plist->get<double>("m", -2.6);
+	  c_inf = plist->get<double>("c_inf", 3.);
+	  
+	  G = plist->get<double>("G", 3.e5);
+	  R = plist->get<double>("R", 0.003);
+	  base_height = plist->get<double>("base_height", 15.);
+	  amplitude = plist->get<double>("amplitude", 0.2);
+	  
+	  //pp = plist->get<double>("pp");
+	  //ll = plist->get<double>("ll");
+	  //aa = plist->get<double>("aa");
+	}
+
+
+	//double ff(const double y)
+	//{ 
+
+	  //return 2. + sin(y*aa*M_PI/pp);
+	//}
+
 
 double a(const double &p,const double &px,const double &py,const double &pz)
 {
-  return (p*p < absphi) ? (1.-3.*farzadi::eps_)*(1.+4.*farzadi::eps_/(1.-3.*farzadi::eps_)*
+  return (p*p < absphi) ? (1.-3.*eps)*(1.+4.*eps/(1.-3.*eps)*
 				    (px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz))
-    : 1. + farzadi::eps_;
+    : 1. + eps;
 }
 
 double ap(const double &p,const double &px,const double &py,const double &pz,const double &pd)
 {
-  return (p*p < absphi) ? 4.*farzadi::eps_*
+  return (p*p < absphi) ? 4.*eps*
 				    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
 				    /(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)
     : 0.;
@@ -5122,7 +5190,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   //double theta_ = theta(basis[1].duolddx,basis[1].duolddy);
   //double theta_ = cummins::theta(basis[1].dudx,basis[1].dudy);
 
-  //double m = (1.+(1.-farzadi::k_)*u)*cummins::m_cummins_(theta_, farzadi::M_, farzadi::eps_);//cn we probably need u and uold here for CN...
+  //double m = (1.+(1.-farzadi::k_)*u)*cummins::m_cummins_(theta_, farzadi::M_, eps);//cn we probably need u and uold here for CN...
   //double m = m_cummins_(theta_, M_, eps_);//cn we probably need u and uold here for CN...
   //double theta_old = theta(dphidx,dphidy);
   //double mold = (1+(1-k_)*uold)*m_cummins_(theta_old, M_, eps_);
@@ -5130,15 +5198,16 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   //double phit = (t_theta_*m+(1.-t_theta_)*mold)*(phi-phiold)/dt_*test;
   //double phit = m*(phi-phiold)/dt_*test;
 
-  //double gs2 = cummins::gs2_cummins_(theta_, farzadi::M_, farzadi::eps_,0.);
+  //double gs2 = cummins::gs2_cummins_(theta_, farzadi::M_, eps,0.);
   const double as = a(phi,dphidx,dphidy,dphidz);
+  //const double as = 1.;
   //double gs2 = as*as;
 
   const double divgradphi = as*as*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);//(grad u,grad phi)
 
-  const double phit = (1.+(1.-farzadi::k_)*u)*as*as*(phi-phiold)/dt_*test;
+  const double phit = (1.+(1.-k)*u)*as*as*(phi-phiold)/dt_*test;
 
-  //double dgdtheta = cummins::dgs2_2dtheta_cummins_(theta_, farzadi::M_, farzadi::eps_, 0.);	
+  //double dgdtheta = cummins::dgs2_2dtheta_cummins_(theta_, farzadi::M_, eps, 0.);	
   //double dgdpsi = 0.;
   //double curlgrad = -dgdtheta*dphidy*dtestdx + dgdtheta*dphidx*dtestdy;
   const double curlgrad = as*(dphidx*dphidx + dphidy*dphidy + dphidz*dphidz)
@@ -5148,14 +5217,25 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   const double phidel2 = gp1*test;
 
   const double x = basis[0].xx;
-  double t_scale = farzadi::tscale_(x,time);
+  
+  
+  // frozen temperature approximation: linear pulling of the temperature field
+  double xx = x*w0;
+  double tt = time*tau0;
+  double t_scale = (xx-Vp0*tt)/l_T0;
+  
+  // need to plot t_scale
+  //double t_scale = farzadi::tscale_(x,time);
 
-  const double hp1 = farzadi::lambda*(1. - phi*phi)*(1. - phi*phi)*(u+t_scale);
+  const double hp1 = lambda*(1. - phi*phi)*(1. - phi*phi)*(u+t_scale);
   const double phidel = hp1*test;
   
   const double rhs = divgradphi + curlgrad + phidel2 + phidel;
+  
+  //double val = phit + t_theta_*rhs;
+  //printf("%lf\n",val);
 
-  return phit + t_theta_*rhs;// + (1.-t_theta_)*rhs_old*0.;
+  return phit + t_theta_*rhs;	// + (1.-t_theta_)*rhs_old*0.;
 }
 
 RES_FUNC_TPETRA(residual_conc_farzadi_)
@@ -5173,15 +5253,18 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   const double dphidy = basis[1].dudy;
   const double dphidz = basis[1].dudz;
 
-  const double ut = (1.+farzadi::k_)/2.*(u-uold)/dt_*test;
-  const double divgradu = farzadi::D*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+  const double ut = (1.+k)/2.*(u-uold)/dt_*test;
+  const double divgradu = D_liquid_*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
 
   const double normd = (phi*phi < absphi) ? 1./sqrt(dphidx*dphidx + dphidy*dphidy + dphidz*dphidz) : 0.; //cn lim grad phi/|grad phi| may -> 1 here?
 
-  const double j_coef = (1.+(1.-farzadi::k_)*u)/sqrt(8.)*normd*(phi-phiold)/dt_;
+  const double j_coef = (1.+(1.-k)*u)/sqrt(8.)*normd*(phi-phiold)/dt_;
   const double divj = j_coef*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);
 
-  double phitu = -.5*(phi-phiold)/dt_*(1.+(1.-farzadi::k_)*u)*test; 
+  double phitu = -.5*(phi-phiold)/dt_*(1.+(1.-k)*u)*test; 
+  
+  //double val = ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
+  //printf("%lf\n",val);
 
   return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
 }
@@ -5206,7 +5289,7 @@ PRE_FUNC_TPETRA(prec_phase_farzadi_)
 
   const double as = a(phi,dphidx,dphidy,dphidz);
 
-  const double m = (1.+(1.-farzadi::k_)*u*0.)*as*as;
+  const double m = (1.+(1.-k)*u*0.)*as*as;
   const double phit = m*(basis[1].phi[j])/dt_*test;
 
   const double divgrad = as*as*(dbasisdx*dtestdx + dbasisdy*dtestdy + dbasisdz*dtestdz);
@@ -5224,22 +5307,27 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
   const double dbasisdz = basis[eqn_id].dphidz[j];
 
   const double test = basis[0].phi[i];
-  const double divgrad = farzadi::D*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  const double divgrad = D_liquid_*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
 
-  const double u_t =(1.+farzadi::k_)/2.*test * basis[0].phi[j]/dt_;
+  const double u_t =(1.+k)/2.*test * basis[0].phi[j]/dt_;
 
   return u_t + t_theta_*(divgrad);
 
 }
+
 INI_FUNC(init_phase_farzadi_)
 {
-  const double r = farzadi::ll*(1.+farzadi::ff(y)*farzadi::ff(y/2.)*farzadi::ff(y/4.));
-  const double rz = (1.+farzadi::ff(z)*farzadi::ff(z/2.)*farzadi::ff(z/4.))/9.;
+  //double r = ll*(1.+ff(y)*ff(y/2.)*ff(y/4.));
+  //double rz = (1.+ff(z)*ff(z/2.)*ff(z/4.))/9.;
+  //return (x < r*rz) ? 1. : -1.;
+  
+  double r = base_height + amplitude*((double)rand()/(RAND_MAX));
+  return (tanh((r-x)/sqrt(2.)));	
 
-  return (x < r*rz) ? 1. : -1.;
 }
+
 INI_FUNC(init_conc_farzadi_)
-{
+{	
   return -1.;
 }
 }//namespace farzadi3d

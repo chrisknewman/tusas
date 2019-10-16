@@ -4991,16 +4991,17 @@ RES_FUNC(residual_eta_kkspp_)
 				    const double &t_theta_,\
 				    const int &eqn_id)
 
+#ifdef KOKKOS_HAVE_CUDA
+#define TUSAS_DEVICE __device__
+#else
+#define TUSAS_DEVICE /**/ 
+#endif
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
   //namespace heat{
 
 
-
-
-#ifdef KOKKOS_HAVE_CUDA
-__device__
-#endif
+TUSAS_DEVICE
 double k_d = 2.;
 
 double k_h = 2.;
@@ -5031,11 +5032,9 @@ RES_FUNC_TPETRA(residual_heat_test_)
 		   + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
 		   + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i]);
 }
-#ifdef KOKKOS_HAVE_CUDA
-__device__ RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
-#else
+
+TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
-#endif
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)
@@ -5046,11 +5045,8 @@ PRE_FUNC_TPETRA(prec_heat_test_)
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 }
 
-#ifdef KOKKOS_HAVE_CUDA
-__device__ PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
-#else
+TUSAS_DEVICE
 PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
-#endif
 
 PARAM_FUNC(param_)
 {
@@ -5086,11 +5082,16 @@ namespace farzadi3d
 
   const double absphi = 0.999999;	//1.
   
-  double pi = 3.141592653589793;
+  TUSAS_DEVICE
+  double k = 0.14;
 
-  double k = 0.14;					//0.5
+  TUSAS_DEVICE				//0.5
   double eps = 0.0;
+
+  TUSAS_DEVICE
   double lambda = 10.;
+
+  TUSAS_DEVICE
   double D_liquid = 3.e-9;			//1.e-11				//m^2/s
   
   double m = -2.6;					//-2.6 100.
@@ -5098,62 +5099,154 @@ namespace farzadi3d
   
   double G = 3.e5;											//k/m
   double R = 0.003;											//m/s
-  double V = R;												//m/s
+  double V = 0.003;
+	
+  TUSAS_DEVICE											//m/s
   double d0 = 5.e-9;				//4.e-9					//m
   
   
   // parameters to scale dimensional quantities
-  double delta_T0 = abs(m)*c_inf*(1.-k)/k;
-  double w0 = lambda*d0/0.8839;
-  double tau0 = (lambda*0.6267*w0*w0)/D_liquid;
+  double delta_T0 = 47.9143;
+
+  TUSAS_DEVICE
+  double w0 = 5.65675e-8;
+
+  TUSAS_DEVICE
+  double tau0 = 6.68455e-6;
   
-  double Vp0 = V*tau0/w0; 
-  double l_T0 = delta_T0/(G*w0);
-  double D_liquid_ = D_liquid*tau0/(w0*w0);
+  TUSAS_DEVICE
+  double Vp0 = .354508;
+
+  TUSAS_DEVICE
+  double l_T0 = 2823.43;
+
+  TUSAS_DEVICE
+  double D_liquid_ = 6.267;
   
+  TUSAS_DEVICE
   double base_height = 15.;
+
+  TUSAS_DEVICE
   double amplitude = 0.2;
   
-   //double tl = 925.2;//k
-  //double ts = 877.3;//k
-  //double t0 = ts;
-  //double t0 = 900.;//k
-  //double dt0 = tl-ts;
-  
-  //for the farzadiQuad1000x360mmr.e mesh...
-  //double pp = 360.;
-  //double ll = 40.;
-  //double aa = 14.;
+
   
   
-  	PARAM_FUNC(param_)
-	{
-	  k = plist->get<double>("k", 0.14);
-	  eps = plist->get<double>("eps", 0.0);
-	  lambda = plist->get<double>("lambda", 10.);
-	  d0 = plist->get<double>("d0", 5.e-9);
-	  D_liquid = plist->get<double>("D_liquid", 3.e-9);
-	  m = plist->get<double>("m", -2.6);
-	  c_inf = plist->get<double>("c_inf", 3.);
-	  
-	  G = plist->get<double>("G", 3.e5);
-	  R = plist->get<double>("R", 0.003);
-	  base_height = plist->get<double>("base_height", 15.);
-	  amplitude = plist->get<double>("amplitude", 0.2);
-	  
-	  //pp = plist->get<double>("pp");
-	  //ll = plist->get<double>("ll");
-	  //aa = plist->get<double>("aa");
-	}
+PARAM_FUNC(param_)
+{
+  double k_p = plist->get<double>("k", 0.14);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(k,&k_p,sizeof(double));
+#else
+  k = k_p;
+#endif
+  double eps_p = plist->get<double>("eps", 0.0);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(eps,&eps_p,sizeof(double));
+#else
+  eps = eps_p;
+#endif
+  double lambda_p = plist->get<double>("lambda", 10.);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(lambda,&lambda_p,sizeof(double));
+#else
+  lambda = lambda_p;
+#endif
+  double d0_p = plist->get<double>("d0", 5.e-9);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(d0,&d0_p,sizeof(double));
+#else
+  d0 = d0_p;
+#endif
+  double D_liquid_p = plist->get<double>("D_liquid", 3.e-9);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(D_liquid,&D_liquid_p,sizeof(double));
+#else
+  D_liquid = D_liquid_p;
+#endif
+  double m_p = plist->get<double>("m", -2.6);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(m,&m_p,sizeof(double));
+#else
+  m = m_p;
+#endif
+  double c_inf_p = plist->get<double>("c_inf", 3.);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(c_inf,&c_inf_p,sizeof(double));
+#else
+  c_inf = c_inf_p;
+#endif
+  double G_p = plist->get<double>("G", 3.e5);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(G,&G_p,sizeof(double));
+#else
+  G = G_p;
+#endif
+  double R_p = plist->get<double>("R", 0.003);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(R,&R_p,sizeof(double));
+#else
+  R = R_p;
+#endif
+  double base_height_p = plist->get<double>("base_height", 15.);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(base_height,&base_height_p,sizeof(double));
+#else
+  base_height = base_height_p;
+#endif
+  double amplitude_p = plist->get<double>("amplitude", 0.2);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(amplitude,&amplitude_p,sizeof(double));
+#else
+  amplitude = amplitude_p;
+#endif
 
-
-	//double ff(const double y)
-	//{ 
-
-	  //return 2. + sin(y*aa*M_PI/pp);
-	//}
-
-
+  //calculated values
+  double w0_p = lambda*d0/0.8839;
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(w0,&w0_p,sizeof(double));
+#else
+  w0 = w0_p;
+#endif
+  double tau0_p = (lambda*0.6267*w0*w0)/D_liquid;
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(tau0,&tau0_p,sizeof(double));
+#else
+  tau0 = tau0_p;
+#endif
+  double V_p = R;
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(V,&V_p,sizeof(double));
+#else
+  V = V_p;
+#endif
+  double Vp0_p = V*tau0/w0;
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(Vp0,&Vp0_p,sizeof(double));
+#else
+  Vp0 = Vp0_p;
+#endif
+  double delta_T0_p = abs(m)*c_inf*(1.-k)/k;
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(delta_T0,&delta_T0_p,sizeof(double));
+#else
+  delta_T0 = delta_T0_p;
+#endif
+  double l_T0_p = delta_T0/(G*w0);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(l_T0,&l_T0_p,sizeof(double));
+#else
+  l_T0 = l_T0_p;
+#endif
+  double D_liquid__p = D_liquid*tau0/(w0*w0);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(D_liquid_,&D_liquid__p,sizeof(double));
+#else
+  D_liquid_ = D_liquid__p;
+#endif
+}
+  
+KOKKOS_INLINE_FUNCTION 
 double a(const double &p,const double &px,const double &py,const double &pz)
 {
   return (p*p < absphi) ? (1.-3.*eps)*(1.+4.*eps/(1.-3.*eps)*
@@ -5161,6 +5254,7 @@ double a(const double &p,const double &px,const double &py,const double &pz)
     : 1. + eps;
 }
 
+KOKKOS_INLINE_FUNCTION 
 double ap(const double &p,const double &px,const double &py,const double &pz,const double &pd)
 {
   return (p*p < absphi) ? 4.*eps*
@@ -5169,6 +5263,7 @@ double ap(const double &p,const double &px,const double &py,const double &pz,con
     : 0.;
 }
 
+KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_)
 {
   //derivatives of the test function
@@ -5187,18 +5282,6 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   const double dphidy = basis[1].dudy;
   const double dphidz = basis[1].dudz;
 
-  //double theta_ = theta(basis[1].duolddx,basis[1].duolddy);
-  //double theta_ = cummins::theta(basis[1].dudx,basis[1].dudy);
-
-  //double m = (1.+(1.-farzadi::k_)*u)*cummins::m_cummins_(theta_, farzadi::M_, eps);//cn we probably need u and uold here for CN...
-  //double m = m_cummins_(theta_, M_, eps_);//cn we probably need u and uold here for CN...
-  //double theta_old = theta(dphidx,dphidy);
-  //double mold = (1+(1-k_)*uold)*m_cummins_(theta_old, M_, eps_);
-
-  //double phit = (t_theta_*m+(1.-t_theta_)*mold)*(phi-phiold)/dt_*test;
-  //double phit = m*(phi-phiold)/dt_*test;
-
-  //double gs2 = cummins::gs2_cummins_(theta_, farzadi::M_, eps,0.);
   const double as = a(phi,dphidx,dphidy,dphidz);
   //const double as = 1.;
   //double gs2 = as*as;
@@ -5238,6 +5321,10 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   return phit + t_theta_*rhs;	// + (1.-t_theta_)*rhs_old*0.;
 }
 
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_phase_farzadi_dp_)) = residual_phase_farzadi_;
+
+KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_conc_farzadi_)
 {
   //right now, if explicit, we will have some problems with time derivates below
@@ -5268,6 +5355,10 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
 
   return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
 }
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_conc_farzadi_dp_)) = residual_conc_farzadi_;
+
 //do not use now
 PRE_FUNC_TPETRA(prec_phase_farzadi_)
 {
@@ -5315,17 +5406,16 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
 
 }
 
+KOKKOS_INLINE_FUNCTION 
 INI_FUNC(init_phase_farzadi_)
 {
-  //double r = ll*(1.+ff(y)*ff(y/2.)*ff(y/4.));
-  //double rz = (1.+ff(z)*ff(z/2.)*ff(z/4.))/9.;
-  //return (x < r*rz) ? 1. : -1.;
-  
+
   double r = base_height + amplitude*((double)rand()/(RAND_MAX));
   return (tanh((r-x)/sqrt(2.)));	
 
 }
 
+KOKKOS_INLINE_FUNCTION 
 INI_FUNC(init_conc_farzadi_)
 {	
   return -1.;
@@ -5335,35 +5425,5 @@ INI_FUNC(init_conc_farzadi_)
 
 
 
-
-
-
-
-
-
-namespace puga
-{
-
-RES_FUNC(residual_)
-{
-  return 0.;
-}
-
-PRE_FUNC(prec_)
-{
-  return 0.;
-}
-
-INI_FUNC(init_)
-{
-  return 0.;
-}
-
-PARAM_FUNC(param_)
-{
-  //delta_ = plist->get<double>("delta");
-}
-
-}//namespace puga
 
 #endif

@@ -2318,29 +2318,6 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     paramfunc_ = cummins::param_;
 
-  }else if("puga" == paramList.get<std::string> (TusastestNameString)){
-    
-    numeqs_ = 1;
-    
-    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &puga::residual_;
-
-    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &puga::prec_;
-
-    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &puga::init_;
-    //(*initfunc_)[0] = &cummins::init_heat_const_;
-
-    varnames_ = new std::vector<std::string>(numeqs_);
-    (*varnames_)[0] = "u";
-
-    dirichletfunc_ = NULL;
-
-    neumannfunc_ = NULL;
-
-    paramfunc_ = puga::param_;
-
   }else if("heat" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;

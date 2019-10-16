@@ -432,6 +432,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
       cudaMemcpyFromSymbol( &h_rf[1], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
+    }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
+
 
     } else {
       if( 0 == comm_->getRank() ){
@@ -1440,8 +1444,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[1] = &tpetra::farzadi3d::init_phase_farzadi_;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &tpetra::farzadi3d::residual_conc_farzadi_;
-    (*residualfunc_)[1] = &tpetra::farzadi3d::residual_phase_farzadi_;
+    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &tpetra::farzadi3d::prec_conc_farzadi_;

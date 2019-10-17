@@ -5006,13 +5006,13 @@ double k_d = 2.;
 
 double k_h = 2.;
 
-KOKKOS_INLINE_FUNCTION 
+  //KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
 {
   return 0.;
 }
 
-KOKKOS_INLINE_FUNCTION 
+  //KOKKOS_INLINE_FUNCTION 
 INI_FUNC(init_heat_test_)
 {
 
@@ -5080,7 +5080,8 @@ PPR_FUNC(postproc_)
 namespace farzadi3d
 {
 
-  const double absphi = 0.999999;	//1.
+  TUSAS_DEVICE
+  double absphi = 0.999999;	//1.
   
   TUSAS_DEVICE
   double k = 0.14;
@@ -5094,11 +5095,16 @@ namespace farzadi3d
   TUSAS_DEVICE
   double D_liquid = 3.e-9;			//1.e-11				//m^2/s
   
-  double m = -2.6;					//-2.6 100.
+  TUSAS_DEVICE
+  double m = -2.6;
+  TUSAS_DEVICE					//-2.6 100.
   double c_inf = 3.;				//1.
   
-  double G = 3.e5;											//k/m
-  double R = 0.003;											//m/s
+  TUSAS_DEVICE
+  double G = 3.e5;
+  TUSAS_DEVICE											//k/m
+  double R = 0.003;
+  TUSAS_DEVICE											//m/s
   double V = 0.003;
 	
   TUSAS_DEVICE											//m/s
@@ -5106,6 +5112,7 @@ namespace farzadi3d
   
   
   // parameters to scale dimensional quantities
+  TUSAS_DEVICE
   double delta_T0 = 47.9143;
 
   TUSAS_DEVICE
@@ -5123,10 +5130,10 @@ namespace farzadi3d
   TUSAS_DEVICE
   double D_liquid_ = 6.267;
   
-  TUSAS_DEVICE
+//   TUSAS_DEVICE
   double base_height = 15.;
 
-  TUSAS_DEVICE
+//   TUSAS_DEVICE
   double amplitude = 0.2;
   
 
@@ -5189,56 +5196,60 @@ PARAM_FUNC(param_)
   R = R_p;
 #endif
   double base_height_p = plist->get<double>("base_height", 15.);
-#ifdef KOKKOS_HAVE_CUDA
-  cudaMemcpyToSymbol(base_height,&base_height_p,sizeof(double));
-#else
+// #ifdef KOKKOS_HAVE_CUDA
+//   cudaMemcpyToSymbol(base_height,&base_height_p,sizeof(double));
+// #else
   base_height = base_height_p;
-#endif
+// #endif
   double amplitude_p = plist->get<double>("amplitude", 0.2);
-#ifdef KOKKOS_HAVE_CUDA
-  cudaMemcpyToSymbol(amplitude,&amplitude_p,sizeof(double));
-#else
+// #ifdef KOKKOS_HAVE_CUDA
+//   cudaMemcpyToSymbol(amplitude,&amplitude_p,sizeof(double));
+// #else
   amplitude = amplitude_p;
-#endif
+// #endif
+
+
+  //the calculated values need local vars to work....
+
 
   //calculated values
-  double w0_p = lambda*d0/0.8839;
+  double w0_p = lambda_p*d0_p/0.8839;
 #ifdef KOKKOS_HAVE_CUDA
   cudaMemcpyToSymbol(w0,&w0_p,sizeof(double));
 #else
   w0 = w0_p;
 #endif
-  double tau0_p = (lambda*0.6267*w0*w0)/D_liquid;
+  double tau0_p = (lambda_p*0.6267*w0_p*w0_p)/D_liquid_p;
 #ifdef KOKKOS_HAVE_CUDA
   cudaMemcpyToSymbol(tau0,&tau0_p,sizeof(double));
 #else
   tau0 = tau0_p;
 #endif
-  double V_p = R;
+  double V_p = R_p;
 #ifdef KOKKOS_HAVE_CUDA
   cudaMemcpyToSymbol(V,&V_p,sizeof(double));
 #else
   V = V_p;
 #endif
-  double Vp0_p = V*tau0/w0;
+  double Vp0_p = V_p*tau0_p/w0_p;
 #ifdef KOKKOS_HAVE_CUDA
   cudaMemcpyToSymbol(Vp0,&Vp0_p,sizeof(double));
 #else
   Vp0 = Vp0_p;
 #endif
-  double delta_T0_p = abs(m)*c_inf*(1.-k)/k;
+  double delta_T0_p = abs(m_p)*c_inf_p*(1.-k_p)/k_p;
 #ifdef KOKKOS_HAVE_CUDA
   cudaMemcpyToSymbol(delta_T0,&delta_T0_p,sizeof(double));
 #else
   delta_T0 = delta_T0_p;
 #endif
-  double l_T0_p = delta_T0/(G*w0);
+  double l_T0_p = delta_T0_p/(G_p*w0_p);
 #ifdef KOKKOS_HAVE_CUDA
   cudaMemcpyToSymbol(l_T0,&l_T0_p,sizeof(double));
 #else
   l_T0 = l_T0_p;
 #endif
-  double D_liquid__p = D_liquid*tau0/(w0*w0);
+  double D_liquid__p = D_liquid_p*tau0_p/(w0_p*w0_p);
 #ifdef KOKKOS_HAVE_CUDA
   cudaMemcpyToSymbol(D_liquid_,&D_liquid__p,sizeof(double));
 #else
@@ -5290,8 +5301,6 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
 
   const double phit = (1.+(1.-k)*u)*as*as*(phi-phiold)/dt_*test;
 
-  //double dgdtheta = cummins::dgs2_2dtheta_cummins_(theta_, farzadi::M_, eps, 0.);	
-  //double dgdpsi = 0.;
   //double curlgrad = -dgdtheta*dphidy*dtestdx + dgdtheta*dphidx*dtestdy;
   const double curlgrad = as*(dphidx*dphidx + dphidy*dphidy + dphidz*dphidz)
     *(ap(phi,dphidx,dphidy,dphidz,dphidx)*dtestdx + ap(phi,dphidx,dphidy,dphidz,dphidy)*dtestdy + ap(phi,dphidx,dphidy,dphidz,dphidz)*dtestdz);
@@ -5406,16 +5415,15 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
 
 }
 
-KOKKOS_INLINE_FUNCTION 
+  //KOKKOS_INLINE_FUNCTION 
 INI_FUNC(init_phase_farzadi_)
 {
-
-  double r = base_height + amplitude*((double)rand()/(RAND_MAX));
+  const double r = base_height + amplitude*((double)rand()/(RAND_MAX));
   return (tanh((r-x)/sqrt(2.)));	
 
 }
 
-KOKKOS_INLINE_FUNCTION 
+  //KOKKOS_INLINE_FUNCTION 
 INI_FUNC(init_conc_farzadi_)
 {	
   return -1.;

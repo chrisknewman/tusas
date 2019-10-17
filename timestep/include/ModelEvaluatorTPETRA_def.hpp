@@ -48,7 +48,7 @@
 
 #define TUSAS_MAX_NUMEQS 2
 
-// IMPORATANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
+// IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
 #define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 16
 
 template<class Scalar>
@@ -433,8 +433,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
       cudaMemcpyFromSymbol( &h_rf[1], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
 
 
     } else {

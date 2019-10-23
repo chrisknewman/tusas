@@ -689,6 +689,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
       cudaMemcpyFromSymbol( &h_pf[1], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
+    }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_conc_farzadi_dp_, sizeof(PREFUNC));
+      cudaMemcpyFromSymbol( &h_pf[1], tpetra::prec_phase_farzadi_dp_, sizeof(PREFUNC));
 
     } else {
       if( 0 == comm_->getRank() ){

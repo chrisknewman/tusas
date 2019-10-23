@@ -5368,7 +5368,8 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_conc_farzadi_dp_)) = residual_conc_farzadi_;
 
-//do not use now
+
+KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_phase_farzadi_)
 {
   const double dtestdx = basis[eqn_id].dphidx[i];
@@ -5389,14 +5390,18 @@ PRE_FUNC_TPETRA(prec_phase_farzadi_)
 
   const double as = a(phi,dphidx,dphidy,dphidz);
 
-  const double m = (1.+(1.-k)*u*0.)*as*as;
+  const double m = (1.+(1.-k)*u)*as*as;
   const double phit = m*(basis[1].phi[j])/dt_*test;
 
   const double divgrad = as*as*(dbasisdx*dtestdx + dbasisdy*dtestdy + dbasisdz*dtestdz);
 
   return phit + t_theta_*(divgrad);
 }
-//do not use now
+
+TUSAS_DEVICE
+PRE_FUNC_TPETRA((*prec_phase_farzadi_dp_)) = prec_phase_farzadi_;
+
+KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_conc_farzadi_)
 {
   const double dtestdx = basis[eqn_id].dphidx[i];
@@ -5414,6 +5419,9 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
   return u_t + t_theta_*(divgrad);
 
 }
+
+TUSAS_DEVICE
+PRE_FUNC_TPETRA((*prec_conc_farzadi_dp_)) = prec_conc_farzadi_;
 
   //KOKKOS_INLINE_FUNCTION 
 INI_FUNC(init_phase_farzadi_)

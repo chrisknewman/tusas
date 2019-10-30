@@ -690,8 +690,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
       cudaMemcpyFromSymbol( &h_pf[1], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_conc_farzadi_dp_, sizeof(PREFUNC));
-      cudaMemcpyFromSymbol( &h_pf[1], tpetra::prec_phase_farzadi_dp_, sizeof(PREFUNC));
+      cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
+      cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
 
     } else {
       if( 0 == comm_->getRank() ){
@@ -1776,7 +1776,7 @@ template<class scalar_type>
   this->start_time = time;
   int ntstep = (int)(time/dt_);
   //this->start_step = step-1;//this corresponds to the output frequency, not the actual timestep
-  this->start_step = ntstep+1;
+  this->start_step = ntstep;
   time_=time;
   output_step_ = step+1;
   //   u->Print(std::cout);

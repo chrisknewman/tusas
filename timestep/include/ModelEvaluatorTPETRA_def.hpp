@@ -1451,8 +1451,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::farzadi3d::prec_conc_farzadi_;
-    (*preconfunc_)[1] = &tpetra::farzadi3d::prec_phase_farzadi_;
+    (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
+    (*preconfunc_)[1] = tpetra::farzadi3d::prec_phase_farzadi_dp_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";

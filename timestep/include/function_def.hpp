@@ -5104,8 +5104,8 @@ namespace farzadi3d
   double G = 3.e5;
   TUSAS_DEVICE											//k/m
   double R = 0.003;
-  TUSAS_DEVICE											//m/s
-  double V = 0.003;
+//   TUSAS_DEVICE											//m/s
+//   double V = 0.003;
 	
   TUSAS_DEVICE											//m/s
   double d0 = 5.e-9;				//4.e-9					//m
@@ -5121,8 +5121,8 @@ namespace farzadi3d
   TUSAS_DEVICE
   double tau0 = 6.68455e-6;
   
-  TUSAS_DEVICE
-  double Vp0 = .354508;
+//   TUSAS_DEVICE
+//   double Vp0 = .354508;
 
   TUSAS_DEVICE
   double l_T0 = 2823.43;
@@ -5225,25 +5225,28 @@ PARAM_FUNC(param_)
 #else
   tau0 = tau0_p;
 #endif
-  double V_p = R_p;
-#ifdef KOKKOS_HAVE_CUDA
-  cudaMemcpyToSymbol(V,&V_p,sizeof(double));
-#else
-  V = V_p;
-#endif
-  double Vp0_p = V_p*tau0_p/w0_p;
-#ifdef KOKKOS_HAVE_CUDA
-  cudaMemcpyToSymbol(Vp0,&Vp0_p,sizeof(double));
-#else
-  Vp0 = Vp0_p;
-#endif
+
+//   double V_p = R_p;
+// #ifdef KOKKOS_HAVE_CUDA
+//   cudaMemcpyToSymbol(V,&V_p,sizeof(double));
+// #else
+//   V = V_p;
+// #endif
+
+//   double Vp0_p = V_p*tau0_p/w0_p;
+// #ifdef KOKKOS_HAVE_CUDA
+//   cudaMemcpyToSymbol(Vp0,&Vp0_p,sizeof(double));
+// #else
+//   Vp0 = Vp0_p;
+// #endif
+
   double delta_T0_p = abs(m_p)*c_inf_p*(1.-k_p)/k_p;
 #ifdef KOKKOS_HAVE_CUDA
   cudaMemcpyToSymbol(delta_T0,&delta_T0_p,sizeof(double));
 #else
   delta_T0 = delta_T0_p;
 #endif
-  double l_T0_p = delta_T0_p/(G_p*w0_p);
+  double l_T0_p = delta_T0_p/G_p;
 #ifdef KOKKOS_HAVE_CUDA
   cudaMemcpyToSymbol(l_T0,&l_T0_p,sizeof(double));
 #else
@@ -5255,6 +5258,7 @@ PARAM_FUNC(param_)
 #else
   D_liquid_ = D_liquid__p;
 #endif
+  //std::cout<<l_T0<<"   "<<G<<"  "<<Vp0<<"  "<<tau0<<"   "<<w0<<std::endl;
 }
   
 KOKKOS_INLINE_FUNCTION 
@@ -5314,8 +5318,9 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   // frozen temperature approximation: linear pulling of the temperature field
   double xx = x*w0;
   double tt = time*tau0;
-  double t_scale = (xx-Vp0*tt)/l_T0;
+  double t_scale = (xx-R*tt)/l_T0;
   
+  //std::cout<<xx<<"  "<<tt<<"  "<<t_scale<<std::endl;
   // need to plot t_scale
   //double t_scale = farzadi::tscale_(x,time);
 

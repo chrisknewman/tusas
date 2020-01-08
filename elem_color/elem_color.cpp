@@ -324,7 +324,7 @@ void elem_color::restart(){
 
     if( numproc < 10 ){
       mypidstring = std::to_string(mypid);
-    }
+    }//if
     if( numproc > 9 && numproc < 100 ){
       if ( mypid < 10 ){
 	mypidstring = std::to_string(0)+std::to_string(mypid);
@@ -332,7 +332,7 @@ void elem_color::restart(){
       else{
 	mypidstring = std::to_string(mypid);
       }
-    }
+    }//if
     if( numproc > 99 && numproc < 1000 ){
       if ( mypid < 10 ){
 	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
@@ -343,19 +343,19 @@ void elem_color::restart(){
       else{
 	mypidstring = std::to_string(mypid);
       }
-      if( numproc > 999 && numproc < 10000 ){
-	if ( mypid < 10 ){
-	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-	}
-	else if ( mypid > 9 && mypid < 100 ){
-	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-	}
-	else if ( mypid > 99 && mypid < 1000 ){
-	  mypidstring = std::to_string(0)+std::to_string(mypid);
-	}
-	else{
-	  mypidstring = std::to_string(mypid);
-	}
+    }//if
+    if( numproc > 999 && numproc < 10000 ){
+      if ( mypid < 10 ){
+	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+      }
+      else if ( mypid > 9 && mypid < 100 ){
+	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+      }
+      else if ( mypid > 99 && mypid < 1000 ){
+	mypidstring = std::to_string(0)+std::to_string(mypid);
+      }
+      else{
+	mypidstring = std::to_string(mypid);
       }
     }
      

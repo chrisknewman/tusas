@@ -51,6 +51,8 @@
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
 #define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 16
 
+std::string getmypidstring(const int mypid, const int numproc);
+
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
 modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
@@ -1656,45 +1658,8 @@ template<class scalar_type>
     std::string decompPath="decomp/";
     //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
     
-    std::string mypidstring;
+    std::string mypidstring(getmypidstring(mypid,numproc));
 
-    if( numproc < 10 ){
-      mypidstring = std::to_string(mypid);
-    }
-    if( numproc > 9 && numproc < 100 ){
-      if ( mypid < 10 ){
-	mypidstring = std::to_string(0)+std::to_string(mypid);
-      }
-      else{
-	mypidstring = std::to_string(mypid);
-      }
-    }//if
-    if( numproc > 99 && numproc < 1000 ){
-      if ( mypid < 10 ){
-	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-      }
-      else if ( mypid > 9 && mypid < 100 ){
-	mypidstring = std::to_string(0)+std::to_string(mypid);
-      }
-      else{
-	mypidstring = std::to_string(mypid);
-      }
-    }//if
-    if( numproc > 999 && numproc < 10000 ){
-      if ( mypid < 10 ){
-	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-      }
-      else if ( mypid > 9 && mypid < 100 ){
-	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-      }
-      else if ( mypid > 99 && mypid < 1000 ){
-	mypidstring = std::to_string(0)+std::to_string(mypid);
-      }
-      else{
-	mypidstring = std::to_string(mypid);
-      }
-    }
-     
     std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
     ex_id_ = mesh_->open_exodus(pfile.c_str());
     

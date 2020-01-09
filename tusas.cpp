@@ -63,6 +63,7 @@ int join(const int mypid, const int numproc, const bool skipdecomp);
 void print_disclaimer(const int mypid);
 void print_copyright(const int mypid);
 void write_timers();
+std::string getmypidstring(const int mypid, const int numproc);
 
 int main(int argc, char *argv[])
 {
@@ -373,44 +374,7 @@ int decomp(const int mypid,
     //exit(0);
     return 1;
   }
-  std::string mypidstring;
-
-  if( numproc < 10 ){
-    mypidstring = std::to_string(mypid);
-  }
-  if( numproc > 9 && numproc < 100 ){
-    if ( mypid < 10 ){
-      mypidstring = std::to_string(0)+std::to_string(mypid);
-    }
-    else{
-      mypidstring = std::to_string(mypid);
-    }
-  }//if
-  if( numproc > 99 && numproc < 1000 ){
-    if ( mypid < 10 ){
-      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-    }
-    else if ( mypid > 9 && mypid < 100 ){
-      mypidstring = std::to_string(0)+std::to_string(mypid);
-    }
-    else{
-      mypidstring = std::to_string(mypid);
-    }
-  }//if
-  if( numproc > 999 && numproc < 10000 ){
-    if ( mypid < 10 ){
-      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-    }
-    else if ( mypid > 9 && mypid < 100 ){
-      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-    }
-    else if ( mypid > 99 && mypid < 1000 ){
-      mypidstring = std::to_string(0)+std::to_string(mypid);
-    }
-    else{
-      mypidstring = std::to_string(mypid);
-    }
-  }//if
+  std::string mypidstring(getmypidstring(mypid,numproc));
 
   outfile=decompPath+std::to_string(mypid+1)+"/"+nemStr+".par."+std::to_string(numproc)+"."+mypidstring;
 
@@ -530,4 +494,48 @@ void write_timers()
   timefile.open("time.dat");
   Teuchos::TimeMonitor::summarize(timefile,false,true,false);
   timefile.close();
+}
+
+std::string getmypidstring(const int mypid, const int numproc)
+{
+  std::string mypidstring;
+
+  if( numproc < 10 ){
+    mypidstring = std::to_string(mypid);
+  }
+  if( numproc > 9 && numproc < 100 ){
+    if ( mypid < 10 ){
+      mypidstring = std::to_string(0)+std::to_string(mypid);
+    }
+    else{
+      mypidstring = std::to_string(mypid);
+    }
+  }//if
+  if( numproc > 99 && numproc < 1000 ){
+    if ( mypid < 10 ){
+      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+    }
+    else if ( mypid > 9 && mypid < 100 ){
+      mypidstring = std::to_string(0)+std::to_string(mypid);
+    }
+    else{
+      mypidstring = std::to_string(mypid);
+    }
+  }//if
+  if( numproc > 999 && numproc < 10000 ){
+    if ( mypid < 10 ){
+      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+    }
+    else if ( mypid > 9 && mypid < 100 ){
+      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+    }
+    else if ( mypid > 99 && mypid < 1000 ){
+      mypidstring = std::to_string(0)+std::to_string(mypid);
+    }
+    else{
+      mypidstring = std::to_string(mypid);
+    }
+  }//if
+
+  return mypidstring;
 }

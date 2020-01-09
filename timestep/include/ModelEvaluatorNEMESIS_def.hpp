@@ -66,6 +66,8 @@
 #include "interpflux.h"
 #include "projection.h"
 
+std::string getmypidstring(const int mypid, const int numproc);
+
 // Nonmember constuctors
 Basis* new_clone(Basis const& other){
   return other.clone();
@@ -2004,45 +2006,8 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
     std::string decompPath="decomp/";
     //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
     
-    std::string mypidstring;
+    std::string mypidstring(getmypidstring(mypid,numproc));
 
-    if( numproc < 10 ){
-      mypidstring = std::to_string(mypid);
-    }
-    if( numproc > 9 && numproc < 100 ){
-      if ( mypid < 10 ){
-	mypidstring = std::to_string(0)+std::to_string(mypid);
-      }
-      else{
-	mypidstring = std::to_string(mypid);
-      }
-    }
-    if( numproc > 99 && numproc < 1000 ){
-      if ( mypid < 10 ){
-	mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-      }
-      else if ( mypid > 9 && mypid < 100 ){
-	mypidstring = std::to_string(0)+std::to_string(mypid);
-      }
-      else{
-	mypidstring = std::to_string(mypid);
-      }
-      if( numproc > 999 && numproc < 10000 ){
-	if ( mypid < 10 ){
-	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-	}
-	else if ( mypid > 9 && mypid < 100 ){
-	  mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
-	}
-	else if ( mypid > 99 && mypid < 1000 ){
-	  mypidstring = std::to_string(0)+std::to_string(mypid);
-	}
-	else{
-	  mypidstring = std::to_string(mypid);
-	}
-      }
-    }
-     
     std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
     ex_id_ = mesh_->open_exodus(pfile.c_str());
     

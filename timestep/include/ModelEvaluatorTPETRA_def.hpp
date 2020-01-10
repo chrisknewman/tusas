@@ -1269,14 +1269,8 @@ template<class scalar_type>
       std::string decompPath=paramList.get<std::string> (TusasoutputpathNameString);
       //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
       
-      std::string mypidstring;
-      if ( numproc > 9 && mypid < 10 ){
-	mypidstring = std::to_string(0)+std::to_string(mypid);
-      }
-      else{
-	mypidstring = std::to_string(mypid);
-      }
-      
+      std::string mypidstring(getmypidstring(mypid,numproc));
+
       std::string pfile = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
       ex_id_ = mesh_->create_exodus(pfile.c_str());
     }  

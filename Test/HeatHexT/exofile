@@ -1,2 +1,5 @@
-NODAL VARIABLES all floor 1.e-17
-	u
+NODAL VARIABLES all
+	grad0x floor 3.e-9
+	grad0y floor 3.e-9
+	grad0z floor 3.e-9
+	u floor 1.e-17

@@ -85,9 +85,11 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   
   //mesh_ = Teuchos::rcp(new Mesh(*mesh));
   mesh_->compute_nodal_adj(); 
-  std::vector<int> node_num_map(mesh_->get_node_num_map());
+
+  std::vector<int> node_num_int(mesh_->get_node_num_map());
+  std::vector<global_ordinal_type> node_num_map(node_num_int.begin(),node_num_int.end());
   
-  std::vector<int> my_global_nodes(numeqs_*node_num_map.size());
+  std::vector<global_ordinal_type> my_global_nodes(numeqs_*node_num_map.size());
   for(int i = 0; i < node_num_map.size(); i++){    
     for( int k = 0; k < numeqs_; k++ ){
       my_global_nodes[numeqs_*i+k] = numeqs_*node_num_map[i]+k;
@@ -97,7 +99,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   const global_size_t numGlobalEntries = Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid();
   const global_ordinal_type indexBase = 0;
 
-  Teuchos::ArrayView<int> AV(my_global_nodes);
+  Teuchos::ArrayView<global_ordinal_type> AV(my_global_nodes);
 
   x_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
 					     AV,
@@ -117,7 +119,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   num_owned_nodes_ = x_owned_map_->getNodeNumElements()/numeqs_;
   num_overlap_nodes_ = x_overlap_map_->getNodeNumElements()/numeqs_;
 
-  Teuchos::ArrayView<int> NV(node_num_map);
+  Teuchos::ArrayView<global_ordinal_type> NV(node_num_map);
   node_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
 						NV,
 						indexBase,

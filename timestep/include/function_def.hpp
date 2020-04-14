@@ -5130,14 +5130,22 @@ namespace farzadi3d
   TUSAS_DEVICE
   double D_liquid_ = 6.267;
   
+  TUSAS_DEVICE
+  double dT = 0.0;
+  
 //   TUSAS_DEVICE
   double base_height = 15.;
 
 //   TUSAS_DEVICE
   double amplitude = 0.2;
   
-
+  //circle or sphere parameters
+  double r = 0.5;
+  double x0 = 20.0; 
+  double y0 = 20.0;
+  double z0 = 20.0;
   
+  int C = 0;
   
 PARAM_FUNC(param_)
 {
@@ -5195,6 +5203,15 @@ PARAM_FUNC(param_)
 #else
   R = R_p;
 #endif
+
+// added dT here
+double dT_p = plist->get<double>("dT", 0.0);
+#ifdef KOKKOS_HAVE_CUDA
+  cudaMemcpyToSymbol(dT,&dT_p,sizeof(double));
+#else
+  dT = dT_p;
+#endif
+
   double base_height_p = plist->get<double>("base_height", 15.);
 // #ifdef KOKKOS_HAVE_CUDA
 //   cudaMemcpyToSymbol(base_height,&base_height_p,sizeof(double));
@@ -5208,9 +5225,22 @@ PARAM_FUNC(param_)
   amplitude = amplitude_p;
 // #endif
 
+int C_p = plist->get<int>("C", 0);
+C = C_p;
+
+// circle or sphere parameters
+
+double r_p = plist->get<double>("r", 0.5);
+r = r_p;
+double x0_p = plist->get<double>("x0", 20.0);
+x0 = x0_p;
+double y0_p = plist->get<double>("y0", 20.0);
+y0 = y0_p;
+double z0_p = plist->get<double>("z0", 20.0);
+z0 = z0_p;
+
 
   //the calculated values need local vars to work....
-
 
   //calculated values
   double w0_p = lambda_p*d0_p/0.8839;
@@ -5318,7 +5348,8 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   // frozen temperature approximation: linear pulling of the temperature field
   double xx = x*w0;
   double tt = time*tau0;
-  double t_scale = (xx-R*tt)/l_T0;
+  //double t_scale = (xx-R*tt)/l_T0;
+  double t_scale = ((dT < 0.001) ? (xx-R*tt)/l_T0 : dT);
   
   //std::cout<<xx<<"  "<<tt<<"  "<<t_scale<<std::endl;
   // need to plot t_scale
@@ -5431,20 +5462,22 @@ PRE_FUNC_TPETRA((*prec_conc_farzadi_dp_)) = prec_conc_farzadi_;
   //KOKKOS_INLINE_FUNCTION 
 INI_FUNC(init_phase_farzadi_)
 {
-  const double r = base_height + amplitude*((double)rand()/(RAND_MAX));
-  return (tanh((r-x)/sqrt(2.)));	
+
+  double h = base_height + amplitude*((double)rand()/(RAND_MAX));
+  
+  double c = (x-x0)*(x-x0) + (y-y0)*(y-y0) + (z-z0)*(z-z0);
+  
+  return (C == 0) ? (tanh((h-x)/sqrt(2.))) : ((c < r*r) ? 1. : -1.);	
 
 }
 
   //KOKKOS_INLINE_FUNCTION 
 INI_FUNC(init_conc_farzadi_)
-{	
+{
   return -1.;
 }
 }//namespace farzadi3d
 }//namespace tpetra
-
-
 
 
 #endif

@@ -5459,7 +5459,6 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
 TUSAS_DEVICE
 PRE_FUNC_TPETRA((*prec_conc_farzadi_dp_)) = prec_conc_farzadi_;
 
-  //KOKKOS_INLINE_FUNCTION 
 INI_FUNC(init_phase_farzadi_)
 {
 
@@ -5471,12 +5470,118 @@ INI_FUNC(init_phase_farzadi_)
 
 }
 
-  //KOKKOS_INLINE_FUNCTION 
+INI_FUNC(init_phase_farzadi_test_)
+{
+  const double pp = 36.;
+  const double ll = .2;
+  const double aa = 9.;
+  const double pi = 3.141592653589793;
+  double r = ll*(1.+(2.+sin(y*aa*pi/pp))
+		 *(2.+sin(y*aa*pi/pp/2.))
+		 *(2.+sin(y*aa*pi/pp/4.)));
+  double val = -1.;
+  if(x < r) val = 1.;
+  return val;
+}
+
 INI_FUNC(init_conc_farzadi_)
 {
   return -1.;
 }
+
+PPR_FUNC(postproc_c_)
+{
+  // return the physical concentration
+  const double uu = u[0];
+  const double phi = u[1];
+
+  return -c_inf*(1.+k-phi+k*phi)*(-1.-uu+k*uu)/2./k;
+}
+
+PPR_FUNC(postproc_t_)
+{
+  // return the physical temperature in K here
+  double x = xyz[0];
+
+  double xx = x*w0;
+  double tt = time*tau0;
+  return ((dT < 0.001) ? 877.3 + (xx-R*tt)/l_T0*delta_T0 : 877.3);
+}
 }//namespace farzadi3d
+
+namespace pfhub3
+{
+  const double R_ = .3;// 8.;
+
+  TUSAS_DEVICE
+  const double delta_ = -.3;
+  TUSAS_DEVICE
+  const double D_ = 1.;//10.;
+  TUSAS_DEVICE
+  const double eps_ = .05;
+
+PARAM_FUNC(param_)
+{
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_heat_pfhub3_)
+{
+  const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
+  double divgradu[2] = {D_*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
+			  + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
+			  + basis[eqn_id].dudz*basis[eqn_id].dphidz[i]),
+		     D_*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
+			  + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
+			  + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i])};
+  const double phit = 0.*.5*(basis[1].uu-basis[1].uuold)/dt_*basis[1].phi[i];
+  return ut
+    + t_theta_*divgradu[0]
+    + (1. - t_theta_)*divgradu[1]
+    - phit;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_heat_pfhub3_dp_)) = residual_heat_pfhub3_;
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_phase_pfhub3_)
+{
+  return 0.;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_phase_pfhub3_dp_)) = residual_phase_pfhub3_;
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_heat_pfhub3_)
+{
+}
+
+TUSAS_DEVICE
+PRE_FUNC_TPETRA((*prec_heat_pfhub3_dp_)) = prec_heat_pfhub3_;
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_phase_pfhub3_)
+{
+}
+
+TUSAS_DEVICE
+PRE_FUNC_TPETRA((*prec_phase_pfhub3_dp_)) = prec_phase_pfhub3_;
+
+INI_FUNC(init_heat_pfhub3_)
+{
+  return delta_;
+}
+
+INI_FUNC(init_phase_pfhub3_)
+{
+  double val = -1.;
+  if(x*x+y*y+z*z < R_*R_) val = 1.;
+  return val;
+}
+
+}//namespace pfhub3
 }//namespace tpetra
 
 

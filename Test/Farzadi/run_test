@@ -5,6 +5,6 @@ rm -rf decompscript
 rm -rf nem_spread.inp
 mpirun -np 4 $1/tusas --input-file=farzadi.xml --writedecomp
 bash decompscript
-mpirun -np 4 $1/tusas --input-file=farzadi.xml --skipdecomp
+mpirun -np 4 $1/tusas --kokkos-threads=1 --input-file=farzadi.xml --skipdecomp
 bash epuscript
 ../exodiff -f exofile Gold.e results.e 

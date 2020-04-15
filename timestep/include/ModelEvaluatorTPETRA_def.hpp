@@ -439,6 +439,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
       cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+    }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub3::residual_heat_pfhub3_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub3::residual_phase_pfhub3_dp_, sizeof(RESFUNC));
 
 
     } else {
@@ -696,6 +699,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
       cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
+    }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_pf[0], tpetra::pfhub3::prec_heat_pfhub3_dp_, sizeof(PREFUNC));
+      cudaMemcpyFromSymbol( &h_pf[1], tpetra::pfhub3::prec_phase_pfhub3_dp_, sizeof(PREFUNC));
+
 
     } else {
       if( 0 == comm_->getRank() ){
@@ -1460,6 +1467,60 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_ = tpetra::farzadi3d::param_;
     //paramfunc_ = farzadi::param_;
+
+  }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
+    //farzadi test
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::farzadi3d::init_conc_farzadi_;
+    (*initfunc_)[1] = &tpetra::farzadi3d::init_phase_farzadi_test_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
+    (*preconfunc_)[1] = tpetra::farzadi3d::prec_phase_farzadi_dp_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
+
+    paramfunc_ = tpetra::farzadi3d::param_;
+
+  }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::pfhub3::init_heat_pfhub3_;
+    (*initfunc_)[1] = &tpetra::pfhub3::init_phase_pfhub3_;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::pfhub3::residual_heat_pfhub3_dp_;
+    (*residualfunc_)[1] = tpetra::pfhub3::residual_phase_pfhub3_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::pfhub3::prec_heat_pfhub3_dp_;
+    (*preconfunc_)[1] = tpetra::pfhub3::prec_phase_pfhub3_dp_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+    //paramfunc_ = tpetra::pfhub3::param_;
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

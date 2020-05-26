@@ -94,6 +94,14 @@ std::string const TusasqtriquadordDocString = "quadrature order for biquadratic 
 std::string const TusasexaConstitNameString = "exaconstit";
 /// Dump exaConstit file
 std::string const TusasexaConstitDocString = "exaconstit (bool): true; false (default)";
+/// Decomposition ethod.
+//std::string const TusasdecompmethodNameString = "decompmethod";
+/// Decomposition method.
+//std::string const TusasdecompmethodDocString = "decompmethod (string): INERTIAL (default); LINEAR";
+/// Use 64 bit nemesis
+std::string const Tusasusenemesis64bitNameString = "usenemesis64bit";
+/// Use 64 bit nemesis
+std::string const Tusasusenemesis64bitDocString = "usenemesis64bit (bool): true; false (default)";
 
 //other parameters not in the input file
 /// Restart.

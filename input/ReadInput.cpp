@@ -68,6 +68,10 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasexaConstitNameString,(bool)false,TusasexaConstitDocString);
 
+  //paramList.set(TusasdecompmethodNameString,"INERTIAL",TusasdecompmethodDocString);
+
+  paramList.set(Tusasusenemesis64bitNameString,(bool)false,Tusasusenemesis64bitDocString);
+
   //ML parameters for ML and MueLu
   Teuchos::ParameterList *MLList;
   MLList = &paramList.sublist ( TusasmlNameString, false );

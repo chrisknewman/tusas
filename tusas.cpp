@@ -57,7 +57,7 @@ extern char **environ;
 
 using namespace std;
 
-int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const bool skipdecomp, const bool writedecomp, const Epetra_Comm * comm);
+int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const bool skipdecomp, const bool writedecomp, const bool usenemesis64, const Epetra_Comm * comm);
 int do_sys_call(const char* command, char * const arg[] = NULL );
 int join(const int mypid, const int numproc, const bool skipdecomp);
 void print_disclaimer(const int mypid);
@@ -125,6 +125,7 @@ int main(int argc, char *argv[])
 		    paramList.get<bool> (TusasrestartNameString), 
 		    paramList.get<bool> (TusasskipdecompNameString), 
 		    paramList.get<bool> (TusaswritedecompNameString),
+		    paramList.get<bool> (Tusasusenemesis64bitNameString),
 		    &Comm);      
       Comm.Barrier();
     }
@@ -209,6 +210,7 @@ int decomp(const int mypid,
 	   const bool restart, 
 	   const bool skipdecomp, 
 	   const bool writedecomp, 
+	   const bool usenemesis64,
 	   const Epetra_Comm * comm){
 
   //return 1 for writedecomp; return 0 otherwise
@@ -284,6 +286,18 @@ int decomp(const int mypid,
       std::string nemFile =decompPath+nemStr+".nemI";
       std::string sliceStr = trilinosPath+"/bin/nem_slice";//+" -e -m mesh="+std::to_string(numproc)+" -l inertial -o "+nemFile+" "+infile;
       
+      //hack for 64 bit nemesis
+      std::string decompMethod;
+      std::string use64Str;
+      if( usenemesis64 ){
+	decompMethod = "LINEAR";
+	use64Str = "-64";
+      }
+      else {
+	decompMethod = "INERTIAL";
+	use64Str = "";
+      };
+
       if( writedecomp ){
 	std::string sliceFile="./input-ldbl";
 	std::ofstream slicefile;
@@ -291,13 +305,13 @@ int decomp(const int mypid,
 	slicefile 
 	  <<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n" 
 	  <<"GRAPH TYPE			= ELEMENTAL"<<"\n" 
-	  <<"DECOMPOSITION METHOD		= INERTIAL"<<"\n" 
+	  <<"DECOMPOSITION METHOD		= "<<decompMethod<<"\n" 
 	  <<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
 	slicefile.close();
-	char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
+	char * sliceArg[] = {(char*)"nem_slice",const_cast<char*>((use64Str).c_str()),(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
 	
 	decompfile
-	  <<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<"\n";
+	  <<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<" "<<sliceArg[4]<<"\n";
       }
       else {
 	std::string sliceFile=decompPath+"input-ldbl";
@@ -306,11 +320,11 @@ int decomp(const int mypid,
 	slicefile 
 	  <<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n"
 	  <<"GRAPH TYPE			= ELEMENTAL"<<"\n"
-	  <<"DECOMPOSITION METHOD		= INERTIAL"<<"\n" 
+	  <<"DECOMPOSITION METHOD		= "<<decompMethod<<"\n" 
 	  <<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
 	slicefile.close();
-	char * sliceArg[] = {(char*)"nem_slice",(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
-	std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<"\n";
+	char * sliceArg[] = {(char*)"nem_slice",const_cast<char*>((use64Str).c_str()),(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
+	std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<" "<<sliceArg[4]<<"\n";
 	
 	//if(-1 == system(sliceStr.c_str()) ){
 	if(-1 == do_sys_call(sliceStr.c_str(),sliceArg) ){

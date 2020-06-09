@@ -7,13 +7,20 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
+//#define MESH_64
+
+#define MESH_REFACTOR 0
+
 
 #ifndef MESH_H
 #define MESH_H
 
+#include "stdint.h"
+
 #include <vector>
 #include <string>
 #include <map>
+
 
 /// Manages all mesh data.
 class Mesh
@@ -34,6 +41,17 @@ class Mesh
   //#endif
   /// Destructor
   ~Mesh();
+
+
+  //the convention will be that global ids will be 64 bit-- long long
+  // while local ids will be 32 bit-- int
+
+#ifdef MESH_64
+  //typedef long long mesh_lint_t;
+  typedef int64_t mesh_lint_t;
+#else
+  typedef int mesh_lint_t;
+#endif
 
 // We need to read and write Exodus files
   /// Read exodus file based on filename.
@@ -117,17 +135,17 @@ class Mesh
   /// Return address of node id (by local id) in element elem (by local id) in block blk with offest offset.
   int& get_node_id(int blk, int elem, int offset){return connect[blk][elem * num_node_per_elem_in_blk[blk] + offset]; }
   /// Return global node id of local index i
-  int get_global_node_id(int i){ return node_num_map[i];}
+  mesh_lint_t get_global_node_id(int i){ return node_num_map[i];}
   /// Return global element id of local index i
-  int get_global_elem_id(int i){ return elem_num_map[i];}
+  mesh_lint_t get_global_elem_id(int i){ return elem_num_map[i];}
   /// Return node_num_map, a list of global node ids on this processor.
-  std::vector<int> get_node_num_map(){ return node_num_map; }
+  std::vector<mesh_lint_t> get_node_num_map(){ return node_num_map; }
   /// Return a pointer to elem_num_map, a list of global element ids on this processor.
-  std::vector<int> *get_elem_num_map(){ return &elem_num_map; }
+  std::vector<mesh_lint_t> *get_elem_num_map(){ return &elem_num_map; }
   /// Return my_node_num_map, a list of global node ids on this processor.
-  std::vector<int> get_my_node_num_map(){ return my_node_num_map; }
-  /// Return element_connect for element i, by local id
-  std::vector<int> get_elem_connect(int i){return elem_connect[i];};
+  std::vector<mesh_lint_t> get_my_node_num_map(){ return my_node_num_map; }
+  /// Return global element_connect for element i, by local id
+  std::vector<mesh_lint_t> get_elem_connect(int i){return elem_connect[i];};
   /// Return the x coord of node i
   double get_x(int i){return x[i];}    
   /// Return the y coord of node i
@@ -150,8 +168,10 @@ class Mesh
   std::string get_blk_elem_type(const int i){return blk_elem_type[i];}
   /// Set global_file_name to filename
   void set_global_file_name(std::string filename){global_file_name = filename;return;};
+#if MESH_REFACTOR
   /// Get local id from global id
   int get_local_id(int gid);
+#endif
   /// Creates sorted nodesetlists based on increasing x, y and z. Used for periodic BCs.
   void create_sorted_nodesetlists();
   /// Return sorted node set with id i
@@ -176,9 +196,9 @@ class Mesh
   /// Return the number of nodes in side set with id i   !!! is this global or local !!!
   int get_num_node_per_side(int i){return ss_ctr_list[i][0];}
   /// Return my node_num_mapi (on this processor)   !!! is this global or local !!!
-  std::vector<int> get_my_node_num_mapi(){ return node_mapi; }
+  std::vector<mesh_lint_t> get_my_node_num_mapi(){ return node_mapi; }
   /// Return my node_num_mapb (on this processor)   !!! is this global or local !!!
-  std::vector<int> get_my_node_num_mapb(){ return node_mapb; }
+  std::vector<mesh_lint_t> get_my_node_num_mapb(){ return node_mapb; }
   /// Return a pointer to the node ids in element elem in block blk   !!! is this global or local !!!
   int *get_elem_nodes(int blk, int elem){return &connect[blk][elem * num_node_per_elem_in_blk[blk]]; }
   /// Return the number of node sets   !!! is this global or local !!!
@@ -209,7 +229,7 @@ class Mesh
   int get_node_set_value(int i){ return node_set_map[i]; }
   /// !!! have no idea !!!
   int get_side_set_node_value(int i){ return side_set_node_map[i]; }
-  std::vector<int> node_num_map;
+  std::vector<mesh_lint_t> node_num_map;
 
   bool verbose;
   std::string title;
@@ -235,7 +255,7 @@ class Mesh
   std::vector<std::string> blk_elem_type;
   std::vector<int> num_node_per_elem_in_blk;
   //std::vector<std::vector<int> > connect;
-  std::vector< std::vector <int> > elem_connect;      
+  std::vector< std::vector <mesh_lint_t> > elem_connect;      
 
   std::vector<int> ss_ids;
   std::vector<int> num_sides_per_ss;
@@ -276,13 +296,12 @@ class Mesh
   int read_nodal_field_index(const int ex_id, std::string name);
   int get_elem_field_index(std::string name);
   //std::vector<int> node_num_map;
-  std::vector<int> elem_num_map;
+  std::vector<mesh_lint_t> elem_num_map;
 
   std::vector<int> node_set_map;
   std::vector<int> side_set_node_map;
-  std::vector<int> my_node_num_map;
+  std::vector<mesh_lint_t> my_node_num_map;
 
-  //#ifdef NEMESIS
   int ne_num_global_nodes, ne_num_global_elems, ne_num_global_elem_blks,
 		  ne_num_global_node_sets, ne_num_global_side_sets;
 
@@ -291,7 +310,7 @@ class Mesh
 
   std::vector<int> node_cmap_ids, node_cmap_node_cnts, elem_cmap_ids, elem_cmap_elem_cnts;
 
-  std::vector<int> elem_mapi, elem_mapb, node_mapi, node_mapb, node_mape;
+  std::vector<mesh_lint_t> node_mapi, node_mapb, node_mape, elem_mapi, elem_mapb;
 
   std::vector<int> global_ns_ids, num_global_node_counts, num_global_node_df_counts;
   std::vector<int> global_ss_ids, num_global_side_counts, num_global_side_df_counts;
@@ -317,7 +336,6 @@ class Mesh
   bool is_compute_nodal_patch_overlap;
   std::vector<int> sorted_node_num_map;
   std::vector<int> sorted_elem_num_map;
-  //#endif
 
 };
 

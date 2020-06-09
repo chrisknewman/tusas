@@ -46,6 +46,7 @@ int Mesh::read_exodus(const char * filename){
   int comp_ws = sizeof(double);//cn send this to exodus to tell it we are using doubles
   int io_ws = 0;
   std::vector<int>::iterator a;
+  std::vector<mesh_lint_t>::iterator aa;
 
   is_nodesets_sorted = false;
   is_compute_nodal_patch_overlap = false;
@@ -67,10 +68,21 @@ int Mesh::read_exodus(const char * filename){
 
   }
 
+  int max_name_length = ex_inquire_int(ex_id, EX_INQ_DB_MAX_USED_NAME_LENGTH);
+
+//   std::cout<<"max_name_length = "<<max_name_length<<"      "<<sizeof(mesh_lint_t)<<std::endl;
+//   exit(1);
+
+
+
   //char _title[MAX_LINE_LENGTH];
   char _title[TUSAS_MAX_LINE_LENGTH];
 
   int ex_err = 0;
+
+#ifdef MESH_64
+  ex_err = ex_set_int64_status(ex_id,EX_MAPS_INT64_API);
+#endif
 
   ex_err = ex_get_init(ex_id,//cn read header
 		       _title,
@@ -204,8 +216,14 @@ int Mesh::read_exodus(const char * filename){
 
     if( 1 < nprocs ){
       //#ifdef NEMESIS
-      
+  
+
+      //cn seems arguments here are 64 bit???
+
+    
       ne_get_n_elem_conn(ex_id, blk_ids[i], 1, num_elem_in_blk[i], &connect[i][0]);
+
+
 
       //#else
     }
@@ -218,9 +236,7 @@ int Mesh::read_exodus(const char * filename){
     }
     //#endif
 
-    for(a = connect[i].begin(); a != connect[i].end(); a++)  // fix FORTRAN indexing
-
-          (*a)--;
+    for(a = connect[i].begin(); a != connect[i].end(); a++) (*a)--;  // fix FORTRAN indexing
 
   }
 
@@ -346,6 +362,7 @@ int Mesh::read_exodus(const char * filename){
   
   } // end if nodesets > 0
 
+
   node_num_map.resize(num_nodes);
   elem_num_map.resize(num_elem);
 
@@ -354,30 +371,30 @@ int Mesh::read_exodus(const char * filename){
     
     ne_get_init_global(ex_id, &ne_num_global_nodes, &ne_num_global_elems, &ne_num_global_elem_blks,
 		       &ne_num_global_node_sets, &ne_num_global_side_sets);
-    
+    //#if MESH_REFACTOR
     ne_get_loadbal_param(ex_id, &num_internal_nodes, &num_border_nodes, &num_external_nodes,
 			 &num_internal_elems, &num_border_elems, &num_node_cmaps, &num_elem_cmaps, proc_id);
-    
+    //#endif    
     ne_get_n_node_num_map(ex_id, 1, num_nodes, &node_num_map[0]);
-    for(a = node_num_map.begin(); a != node_num_map.end(); a++) (*a)--;
+    for(aa = node_num_map.begin(); aa != node_num_map.end(); aa++) (*aa)--;
     ne_get_n_elem_num_map(ex_id, 1, num_elem, &elem_num_map[0]);
-    for(a = elem_num_map.begin(); a != elem_num_map.end(); a++) (*a)--;
+    for(aa = elem_num_map.begin(); aa != elem_num_map.end(); aa++) (*aa)--;
     
     elem_mapi.resize(num_internal_elems);
     elem_mapb.resize(num_border_elems);
     
     ne_get_elem_map(ex_id, &elem_mapi[0], &elem_mapb[0], proc_id);
-    for(a = elem_mapi.begin(); a != elem_mapi.end(); a++) (*a)--;
-    for(a = elem_mapb.begin(); a != elem_mapb.end(); a++) (*a)--;
+    for(aa = elem_mapi.begin(); aa != elem_mapi.end(); aa++) (*aa)--;
+    for(aa = elem_mapb.begin(); aa != elem_mapb.end(); aa++) (*aa)--;
     
     node_mapi.resize(num_internal_nodes);
     node_mapb.resize(num_border_nodes);
     node_mape.resize(num_external_nodes);
     
     ne_get_node_map(ex_id, &node_mapi[0], &node_mapb[0], &node_mape[0], proc_id);
-    for(a = node_mapi.begin(); a != node_mapi.end(); a++) (*a)--;
-    for(a = node_mapb.begin(); a != node_mapb.end(); a++) (*a)--;
-    for(a = node_mape.begin(); a != node_mape.end(); a++) (*a)--;
+    for(aa = node_mapi.begin(); aa != node_mapi.end(); aa++) (*aa)--;
+    for(aa = node_mapb.begin(); aa != node_mapb.end(); aa++) (*aa)--;
+    for(aa = node_mape.begin(); aa != node_mape.end(); aa++) (*aa)--;
 
     my_node_num_map = node_mapi;  // nodes this proc is responsible for
 
@@ -411,7 +428,8 @@ int Mesh::read_exodus(const char * filename){
     global_elem_blk_cnts.resize(ne_num_global_elem_blks);
     
     ne_get_eb_info_global(ex_id, &global_elem_blk_ids[0], &global_elem_blk_cnts[0]);
-    
+
+    //#if MESH_REFACTOR    
     node_cmap_ids.resize(num_node_cmaps);
     node_cmap_node_cnts.resize(num_node_cmaps);
     
@@ -448,7 +466,7 @@ int Mesh::read_exodus(const char * filename){
 		       &e_side_ids_in_cmap[i][0], &e_proc_ids_in_cmap[i][0], proc_id);
       
     }
-    
+    //#endif    
     #if 0
     
     my_node_num_map = node_mapi;  // start with the nodes internal to this processor
@@ -482,9 +500,9 @@ int Mesh::read_exodus(const char * filename){
     //#else
     
     ex_err = ex_get_node_num_map(ex_id, &node_num_map[0]);
-    for(a = node_num_map.begin(); a != node_num_map.end(); a++) (*a)--;
+    for(aa = node_num_map.begin(); aa != node_num_map.end(); aa++) (*aa)--;
     ex_err = ex_get_map(ex_id, &elem_num_map[0]);
-    for(a = elem_num_map.begin(); a != elem_num_map.end(); a++) (*a)--;
+    for(aa = elem_num_map.begin(); aa != elem_num_map.end(); aa++) (*aa)--;
     
     my_node_num_map = node_num_map;  // same in serial
   }
@@ -734,8 +752,10 @@ int Mesh::write_nodal_coordinates_exodus(int ex_id)
   
   char ** var_names;
   int ex_err;
-  std::vector<int> tmpvec, tmpvec1, tmpvec2;
+  std::vector<mesh_lint_t> tmpvec, tmpvec3,tmpvec4;
+  std::vector<int> tmpvec1;
   std::vector<int>::iterator a;
+  std::vector<mesh_lint_t>::iterator aa;
 
   if( 1 < nprocs ){
     //#ifdef NEMESIS
@@ -744,31 +764,33 @@ int Mesh::write_nodal_coordinates_exodus(int ex_id)
 		       ne_num_global_node_sets, ne_num_global_side_sets);
     
     ne_put_init_info(ex_id, nprocs, nprocs_infile, &filetype);
-    
+    //#if MESH_REFACTOR    
     ne_put_loadbal_param(ex_id, num_internal_nodes, num_border_nodes, num_external_nodes,
 			 num_internal_elems, num_border_elems, num_node_cmaps, num_elem_cmaps, proc_id);
-    
+    //#endif    
     tmpvec = node_num_map;
-    for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
+    for(aa = tmpvec.begin(); aa != tmpvec.end(); aa++) (*aa)++;
     ne_put_n_node_num_map(ex_id, 1, num_nodes, &tmpvec[0]);
     
     tmpvec = elem_num_map;
-    for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
+    for(aa = tmpvec.begin(); aa != tmpvec.end(); aa++) (*aa)++;
     ne_put_n_elem_num_map(ex_id, 1, num_elem, &tmpvec[0]);
-    
+   
     tmpvec = elem_mapi;
-    for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
-    tmpvec1 = elem_mapb;
-    for(a = tmpvec1.begin(); a != tmpvec1.end(); a++) (*a)++;
-    ne_put_elem_map(ex_id, &tmpvec[0], &tmpvec1[0], proc_id);
-    
+    for(aa = tmpvec.begin(); aa != tmpvec.end(); aa++) (*aa)++;
+
+    tmpvec3 = elem_mapb;
+    for(aa = tmpvec3.begin(); aa != tmpvec3.end(); aa++) (*aa)++;
+    ne_put_elem_map(ex_id, &tmpvec[0], &tmpvec3[0], proc_id);
+ 
     tmpvec = node_mapi;
-    for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
-    tmpvec1 = node_mapb;
-    for(a = tmpvec1.begin(); a != tmpvec1.end(); a++) (*a)++;
-    tmpvec2 = node_mape;
-    for(a = tmpvec2.begin(); a != tmpvec2.end(); a++) (*a)++;
-    ne_put_node_map(ex_id, &tmpvec[0], &tmpvec1[0], &tmpvec2[0], proc_id);
+    for(aa = tmpvec.begin(); aa != tmpvec.end(); aa++) (*aa)++;
+
+    tmpvec3 = node_mapb;
+    for(aa = tmpvec3.begin(); aa != tmpvec3.end(); aa++) (*aa)++;
+    tmpvec4 = node_mape;
+    for(aa = tmpvec4.begin(); aa != tmpvec4.end(); aa++) (*aa)++;
+    ne_put_node_map(ex_id, &tmpvec[0], &tmpvec3[0], &tmpvec4[0], proc_id);
     
     ne_put_n_coord(ex_id, 1, num_nodes, &x[0], &y[0], &z[0]);
     
@@ -783,7 +805,7 @@ int Mesh::write_nodal_coordinates_exodus(int ex_id)
 			     &num_global_side_df_counts[0]);
     
     ne_put_eb_info_global(ex_id, &global_elem_blk_ids[0], &global_elem_blk_cnts[0]);
-    
+    //#if MESH_REFACTOR    
     ne_put_cmap_params(ex_id, &node_cmap_ids[0], &node_cmap_node_cnts[0],
 		       &elem_cmap_ids[0], &elem_cmap_elem_cnts[0],
 		       proc_id);
@@ -800,7 +822,7 @@ int Mesh::write_nodal_coordinates_exodus(int ex_id)
 		       &e_side_ids_in_cmap[i][0], &e_proc_ids_in_cmap[i][0], proc_id);
       
     }
-    
+    //#endif    
   }
   else {
     //#else
@@ -821,18 +843,18 @@ int Mesh::write_nodal_coordinates_exodus(int ex_id)
   				   num_nodes_per_ns[i],
   				   num_df_per_ns[i]);
 
-	tmpvec = ns_node_list[i];
-        for(a = tmpvec.begin(); a != tmpvec.end(); a++) (*a)++;
+	tmpvec1 = ns_node_list[i];
+        for(a = tmpvec1.begin(); a != tmpvec1.end(); a++) (*a)++;
 
 	if( 1 < nprocs ){
 	  //#ifdef NEMESIS
 
-        ex_err = ne_put_n_node_set(ex_id, ns_ids[i], 1, num_nodes_per_ns[i], &tmpvec[0]);
+        ex_err = ne_put_n_node_set(ex_id, ns_ids[i], 1, num_nodes_per_ns[i], &tmpvec1[0]);
 	}
 	else {
 	  //#else
 
-        ex_err = ex_put_node_set(ex_id, ns_ids[i], &tmpvec[0]);
+        ex_err = ex_put_node_set(ex_id, ns_ids[i], &tmpvec1[0]);
 	}
 	//#endif
 
@@ -1336,6 +1358,10 @@ int Mesh::open_exodus(const char * filename){
   float version;
 
   int ex_id = ex_open(filename, EX_WRITE, &comp_ws, &io_ws, &version);
+  int ex_err;
+#ifdef MESH_64
+  ex_err = ex_set_int64_status(ex_id,EX_MAPS_INT64_API);
+#endif
   return ex_id;
 }
 
@@ -1353,6 +1379,11 @@ int Mesh::create_exodus(const char * filename){
 			  &io_ws,
 			  &exodus_version);
 
+  int ex_err;
+#ifdef MESH_64
+  ex_err = ex_set_int64_status(ex_id,EX_MAPS_INT64_API);
+#endif
+
   if(verbose)
 
     std::cout<<"=== ExodusII Create Info ==="<<std::endl
@@ -1366,7 +1397,7 @@ int Mesh::create_exodus(const char * filename){
 
   strcpy(title, "\"Exodus output\"");
 
-  int ex_err = ex_put_init(ex_id, title, num_dim, 
+  ex_err = ex_put_init(ex_id, title, num_dim, 
 			   num_nodes, num_elem, num_elem_blk, 
 			   num_node_sets, num_side_sets);
 
@@ -1801,16 +1832,19 @@ void Mesh::compute_elem_adj(){
 
 }
 
+#if MESH_REFACTOR
+//needs t be...
+// int Mesh::get_local_id(mesh_lint_t gid)
 int Mesh::get_local_id(int gid)
 {
   int lid = -999999999;
-  std::vector<int>::iterator it;
+  std::vector<mesh_lint_t>::iterator it;
   it = find (node_num_map.begin(), node_num_map.end(), gid);
   lid = (int)(*it);
   if (lid < 0) exit(0);
   return lid;
 }
-
+#endif
 bool const essEqual(const double a, const double b, const double epsilon)
 {
     return std::fabs(a - b) <= ( (std::fabs(a) > std::fabs(b) ? std::fabs(b) : std::fabs(a)) * epsilon);

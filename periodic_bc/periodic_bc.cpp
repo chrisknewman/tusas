@@ -53,7 +53,7 @@ periodic_bc::periodic_bc(const int ns_id1,
   //cn hence we may need to change the map routine from global mesh id to global u and f id;
   //cn ie numeqs_*gid+index_ this could be done at the if(-99... line below.
 
-  std::vector<int> node_num_map(mesh_->get_node_num_map());
+  std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
 
   //we want this map to be a one equation version of the x_owned_map in tusas
   //do it this way and hope it is the same
@@ -67,7 +67,11 @@ periodic_bc::periodic_bc(const int ns_id1,
   if( 1 == comm_->NumProc() ){
     node_map_ = overlap_map_;
   }else{
+#ifdef MESH_64
+    node_map_ = Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*overlap_map_)));
+#else
     node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
+#endif
   }
 
   ns1_map_ = get_replicated_map(ns_id1_);
@@ -76,7 +80,11 @@ periodic_bc::periodic_bc(const int ns_id1,
   //ns2_map_->Print(std::cout);
 
   //here we check for same size maps
+#ifdef MESH_64
+  if( ns1_map_->NumGlobalElements64 () != ns2_map_->NumGlobalElements64 () ){
+#else
   if( ns1_map_->NumGlobalElements () != ns2_map_->NumGlobalElements () ){
+#endif
     if( 0 == comm_->MyPID() ){
       std::cout<<"Incompatible global node set sizes found for ("<<ns_id1_<<","<<ns_id2_<<")."<<std::endl;
     }
@@ -158,14 +166,14 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
   //cn static Epetra_Map Epetra_Util::Create_Root_Map(const Epetra_Map &usermap,int root = 0 )
   //cn with root = -1 creates replicated map; we might look into this in future 	
 
-  std::vector<int> node_num_map(mesh_->get_node_num_map());
+  std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
   //cn the ids in sorted_node_set are local
   //int ns_size = mesh_->get_sorted_node_set(id).size(); 
 
   std::vector<int> ownedmap;
   for ( int j = 0; j < mesh_->get_sorted_node_set(id).size(); j++ ){
     int lid = mesh_->get_sorted_node_set_entry(id, j);
-    int gid = node_num_map[lid];
+    Mesh::mesh_lint_t gid = node_num_map[lid];
     if ( node_map_->MyGID(gid) ) ownedmap.push_back(gid);
   }
 
@@ -178,13 +186,13 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
 		(int)1 );	
   //std::cout<<"max = "<<max_size<<" "<<comm_->MyPID()<<std::endl;
 
-  std::vector<int> gids(max_size,-99);
+  std::vector<Mesh::mesh_lint_t> gids(max_size,-99);
 
   for ( int j = 0; j < ns_size; j++ ){
     //cn this is probably lid on overlap map
     //int lid = mesh_->get_sorted_node_set_entry(id, j);
     //int gid = node_num_map[lid];//cn this is overlap
-    int gid = ownedmap[j];
+    Mesh::mesh_lint_t gid = ownedmap[j];
     //cn we could check here if the id is in the node_map_
     //cn this would eliminate duplicates
     //cn or remove the ghosts above
@@ -192,13 +200,13 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
   }//j
 
   int count = comm_->NumProc()*max_size;
-  std::vector<int> AllVals(count,-99);
+  std::vector<Mesh::mesh_lint_t> AllVals(count,-99);
 
   comm_->GatherAll(&gids[0],
 		   &AllVals[0],
 		   max_size );
   
-  std::vector<int> g_gids;
+  std::vector<Mesh::mesh_lint_t> g_gids;
 
   for ( int j = 0; j < count; j++ ){
     //std::cout<<j<<" "<<AllVals[j]<<std::endl;
@@ -208,7 +216,7 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
     }
   }
 
-  std::vector<int> result(g_gids);
+  std::vector<Mesh::mesh_lint_t> result(g_gids);
   //uniquifyWithOrder_set_remove_if(g_gids, result);
 
   Teuchos::RCP<const Epetra_Map> ns_map_ = Teuchos::rcp(new Epetra_Map(result.size(),
@@ -221,7 +229,11 @@ Teuchos::RCP<const Epetra_Map> periodic_bc::get_replicated_map(const int id){
     std::cout<<"periodic_bc::get_replicated_map ids not unique"<<std::endl;
     exit(0);
   }
+#ifdef MESH_64
+  if(ns_map_->NumGlobalElements64 () != ns_map_->NumMyElements () ){
+#else
   if(ns_map_->NumGlobalElements () != ns_map_->NumMyElements () ){
+#endif
     std::cout<<"periodic_bc::get_replicated_map ns_map_->NumGlobalElements () != ns_map_->NumMyElements ()"<<std::endl;
     exit(0);
   }

@@ -23,6 +23,14 @@
 #include "Epetra_Vector.h"
 #include "Epetra_FEVector.h"
 
+
+
+//needed for create_onetoone hack below
+#include "Epetra_Comm.h"
+#include "Epetra_Directory.h"
+
+
+
 #define PERIODIC_BC
 
 /// Creates a periodic bc and executes communication 
@@ -84,6 +92,51 @@ private:
 
   /// Vector utility function
   void uniquifyWithOrder_set_remove_if(const std::vector<int>& input, std::vector<int>& output);
+
+  //need a common version of this in a utility class
+Epetra_Map Create_OneToOne_Map64(const Epetra_Map& usermap,
+         bool high_rank_proc_owns_shared=false)
+{
+  //if usermap is already 1-to-1 then we'll just return a copy of it.
+  if (usermap.IsOneToOne()) {
+    Epetra_Map newmap(usermap);
+    return(newmap);
+  }
+
+  int myPID = usermap.Comm().MyPID();
+  Epetra_Directory* directory = usermap.Comm().CreateDirectory(usermap);
+
+  int numMyElems = usermap.NumMyElements();
+  const long long* myElems = usermap.MyGlobalElements64();
+
+  int* owner_procs = new int[numMyElems];
+
+  directory->GetDirectoryEntries(usermap, numMyElems, myElems, owner_procs,
+         0, 0, high_rank_proc_owns_shared);
+
+  //we'll fill a list of map-elements which belong on this processor
+
+  long long* myOwnedElems = new long long[numMyElems];
+  int numMyOwnedElems = 0;
+
+  for(int i=0; i<numMyElems; ++i) {
+    long long GID = myElems[i];
+    int owner = owner_procs[i];
+
+    if (myPID == owner) {
+      myOwnedElems[numMyOwnedElems++] = GID;
+    }
+  }
+
+  Epetra_Map one_to_one_map((long long)-1, numMyOwnedElems, myOwnedElems,
+       usermap.IndexBase(), usermap.Comm()); // CJ TODO FIXME long long
+
+  delete [] myOwnedElems;
+  delete [] owner_procs;
+  delete directory;
+
+  return(one_to_one_map);
+};
   
 };
 

@@ -27,6 +27,24 @@
 #include "Epetra_SerialComm.h"
 #endif
 
+
+
+
+
+
+
+
+//needed for create_onetoone hack below
+#include "Epetra_Comm.h"
+#include "Epetra_Directory.h"
+
+
+//needed for create_root hack below
+#include "Epetra_LocalMap.h"
+#include "Epetra_GIDTypeVector.h"
+#include "Epetra_Import.h"
+
+
 //#define TUSAS_COLOR_CPU
 //#define TUSAS_COLOR_GPU
 
@@ -83,6 +101,136 @@ private:
   //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
   Teuchos::RCP<Teuchos::Time> ts_time_color;
   //Teuchos::RCP<Teuchos::Time> ts_time_create;
+
+
+
+
+
+
+  //we need these in some static public utility class...
+Epetra_Map Create_OneToOne_Map64(const Epetra_Map& usermap,
+         bool high_rank_proc_owns_shared=false)
+{
+  //if usermap is already 1-to-1 then we'll just return a copy of it.
+  if (usermap.IsOneToOne()) {
+    Epetra_Map newmap(usermap);
+    return(newmap);
+  }
+
+  int myPID = usermap.Comm().MyPID();
+  Epetra_Directory* directory = usermap.Comm().CreateDirectory(usermap);
+
+  int numMyElems = usermap.NumMyElements();
+  const long long* myElems = usermap.MyGlobalElements64();
+
+  int* owner_procs = new int[numMyElems];
+
+  directory->GetDirectoryEntries(usermap, numMyElems, myElems, owner_procs,
+         0, 0, high_rank_proc_owns_shared);
+
+  //we'll fill a list of map-elements which belong on this processor
+
+  long long* myOwnedElems = new long long[numMyElems];
+  int numMyOwnedElems = 0;
+
+  for(int i=0; i<numMyElems; ++i) {
+    long long GID = myElems[i];
+    int owner = owner_procs[i];
+
+    if (myPID == owner) {
+      myOwnedElems[numMyOwnedElems++] = GID;
+    }
+  }
+
+  Epetra_Map one_to_one_map((long long)-1, numMyOwnedElems, myOwnedElems,
+       usermap.IndexBase(), usermap.Comm()); // CJ TODO FIXME long long
+
+  delete [] myOwnedElems;
+  delete [] owner_procs;
+  delete directory;
+
+  return(one_to_one_map);
+};
+
+
+
+static Epetra_Map Create_Root_Map64(const Epetra_Map& usermap,
+         int root)
+{
+  int numProc = usermap.Comm().NumProc();
+  if (numProc==1) {
+    Epetra_Map newmap(usermap);
+    return(newmap);
+  }
+
+  const Epetra_Comm & comm = usermap.Comm();
+  bool isRoot = usermap.Comm().MyPID()==root;
+
+  //if usermap is already completely owned by root then we'll just return a copy of it.
+  int quickreturn = 0;
+  int globalquickreturn = 0;
+
+  if (isRoot) {
+    if (usermap.NumMyElements()==usermap.NumGlobalElements64()) quickreturn = 1;
+  }
+  else {
+    if (usermap.NumMyElements()==0) quickreturn = 1;
+  }
+  usermap.Comm().MinAll(&quickreturn, &globalquickreturn, 1);
+
+  if (globalquickreturn==1) {
+    Epetra_Map newmap(usermap);
+    return(newmap);
+  }
+
+  // Linear map: Simple case, just put all GIDs linearly on root processor
+  if (usermap.LinearMap() && root!=-1) {
+    int numMyElements = 0;
+    if(usermap.MaxAllGID64()+1 > std::numeric_limits<int>::max())
+      throw "Epetra_Util::Create_Root_Map: cannot fit all gids in int";
+    if (isRoot) numMyElements = (int)(usermap.MaxAllGID64()+1);
+    Epetra_Map newmap((long long) -1, numMyElements, (long long)usermap.IndexBase64(), comm);
+    return(newmap);
+  }
+
+  if (!usermap.UniqueGIDs())
+    throw usermap.ReportError("usermap must have unique GIDs",-1);
+
+  // General map
+
+  // Build IntVector of the GIDs, then ship them to root processor
+  int numMyElements = usermap.NumMyElements();
+  Epetra_Map allGidsMap((long long) -1, numMyElements, (long long) 0, comm);
+  typename Epetra_GIDTypeVector<long long>::impl allGids(allGidsMap);
+  for (int i=0; i<numMyElements; i++) allGids[i] = (long long) usermap.GID64(i);
+
+  if(usermap.MaxAllGID64() > std::numeric_limits<int>::max())
+    throw "Epetra_Util::Create_Root_Map: cannot fit all gids in int";
+  int numGlobalElements = (int) usermap.NumGlobalElements64();
+  if (root!=-1) {
+    int n1 = 0; if (isRoot) n1 = numGlobalElements;
+    Epetra_Map allGidsOnRootMap((long long) -1, n1, (long long) 0, comm);
+    Epetra_Import importer(allGidsOnRootMap, allGidsMap);
+    typename Epetra_GIDTypeVector<long long>::impl allGidsOnRoot(allGidsOnRootMap);
+    allGidsOnRoot.Import(allGids, importer, Insert);
+
+    Epetra_Map rootMap((long long)-1, allGidsOnRoot.MyLength(), allGidsOnRoot.Values(), (long long)usermap.IndexBase64(), comm);
+    return(rootMap);
+  }
+  else {
+    int n1 = numGlobalElements;
+    Epetra_LocalMap allGidsOnRootMap((long long) n1, (long long) 0, comm);
+    Epetra_Import importer(allGidsOnRootMap, allGidsMap);
+    typename Epetra_GIDTypeVector<long long>::impl allGidsOnRoot(allGidsOnRootMap);
+    allGidsOnRoot.Import(allGids, importer, Insert);
+
+    Epetra_Map rootMap((long long) -1, allGidsOnRoot.MyLength(), allGidsOnRoot.Values(), (long long)usermap.IndexBase64(), comm);
+
+    return(rootMap);
+  }
+};
+
+
 
 };
 #endif

@@ -56,11 +56,17 @@ void elem_color::compute_graph()
   //std::cout<<mypid<<" "<<mesh_->get_num_elem()<<" "<<mesh_->get_num_elem_in_blk(0)<<std::endl;
   using Teuchos::rcp;
 
+  std::vector<Mesh::mesh_lint_t> elem_num_map(*(mesh_->get_elem_num_map()));
   elem_map_ = rcp(new Epetra_Map(-1,
- 				 mesh_->get_num_elem(),
- 				 &(*(mesh_->get_elem_num_map()))[0],
+ 				 elem_num_map.size(),
+ 				 &elem_num_map[0],
  				 0,
  				 *comm_));
+//   elem_map_ = rcp(new Epetra_Map(-1,
+//  				 mesh_->get_num_elem(),
+//  				 &(*(mesh_->get_elem_num_map()))[0],
+//  				 0,
+//  				 *comm_));
 
   //elem_map_->Print(std::cout);
 
@@ -79,14 +85,19 @@ void elem_color::compute_graph()
     
     //int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
     for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
-      int row = mesh_->get_global_elem_id(ne);
-      std::vector<int> col = mesh_->get_elem_connect(ne);
+      Mesh::mesh_lint_t row = mesh_->get_global_elem_id(ne);
+      std::vector<Mesh::mesh_lint_t> col = mesh_->get_elem_connect(ne);//this is appearently global id, not local
+      //std::vector<Mesh::mesh_lint_t> col_gids(col.size());
+      //for ( int k = 0; k < col.size(); k++) col_gids[k] = mesh_->get_global_elem_id(col[k]);
+      //for ( int k = 0; k < col.size(); k++) col_gids[k] = col[k];
 //       std::cout<<row<<" : ";
-//       for(int i = 0; i<col.size(); i++) std::cout<<col[i]<<" ";
+//       for(int i = 0; i<col.size(); i++) std::cout<<mypid<<" -  "<<col_gids[i]<<" ";
 //       std::cout<<std::endl;
       graph_->InsertGlobalIndices(row, (int)(col.size()), &col[0]);
+      //graph_->InsertGlobalIndices(row, (int)(col_gids.size()), &col_gids[0]);
     }
   }
+  //graph_->Print(std::cout);
   insert_off_proc_elems();
   //if (graph_->GlobalAssemble() != 0){
   if (graph_->FillComplete() != 0){
@@ -124,7 +135,7 @@ void elem_color::create_colorer()
 					       )
 			);
   
-  //map_coloring_->Print(std::cout);
+  map_coloring_->Print(std::cout);
 
   num_color_ = elem_colorer_->numColors();
 
@@ -190,7 +201,13 @@ void elem_color::insert_off_proc_elems(){
   //note this is very similar to how we can create the patch for error estimator...
   //although we would need to communicate the nodes also...
 
-  std::vector<int> node_num_map(mesh_->get_node_num_map());
+
+  int mypid = comm_->MyPID();
+  if( 0 == mypid )
+    std::cout<<std::endl<<"elem_color::insert_off_proc_elems() started."<<std::endl<<std::endl;
+
+
+  std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
   Teuchos::RCP<const Epetra_Map> overlap_map_= Teuchos::rcp(new Epetra_Map(-1,
 									   node_num_map.size(),
 									   &node_num_map[0],
@@ -206,39 +223,55 @@ void elem_color::insert_off_proc_elems(){
   if( 1 == comm_->NumProc() ){
     node_map_ = overlap_map_;
   }else{
+#ifdef MESH_64
+    node_map_ = Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*overlap_map_)));
+#else
     node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
+#endif
   }
 
   //node_map_->Print(std::cout);
 
-  std::vector<int> shared_nodes;
+  std::vector<Mesh::mesh_lint_t> shared_nodes;
 
   for(int i = 0; i < overlap_map_->NumMyElements (); i++){
-    int ogid = overlap_map_->GID(i);
+#ifdef MESH_64
+    const Mesh::mesh_lint_t ogid = overlap_map_->GID64(i);
+#else
+    const Mesh::mesh_lint_t ogid = overlap_map_->GID(i);
+#endif
     //std::cout<<comm_->MyPID()<<" "<<ogid<<" "<<node_map_->LID(ogid)<<std::endl;
     if(node_map_->LID(ogid) < 0 ) shared_nodes.push_back(ogid);
   }
-
   Teuchos::RCP<const Epetra_Map> shared_map_= Teuchos::rcp(new Epetra_Map(-1,
 									  shared_nodes.size(),
 									  &shared_nodes[0],
 									  0,
 									  *comm_));
   //shared_map_->Print(std::cout);
-
+#ifdef MESH_64
+  Teuchos::RCP<const Epetra_Map> onetoone_shared_node_map_ = 
+    Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*shared_map_)));
+#else
   Teuchos::RCP<const Epetra_Map> onetoone_shared_node_map_ = 
     Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*shared_map_)));
-
+#endif
+  //onetoone_shared_node_map_->Print(std::cout);
+#ifdef MESH_64
   Teuchos::RCP<const Epetra_Map> rep_shared_node_map_ 
-    = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *onetoone_shared_node_map_, -1))); 	
+    = Teuchos::rcp(new Epetra_Map(Create_Root_Map64( *onetoone_shared_node_map_, -1))); 
+#else	
+  Teuchos::RCP<const Epetra_Map> rep_shared_node_map_ 
+    = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *onetoone_shared_node_map_, -1))); 
+#endif
   //rep_shared_node_map_->Print(std::cout);
 
   for(int i = 0; i < rep_shared_node_map_->NumMyElements (); i++){
-    const int rsgid = rep_shared_node_map_->GID(i);
-    const int ogid = overlap_map_->LID(rsgid);
+    const Mesh::mesh_lint_t rsgid = rep_shared_node_map_->GID(i);
+    const int ogid = overlap_map_->LID(rsgid);//local
     std::vector<int> mypatch;
     if(ogid != -1){
-      mypatch = mesh_->get_nodal_patch_overlap(ogid);
+      mypatch = mesh_->get_nodal_patch_overlap(ogid);//get local elem_id
     }
     int p_size = mypatch.size();
     int max_size = 0;
@@ -246,14 +279,14 @@ void elem_color::insert_off_proc_elems(){
 		  &max_size,
 		  (int)1 );
       
-    std::vector<int> gidmypatch(max_size,-99);
+    std::vector<Mesh::mesh_lint_t> gidmypatch(max_size,-99);
     for(int j = 0; j < p_size; j++){
       gidmypatch[j] = elem_map_->GID(mypatch[j]);     
-      //std::cout<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
+      //std::cout<<" "<<rsgid<<" "<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
     }
       
     int count = comm_->NumProc()*max_size;
-    std::vector<int> AllVals(count,-99);
+    std::vector<Mesh::mesh_lint_t> AllVals(count,-99);
     
     comm_->GatherAll(&gidmypatch[0],
 		     &AllVals[0],
@@ -261,7 +294,7 @@ void elem_color::insert_off_proc_elems(){
     
     //cn need to fix Allvals here
     
-    std::vector<int> g_gids;
+    std::vector<Mesh::mesh_lint_t> g_gids;
     for(int j = 0; j< count ;j++){
       if(-99 < AllVals[j]) {
 	//std::cout<<"   "<<comm_->MyPID()<<" "<<i<<" "<<AllVals[j]<<" "<<rsgid<<std::endl;
@@ -285,9 +318,15 @@ void elem_color::insert_off_proc_elems(){
     
     
   }//i
+  //exit(0);
 
   //graph_->Print(std::cout);
   //exit(0);
+
+
+  if( 0 == mypid )
+    std::cout<<std::endl<<"elem_color::insert_off_proc_elems() ended."<<std::endl<<std::endl;
+
   return;
 
 }

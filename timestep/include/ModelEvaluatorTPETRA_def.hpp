@@ -86,7 +86,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //mesh_ = Teuchos::rcp(new Mesh(*mesh));
   mesh_->compute_nodal_adj(); 
 
-  std::vector<int> node_num_int(mesh_->get_node_num_map());
+  std::vector<Mesh::mesh_lint_t> node_num_int(mesh_->get_node_num_map());
   std::vector<global_ordinal_type> node_num_map(node_num_int.begin(),node_num_int.end());
   
   std::vector<global_ordinal_type> my_global_nodes(numeqs_*node_num_map.size());
@@ -612,7 +612,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
     const RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
-    std::vector<int> node_num_map(mesh_->get_node_num_map());
+    std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
@@ -966,7 +966,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }//k
 #endif    
 #ifdef TUSAS_RUN_ON_CPU
-    std::vector<int> node_num_map(mesh_->get_node_num_map());
+    std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){

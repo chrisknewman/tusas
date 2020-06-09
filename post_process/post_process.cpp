@@ -25,7 +25,7 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   s_op_(s_op),
   precision_(precision)
 {
-  std::vector<int> node_num_map(mesh_->get_node_num_map());
+  std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
 
   overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
 					     node_num_map.size(),
@@ -35,7 +35,11 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   if( 1 == comm_->NumProc() ){
     node_map_ = overlap_map_;
   }else{
+#ifdef MESH_64
+    node_map_ = Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*overlap_map_)));
+#else
     node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
+#endif
   }
   importer_ = Teuchos::rcp(new Epetra_Import(*overlap_map_, *node_map_));
 
@@ -59,7 +63,11 @@ post_process::~post_process(){};
 
 void post_process::process(const int i,const double *u, const double *gradu, const double &time)
 {
-  int gid_node = node_map_->GID(i);
+#ifdef MESH_64
+  Mesh::mesh_lint_t gid_node = node_map_->GID64(i);
+#else
+  Mesh::mesh_lint_t gid_node = node_map_->GID(i);
+#endif
   int lid_overlap = overlap_map_->LID(gid_node); 
   std::vector<double> xyz(3);
   xyz[0]=mesh_->get_x(lid_overlap);

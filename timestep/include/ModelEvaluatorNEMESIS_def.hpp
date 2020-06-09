@@ -115,19 +115,19 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   mesh_->compute_nodal_adj();
   
-  std::vector<int> node_num_map(mesh_->get_node_num_map());
+  std::vector<nemesis_lint_t> node_num_map(mesh_->get_node_num_map());
 
   //cn for the overlap space
   //cn all procs have all their nodes
-  std::vector<int> my_global_nodes(numeqs_*node_num_map.size());
+  std::vector<nemesis_lint_t> my_global_nodes(numeqs_*node_num_map.size());
   
   for(int i = 0; i < node_num_map.size(); i++){
     
-    for( int k = 0; k < numeqs_; k++ ){
+    for(int k = 0; k < numeqs_; k++ ){
       my_global_nodes[numeqs_*i+k] = numeqs_*node_num_map[i]+k;
     }
   }
-  x_overlap_map_ = rcp(new Epetra_Map(-1,
+  x_overlap_map_ = rcp(new Epetra_Map((nemesis_lint_t)-1,
 				      my_global_nodes.size(),
 				      &my_global_nodes[0],
 				      0,
@@ -137,11 +137,18 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   //cn for the owned space we either copy the map in serial or
   //cn reduce it such that each proc owns unique nodes
+
+  //cn it seems that create_onetoone_map does not have a 64 bit version...it is only implemented for blockmap
   if( 1 ==numproc ){
     x_owned_map_ = x_overlap_map_;
   }else{
+#ifdef MESH_64
+    x_owned_map_ = rcp(new Epetra_Map(Create_OneToOne_Map64(*x_overlap_map_)));
+#else
     x_owned_map_ = rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*x_overlap_map_)));
+#endif
   }
+
   //x_owned_map_->Print(std::cout); 
   //exit(0);
   num_my_nodes_ = x_owned_map_->NumMyElements ()/numeqs_;
@@ -243,15 +250,15 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
     int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
     for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
       for (int i=0; i< n_nodes_per_elem; i++) {
-	int row = numeqs_*(
+	nemesis_lint_t row = numeqs_*(
 			   mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
 			   ); 
 	for(int j=0;j < n_nodes_per_elem; j++) {
-	  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
+	  nemesis_lint_t column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
 
 	  for( int k = 0; k < numeqs_; k++ ){
-	    int row1 = row + k;
-	    int column1 = column + k;
+	    nemesis_lint_t row1 = row + k;
+	    nemesis_lint_t column1 = column + k;
 	    
 	    //W_graph->InsertGlobalIndices((int)1,&row1, (int)1, &column1);
 	    W_graph->InsertGlobalIndices(row1, (int)1, &column1);
@@ -266,7 +273,7 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
     std::cout<<"error W_graph->GlobalAssemble()"<<std::endl;
     exit(0);
   }
-//   W_graph->Print(std::cout);
+  //W_graph->Print(std::cout);
 //   exit(0);
   return W_graph;
 }
@@ -441,7 +448,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	
 #pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
      
-	  std::vector<int> offrows;
+	  std::vector<nemesis_lint_t> offrows;
 	  std::vector<double> offvals;
 #pragma omp parallel for reduction(merge: offrows, offvals)
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
@@ -474,15 +481,15 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	set_basis(basis,elem_type);
 	
 	for(int c = 0; c < num_color; c++){
-	  std::vector<int> elem_map = *mesh_->get_elem_num_map();
+	  std::vector<nemesis_lint_t> elem_map = *mesh_->get_elem_num_map();
 	  int num_elem = elem_map.size();
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
 	    int elem = ne;
 #endif
 	    for(int k = 0; k < n_nodes_per_elem; k++){
 	      
-	      int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
-	      
+	      const int nodeid = mesh_->get_node_id(blk, elem, k);//cn appears this is the local id
+	      //std::cout<<nodeid<<std::endl;
 	      xx[k] = mesh_->get_x(nodeid);
 	      yy[k] = mesh_->get_y(nodeid);
 	      zz[k] = mesh_->get_z(nodeid);
@@ -520,13 +527,13 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      
 	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
 		
-		int row = numeqs_*(
+		const nemesis_lint_t row = numeqs_*(
 				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
 				   );				
 		for( int k = 0; k < numeqs_; k++ ){
-		  int row1 = row + k;
-		  double jacwt = basis[0].jac * basis[0].wt;
-		  double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_,k);
+		  const nemesis_lint_t row1 = row + k;
+		  const double jacwt = basis[0].jac * basis[0].wt;
+		  const double val = jacwt * (*residualfunc_)[k](basis,i,dt_,t_theta_,time_,k);
 
 #ifdef TUSAS_COLOR_CPU
 		  if(f_owned_map_->MyGID(row1)){		    
@@ -576,8 +583,8 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	
 #pragma omp declare reduction (merge : std::vector<int>, std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
      
-	  std::vector<int> offrows;
-	  std::vector<int> offcols;
+	  std::vector<nemesis_lint_t> offrows;
+	  std::vector<nemesis_lint_t> offcols;
 	  std::vector<double> offvals;
 #pragma omp parallel for reduction(merge: offrows, offcols, offvals)
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
@@ -610,7 +617,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 
 	for(int c = 0; c < num_color; c++){
-	  std::vector<int> elem_map = *mesh_->get_elem_num_map();
+	  std::vector<nemesis_lint_t> elem_map = *mesh_->get_elem_num_map();
 	  int num_elem = elem_map.size();
 	  
 	  for (int ne=0; ne < num_elem; ne++) {// Loop Over # of Finite Elements on Processor 
@@ -641,19 +648,19 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //srand(123);//note that if this is activated, we get a different random number in f and prec
 	      
 	      for (int i=0; i< n_nodes_per_elem; i++) {// Loop over Nodes in Element; ie sum over test functions
-		int row = numeqs_*(
-				   mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
-				   );
+		nemesis_lint_t row = numeqs_*(
+					      mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, i))
+					      );
 		
 		// Loop over Trial (basis) Functions
 		
 		for(int j=0;j < n_nodes_per_elem; j++) {
 		  //int column = numeqs_*(x_overlap_map_->GID(mesh_->get_node_id(blk, elem, j)));
-		  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, j)));
+		  nemesis_lint_t column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, elem, j)));
 		  
 		  for( int k = 0; k < numeqs_; k++ ){
-		    int row1 = row + k;
-		    int column1 = column + k;
+		    nemesis_lint_t row1 = row + k;
+		    nemesis_lint_t column1 = column + k;
 		    double jacwt = basis[0].jac * basis[0].wt;
 		    double val = jacwt*(*preconfunc_)[k](basis,i,j,dt_,t_theta_,k);
 		    
@@ -692,7 +699,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       if (nonnull(f_out) && NULL != periodicbc_) {
 #endif
  	//f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
-	std::vector<int> node_num_map(mesh_->get_node_num_map());
+	std::vector<nemesis_lint_t> node_num_map(mesh_->get_node_num_map());
 	//f_fe.Print(std::cout);
 
 
@@ -731,13 +738,17 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    for ( int j = 0; j < ns_size; j++ ){
 
 	      //this is the gid for ns2
-	      int gid2 = it->u_rep_->Map().GID(j);
+#ifdef MESH_64
+	      Mesh::mesh_lint_t gid2 = it->u_rep_->Map().GID64(j);
+#else
+	      Mesh::mesh_lint_t gid2 = it->u_rep_->Map().GID(j);
+#endif
 
 	      bool local = x_owned_map_->MyGID(numeqs_*gid2 + k);
 	      if(local) {
 		int lid2 = (x_owned_map_->LID(numeqs_*gid2 + k) - k)/numeqs_;
 		double val1 = (*(it->f_rep_))[j];
-		int row = numeqs_*gid2 + k;
+		Mesh::mesh_lint_t row = numeqs_*gid2 + k;
 		f_fe_p->SumIntoGlobalValues ((int) 1, &row, &val1);
 		//if( 1 == comm_->MyPID() ) std::cout<<j<<" "<<gid2<<" "<<lid2<<" "<<val1<<std::endl;
 	      }	
@@ -751,12 +762,17 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    for ( int j = 0; j < ns_size; j++ ){
 
 	      //this is the gid for ns1
-	      int gid1 = it->f_rep_->Map().GID(j);//this is the mesh gid
+#ifdef MESH_64
+	      Mesh::mesh_lint_t gid1 = it->f_rep_->Map().GID64(j);//this is the mesh gid
+#else
+	      Mesh::mesh_lint_t gid1 = it->f_rep_->Map().GID(j);//this is the mesh gid
+#endif
+
 	      bool local = x_owned_map_->MyGID(numeqs_*gid1 + k);
 	      if(local) {
 		int lid1 = (x_owned_map_->LID(numeqs_*gid1 + k) - k)/numeqs_;
 		double val1 = (*(it->u_rep_))[j];
-		int row = numeqs_*gid1 + k;
+		Mesh::mesh_lint_t row = numeqs_*gid1 + k;
 		int lid = x_owned_map_->LID(row);
 		// u(ns1) - u(ns2)
 		double val = (*u_in)[numeqs_*lid1 + k] - val1;
@@ -789,14 +805,14 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //cn we could do this before sending to the periodicbc constructor
 	      int lid1 = mesh_->get_sorted_node_set_entry(ns_id1, j);
 	      int lid2 = mesh_->get_sorted_node_set_entry(ns_id2, j);
-	      int gid1 = node_num_map[lid1];
-	      int gid2 = node_num_map[lid2];
+	      Mesh::mesh_lint_t gid1 = node_num_map[lid1];
+	      Mesh::mesh_lint_t gid2 = node_num_map[lid2];
 
-	      int row1 = numeqs_*gid1;//global row
-	      int row2 = numeqs_*gid2;
+	      Mesh::mesh_lint_t row1 = numeqs_*gid1;//global row
+	      Mesh::mesh_lint_t row2 = numeqs_*gid2;
 	      
-	      int row1k = row1 + k;
-	      int row2k = row2 + k;
+	      Mesh::mesh_lint_t row1k = row1 + k;
+	      Mesh::mesh_lint_t row2k = row2 + k;
  	      //std::cout<<"k: "<<k<<std::endl;
  	      //std::cout<<"l: "<<lid1<<" "<<lid2<<std::endl;
 	      //std::cout<<"g: "<<gid1<<" "<<gid2<<std::endl;
@@ -817,7 +833,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
       if (nonnull(f_out) && NULL != dirichletfunc_) {
 	//f_fe_p->GlobalAssemble(Epetra_CombineMode::Add,true);
 	
-	std::vector<int> node_num_map(mesh_->get_node_num_map());
+	std::vector<nemesis_lint_t> node_num_map(mesh_->get_node_num_map());
 	std::map<int,DBCFUNC>::iterator it;
       
         for( int k = 0; k < numeqs_; k++ ){
@@ -841,15 +857,15 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //cn not sure why this next line is here.....
 	      //cn probably because node_set_entry is on overlap map (includes ghosts)
 	      //if(!x_owned_map_->MyLID(lid) ) exit(0);//break;//check that this node lives on this proc, otherwise skip it
-	      int gid = node_num_map[lid];
+	      nemesis_lint_t gid = node_num_map[lid];
 	      //std::cout<<ns_id<<" "<<gid<<" "<<mesh_->get_node_set(ns_id).size()<<std::endl;
-	      int row = numeqs_*gid;//global row
+	      nemesis_lint_t row = numeqs_*gid;//global row
 	      //int row = numeqs_*lid;//local row
 	      double x = mesh_->get_x(lid);
 	      double y = mesh_->get_y(lid);
 	      double z = mesh_->get_z(lid);
 	      
-	      int row1 = row + k;
+	      nemesis_lint_t row1 = row + k;
 	      double val1 = (it->second)(x,y,z,time_);//the function pointer eval
 	      double val = (*u)[numeqs_*lid + k]  - val1;
 	      //std::cout<<comm_->MyPID()<<" "<<row1<<" "<<std::endl;
@@ -906,7 +922,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	  basis = new BasisLTri();
 	}
 	
-	std::vector<int> node_num_map(mesh_->get_node_num_map());
+	std::vector<nemesis_lint_t> node_num_map(mesh_->get_node_num_map());
 	std::map<int,NBCFUNC>::iterator it;
       
 #ifdef TUSAS_INTERPFLUX
@@ -967,12 +983,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 		for( int i = 0; i < num_node_per_side; i++ ){
 
-		  int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
-		  int gid = node_num_map[lid];
+		  const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
+		  const nemesis_lint_t gid = node_num_map[lid];
 		  
 		  //std::cout<<i<<" "<<lid<<" "<<gid<<" "<<basis->jac<<" "<<basis->wt<<std::endl;
-		  int row = numeqs_*gid;
-		  int row1 = row + k;
+		  const nemesis_lint_t row = numeqs_*gid;
+		  const nemesis_lint_t row1 = row + k;
 
 		  double val = -jacwt*(it->second)(basis,i,dt_,t_theta_,time_);//the function pointer eval
 
@@ -1025,7 +1041,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	if(0 != periodic_bc_.size() )exit(0);
 #endif
 	P_->GlobalAssemble();
-	std::vector<int> node_num_map(mesh_->get_node_num_map());
+	std::vector<nemesis_lint_t> node_num_map(mesh_->get_node_num_map());
 	int lenind = 27;//cn 27 in 3d
 	std::map<int,DBCFUNC>::iterator it;
         for( int k = 0; k < numeqs_; k++ ){
@@ -1041,12 +1057,12 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	      //cn however mesh_->get_node_set(ns_id).size() would need to be fixed as well...
 	 
 	      if(!x_owned_map_->MyLID(lid) ) break;//check that this node live on this proc, otherwise skip it
-	      int gid = node_num_map[lid];
+	      nemesis_lint_t gid = node_num_map[lid];
 	      //int gid = x_owned_map_->GID(lid);
-	      int row = numeqs_*gid + k;
+	      nemesis_lint_t row = numeqs_*gid + k;
 	      int num_nodes;
 	    
-	      std::vector<int> column(lenind);
+	      std::vector<nemesis_lint_t> column(lenind);
 	    
 	      int err = W_graph_->ExtractGlobalRowCopy 	( 	row,
 								lenind,
@@ -1065,7 +1081,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	      //column.resize(num_nodes);
 
-	      std::vector<int> column1(num_nodes);
+	      std::vector<nemesis_lint_t> column1(num_nodes);
 	      for(int ii = 0; ii<num_nodes; ii++) column1[ii]=column[ii];
 	    
 	      double d = 1.;
@@ -1249,6 +1265,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::advance()
 {
+  //if( 0 == comm_->MyPID()) std::cout<<std::endl<<"advance started"<<std::endl<<std::endl;
   Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
   solver_->reset(thyraguess);
@@ -1294,7 +1311,6 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1== comm_->NumProc())){
     find_vtip();
   }
-
   //boost::ptr_vector<error_estimator>::iterator it;
   for(boost::ptr_vector<error_estimator>::iterator it = Error_est.begin();it != Error_est.end();++it){
     //it->test_lapack();
@@ -1303,13 +1319,14 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
   }
     
   postprocess();
+  //if( 0 == comm_->MyPID()) std::cout<<std::endl<<"advance finished"<<std::endl<<std::endl;
 
 }
 
 template<class Scalar>
   void ModelEvaluatorNEMESIS<Scalar>::initialize()
 {
-  if( 0 == comm_->MyPID()) std::cout<<std::endl<<"inititialize started"<<std::endl<<std::endl;
+  if( 0 == comm_->MyPID()) std::cout<<std::endl<<"initialize started"<<std::endl<<std::endl;
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   if (!dorestart){
 #if 0
@@ -1357,7 +1374,7 @@ template<class Scalar>
       
       std::string pfile = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
       ex_id_ = mesh_->create_exodus(pfile.c_str());
-    }
+    }//numproc
     
     for( int k = 0; k < numeqs_; k++ ){
       mesh_->add_nodal_field((*varnames_)[k]);
@@ -1365,7 +1382,6 @@ template<class Scalar>
     
     output_step_ = 1;
     write_exodus();
-    
     //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
     if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1== comm_->NumProc()) ){
       init_vtip();
@@ -1379,7 +1395,7 @@ template<class Scalar>
     for( int k = 0; k < numeqs_; k++ ){
       mesh_->add_nodal_field((*varnames_)[k]);
     }
-  }
+  }// !restart
 //   mesh_->add_nodal_field("u");
 //   mesh_->add_nodal_field("phi");
   if( 0 == comm_->MyPID()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
@@ -1662,12 +1678,17 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
 #endif
     for (int nn=0; nn < num_my_nodes_; nn++) {
 
-      int gid_node = x_owned_map_->GID(nn*numeqs_);
-      int lid_overlap = (x_overlap_map_->LID(gid_node))/numeqs_; 
+#ifdef MESH_64
+      //const nemesis_lint_t gid_node = epetra_map_gid(x_owned_map_,nn*numeqs_);
+      const nemesis_lint_t gid_node = x_owned_map_->GID64(nn*numeqs_);
+#else
+      const int gid_node = x_owned_map_->GID(nn*numeqs_);
+#endif
+      const int lid_overlap = (x_overlap_map_->LID(gid_node))/numeqs_; 
 
-      double x = mesh_->get_x(lid_overlap);
-      double y = mesh_->get_y(lid_overlap);
-      double z = mesh_->get_z(lid_overlap);
+      const double x = mesh_->get_x(lid_overlap);
+      const double y = mesh_->get_y(lid_overlap);
+      const double z = mesh_->get_z(lid_overlap);
       
 #ifdef TUSAS_PROJECTION
       if(0 == k){
@@ -3813,7 +3834,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_basis( boost::ptr_vector<Basis> &basis, 
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::dump_exaconstit(){
 
-  std::vector<int> node_num_map(mesh_->get_node_num_map());
+  std::vector<nemesis_lint_t> node_num_map(mesh_->get_node_num_map());
   Teuchos::RCP<const Epetra_Map> overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
 					     node_num_map.size(),
 					     &node_num_map[0],
@@ -3908,6 +3929,7 @@ void ModelEvaluatorNEMESIS<Scalar>::dump_exaconstit(){
       orientfile<<k<<std::scientific<<" "<<phi<<" "<<theta<<" "<<omega<<"\n";
     }
   }
-
 }
+
+
 #endif

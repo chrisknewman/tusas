@@ -34,6 +34,7 @@
 
 #include <Teuchos_ArrayViewDecl.hpp>
 
+
 //template<class Scalar>
 error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm, 
 				 Mesh *mesh, 
@@ -53,6 +54,7 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   //We could also do mesh replication here
 
 
+  //if( 0 == comm_->MyPID() )std::cout<<"Creating error estimator"<<std::endl;
 
   int blk = 0;
   std::string elem_type=mesh_->get_blk_elem_type(blk);
@@ -75,12 +77,13 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   mesh_->compute_nodal_patch_overlap();
 
-  std::vector<int> node_num_map(mesh_->get_node_num_map());
+
+  std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
 
   //we want this map to be a one equation version of the x_owned_map in tusas
   //do it this way and hope it is the same
 
-  overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
+  overlap_map_ = Teuchos::rcp(new Epetra_Map((Mesh::mesh_lint_t)-1,
 					     node_num_map.size(),
 					     &node_num_map[0],
 					     0,
@@ -88,7 +91,11 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   if( 1 == comm_->NumProc() ){
     node_map_ = overlap_map_;
   }else{
+#ifdef MESH_64
+    node_map_ = Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*overlap_map_)));
+#else
     node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
+#endif
   }
   //node_map_->Print(std::cout);
   importer_ = Teuchos::rcp(new Epetra_Import(*overlap_map_, *node_map_));
@@ -107,13 +114,13 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   mesh_->add_nodal_field(zstring);
 
   //cn this is the map of elements belonging to this processor
-  std::vector<int> elem_num_map(*(mesh_->get_elem_num_map()));
+  std::vector<Mesh::mesh_lint_t> elem_num_map(*(mesh_->get_elem_num_map()));
   elem_map_ = Teuchos::rcp(new Epetra_Map(-1,
 				      elem_num_map.size(),
 				      &elem_num_map[0],
 				      0,
 				      *comm_));
-
+  //elem_map_->Print(std::cout);
   elem_error_ = Teuchos::rcp(new Epetra_Vector(*elem_map_));
   std::string estring="error"+std::to_string(index_);
   mesh_->add_elem_field(estring);
@@ -324,12 +331,18 @@ void error_estimator::estimate_gradient(const double * uvec ){
 
 	//n_patch[ne] is the local elemid
 
-	int gid = elem_map_->GID(n_patch[ne]);//elem_map_ is not an overlap map
-	int lid = n_patch[ne];
+#ifdef MESH_64
+	//const Mesh::mesh_lint_t gid = epetra_map_gid(elem_map_,n_patch[ne]);//elem_map_ is not an overlap map
+	const Mesh::mesh_lint_t gid = elem_map_->GID64(n_patch[ne]);
+#else
+	const int gid = elem_map_->GID(n_patch[ne]);
+#endif
+      
+	const int lid = n_patch[ne];
 
 
 	//int nodeid = mesh_->get_node_id(blk, n_patch[ne], k);
-	int nodeid = mesh_->get_node_id(blk,lid, k);
+	const int nodeid = mesh_->get_node_id(blk,lid, k);
 	//std::cout<<comm_->MyPID()<<" "<<nn<<" "<<mesh_->node_num_map[nn]<<" "<<k<<" "<<n_patch[ne]<<" "<<nodeid<<" "<<lid<<std::endl;
 	xx[k] = mesh_->get_x(nodeid);
 	yy[k] = mesh_->get_y(nodeid);
@@ -510,10 +523,10 @@ void error_estimator::estimate_gradient(const double * uvec ){
     //std::cout<<nn<<" "<<x<<" "<<y<<" "<<gradx<<" "<<grady<<std::endl;
     //std::cout<<x<<"   "<<y<<"            "<<gradx<<std::endl;
     
-    int gid = (mesh_->get_node_num_map())[nn];
-    tempx->ReplaceGlobalValues ((int) 1, (int) 0, &gradx, &gid);
-    tempy->ReplaceGlobalValues ((int) 1, (int) 0, &grady, &gid);
-    tempz->ReplaceGlobalValues ((int) 1, (int) 0, &gradz, &gid);
+    Mesh::mesh_lint_t gid = (mesh_->get_node_num_map())[nn];
+    tempx->ReplaceGlobalValues ((int) 1, &gradx, &gid);
+    tempy->ReplaceGlobalValues ((int) 1, &grady, &gid);
+    tempz->ReplaceGlobalValues ((int) 1, &gradz, &gid);
    
     delete[] a;
     delete[] b;
@@ -826,8 +839,8 @@ void error_estimator::estimate_error(const double * uvec ){
 //       std::cout<<comm_->MyPID()<<" "<<ne<<"  "<<gp<<"  "<<ex*ex<<" "<<ey*ey<<std::endl;
     }//gp
     error = sqrt(error);
-    int gid = (*(mesh_->get_elem_num_map()))[ne];
-    elem_error_->ReplaceGlobalValues ((int) 1, (int) 0, &error, &gid);
+    Mesh::mesh_lint_t gid = (*(mesh_->get_elem_num_map()))[ne];
+    elem_error_->ReplaceGlobalValues ((int) 1, &error, &gid);
     //std::cout<<ne<<"  "<<error<<std::endl;
 #ifdef ERROR_ESTIMATOR_OMP
     delete xx;

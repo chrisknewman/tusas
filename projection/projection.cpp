@@ -49,7 +49,7 @@ projection::projection(const Teuchos::RCP<const Epetra_Comm>& comm,
   //cn so we should be able to read Matt's files directly
   //cn since they are in that order
 
-  std::vector<int> node_num_map(sourcemesh_->get_node_num_map());
+  std::vector<Mesh::mesh_lint_t> node_num_map(sourcemesh_->get_node_num_map());
 
   //std::vector<int> node_num_map(sourcemesh_->get_sorted_node_num_map());
 
@@ -63,7 +63,7 @@ projection::projection(const Teuchos::RCP<const Epetra_Comm>& comm,
   //source_node_->Print(std::cout);
 
   //cn we might use epetra_localmap here???
-  std::vector<int> elem_num_map(*(sourcemesh_->get_elem_num_map()));
+  std::vector<Mesh::mesh_lint_t> elem_num_map(*(sourcemesh_->get_elem_num_map()));
   source_elem_map_ = Teuchos::rcp(new Epetra_Map( elem_num_map.size(), 
 						       elem_num_map.size(),
 						       &elem_num_map[0],

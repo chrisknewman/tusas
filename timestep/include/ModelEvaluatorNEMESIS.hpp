@@ -41,6 +41,8 @@ class ModelEvaluatorNEMESIS
   : public ::timestep<Scalar>, public ::Thyra::StateFuncModelEvaluatorBase<Scalar>
 {
 public:
+
+  typedef Mesh::mesh_lint_t nemesis_lint_t;
   /// Constructor
   ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 			   Mesh *mesh,
@@ -271,6 +273,64 @@ private: // data members
   void set_basis( boost::ptr_vector<Basis> &basis, const std::string elem_type) const;
 
   void dump_exaconstit();
+
+  //we need these in some static public utility class...
+  const nemesis_lint_t epetra_map_gid(Teuchos::RCP<const Epetra_Map> map, const int lid)
+  {
+#ifdef MESH_64
+      const nemesis_lint_t gid = map->GID64(lid);
+#else
+      const nemesis_lint_t gid = map->GID(lid);
+#endif
+      return gid;
+  };
+
+
+  //we need these in some static public utility class...
+Epetra_Map Create_OneToOne_Map64(const Epetra_Map& usermap,
+         bool high_rank_proc_owns_shared=false)
+{
+  //if usermap is already 1-to-1 then we'll just return a copy of it.
+  if (usermap.IsOneToOne()) {
+    Epetra_Map newmap(usermap);
+    return(newmap);
+  }
+
+  int myPID = usermap.Comm().MyPID();
+  Epetra_Directory* directory = usermap.Comm().CreateDirectory(usermap);
+
+  int numMyElems = usermap.NumMyElements();
+  const long long* myElems = usermap.MyGlobalElements64();
+
+  int* owner_procs = new int[numMyElems];
+
+  directory->GetDirectoryEntries(usermap, numMyElems, myElems, owner_procs,
+         0, 0, high_rank_proc_owns_shared);
+
+  //we'll fill a list of map-elements which belong on this processor
+
+  long long* myOwnedElems = new long long[numMyElems];
+  int numMyOwnedElems = 0;
+
+  for(int i=0; i<numMyElems; ++i) {
+    long long GID = myElems[i];
+    int owner = owner_procs[i];
+
+    if (myPID == owner) {
+      myOwnedElems[numMyOwnedElems++] = GID;
+    }
+  }
+
+  Epetra_Map one_to_one_map((long long)-1, numMyOwnedElems, myOwnedElems,
+       usermap.IndexBase(), usermap.Comm()); // CJ TODO FIXME long long
+
+  delete [] myOwnedElems;
+  delete [] owner_procs;
+  delete directory;
+
+  return(one_to_one_map);
+};
+
 };
 
 

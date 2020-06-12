@@ -64,7 +64,7 @@ class Mesh
   int write_exodus(const int ex_id, const int counter, const double time);
   int write_exodus_no_elem(const int ex_id, const int counter, const double time);
   /// Create exodus file based on filename.
-  int create_exodus(const char * filename);
+  int create_exodus(const char * filename, const bool use64output = false);
   /// Open exodus file based on filename.
   int open_exodus(const char * filename);
   /// Read time from exodus file with id ex_id and timestep counter.

@@ -292,6 +292,13 @@ void elem_color::update_mesh_data()
 }
 void elem_color::insert_off_proc_elems(){
 
+  //see comments below about create_root_map...
+  //right now we need an epetra map in order to facilitate this.
+  //we probably need to fix this by implementing our own  create_root_map
+  //for tpetra::map
+
+
+
   //note this is very similar to how we can create the patch for error estimator...
   //although we would need to communicate the nodes also...
 
@@ -406,18 +413,25 @@ void elem_color::insert_off_proc_elems(){
 
 
 
-  //r_shared_node_map_->Print(std::cout);
+  r_shared_node_map_->Print(std::cout);
   //rep_shared_node_map_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   //exit(0);
   
   for(int i = 0; i < r_shared_node_map_->NumMyElements (); i++){
     //for(int i = 0; i < rep_shared_node_map_->getNodeNumElements (); i++){
 
+    std::cout<<"   1 ******************"<<std::endl;
 
+#ifdef MESH_64
+    const Mesh::mesh_lint_t rsgid = r_shared_node_map_->GID64(i);
+#else
     const Mesh::mesh_lint_t rsgid = r_shared_node_map_->GID(i);
+#endif
+    //const int rsgid = r_shared_node_map_->GID(i);
+    std::cout<<"   2 ******************"<<std::endl;
     //const int ogid = o_map_->LID(rsgid);//local
     const int ogid = overlap_map_->getLocalElement(rsgid);//local
-    std::vector<int> mypatch;
+    std::vector<int> mypatch;//local
     if(ogid != -1){
       mypatch = mesh_->get_nodal_patch_overlap(ogid);//get local elem_id
     }
@@ -427,14 +441,14 @@ void elem_color::insert_off_proc_elems(){
 		  &max_size,
 		  (int)1 );
       
-    std::vector<Mesh::mesh_lint_t> gidmypatch(max_size,-99);
+    std::vector<Mesh::mesh_lint_t> gidmypatch(max_size,(Mesh::mesh_lint_t)(-99));
     for(int j = 0; j < p_size; j++){
 #ifdef ELEM_COLOR_USE_ZOLTAN
       gidmypatch[j] = elem_map_->getGlobalElement(mypatch[j]);
 #else
       gidmypatch[j] = map_->GID(mypatch[j]); 
 #endif    
-      //std::cout<<" "<<rsgid<<" "<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
+      std::cout<<" "<<rsgid<<" "<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
     }
       
     int count = comm_->NumProc()*max_size;

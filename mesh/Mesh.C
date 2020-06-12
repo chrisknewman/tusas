@@ -1365,14 +1365,19 @@ int Mesh::open_exodus(const char * filename){
   return ex_id;
 }
 
-int Mesh::create_exodus(const char * filename){
+int Mesh::create_exodus(const char * filename, const bool use64output){
 
   //Store things as doubles
   int comp_ws = sizeof(double);// = 8
   int io_ws = sizeof(double);// = 8
 
-  int ex_id = ex_create(filename, EX_CLOBBER, &comp_ws, &io_ws);
-  
+  int ex_id = -99;
+  ex_id = ex_create(filename, EX_CLOBBER, &comp_ws, &io_ws);
+  //ex_id = ex_create(filename,EX_CLOBBER|EX_MAPS_INT64_DB|EX_MAPS_INT64_API, &comp_ws, &io_ws);
+
+
+
+
   ex_id = ex_open(filename,
 			  EX_WRITE,
 			  &comp_ws,

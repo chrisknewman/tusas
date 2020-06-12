@@ -33,6 +33,7 @@
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
+#if 0
 template <typename LocalOrdinal,typename GlobalOrdinal>
 class GreedyTieBreak : public Tpetra::Details::TieBreak<LocalOrdinal,GlobalOrdinal> 
 {
@@ -61,7 +62,7 @@ public:
     return minidx;
   }
 };
-
+#endif
 
 template<class Scalar> class ModelEvaluatorTPETRA;
 

@@ -264,7 +264,7 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 
   W_graph->fillComplete();
 
-  //  W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );;
+  //  W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 //   exit(0);
 
   return W_graph;
@@ -462,7 +462,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
-      std::vector<int> elem_map = Elem_col->get_color(c);
+      const std::vector<int> elem_map = Elem_col->get_color(c);
 
       const int num_elem = elem_map.size();
 
@@ -475,7 +475,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //exit(0);
       //auto elem_map_2d = Kokkos::subview(elem_map_1d, Kokkos::ALL (), Kokkos::ALL (), 0);
       //std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
- 
       //for (int ne=0; ne < num_elem; ne++) { 
       //#define USE_TEAM
 #ifdef USE_TEAM

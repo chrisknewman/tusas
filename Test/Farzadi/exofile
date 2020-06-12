@@ -1,3 +1,5 @@
 NODAL VARIABLES all relative 1.e-2 floor 1.e-6
 	u	
 	phi
+ELEMENT VARIABLES
+	color

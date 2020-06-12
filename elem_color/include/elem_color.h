@@ -7,7 +7,6 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
-
 #ifndef ELEM_COLOR_H
 #define ELEM_COLOR_H
 
@@ -30,6 +29,12 @@
 
 
 
+#include <Tpetra_Vector.hpp>
+#include <Tpetra_Map_decl.hpp>
+#include <Tpetra_Import.hpp>
+#include <Tpetra_Export.hpp>
+#include <Tpetra_CrsGraph_decl.hpp>
+#include <Tpetra_CrsMatrix_decl.hpp>
 
 
 
@@ -44,9 +49,43 @@
 #include "Epetra_GIDTypeVector.h"
 #include "Epetra_Import.h"
 
+//we need to clean up here in a major way....
+
+//revert to issoropia by commenting next line
+#define ELEM_COLOR_USE_ZOLTAN
 
 //#define TUSAS_COLOR_CPU
 //#define TUSAS_COLOR_GPU
+
+template <typename LocalOrdinal,typename GlobalOrdinal>
+class GreedyTieBreak : public Tpetra::Details::TieBreak<LocalOrdinal,GlobalOrdinal> 
+{
+  
+public:
+  GreedyTieBreak() { }
+  
+  virtual bool mayHaveSideEffects() const {
+    return true;
+  }
+  
+  virtual std::size_t selectedIndex(GlobalOrdinal /* GID */,
+				    const std::vector<std::pair<int,LocalOrdinal> > & pid_and_lid) const
+  {
+    // always choose index of pair with smallest pid
+    const std::size_t numLids = pid_and_lid.size();
+    std::size_t idx = 0;
+    int minpid = pid_and_lid[0].first;
+    std::size_t minidx = 0;
+    for (idx = 0; idx < numLids; ++idx) {
+      if (pid_and_lid[idx].first < minpid) {
+	minpid = pid_and_lid[idx].first;
+	minidx = idx;
+      }
+    }
+    return minidx;
+  }
+};
+
 
 /// Element coloring for residual and preconditioner fill with OpenMP.
 /** To enable <code>\#define TUSAS_COLOR_CPU</code>. */
@@ -64,7 +103,7 @@ public:
   //we could point to the underlying isorropia data instead, in the future
   /// Return a std::vector of elements in the i-th color.
   std::vector<int> get_color(const int i ///<color index
-			     ){return elem_LIDS_[i];}
+			     ) const {return elem_LIDS_[i];}
   std::vector< std::vector< int > > get_colors(){return elem_LIDS_;}
   /// Return the number of colors.
   int get_num_color(){return num_color_;}
@@ -72,6 +111,29 @@ public:
   void update_mesh_data();
 
 private:
+
+
+  typedef Tpetra::global_size_t global_size_t;
+  typedef Tpetra::Vector<>::global_ordinal_type global_ordinal_type;
+  typedef Tpetra::Vector<>::local_ordinal_type local_ordinal_type;
+  typedef Tpetra::Vector<>::node_type node_type;
+  typedef Tpetra::CrsGraph<local_ordinal_type, global_ordinal_type,
+                         node_type> crs_graph_type;
+  typedef Tpetra::Map<local_ordinal_type, global_ordinal_type, node_type> map_type;
+
+//#ifdef ELEM_COLOR_USE_ZOLTAN
+  /// Element map.
+  Teuchos::RCP<const map_type>  elem_map_;
+  /// Element graph.
+  Teuchos::RCP<crs_graph_type>  elem_graph_;
+
+//#else
+  /// Element map.
+  Teuchos::RCP<const Epetra_Map>  map_;
+  /// Element graph.
+  Teuchos::RCP<Epetra_CrsGraph>  graph_;
+//#endif
+
 
   /// Pointer to mesh.
   Mesh *mesh_;
@@ -81,10 +143,6 @@ private:
   void compute_graph();
   /// Compute element graph coloring.
   void create_colorer();
-  /// Element map.
-  Teuchos::RCP<const Epetra_Map>  elem_map_;
-  /// Element graph.
-  Teuchos::RCP<Epetra_CrsGraph>  graph_;
   /// List of local element ids.
   std::vector< std::vector< int > > elem_LIDS_;
   /// Number of colors.

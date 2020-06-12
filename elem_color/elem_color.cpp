@@ -13,6 +13,12 @@
 #include <Epetra_MapColoring.h>
 #include <Epetra_Util.h>
 
+
+#include <Teuchos_DefaultComm.hpp>
+
+#include <Zoltan2_TpetraRowGraphAdapter.hpp>
+#include <Zoltan2_ColoringProblem.hpp>
+
 std::string getmypidstring(const int mypid, const int numproc);
 
 elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm, 
@@ -35,7 +41,7 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
     restart();
   } else {
     mesh_->compute_nodal_patch_overlap();
-    compute_graph();
+    //compute_graph();
     create_colorer();
     init_mesh_data();
   }
@@ -49,6 +55,8 @@ elem_color::~elem_color()
 void elem_color::compute_graph()
 {
 
+  auto comm = Teuchos::DefaultComm<int>::getComm(); 
+
   int mypid = comm_->MyPID();
   if( 0 == mypid )
     std::cout<<std::endl<<"elem_color::compute_graph() started."<<std::endl<<std::endl;
@@ -57,20 +65,30 @@ void elem_color::compute_graph()
   using Teuchos::rcp;
 
   std::vector<Mesh::mesh_lint_t> elem_num_map(*(mesh_->get_elem_num_map()));
-  elem_map_ = rcp(new Epetra_Map(-1,
+
+
+  //map_->Print(std::cout);
+  const global_size_t numGlobalEntries = Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid();
+  const global_ordinal_type indexBase = 0;
+  std::vector<global_ordinal_type> elem_num_map1(elem_num_map.begin(),elem_num_map.end());
+  Teuchos::ArrayView<global_ordinal_type> AV(elem_num_map1);
+  elem_map_ = rcp(new map_type(numGlobalEntries,
+ 				 AV,
+ 				 indexBase,
+ 				 comm));
+  map_ = rcp(new Epetra_Map(-1,
  				 elem_num_map.size(),
  				 &elem_num_map[0],
  				 0,
  				 *comm_));
-//   elem_map_ = rcp(new Epetra_Map(-1,
-//  				 mesh_->get_num_elem(),
-//  				 &(*(mesh_->get_elem_num_map()))[0],
-//  				 0,
-//  				 *comm_));
+  //elem_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 
-  //elem_map_->Print(std::cout);
-
-  graph_ = rcp(new Epetra_CrsGraph(Copy, *elem_map_, 0));
+  //#ifdef ELEM_COLOR_USE_ZOLTAN
+  size_t ni = 27;//hex now; dont know what this would be for tri/tet
+  elem_graph_ = Teuchos::rcp(new crs_graph_type(elem_map_, ni));
+  //#else
+  graph_ = rcp(new Epetra_CrsGraph(Copy, *map_, 0));
+  //#endif
 
   if( 0 == mypid )
     std::cout<<std::endl<<"Mesh::compute_elem_adj() started."<<std::endl<<std::endl;
@@ -87,25 +105,33 @@ void elem_color::compute_graph()
     for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
       Mesh::mesh_lint_t row = mesh_->get_global_elem_id(ne);
       std::vector<Mesh::mesh_lint_t> col = mesh_->get_elem_connect(ne);//this is appearently global id, not local
-      //std::vector<Mesh::mesh_lint_t> col_gids(col.size());
-      //for ( int k = 0; k < col.size(); k++) col_gids[k] = mesh_->get_global_elem_id(col[k]);
-      //for ( int k = 0; k < col.size(); k++) col_gids[k] = col[k];
-//       std::cout<<row<<" : ";
-//       for(int i = 0; i<col.size(); i++) std::cout<<mypid<<" -  "<<col_gids[i]<<" ";
-//       std::cout<<std::endl;
+
+#ifdef ELEM_COLOR_USE_ZOLTAN
+      std::vector<global_ordinal_type> col1(col.begin(),col.end());
+      Teuchos::ArrayView<global_ordinal_type> CV(col1);
+      global_ordinal_type row1 = row;
+      elem_graph_->insertGlobalIndices(row1, CV);
+#else
       graph_->InsertGlobalIndices(row, (int)(col.size()), &col[0]);
-      //graph_->InsertGlobalIndices(row, (int)(col_gids.size()), &col_gids[0]);
+#endif
     }
   }
   //graph_->Print(std::cout);
+  //elem_graph_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  
   insert_off_proc_elems();
+
+#ifdef ELEM_COLOR_USE_ZOLTAN
+  elem_graph_->fillComplete();
+  //elem_graph_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+#else
   //if (graph_->GlobalAssemble() != 0){
   if (graph_->FillComplete() != 0){
     std::cout<<"error graph_->GlobalAssemble()"<<std::endl;
     exit(0);
   } 
   //graph_->Print(std::cout);
-  //elem_map_->Print(std::cout);
+#endif
   //exit(0);
   if( 0 == mypid )
     std::cout<<std::endl<<"elem_color::compute_graph() ended."<<std::endl<<std::endl;
@@ -114,11 +140,75 @@ void elem_color::compute_graph()
 void elem_color::create_colorer()
 {
   using Teuchos::rcp;
+
+  compute_graph();
+
+#ifdef ELEM_COLOR_USE_ZOLTAN
+  auto comm = Teuchos::DefaultComm<int>::getComm(); 
+  int mypid = comm->getRank();
+#else
   int mypid = comm_->MyPID();
+#endif
+
   std::cout<<std::endl<<"elem_color::create_colorer() started on proc "<<mypid<<std::endl<<std::endl;
+
+#ifdef ELEM_COLOR_USE_ZOLTAN
+
+  typedef Tpetra::RowGraph<local_ordinal_type, global_ordinal_type, node_type> row_graph_type;
+  typedef Zoltan2::TpetraRowGraphAdapter<row_graph_type> graphAdapter_type;
+
+  Teuchos::RCP<row_graph_type> RowGraph =
+    Teuchos::rcp_dynamic_cast<row_graph_type>(elem_graph_);
+
+  Teuchos::RCP<const row_graph_type> constRowGraph =
+    Teuchos::rcp_const_cast<const row_graph_type>(RowGraph);
+
+
+  graphAdapter_type adapter(RowGraph);
+
+  Teuchos::ParameterList params;
+  std::string colorMethod("FirstFit");
+  params.set("color_choice", colorMethod);
+
+  Zoltan2::ColoringProblem<graphAdapter_type> problem(&adapter, &params, comm);
+
+  problem.solve();
+
+  size_t checkLength;
+  int *checkColoring;
+  Zoltan2::ColoringSolution<graphAdapter_type> *soln = problem.getSolution();
+  checkLength = soln->getColorsSize();
+  checkColoring = soln->getColors();
+  num_color_ = soln->getNumColors ();
+
+  //std::cout<<"checkLength = "<<checkLength<<"  znumcolor = "<<num_color_<<std::endl<<std::endl;
+
+  elem_LIDS_.resize(num_color_);
+
+  for ( int i = 0; i < (int)checkLength; i++ ){
+    const int color = checkColoring[i]-1;
+    if ( color < 0 ){
+      if( 0 == mypid ){
+	std::cout<<std::endl<<"elem_color::create_colorer() error.  color < 0."<<std::endl<<std::endl;
+	exit(0);
+      }
+    }
+    const int lid = i;
+    //std::cout<<comm->getRank()<<"   "<<lid<<"   "<<color<<std::endl;
+    elem_LIDS_[color].push_back(lid);
+  }
+
+  elem_graph_ = Teuchos::null;
+  elem_map_ = Teuchos::null;
+
+  //exit(0);
+
+#else
 
   //cn looks like the default is a distance-2 coloring,
   //   we need a distance-1 coloring
+
+
 
   Teuchos::ParameterList paramList;
   paramList.set("DISTANCE","1","");
@@ -135,7 +225,8 @@ void elem_color::create_colorer()
 					       )
 			);
   
-  map_coloring_->Print(std::cout);
+  //map_coloring_->Print(std::cout);
+
 
   num_color_ = elem_colorer_->numColors();
 
@@ -160,15 +251,18 @@ void elem_color::create_colorer()
   }
 
   graph_ = Teuchos::null;
-  elem_map_ = Teuchos::null;
+  map_ = Teuchos::null;
+
+#endif
+
+//   int sum = 0;
+//   for ( int i = 0; i < num_color_; i++){
+//     std::cout<<mypid<<"   "<<i<<"   "<<elem_LIDS_[i].size()<<std::endl;
+//     sum = sum + elem_LIDS_[i].size();
+//   }
+//   std::cout<<mypid<<"   sum =  "<<sum<<std::endl;
 
   std::cout<<std::endl<<"elem_color::create_colorer() ended on proc "<<mypid<<". With num_color_ = "<<num_color_<<std::endl<<std::endl;
-
-  //std::cout<<std::endl<<std::endl;
-  //std::cout<<mypid<<" "<<elem_colorer_->numColors()<<" "<<num_color_<<std::endl;
-  //for(int cc =1; cc<=elem_colorer_->numColors();cc++){
-  //  std::cout<<mypid<<" "<<cc<<" "<<elem_colorer_->numElemsWithColor(cc)<<std::endl;
-  //}
 
   //exit(0);
 }
@@ -202,73 +296,127 @@ void elem_color::insert_off_proc_elems(){
   //although we would need to communicate the nodes also...
 
 
+  auto comm = Teuchos::DefaultComm<int>::getComm(); 
+
   int mypid = comm_->MyPID();
   if( 0 == mypid )
     std::cout<<std::endl<<"elem_color::insert_off_proc_elems() started."<<std::endl<<std::endl;
 
 
   std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
-  Teuchos::RCP<const Epetra_Map> overlap_map_= Teuchos::rcp(new Epetra_Map(-1,
-									   node_num_map.size(),
-									   &node_num_map[0],
-									   0,
-									   *comm_));
-  //elem_map_->Print(std::cout);
-  //overlap_map_->Print(std::cout);
+//   Teuchos::RCP<const Epetra_Map> o_map_= Teuchos::rcp(new Epetra_Map(-1,
+// 									   node_num_map.size(),
+// 									   &node_num_map[0],
+// 									   0,
+// 									   *comm_));
+  //map_->Print(std::cout);
+  //o_map_->Print(std::cout);
+  const global_size_t numGlobalEntries = Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid();
+  const global_ordinal_type indexBase = 0;
+  std::vector<global_ordinal_type> node_num_map1(node_num_map.begin(),node_num_map.end());
+  Teuchos::ArrayView<global_ordinal_type> AV(node_num_map1);
+  Teuchos::RCP<const map_type> overlap_map_ = rcp(new map_type(numGlobalEntries,
+							       AV,
+							       indexBase,
+							       comm));
+  //overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  //exit(0);
+
+
   int blk = 0;
   int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
   int num_elem = mesh_->get_num_elem();
 
-  Teuchos::RCP<const Epetra_Map> node_map_;
+  //Teuchos::RCP<const Epetra_Map> n_map_;
+
+  Teuchos::RCP<const map_type> node_map_;
   if( 1 == comm_->NumProc() ){
+    //n_map_ = o_map_;
     node_map_ = overlap_map_;
   }else{
-#ifdef MESH_64
-    node_map_ = Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*overlap_map_)));
-#else
-    node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
-#endif
+// #ifdef MESH_64
+//     n_map_ = Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*o_map_)));
+// #else
+//     n_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*o_map_)));
+// #endif
+    GreedyTieBreak<local_ordinal_type,global_ordinal_type> greedy_tie_break;
+    node_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(overlap_map_,greedy_tie_break))));
   }
 
-  //node_map_->Print(std::cout);
+  //n_map_->Print(std::cout);
 
   std::vector<Mesh::mesh_lint_t> shared_nodes;
 
-  for(int i = 0; i < overlap_map_->NumMyElements (); i++){
-#ifdef MESH_64
-    const Mesh::mesh_lint_t ogid = overlap_map_->GID64(i);
-#else
-    const Mesh::mesh_lint_t ogid = overlap_map_->GID(i);
-#endif
-    //std::cout<<comm_->MyPID()<<" "<<ogid<<" "<<node_map_->LID(ogid)<<std::endl;
-    if(node_map_->LID(ogid) < 0 ) shared_nodes.push_back(ogid);
+  //for(int i = 0; i < o_map_->NumMyElements (); i++){
+  for(int i = 0; i < overlap_map_->getNodeNumElements(); i++){
+// #ifdef MESH_64
+//     Mesh::mesh_lint_t ogid = o_map_->GID64(i);
+// #else
+//     Mesh::mesh_lint_t ogid = o_map_->GID(i);
+// #endif
+    
+    const Mesh::mesh_lint_t ogid = overlap_map_->getGlobalElement ((local_ordinal_type) i); //global_ordinal_type 
+    //std::cout<<comm_->MyPID()<<" "<<ogid<<" "<<n_map_->LID(ogid)<<std::endl;
+    //if(n_map_->LID(ogid) < 0 ) shared_nodes.push_back(ogid);
+    if((local_ordinal_type)(node_map_->getLocalElement(ogid)) 
+       == Teuchos::OrdinalTraits<Tpetra::Details::DefaultTypes::local_ordinal_type>::invalid() ) shared_nodes.push_back(ogid);
   }
-  Teuchos::RCP<const Epetra_Map> shared_map_= Teuchos::rcp(new Epetra_Map(-1,
+  Teuchos::RCP<const Epetra_Map> s_map_= Teuchos::rcp(new Epetra_Map(-1,
 									  shared_nodes.size(),
 									  &shared_nodes[0],
 									  0,
 									  *comm_));
-  //shared_map_->Print(std::cout);
-#ifdef MESH_64
-  Teuchos::RCP<const Epetra_Map> onetoone_shared_node_map_ = 
-    Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*shared_map_)));
-#else
-  Teuchos::RCP<const Epetra_Map> onetoone_shared_node_map_ = 
-    Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*shared_map_)));
-#endif
-  //onetoone_shared_node_map_->Print(std::cout);
-#ifdef MESH_64
-  Teuchos::RCP<const Epetra_Map> rep_shared_node_map_ 
-    = Teuchos::rcp(new Epetra_Map(Create_Root_Map64( *onetoone_shared_node_map_, -1))); 
-#else	
-  Teuchos::RCP<const Epetra_Map> rep_shared_node_map_ 
-    = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *onetoone_shared_node_map_, -1))); 
-#endif
-  //rep_shared_node_map_->Print(std::cout);
+  //s_map_->Print(std::cout);
+  std::vector<global_ordinal_type> shared_nodes1(shared_nodes.begin(),shared_nodes.end());
+  Teuchos::ArrayView<global_ordinal_type> AV1(shared_nodes1);
+  Teuchos::RCP<const map_type> shared_node_map_ = rcp(new map_type(numGlobalEntries,
+							       AV1,
+							       indexBase,
+							       comm));
 
-  for(int i = 0; i < rep_shared_node_map_->NumMyElements (); i++){
-    const Mesh::mesh_lint_t rsgid = rep_shared_node_map_->GID(i);
-    const int ogid = overlap_map_->LID(rsgid);//local
+
+
+
+
+#ifdef MESH_64
+  Teuchos::RCP<const Epetra_Map> o_shared_node_map_ = 
+    Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*s_map_)));
+#else
+  Teuchos::RCP<const Epetra_Map> o_shared_node_map_ = 
+    Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*s_map_)));
+#endif
+
+
+  //o_shared_node_map_->Print(std::cout);
+#ifdef MESH_64
+  Teuchos::RCP<const Epetra_Map> r_shared_node_map_ 
+    = Teuchos::rcp(new Epetra_Map(Create_Root_Map64( *o_shared_node_map_, -1))); 
+#else	
+  Teuchos::RCP<const Epetra_Map> r_shared_node_map_ 
+    = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_Root_Map( *o_shared_node_map_, -1))); 
+#endif
+
+
+ //   GreedyTieBreak<local_ordinal_type,global_ordinal_type> greedy_tie_break;
+//   Teuchos::RCP<const map_type> onetoone_shared_node_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(shared_node_map_,greedy_tie_break))));
+  //would like to create a replicated tpetra::map, not clear how to easily do this....
+  //Teuchos::RCP<const map_type> rep_shared_node_map_ = 
+  //Teuchos::rcp(new map_type(*(Tpetra::createLocalMapWithNode<local_ordinal_type, global_ordinal_type, node_type>((size_t)(onetoone_shared_node_map_->getGlobalNumElements()), comm))));
+
+
+
+
+  //r_shared_node_map_->Print(std::cout);
+  //rep_shared_node_map_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  //exit(0);
+  
+  for(int i = 0; i < r_shared_node_map_->NumMyElements (); i++){
+    //for(int i = 0; i < rep_shared_node_map_->getNodeNumElements (); i++){
+
+
+    const Mesh::mesh_lint_t rsgid = r_shared_node_map_->GID(i);
+    //const int ogid = o_map_->LID(rsgid);//local
+    const int ogid = overlap_map_->getLocalElement(rsgid);//local
     std::vector<int> mypatch;
     if(ogid != -1){
       mypatch = mesh_->get_nodal_patch_overlap(ogid);//get local elem_id
@@ -281,7 +429,11 @@ void elem_color::insert_off_proc_elems(){
       
     std::vector<Mesh::mesh_lint_t> gidmypatch(max_size,-99);
     for(int j = 0; j < p_size; j++){
-      gidmypatch[j] = elem_map_->GID(mypatch[j]);     
+#ifdef ELEM_COLOR_USE_ZOLTAN
+      gidmypatch[j] = elem_map_->getGlobalElement(mypatch[j]);
+#else
+      gidmypatch[j] = map_->GID(mypatch[j]); 
+#endif    
       //std::cout<<" "<<rsgid<<" "<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
     }
       
@@ -303,13 +455,23 @@ void elem_color::insert_off_proc_elems(){
     }
     
     for(int j = 0; j < g_gids.size(); j++){
-      int elid = elem_map_->LID(g_gids[j]);
+      int elid = map_->LID(g_gids[j]);
       if(elid > -1){
 	for(int k = 0;k< g_gids.size(); k++){
-	  int eelid = elem_map_->LID(g_gids[k]);
+#ifdef ELEM_COLOR_USE_ZOLTAN
+	  local_ordinal_type eelid = elem_map_->getLocalElement (g_gids[k]);//local_ordinal_type
+#else
+	  int eelid = map_->LID(g_gids[k]);
+#endif
 	  //if(eelid > -1){
 	  //std::cout<<"   "<<comm_->MyPID()<<" "<<g_gids[j]<<" "<<g_gids[k]<<std::endl;//" "<<rsgid<<" "<<elid<<std::endl;
+
+#ifdef ELEM_COLOR_USE_ZOLTAN
+	  global_ordinal_type gk = (global_ordinal_type)g_gids[k];
+	  elem_graph_->insertGlobalIndices(g_gids[j], (local_ordinal_type)1, &gk);
+#else
 	  graph_->InsertGlobalIndices(g_gids[j], (int)1, &g_gids[k]);
+#endif
 	  //}
 	}
       }

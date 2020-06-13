@@ -413,14 +413,13 @@ void elem_color::insert_off_proc_elems(){
 
 
 
-  r_shared_node_map_->Print(std::cout);
+  //r_shared_node_map_->Print(std::cout);
   //rep_shared_node_map_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   //exit(0);
   
   for(int i = 0; i < r_shared_node_map_->NumMyElements (); i++){
     //for(int i = 0; i < rep_shared_node_map_->getNodeNumElements (); i++){
 
-    std::cout<<"   1 ******************"<<std::endl;
 
 #ifdef MESH_64
     const Mesh::mesh_lint_t rsgid = r_shared_node_map_->GID64(i);
@@ -428,7 +427,6 @@ void elem_color::insert_off_proc_elems(){
     const Mesh::mesh_lint_t rsgid = r_shared_node_map_->GID(i);
 #endif
     //const int rsgid = r_shared_node_map_->GID(i);
-    std::cout<<"   2 ******************"<<std::endl;
     //const int ogid = o_map_->LID(rsgid);//local
     const int ogid = overlap_map_->getLocalElement(rsgid);//local
     std::vector<int> mypatch;//local
@@ -448,7 +446,7 @@ void elem_color::insert_off_proc_elems(){
 #else
       gidmypatch[j] = map_->GID(mypatch[j]); 
 #endif    
-      std::cout<<" "<<rsgid<<" "<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
+      //std::cout<<" "<<rsgid<<" "<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
     }
       
     int count = comm_->NumProc()*max_size;

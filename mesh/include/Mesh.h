@@ -47,8 +47,8 @@ class Mesh
   // while local ids will be 32 bit-- int
 
 #ifdef MESH_64
-  //typedef long long mesh_lint_t;
-  typedef int64_t mesh_lint_t;
+  typedef long long mesh_lint_t;
+  //typedef int64_t mesh_lint_t;
 #else
   typedef int mesh_lint_t;
 #endif

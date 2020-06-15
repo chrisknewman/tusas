@@ -83,12 +83,12 @@ void elem_color::compute_graph()
  				 *comm_));
   //elem_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 
-  //#ifdef ELEM_COLOR_USE_ZOLTAN
+  #ifdef ELEM_COLOR_USE_ZOLTAN
   size_t ni = 27;//hex now; dont know what this would be for tri/tet
   elem_graph_ = Teuchos::rcp(new crs_graph_type(elem_map_, ni));
-  //#else
+  #else
   graph_ = rcp(new Epetra_CrsGraph(Copy, *map_, 0));
-  //#endif
+  #endif
 
   if( 0 == mypid )
     std::cout<<std::endl<<"Mesh::compute_elem_adj() started."<<std::endl<<std::endl;

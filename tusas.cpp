@@ -345,10 +345,10 @@ int decomp(const int mypid,
 	  <<"Parallel file location	= root=./"<<decompPath<<", subdir=."<<"\n";
 	spreadfile.close();
 	std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
-	char * spreadArg[] = {(char*)"nem_spread",(char*)"nem_spread.inp",(char*)NULL};
+	char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>((use64Str).c_str()),(char*)"nem_spread.inp",(char*)NULL};
 	
 	decompfile
-	  <<spreadStr<<" "<<spreadArg[1]<<"\n";
+	  <<spreadStr<<" "<<spreadArg[1]<<" "<<spreadArg[2]<<"\n";
       }//if
       else {
 	std::string spreadFile=decompPath+"nem_spread.inp";
@@ -362,8 +362,8 @@ int decomp(const int mypid,
 	  <<"Parallel file location	= root=./"<<decompPath<<", subdir=."<<"\n" ;
 	spreadfile.close();
 	std::string spreadStr = trilinosPath+"/bin/nem_spread";//+spreadFile;
-	char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>(spreadFile.c_str()),(char*)NULL};
-	std::cout<<"  Running nemspread command: "<<spreadStr <<" "<<spreadArg[1]<<"\n";
+	char * spreadArg[] = {(char*)"nem_spread",const_cast<char*>((use64Str).c_str()),const_cast<char*>(spreadFile.c_str()),(char*)NULL};
+	std::cout<<"  Running nemspread command: "<<spreadStr <<" "<<spreadArg[1]<<" "<<spreadArg[1]<<"\n";
 	//if(-1 == system(spreadStr.c_str()) ){
 	if(-1 == do_sys_call(spreadStr.c_str(), spreadArg) ){
 	  std::cout<<"Error running nemspread: "<<spreadStr<<"\n";

@@ -93,7 +93,13 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   std::vector<Mesh::mesh_lint_t>::iterator min;
   max = std::max_element(node_num_int.begin(), node_num_int.end());
   min = std::min_element(node_num_int.begin(), node_num_int.end());
-  std::cout<<*min<<"   "<<*max<<"   "<<LLONG_MAX<<"   "<<node_num_int.max_size()<<std::endl;
+  if(*min < (Mesh::mesh_lint_t) 0){
+    if( 0 == comm_->getRank()){
+      std::cout<<"node_num_int:   bad min value"<<std::endl<<std::endl;
+    }
+    //std::cout<<*min<<"   "<<*max<<"   "<<LLONG_MAX<<"   "<<node_num_int.max_size()<<std::endl;
+    exit(0);
+  }
 
   std::vector<global_ordinal_type> node_num_map(node_num_int.begin(),node_num_int.end());
   

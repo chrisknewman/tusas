@@ -41,6 +41,8 @@
 
 #include <Stratimikos_MueLuHelpers.hpp>
 
+#include <algorithm>
+
 //#include <string>
 
 
@@ -87,6 +89,12 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   mesh_->compute_nodal_adj(); 
 
   std::vector<Mesh::mesh_lint_t> node_num_int(mesh_->get_node_num_map());
+  std::vector<Mesh::mesh_lint_t>::iterator max;
+  std::vector<Mesh::mesh_lint_t>::iterator min;
+  max = std::max_element(node_num_int.begin(), node_num_int.end());
+  min = std::min_element(node_num_int.begin(), node_num_int.end());
+  std::cout<<*min<<"   "<<*max<<"   "<<LLONG_MAX<<"   "<<node_num_int.max_size()<<std::endl;
+
   std::vector<global_ordinal_type> node_num_map(node_num_int.begin(),node_num_int.end());
   
   std::vector<global_ordinal_type> my_global_nodes(numeqs_*node_num_map.size());
@@ -462,7 +470,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
-      const std::vector<int> elem_map = Elem_col->get_color(c);
+      const std::vector<int> elem_map = Elem_col->get_color(c);//local
 
       const int num_elem = elem_map.size();
 

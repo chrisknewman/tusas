@@ -85,6 +85,18 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
   //comm_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   
+  if( 0 == comm_->getRank()) {
+    if (sizeof(Mesh::mesh_lint_t) > sizeof(global_ordinal_type) ){
+      std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
+      std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
+      std::cout<<" WARNING::  sizeof(Mesh::mesh_lint_t) > sizeof(global_ordinal_type)"<<std::endl;
+      std::cout<<"sizeof(Mesh::mesh_lint_t) = "<<sizeof(Mesh::mesh_lint_t)<<std::endl;
+      std::cout<<"sizeof(long long) =  "<<sizeof(long long)<<std::endl;
+      std::cout<<"<sizeof(global_ordinal_type) =  "<<sizeof(global_ordinal_type)<<std::endl;
+      std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
+      std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
+    }
+  }
   //mesh_ = Teuchos::rcp(new Mesh(*mesh));
   mesh_->compute_nodal_adj(); 
 
@@ -100,20 +112,37 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     //std::cout<<*min<<"   "<<*max<<"   "<<LLONG_MAX<<"   "<<node_num_int.max_size()<<std::endl;
     exit(0);
   }
+  if( 0 == comm_->getRank()) std::cout<<"node_num_int constructed"<<std::endl;
 
-  std::vector<global_ordinal_type> node_num_map(node_num_int.begin(),node_num_int.end());
+  //std::vector<global_ordinal_type> node_num_map(node_num_int.begin(),node_num_int.end());
+  std::vector<global_ordinal_type> node_num_map(node_num_int.size());
+  for( int i = 0; i < node_num_int.size(); i++ ) node_num_map[i] = (global_ordinal_type)node_num_int[i];
+  std::vector<global_ordinal_type>::iterator maxg;
+  std::vector<global_ordinal_type>::iterator ming;
+  maxg = std::max_element(node_num_map.begin(), node_num_map.end());
+  ming = std::min_element(node_num_map.begin(), node_num_map.end());
+  if(*ming < (global_ordinal_type) 0){
+    if( 0 == comm_->getRank()){
+      std::cout<<"node_num_map:   bad min value"<<std::endl<<std::endl;
+    }
+    //std::cout<<*min<<"   "<<*max<<"   "<<LLONG_MAX<<"   "<<node_num_int.max_size()<<std::endl;
+    exit(0);
+  }
+  if( 0 == comm_->getRank()) std::cout<<"node_num_map constructed"<<std::endl;
   
   std::vector<global_ordinal_type> my_global_nodes(numeqs_*node_num_map.size());
   for(int i = 0; i < node_num_map.size(); i++){    
+    global_ordinal_type ngid = node_num_map[i];
     for( int k = 0; k < numeqs_; k++ ){
-      my_global_nodes[numeqs_*i+k] = numeqs_*node_num_map[i]+k;
+      my_global_nodes[numeqs_*i+k] = numeqs_*ngid+k;
+      //my_global_nodes[numeqs_*i+k] = (global_ordinal_type)numeqs_*(global_ordinal_type)node_num_int[i]+(global_ordinal_type)k;
     }
   }
 
   const global_size_t numGlobalEntries = Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid();
   const global_ordinal_type indexBase = 0;
 
-  Teuchos::ArrayView<global_ordinal_type> AV(my_global_nodes);
+  const Teuchos::ArrayView<global_ordinal_type> AV(my_global_nodes);
 
   x_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
 					     AV,
@@ -556,6 +585,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  yy[k] = y_1dra(nodeid);
 	  zz[k] = z_1dra(nodeid);
 
+	  //std::cout<<k<<"   "<<xx[k]<<"   "<<yy[k]<<"   "<<zz[k]<<"   "<<nodeid<<std::endl;
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    //std::cout<<numeqs*k+neq<<"           "<<n_nodes_per_elem*neq+k <<"      "<<nodeid<<"    "<<numeqs_*nodeid+neq<<std::endl;
 
@@ -591,6 +621,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
+	      //std::cout<<lid<<"   "<<jacwt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq))<<std::endl;
 	      f_1d[lid] += val;
 	    }//neq
 	  }//i
@@ -613,8 +644,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
     }
-//     f_overlap->print(std::cout);
-//     f_vec->print(std::cout);
+//    f_overlap->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+//     f_vec->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 //     auto f_view = f_overlap->getLocalView<Kokkos::HostSpace>();
 //     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
 //     for(int i = 0; i<15; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<f_1d[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
@@ -1330,8 +1361,8 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
     //#pragma omp parallel for
     for (size_t nn=0; nn < localLength; nn++) {
 
-      const int gid_node = x_owned_map_->getGlobalElement(nn*numeqs_); 
-      const int lid_overlap = (x_overlap_map_->getLocalElement(gid_node))/numeqs_; 
+      const global_ordinal_type gid_node = x_owned_map_->getGlobalElement(nn*numeqs_); 
+      const local_ordinal_type lid_overlap = (x_overlap_map_->getLocalElement(gid_node))/numeqs_;
 
       const double x = mesh_->get_x(lid_overlap);
       const double y = mesh_->get_y(lid_overlap);

@@ -258,15 +258,15 @@ static Epetra_Map Create_Root_Map64(const Epetra_Map& usermap,
 
   // Build IntVector of the GIDs, then ship them to root processor
   int numMyElements = usermap.NumMyElements();
-  Epetra_Map allGidsMap((long long) -1, numMyElements, (long long) 0, comm);
+  Epetra_Map allGidsMap((long long) -1, (long long) numMyElements, (long long) 0, comm);
   typename Epetra_GIDTypeVector<long long>::impl allGids(allGidsMap);
   for (int i=0; i<numMyElements; i++) allGids[i] = (long long) usermap.GID64(i);
 
   if(usermap.MaxAllGID64() > std::numeric_limits<int>::max())
     throw "Epetra_Util::Create_Root_Map: cannot fit all gids in int";
-  int numGlobalElements = (int) usermap.NumGlobalElements64();
+  long long numGlobalElements = (long long) usermap.NumGlobalElements64();
   if (root!=-1) {
-    int n1 = 0; if (isRoot) n1 = numGlobalElements;
+    long long n1 = 0; if (isRoot) n1 = numGlobalElements;
     Epetra_Map allGidsOnRootMap((long long) -1, n1, (long long) 0, comm);
     Epetra_Import importer(allGidsOnRootMap, allGidsMap);
     typename Epetra_GIDTypeVector<long long>::impl allGidsOnRoot(allGidsOnRootMap);
@@ -276,9 +276,10 @@ static Epetra_Map Create_Root_Map64(const Epetra_Map& usermap,
     return(rootMap);
   }
   else {
-    int n1 = numGlobalElements;
+    long long n1 = numGlobalElements;
     Epetra_LocalMap allGidsOnRootMap((long long) n1, (long long) 0, comm);
     Epetra_Import importer(allGidsOnRootMap, allGidsMap);
+    //importer.Print(std::cout);
     typename Epetra_GIDTypeVector<long long>::impl allGidsOnRoot(allGidsOnRootMap);
     allGidsOnRoot.Import(allGids, importer, Insert);
 

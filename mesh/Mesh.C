@@ -73,12 +73,35 @@ int Mesh::read_exodus(const char * filename){
 //   std::cout<<"max_name_length = "<<max_name_length<<"      "<<sizeof(mesh_lint_t)<<std::endl;
 //   exit(1);
 
-
-
   //char _title[MAX_LINE_LENGTH];
   char _title[TUSAS_MAX_LINE_LENGTH];
 
   int ex_err = 0;
+
+
+  bool ex_maps_int64_db = (EX_MAPS_INT64_DB & ex_int64_status(ex_id));
+  bool ex_ids_int64_db  = (EX_IDS_INT64_DB & ex_int64_status(ex_id));
+  bool ex_bulk_int64_db = (EX_BULK_INT64_DB & ex_int64_status(ex_id));
+  bool ex_all_int64_db  = (EX_ALL_INT64_DB & ex_int64_status(ex_id));
+
+  bool ex_maps_int64_api = (EX_MAPS_INT64_API & ex_int64_status(ex_id));
+  bool ex_ids_int64_api  = (EX_IDS_INT64_API & ex_int64_status(ex_id));
+  bool ex_bulk_int64_api = (EX_BULK_INT64_API & ex_int64_status(ex_id));
+  bool ex_inq_int64_api  = (EX_INQ_INT64_API & ex_int64_status(ex_id));
+  bool ex_all_int64_api  = (EX_ALL_INT64_API & ex_int64_status(ex_id));
+  if( ex_maps_int64_db | ex_all_int64_api ) {
+    if( proc_id == 0){
+      std::cout<<"ex_ids_int64_db = "<<ex_ids_int64_db<<std::endl;
+      std::cout<<"ex_bulk_int64_db = "<<ex_bulk_int64_db<<std::endl;
+      std::cout<<"ex_all_int64_db = "<<ex_all_int64_db<<std::endl;
+      std::cout<<"ex_maps_int64_api = "<<ex_maps_int64_api<<std::endl;
+      std::cout<<"ex_ids_int64_api = "<<ex_ids_int64_api<<std::endl;
+      std::cout<<"ex_bulk_int64_api = "<<ex_bulk_int64_api<<std::endl;
+      //std::cout<<"ex_all_int64_api = "<<ex_all_int64_api<<std::endl;
+      std::cout<<std::endl<<std::endl;
+    }
+    ex_err = ex_set_int64_status(ex_id,EX_MAPS_INT64_DB);
+  }
 
 #ifdef MESH_64
   ex_err = ex_set_int64_status(ex_id,EX_MAPS_INT64_API);

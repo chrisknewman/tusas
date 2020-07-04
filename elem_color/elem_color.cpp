@@ -15,6 +15,7 @@
 
 
 #include <Teuchos_DefaultComm.hpp>
+#include <Teuchos_ArrayRCPDecl.hpp>
 
 #include <Zoltan2_TpetraRowGraphAdapter.hpp>
 #include <Zoltan2_ColoringProblem.hpp>
@@ -118,8 +119,11 @@ void elem_color::compute_graph()
   }
   //graph_->Print(std::cout);
   //elem_graph_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-  
+
+  //#define COLOR_USE_OFFPROC
+#ifdef ELEM_COLOR_USE_OFFPROC 
   insert_off_proc_elems();
+#endif
 
 #ifdef ELEM_COLOR_USE_ZOLTAN
   elem_graph_->fillComplete();
@@ -305,7 +309,7 @@ void elem_color::insert_off_proc_elems(){
 
   auto comm = Teuchos::DefaultComm<int>::getComm(); 
 
-  int mypid = comm_->MyPID();
+  const int mypid = comm_->MyPID();
   if( 0 == mypid )
     std::cout<<std::endl<<"elem_color::insert_off_proc_elems() started."<<std::endl<<std::endl;
 
@@ -330,9 +334,9 @@ void elem_color::insert_off_proc_elems(){
   //exit(0);
 
 
-  int blk = 0;
-  int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
-  int num_elem = mesh_->get_num_elem();
+  const int blk = 0;
+  const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+  const int num_elem = mesh_->get_num_elem();
 
   //Teuchos::RCP<const Epetra_Map> n_map_;
 
@@ -369,21 +373,21 @@ void elem_color::insert_off_proc_elems(){
        == Teuchos::OrdinalTraits<Tpetra::Details::DefaultTypes::local_ordinal_type>::invalid() ) shared_nodes.push_back(ogid);
   }
   Teuchos::RCP<const Epetra_Map> s_map_= Teuchos::rcp(new Epetra_Map(-1,
-									  shared_nodes.size(),
-									  &shared_nodes[0],
-									  0,
-									  *comm_));
+								     shared_nodes.size(),
+								     &shared_nodes[0],
+								     0,
+								     *comm_));
   //s_map_->Print(std::cout);
   std::vector<global_ordinal_type> shared_nodes1(shared_nodes.begin(),shared_nodes.end());
   Teuchos::ArrayView<global_ordinal_type> AV1(shared_nodes1);
   Teuchos::RCP<const map_type> shared_node_map_ = rcp(new map_type(numGlobalEntries,
-							       AV1,
-							       indexBase,
-							       comm));
+								   AV1,
+								   indexBase,
+								   comm));
 
 
-
-
+  //shared_node_map_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  //exit(0);
 
 #ifdef MESH_64
   Teuchos::RCP<const Epetra_Map> o_shared_node_map_ = 
@@ -407,18 +411,62 @@ void elem_color::insert_off_proc_elems(){
  //   GreedyTieBreak<local_ordinal_type,global_ordinal_type> greedy_tie_break;
 //   Teuchos::RCP<const map_type> onetoone_shared_node_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(shared_node_map_,greedy_tie_break))));
   //would like to create a replicated tpetra::map, not clear how to easily do this....
-  //Teuchos::RCP<const map_type> rep_shared_node_map_ = 
+  Teuchos::RCP<Teuchos::FancyOStream>
+    out = Teuchos::VerboseObjectBase::getDefaultOStream();
+  Teuchos::RCP<const map_type> rep_shared_node_map_ = 
+    Tpetra::Details::computeGatherMap (shared_node_map_,
+		      out);
   //Teuchos::rcp(new map_type(*(Tpetra::createLocalMapWithNode<local_ordinal_type, global_ordinal_type, node_type>((size_t)(onetoone_shared_node_map_->getGlobalNumElements()), comm))));
 
+  const global_ordinal_type ng = rep_shared_node_map_->getGlobalNumElements();
+
+  Teuchos::RCP<const map_type> rep_map_ = rcp(new map_type(ng,
+							   indexBase,
+							   comm,
+							   Tpetra::LocallyReplicated));
+
+  Tpetra::Import<local_ordinal_type, global_ordinal_type, node_type> rep_importer_(rep_map_, rep_shared_node_map_);
+
+  Tpetra::Vector<global_ordinal_type, local_ordinal_type,
+    global_ordinal_type, node_type> rep_shared_vec_(rep_shared_node_map_);
+
+  for (int i=0; i<rep_shared_node_map_->getNodeNumElements(); i++) {
+    rep_shared_vec_.replaceLocalValue(i, (long long) rep_shared_node_map_->getGlobalElement(i));
+  }
+
+  Tpetra::Vector<global_ordinal_type, local_ordinal_type,
+    global_ordinal_type, node_type> rep_vec_(rep_map_);
+  rep_vec_.doImport(rep_shared_vec_,rep_importer_,Tpetra::INSERT);
+  rep_vec_.describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+
+  Teuchos::ArrayRCP<global_ordinal_type> rv = rep_vec_.get1dViewNonConst();
+  std::vector<global_ordinal_type> vals(rep_vec_.getLocalLength());
+  for(int i = 0; i < rep_vec_.getLocalLength(); i++){
+    vals[i] = (global_ordinal_type)rv[i];
+  }
+
+  const Teuchos::ArrayView<global_ordinal_type> AV2(vals);
+  Teuchos::RCP<const map_type> replicated_map_ = rcp(new map_type( rep_vec_.getLocalLength(),
+ 								  AV2,
+ 							   indexBase,
+								  comm));
+
+  r_shared_node_map_->Print(std::cout);
+  replicated_map_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+//exit(0);
+  std::cout<<r_shared_node_map_->NumMyElements ()<<"   "<<rep_shared_node_map_->getNodeNumElements ()<<std::endl;
 
 
 
-  //r_shared_node_map_->Print(std::cout);
-  //rep_shared_node_map_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-  //exit(0);
-  
+
+
+
+
+
+
+
   for(int i = 0; i < r_shared_node_map_->NumMyElements (); i++){
-    //for(int i = 0; i < rep_shared_node_map_->getNodeNumElements (); i++){
+  //for(int i = 0; i < rep_shared_node_map_->getNodeNumElements (); i++){
 
 
 #ifdef MESH_64
@@ -447,7 +495,7 @@ void elem_color::insert_off_proc_elems(){
       gidmypatch[j] = map_->GID(mypatch[j]); 
 #endif    
       //std::cout<<" "<<rsgid<<" "<<gidmypatch[j]<<" "<<mypatch[j]<<std::endl;
-    }
+    }//j
       
     int count = comm_->NumProc()*max_size;
     std::vector<Mesh::mesh_lint_t> AllVals(count,-99);
@@ -464,7 +512,7 @@ void elem_color::insert_off_proc_elems(){
 	//std::cout<<"   "<<comm_->MyPID()<<" "<<i<<" "<<AllVals[j]<<" "<<rsgid<<std::endl;
 	g_gids.push_back(AllVals[j]);
       }
-    }
+    }//j
     
     for(int j = 0; j < g_gids.size(); j++){
       int elid = map_->LID(g_gids[j]);
@@ -485,10 +533,10 @@ void elem_color::insert_off_proc_elems(){
 	  graph_->InsertGlobalIndices(g_gids[j], (int)1, &g_gids[k]);
 #endif
 	  //}
-	}
-      }
+	}//k
+      }//elid
       
-    }
+    }//j
     
     
   }//i

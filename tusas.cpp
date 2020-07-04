@@ -340,7 +340,8 @@ int decomp(const int mypid,
 	spreadfile 
 	  <<"Input FEM file		= "<<infile<<"\n" 
 	  <<"LB file         	= "<<nemFile<<"\n" 
-	  <<"Restart Time list	= off"<<"\n"  
+	  <<"Debug      	= 0"<<"\n"  
+	  <<"Restart Info	= off"<<"\n"  
 	  <<"Parallel Disk Info	= number="<<std::to_string(numproc)<<"\n" 
 	  <<"Parallel file location	= root=./"<<decompPath<<", subdir=."<<"\n";
 	spreadfile.close();

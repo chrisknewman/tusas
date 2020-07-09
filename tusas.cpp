@@ -551,6 +551,23 @@ std::string getmypidstring(const int mypid, const int numproc)
       mypidstring = std::to_string(mypid);
     }
   }//if
+  if( numproc > 9999 && numproc < 100000 ){
+    if ( mypid < 10 ){
+      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+    }
+    else if ( mypid > 9 && mypid < 100 ){
+      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+    }
+    else if ( mypid > 99 && mypid < 1000 ){
+      mypidstring = std::to_string(0)+std::to_string(0)+std::to_string(mypid);
+    }
+    else if ( mypid > 999 && mypid < 10000 ){
+      mypidstring = std::to_string(0)+std::to_string(mypid);
+    }
+    else{
+      mypidstring = std::to_string(mypid);
+    }
+  }//if
 
   return mypidstring;
 }

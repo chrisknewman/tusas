@@ -5016,7 +5016,7 @@ DBC_FUNC(dbc_zero_)
 INI_FUNC(init_heat_test_)
 {
 
-  double pi = 3.141592653589793;
+  const double pi = 3.141592653589793;
 
   return sin(pi*x)*sin(pi*y);
 }
@@ -5073,6 +5073,79 @@ PPR_FUNC(postproc_)
 
   return s-uu;
 }
+
+KOKKOS_INLINE_FUNCTION 
+double f1(const double &u)
+{
+  const double pi = 3.141592653589793;
+  return 2.*pi*pi*u*(1.-u);
+}
+
+KOKKOS_INLINE_FUNCTION 
+double f2(const double &x, const double &y, const double &t)
+{
+  const double pi = 3.141592653589793;
+  const double pix = pi*x;
+  const double piy = pi*y;
+  const double pi2 = pi*pi;
+  return exp(-4.*pi2*t)*pi2*(cos(piy)*cos(piy)*sin(pix)*sin(pix) + cos(pix)*cos(pix)*sin(piy)*sin(piy));
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_nlheatimr_test_)
+{
+  const double u_m = t_theta_*basis[eqn_id].uu + (1. - t_theta_)*basis[eqn_id].uuold;
+  const double dudx_m = t_theta_*basis[eqn_id].dudx + (1. - t_theta_)*basis[eqn_id].duolddx;
+  const double dudy_m = t_theta_*basis[eqn_id].dudy + (1. - t_theta_)*basis[eqn_id].duolddy;
+  const double dudz_m = t_theta_*basis[eqn_id].dudz + (1. - t_theta_)*basis[eqn_id].duolddz;
+  const double t_m = time + t_theta_*dt_;
+  const double x = basis[0].xx;
+  const double y = basis[0].yy;
+
+  const double divgrad = u_m*(dudx_m*basis[eqn_id].dphidx[i] 
+			      + dudy_m*basis[eqn_id].dphidy[i] 
+			      + dudz_m*basis[eqn_id].dphidz[i]);
+  return (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i]
+    + divgrad
+    + f1(u_m)*basis[eqn_id].phi[i]
+    + f2(x,y,t_m)*basis[eqn_id].phi[i];
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_nlheatimr_test_dp_)) = residual_nlheatimr_test_;
+
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_nlheatcn_test_)
+{
+  const double u[2] = {basis[eqn_id].uu, basis[eqn_id].uuold};
+  const double dudx[2] = {basis[eqn_id].dudx, basis[eqn_id].duolddx};
+  const double dudy[2] = {basis[eqn_id].dudy, basis[eqn_id].duolddy};
+  const double dudz[2] = {basis[eqn_id].dudz, basis[eqn_id].duolddz};
+  //const double dudz_m = t_theta_*basis[eqn_id].dudz + (1. - t_theta_)*basis[eqn_id].duolddz;
+  const double t[2] = {time, time+dt_};
+  const double x = basis[0].xx;
+  const double y = basis[0].yy;
+
+  const double divgrad = t_theta_*
+    u[0]*(dudx[0]*basis[eqn_id].dphidx[i] 
+	  + dudy[0]*basis[eqn_id].dphidy[i] 
+	  + dudz[0]*basis[eqn_id].dphidz[i])
+    + (1. - t_theta_)*
+    u[1]*(dudx[1]*basis[eqn_id].dphidx[i] 
+	  + dudy[1]*basis[eqn_id].dphidy[i] 
+	  + dudz[1]*basis[eqn_id].dphidz[i]);
+
+  return (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i]
+    + divgrad
+    + (t_theta_*f1(u[0])
+       + (1. - t_theta_)*f1(u[1]))*basis[eqn_id].phi[i]
+    + (t_theta_*f2(x,y,t[0])
+       + (1. - t_theta_)*f2(x,y,t[1]))*basis[eqn_id].phi[i];
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_nlheatcn_test_dp_)) = residual_nlheatcn_test_;
 
 //}//namespace heat
 
@@ -5349,6 +5422,9 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   
   // frozen temperature approximation: linear pulling of the temperature field
   double xx = x*w0;
+
+
+  //cn this should probablly be: (time+dt_)*tau
   double tt = time*tau0;
   //double t_scale = (xx-R*tt)/l_T0;
   double t_scale = ((dT < 0.001) ? (xx-R*tt)/l_T0 : dT);

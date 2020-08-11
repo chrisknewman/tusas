@@ -476,6 +476,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     if("heat" == paramList.get<std::string> (TusastestNameString)){
       //cn this will need to be done for each equation
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
+    }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
+      //cn this will need to be done for each equation
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatimr_test_dp_, sizeof(RESFUNC));
+    }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
+      //cn this will need to be done for each equation
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatcn_test_dp_, sizeof(RESFUNC));
     }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
       cudaMemcpyFromSymbol( &h_rf[1], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
@@ -1416,6 +1422,73 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::postproc_;
+
+  }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
+    // numeqs_ number of variables(equations) 
+    numeqs_ = 1;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
+    (*residualfunc_)[0] = tpetra::residual_nlheatimr_test_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+    
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::init_heat_test_;
+    
+    
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]
+    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+    paramfunc_ = tpetra::param_;
+
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::postproc_;
+
+  }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
+    // numeqs_ number of variables(equations) 
+    numeqs_ = 1;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
+    (*residualfunc_)[0] = tpetra::residual_nlheatcn_test_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+    
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::init_heat_test_;
+    
+    
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]
+    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+    paramfunc_ = tpetra::param_;
+
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::postproc_;
+
 
   }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
     

@@ -214,9 +214,9 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
       std::cout << "\nReading MueLu parameter list from the XML file \""<<optionsFile<<"\" ...\n";
       mueluParamList.print(std::cout, 2, true, true );
     }
-#ifdef TUSAS_NEW_MUELU
+
     prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_, mueluParamList);
-#else
+#if 0
     prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_, mueluParamList, mueluParamList);
 #endif
     //prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_,optionsFile  );

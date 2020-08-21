@@ -5074,6 +5074,12 @@ PPR_FUNC(postproc_)
   return s-uu;
 }
 
+
+// the above solution is also a solution to the nonlinear problem:
+// u_t - div ( u grad u) + 2 pi^2  (1-u) + u_x^2 + u_y^2
+// we replace u_x^2 + u_y^2 with a forcing term f2(x,y,t)
+
+
 KOKKOS_INLINE_FUNCTION 
 double f1(const double &u)
 {
@@ -5105,6 +5111,7 @@ RES_FUNC_TPETRA(residual_nlheatimr_test_)
   const double divgrad = u_m*(dudx_m*basis[eqn_id].dphidx[i] 
 			      + dudy_m*basis[eqn_id].dphidy[i] 
 			      + dudz_m*basis[eqn_id].dphidz[i]);
+
   return (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i]
     + divgrad
     + f1(u_m)*basis[eqn_id].phi[i]
@@ -5146,6 +5153,21 @@ RES_FUNC_TPETRA(residual_nlheatcn_test_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_nlheatcn_test_dp_)) = residual_nlheatcn_test_;
+
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_nlheatcn_test_)
+{
+  return basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
+    + t_theta_*basis[eqn_id].uu
+    *(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+       + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
+       + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
+}
+
+TUSAS_DEVICE
+PRE_FUNC_TPETRA((*prec_nlheatcn_test_dp_)) = prec_nlheatcn_test_;
+
 
 //}//namespace heat
 

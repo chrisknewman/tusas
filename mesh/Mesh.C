@@ -1399,13 +1399,24 @@ int Mesh::create_exodus(const char * filename, const bool use64output){
   //ex_id = ex_create(filename,EX_CLOBBER|EX_MAPS_INT64_DB|EX_MAPS_INT64_API, &comp_ws, &io_ws);
 
 
+  //cn 8-20-20 seems there is a bug with ex_open, where it returns the wrong ex_id and exodus version?
+  //currently 8.07 version exdus. i would rather not hack it like this
 
-
-  ex_id = ex_open(filename,
+#if EXODUS_VERSION_MAJOR < 8
+  ex_id = 
+    ex_open(filename,
 			  EX_WRITE,
 			  &comp_ws,
 			  &io_ws,
 			  &exodus_version);
+#else
+  //ex_id = 
+    ex_open(filename,
+			  EX_WRITE,
+			  &comp_ws,
+			  &io_ws,
+			  &exodus_version);
+#endif
 
   int ex_err;
 #ifdef MESH_64
@@ -1419,7 +1430,9 @@ int Mesh::create_exodus(const char * filename, const bool use64output){
 	     <<" File "<<filename<<std::endl
 	     <<" Exodus ID "<<ex_id<<std::endl
 	     <<" comp_ws "<<comp_ws<<std::endl
-	     <<" io_ws "<<io_ws<<std::endl;              
+	     <<" io_ws "<<io_ws<<std::endl
+	     <<" ex_err "<<ex_err<<std::endl
+	     <<" exodus_version "<<exodus_version<<std::endl;              
 
   char * title = new char[16];
 

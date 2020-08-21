@@ -20,6 +20,7 @@
 //#include <Kokkos_View.hpp> 	
 #include <Kokkos_Vector.hpp>
 #include <Kokkos_Core.hpp>
+//#include <Kokkos_CrsMatrix.hpp>
 
 #include <Tpetra_Core.hpp>
 #include <Tpetra_Map.hpp>
@@ -197,11 +198,12 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     // Initialize the graph for W CrsMatrix object
     W_graph_ = createGraph();
     W_overlap_graph_ = createOverlapGraph();
-    P_ = rcp(new matrix_type(W_graph_));
     P = rcp(new matrix_type(W_overlap_graph_));
+    P_ = rcp(new matrix_type(W_graph_));
+    P->setAllToScalar((scalar_type)1.0); 
+    P->fillComplete();
     //cn we need to fill the matrix for muelu
-    P_->setAllToScalar((scalar_type)1.0); 
-    P_->fillComplete();
+    init_P_();
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     
     Teuchos::ParameterList mueluParamList;
@@ -219,6 +221,9 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 #endif
     //prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_,optionsFile  );
     //exit(0);
+    if( 0 == comm_->getRank() ){
+      std::cout <<" MueLu preconditioner created"<<std::endl<<std::endl;
+    }
   }
 
 
@@ -307,7 +312,7 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 
   W_graph->fillComplete();
 
-  //  W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  //W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 //   exit(0);
 
   return W_graph;
@@ -328,20 +333,20 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 
   for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
     
-    int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+    const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
 
     const int num_elem = (*mesh_->get_elem_num_map()).size();
 
     for (int ne=0; ne < num_elem; ne++) {
       for (int i=0; i< n_nodes_per_elem; i++) {
-	int row = numeqs_*(
+	const global_ordinal_type row = numeqs_*(
 			   mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, i))
 			   ); 
 	for(int j=0;j < n_nodes_per_elem; j++) {
-	  int column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
+	  const global_ordinal_type column = numeqs_*(mesh_->get_global_node_id(mesh_->get_node_id(blk, ne, j)));
 
 	  for( int k = 0; k < numeqs_; k++ ){
-	    global_ordinal_type row1 = row + k;
+	    const global_ordinal_type row1 = row + k;
 	    global_ordinal_type column1 = column + k;
 	    Teuchos::ArrayView<global_ordinal_type> CV(&column1,1);
 
@@ -486,6 +491,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
       cudaMemcpyFromSymbol( &h_rf[1], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+    }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
       cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
     }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
@@ -688,7 +696,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
 	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-	Kokkos::View <double*> node_set_view("nsv",ns_size);
+	Kokkos::View <int*> node_set_view("nsv",ns_size);
 	for (size_t i = 0; i < ns_size; ++i) {
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
@@ -749,11 +757,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
       cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
+    }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
+      cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
     }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_pf[0], tpetra::pfhub3::prec_heat_pfhub3_dp_, sizeof(PREFUNC));
       cudaMemcpyFromSymbol( &h_pf[1], tpetra::pfhub3::prec_phase_pfhub3_dp_, sizeof(PREFUNC));
-
-
+    }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
+    }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
     } else {
       if( 0 == comm_->getRank() ){
 	std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
@@ -895,127 +908,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
-    P_->resumeFill();
-#if 0
-    P->resumeFill();
-    auto PV = P->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
-    std::vector<int> node_num_map(mesh_->get_node_num_map());
-    std::map<int,DBCFUNC>::iterator it;
-    for( int k = 0; k < numeqs_; k++ ){
-      for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
-	const int ns_id = it->first;
-	const int num_node_ns = mesh_->get_node_set(ns_id).size();
-  
-	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
+    P->resumeFill();//this is overlap, P_ is owned
 
-	Kokkos::View <double*> node_set_view("nsv",ns_size);
-
-	for (size_t i = 0; i < ns_size; ++i) {
-	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
-        }
-	
- 	//for ( int j = 0; j < num_node_ns; j++ ){
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){    
-	  const int lid_overlap = node_set_view(j);
-
-	  //cn these next 2 lines will need to be changed for execution on gpu
-	  //const int gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
-	  //const int lrow = x_owned_map_->getLocalElement(gid_overlap);
-
-	  const int lrow = lid_overlap;
-
-	  //std::cout<<comm_->getRank()<<"  "<<gid_overlap<<" "<<lrow<<" "<<Teuchos::OrdinalTraits<local_ordinal_type>::invalid()<<std::endl;
-	  if(Teuchos::OrdinalTraits<local_ordinal_type>::invalid() != lrow){
-	    int ncol = 0;//P_->getNumEntriesInLocalRow (lrow);
-	    auto RV = PV.row(lrow);
-
-	    ncol = RV.length;
-
-	    Scalar * vals = new Scalar[ncol];
-	    local_ordinal_type * cols = new local_ordinal_type[ncol];
-	    for(int i = 0; i<ncol; i++){
-	      vals[i] = 0.0;
-	      cols[i] = RV.colidx(i);
-	    }
-	    
-	    PV.replaceValues(lrow,cols,ncol,vals);
-
-	    vals[0] = 1.0;
-	    PV.replaceValues(lrow,&lrow,1,vals);
-	    delete[] vals;
-	    delete[] cols;
-	  }//if
-	
-	});//parallel_for
-	//}//j
-
-      }//it
-    }//k
-    
-    //cn this comm is probably overly expensive. Better to use a map for the dirichlet nodes rather than entire mesh?
-    P->fillComplete();
-    {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
-      P_->doExport(*P, *exporter_, Tpetra::REPLACE);
-    }
-#endif
-#if 0
-    auto PV = P_->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
-    std::vector<int> node_num_map(mesh_->get_node_num_map());
-    std::map<int,DBCFUNC>::iterator it;
-    for( int k = 0; k < numeqs_; k++ ){
-      for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
-	const int ns_id = it->first;
-	const int num_node_ns = mesh_->get_node_set(ns_id).size();
-  
-	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-
-	Kokkos::View <double*> node_set_view("nsv",ns_size);
-
-	for (size_t i = 0; i < ns_size; ++i) {
-	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
-        }
-	
- 	for ( int j = 0; j < num_node_ns; j++ ){
-	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){    
-	  const int lid_overlap = node_set_view(j);
-
-
-	  //cn these next 2 lines will need to be changed for execution on gpu
-	  //cn is it possible to do everything on the overlap matrix P, and communicate to P_ as above?..Probably this is the way
-
-	  const int gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
-	  const int lrow = x_owned_map_->getLocalElement(gid_overlap);
-
-	  //std::cout<<comm_->getRank()<<"  "<<gid_overlap<<" "<<lrow<<" "<<Teuchos::OrdinalTraits<local_ordinal_type>::invalid()<<std::endl;
-	  if(Teuchos::OrdinalTraits<local_ordinal_type>::invalid() != lrow){
-	    int ncol = 0;//P_->getNumEntriesInLocalRow (lrow);
-	    auto RV = PV.row(lrow);
-
-	    ncol = RV.length;
-
-	    Scalar * vals = new Scalar[ncol];
-	    local_ordinal_type * cols = new local_ordinal_type[ncol];
-	    for(int i = 0; i<ncol; i++){
-	      vals[i] = 0.0;
-	      cols[i] = RV.colidx(i);
-	    }
-	    
-	    PV.replaceValues(lrow,cols,ncol,vals);
-
-	    vals[0] = 1.0;
-	    PV.replaceValues(lrow,&lrow,1,vals);
-	    delete[] vals;
-	    delete[] cols;
-	  }//if
-	
-	  //});//parallel_for
-	  }//j
-
-      }//it
-    }//k
-#endif    
+    // local nodeset ids are on overlap
+   
 #ifdef TUSAS_RUN_ON_CPU
+    auto PV = P->getLocalMatrix();
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     for( int k = 0; k < numeqs_; k++ ){
@@ -1024,55 +922,71 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
   
 	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-	Kokkos::View <double*> node_set_view("nsv",ns_size);
+	Kokkos::View <int*> node_set_view("nsv",ns_size);
 	for (size_t i = 0; i < ns_size; ++i) {
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 	
- 	for ( int j = 0; j < num_node_ns; j++ ){
-	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){    
+ 	//for ( int j = 0; j < num_node_ns; j++ ){
+	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
+
 	  const int lid_overlap = node_set_view(j);
-	  const int gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
-	  const int lrow = x_owned_map_->getLocalElement(gid_overlap);
-	  //std::cout<<comm_->getRank()<<"  "<<gid_overlap<<" "<<lrow<<" "<<Teuchos::OrdinalTraits<local_ordinal_type>::invalid()<<std::endl;
-	  if(Teuchos::OrdinalTraits<local_ordinal_type>::invalid() != lrow){
-	    int ncol = 0;//P_->getNumEntriesInLocalRow (lrow);
-	    const int * inds;
-	    const Scalar * val;
-	    //std::cout<<lrow<<" "<<ncol<<std::endl;
-	    const int row = numeqs*lrow +k;
-	    P_->getLocalRowViewRaw( row, ncol, inds, val );
-	    Scalar * vals = new Scalar[ncol];
-	    for(int i = 0; i<ncol; i++){
-	      vals[i] = 0.0;
-	    }
-	    P_->replaceLocalValues(row, ncol, vals, inds );
-	    vals[0] = 1.0;
-	    P_->replaceLocalValues(row, 1 , vals, &row );
-	    delete[] vals;
-	  }//if
+	  //const global_ordinal_type gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
+	  //const local_ordinal_type lrow = x_owned_map_->getLocalElement(gid_overlap);
+	  const local_ordinal_type lrow = (local_ordinal_type)lid_overlap;
+	 
+	  size_t ncol = 0;
+	  const local_ordinal_type row = numeqs*lrow + k;
+	  
+	  auto RV = PV.row(row);
+	  //const Kokkos::SparseRowView<Kokkos::CrsMatrix> RV = PV.row(row);
+	  ncol = RV.length;
+	  
+	  scalar_type * vals = new scalar_type[ncol];
+	  local_ordinal_type * inds = new local_ordinal_type[ncol];
+	  
+	  for(int i = 0; i<(int)ncol; i++){
+	    inds[i] = RV.colidx(i);
+	    vals[i] = 0.0;
+	    ( inds[i] == row ) ? ( vals[i] = 1.0 ) : ( vals[i] = 0.0 );
+	    //std::cout<<row<<"   "<<inds[i]<<"  "<<vals[i]<<std::endl;
+	    RV.value(i) = vals[i];
+	  }
+	  
+	  //P_->replaceLocalValues(row, ncol, vals, inds );	    
+	  //PV.replaceValues(row, inds, ncol, vals );
+	  
+	  delete[] vals;
+	  delete[] inds;
 	
-	  //});//parallel_for
-	}//j
+	  });//parallel_for
+	  //}//j
 
       }//it
     }//k
 #else
 #endif
-    P_->fillComplete();
-//     P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+    P->fillComplete();
+    //P->fillComplete();
+    //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 //     exit(0);
+
+
+    P_->resumeFill();
+    {
+      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      P_->doExport(*P, *exporter_, Tpetra::REPLACE);
+    }
+
+    P_->fillComplete();
+    //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+
+
   }//outArgs.get_W_prec() && dirichletfunc_
 
   if( nonnull(outArgs.get_W_prec() )){
 
     MueLu::ReuseTpetraPreconditioner( P_, *prec_  );
-
-    //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-    //P_->print(std::cout);
-    //prec_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-    
-    //exit(0);
 
   }//outArgs.get_W_prec() 
 
@@ -1171,7 +1085,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   relrestol = paramList.get<double> (TusasnoxrelresNameString);
 
   Teuchos::RCP<NOX::StatusTest::NormF> relresid = 
-    Teuchos::rcp(new NOX::StatusTest::NormF(*nox_group.get(), relrestol));//1.0e-6 for paper
+    Teuchos::rcp(new NOX::StatusTest::NormF(*nox_group.get(), relrestol));
 
   Teuchos::RCP<NOX::StatusTest::NormWRMS> wrms =
     Teuchos::rcp(new NOX::StatusTest::NormWRMS(1.0e-2, 1.0e-8));
@@ -1465,7 +1379,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[0] = tpetra::residual_nlheatcn_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+    (*preconfunc_)[0] = tpetra::prec_nlheatcn_test_dp_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -1962,4 +1876,20 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
   }//nn
 }
 
+template<class Scalar>
+void ModelEvaluatorTPETRA<Scalar>::init_P_()
+{
+    P_->setAllToScalar((scalar_type)-1.0); 
+
+    auto PV = P_->getLocalMatrix();
+
+    const int numrows = PV.numRows();
+    for ( int i; i < numrows; i++ ){
+      local_ordinal_type row = i;
+      auto RV = PV.row(row);
+      RV.value(row) = 27.;
+    }
+
+    P_->fillComplete();
+}
 #endif

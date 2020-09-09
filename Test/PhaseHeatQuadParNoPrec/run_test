@@ -7,4 +7,4 @@ mpirun -np 4 $1/tusas --input-file=tusas.xml --writedecomp
 bash decompscript
 mpirun -np 4 $1/tusas --input-file=tusas.xml --skipdecomp
 bash epuscript
-../exodiff -Floor=1e-17 Gold.e results.e
+$1/exodiff -Floor=1e-17 Gold.e results.e

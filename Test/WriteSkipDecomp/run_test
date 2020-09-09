@@ -11,5 +11,5 @@ bash epuscript
 ###if [[ $OSTYPE == "darwin15" ]]; then
 ###    ../exodiff -file exofile Gold.e results.e
 ###else
-    ../exodiff Gold.e results.e
+$1/exodiff Gold.e results.e
 ###fi

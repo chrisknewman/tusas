@@ -2,7 +2,7 @@
 rm -rf results.e
 $1/tusas --input-file=tusas.xml
 ###if [[ $OSTYPE == "darwin15" ]]; then
-    ../exodiff -file exofile Gold.e results.e
+$1/exodiff -file exofile Gold.e results.e
 ###ielse
 ###i    ../exodiff Gold.e results.e
 ###ifi

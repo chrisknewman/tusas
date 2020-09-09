@@ -7,4 +7,4 @@ mpirun -np 2 $1/tusas --input-file=test.xml --writedecomp
 bash decompscript
 mpirun -np 2 $1/tusas --kokkos-threads=1 --input-file=test.xml --skipdecomp
 bash epuscript
-../exodiff -file exofile Gold.e results.e
+$1/exodiff -file exofile Gold.e results.e

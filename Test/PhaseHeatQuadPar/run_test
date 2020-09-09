@@ -8,7 +8,7 @@ bash decompscript
 mpirun -np 4 $1/tusas --input-file=tusas.xml --skipdecomp
 bash epuscript
 ###if [[ $OSTYPE == "darwin15" ]]; then
-    ../exodiff -file exofile Gold.e results.e
+$1/exodiff -file exofile Gold.e results.e
 ###else
 ###    ###../exodiff Gold.e results.e
 ###  ../exodiff -file exofile Gold.e results.e

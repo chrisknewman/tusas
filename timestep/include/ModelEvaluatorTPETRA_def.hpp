@@ -4,7 +4,7 @@
 //  Tusas code (LA-CC-17-001) and is subject to the revised BSD license terms
 //  in the LICENSE file found in the top-level directory of this distribution.
 //
-//////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 
 
 #ifndef NOX_THYRA_MODEL_EVALUATOR_TPETRA_DEF_HPP
@@ -46,6 +46,7 @@
 
 //#include <string>
 
+#include "function_def.hpp"
 
 #define TUSAS_RUN_ON_CPU
 
@@ -474,7 +475,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     RESFUNC * h_rf;
     h_rf = (RESFUNC*)malloc(numeqs_*sizeof(RESFUNC));
 
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
     RESFUNC * d_rf;
     cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
 
@@ -535,7 +536,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //for (int ne=0; ne < num_elem; ne++) { 
       //#define USE_TEAM
 #ifdef USE_TEAM
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
       int team_size = 512;//this is teamsize (#of threads in team) < 1024; preferably 256
 #else
       int team_size = 1;//openmp
@@ -625,7 +626,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    const int lrow = numeqs*meshc_1dra(elemrow+i);
 
 	    for( int neq = 0; neq < numeqs; neq++ ){
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
 	      //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,neq));
 	      const double val = jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
 #else
@@ -649,7 +650,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     }//c 
 
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaFree(d_rf);
   free(h_rf);
 #endif
@@ -744,7 +745,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     PREFUNC * h_pf;
     h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
 
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
     PREFUNC * d_pf;
     cudaMalloc((double**)&d_pf,numeqs_*sizeof(PREFUNC));
 
@@ -855,7 +856,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      local_ordinal_type lcol[1] = {numeqs*meshc_1d(elemrow+j)};
 	      
 	      for( int neq = 0; neq < numeqs; neq++ ){
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
 		scalar_type val[1] = {jacwt*d_pf[neq](*BGPU,i,j,dt,t_theta,neq)};
 #else
 		scalar_type val[1] = {jacwt*h_pf[neq](*BGPU,i,j,dt,t_theta,neq)};
@@ -882,7 +883,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     }//c
 
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaFree(d_pf);
   free(h_pf);
 #endif

@@ -15,6 +15,7 @@
 #include "basis.hpp"
 	
 #include "Teuchos_ParameterList.hpp"
+#include <Kokkos_Core.hpp>
 
 /** Definition for residual function. Each residual function is called at each Gauss point for each equation with this signature:
 - NAME:     name of function to call
@@ -4991,8 +4992,9 @@ RES_FUNC(residual_eta_kkspp_)
 				    const double &t_theta_,\
 				    const int &eqn_id)
 
-#ifdef KOKKOS_HAVE_CUDA
+#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
 #define TUSAS_DEVICE __device__
+#define TUSAS_HAVE_CUDA
 #else
 #define TUSAS_DEVICE /**/ 
 #endif
@@ -5052,7 +5054,7 @@ PARAM_FUNC(param_)
 {
   double kk = plist->get<double>("k_",1.);
 
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(k_d,&kk,sizeof(double));
 #else
   k_d = kk;
@@ -5245,55 +5247,55 @@ namespace farzadi3d
 PARAM_FUNC(param_)
 {
   double k_p = plist->get<double>("k", 0.14);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(k,&k_p,sizeof(double));
 #else
   k = k_p;
 #endif
   double eps_p = plist->get<double>("eps", 0.0);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(eps,&eps_p,sizeof(double));
 #else
   eps = eps_p;
 #endif
   double lambda_p = plist->get<double>("lambda", 10.);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(lambda,&lambda_p,sizeof(double));
 #else
   lambda = lambda_p;
 #endif
   double d0_p = plist->get<double>("d0", 5.e-9);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(d0,&d0_p,sizeof(double));
 #else
   d0 = d0_p;
 #endif
   double D_liquid_p = plist->get<double>("D_liquid", 3.e-9);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(D_liquid,&D_liquid_p,sizeof(double));
 #else
   D_liquid = D_liquid_p;
 #endif
   double m_p = plist->get<double>("m", -2.6);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(m,&m_p,sizeof(double));
 #else
   m = m_p;
 #endif
   double c_inf_p = plist->get<double>("c_inf", 3.);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(c_inf,&c_inf_p,sizeof(double));
 #else
   c_inf = c_inf_p;
 #endif
   double G_p = plist->get<double>("G", 3.e5);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(G,&G_p,sizeof(double));
 #else
   G = G_p;
 #endif
   double R_p = plist->get<double>("R", 0.003);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(R,&R_p,sizeof(double));
 #else
   R = R_p;
@@ -5301,20 +5303,20 @@ PARAM_FUNC(param_)
 
 // added dT here
 double dT_p = plist->get<double>("dT", 0.0);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(dT,&dT_p,sizeof(double));
 #else
   dT = dT_p;
 #endif
 
   double base_height_p = plist->get<double>("base_height", 15.);
-// #ifdef KOKKOS_HAVE_CUDA
+// #ifdef TUSAS_HAVE_CUDA
 //   cudaMemcpyToSymbol(base_height,&base_height_p,sizeof(double));
 // #else
   base_height = base_height_p;
 // #endif
   double amplitude_p = plist->get<double>("amplitude", 0.2);
-// #ifdef KOKKOS_HAVE_CUDA
+// #ifdef TUSAS_HAVE_CUDA
 //   cudaMemcpyToSymbol(amplitude,&amplitude_p,sizeof(double));
 // #else
   amplitude = amplitude_p;
@@ -5339,46 +5341,46 @@ z0 = z0_p;
 
   //calculated values
   double w0_p = lambda_p*d0_p/0.8839;
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(w0,&w0_p,sizeof(double));
 #else
   w0 = w0_p;
 #endif
   double tau0_p = (lambda_p*0.6267*w0_p*w0_p)/D_liquid_p;
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(tau0,&tau0_p,sizeof(double));
 #else
   tau0 = tau0_p;
 #endif
 
 //   double V_p = R_p;
-// #ifdef KOKKOS_HAVE_CUDA
+// #ifdef TUSAS_HAVE_CUDA
 //   cudaMemcpyToSymbol(V,&V_p,sizeof(double));
 // #else
 //   V = V_p;
 // #endif
 
 //   double Vp0_p = V_p*tau0_p/w0_p;
-// #ifdef KOKKOS_HAVE_CUDA
+// #ifdef TUSAS_HAVE_CUDA
 //   cudaMemcpyToSymbol(Vp0,&Vp0_p,sizeof(double));
 // #else
 //   Vp0 = Vp0_p;
 // #endif
 
   double delta_T0_p = abs(m_p)*c_inf_p*(1.-k_p)/k_p;
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(delta_T0,&delta_T0_p,sizeof(double));
 #else
   delta_T0 = delta_T0_p;
 #endif
   double l_T0_p = delta_T0_p/G_p;
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(l_T0,&l_T0_p,sizeof(double));
 #else
   l_T0 = l_T0_p;
 #endif
   double D_liquid__p = D_liquid_p*tau0_p/(w0_p*w0_p);
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(D_liquid_,&D_liquid__p,sizeof(double));
 #else
   D_liquid_ = D_liquid__p;

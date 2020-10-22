@@ -13,9 +13,11 @@
 #include <Epetra_MapColoring.h>
 #include <Epetra_Util.h>
 
+#include <Tpetra_ComputeGatherMap.hpp>
 
 #include <Teuchos_DefaultComm.hpp>
 #include <Teuchos_ArrayRCPDecl.hpp>
+#include <Teuchos_VerboseObject.hpp>
 
 #include <Zoltan2_TpetraRowGraphAdapter.hpp>
 #include <Zoltan2_ColoringProblem.hpp>

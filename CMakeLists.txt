@@ -120,18 +120,14 @@ SET( CMAKE_CXX_FLAGS "${Trilinos_CXX_COMPILER_FLAGS} ${TUSAS_CXX_FLAGS}" )
 
 
 #---------------------------------------------------------------------------------
-# Write tusas.h for use with Testing 
+# Write tusas.h
 #---------------------------------------------------------------------------------
 
-FILE ( WRITE ${DIR_7}/tusas.h "std::string TRILINOS_DIR=\"${TRILINOS_DIR}\"; ")
-
-
-
-
+configure_file(tusas.h.in tusas.h)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 SET( DIR_TEST "Test" )
 
-#FILE ( COPY ${TRILINOS_DIR}/bin/exodiff DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/Test )
 FILE ( COPY ${TRILINOS_DIR}/bin/exodiff DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/ )
 
 #use -DUSE_BASH on mac with clang and openmp, as DYLD_LIBRARY_PATH does not get propogated to child processes in shells found in /bin/*

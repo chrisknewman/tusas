@@ -88,10 +88,10 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //comm_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   
   if( 0 == comm_->getRank()) {
-    if (sizeof(Mesh::mesh_lint_t) > sizeof(global_ordinal_type) ){
+    if (sizeof(Mesh::mesh_lint_t) != sizeof(global_ordinal_type) ){
       std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
       std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
-      std::cout<<" WARNING::  sizeof(Mesh::mesh_lint_t) > sizeof(global_ordinal_type)"<<std::endl;
+      std::cout<<" WARNING::  sizeof(Mesh::mesh_lint_t) != sizeof(global_ordinal_type)"<<std::endl;
       std::cout<<"sizeof(Mesh::mesh_lint_t) = "<<sizeof(Mesh::mesh_lint_t)<<std::endl;
       std::cout<<"sizeof(long long) =  "<<sizeof(long long)<<std::endl;
       std::cout<<"<sizeof(global_ordinal_type) =  "<<sizeof(global_ordinal_type)<<std::endl;

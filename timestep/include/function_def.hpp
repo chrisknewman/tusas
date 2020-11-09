@@ -17,6 +17,17 @@
 #include "Teuchos_ParameterList.hpp"
 #include <Kokkos_Core.hpp>
 
+
+
+#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
+#define TUSAS_DEVICE __device__
+#define TUSAS_HAVE_CUDA
+#else
+#define TUSAS_DEVICE /**/ 
+#endif
+
+
+
 /** Definition for residual function. Each residual function is called at each Gauss point for each equation with this signature:
 - NAME:     name of function to call
 - const boost::ptr_vector<Basis> &basis:     an array of basis function objects indexed by equation
@@ -4991,13 +5002,6 @@ RES_FUNC(residual_eta_kkspp_)
 				    const double &dt_,\
 				    const double &t_theta_,\
 				    const int &eqn_id)
-
-#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
-#define TUSAS_DEVICE __device__
-#define TUSAS_HAVE_CUDA
-#else
-#define TUSAS_DEVICE /**/ 
-#endif
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
   //namespace heat{

@@ -20,16 +20,19 @@
 #include <Tpetra_CrsGraph_decl.hpp>
 #include <Tpetra_CrsMatrix_decl.hpp>
 
+//teuchos support
+#include <Teuchos_RCP.hpp>
+
 //#include <MueLu_HierarchyManager.hpp>
 #include <MueLu_TpetraOperator_fwd.hpp>
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 
 #include "Mesh.h"
-
 #include "error_estimator.h"
-
 #include "elem_color.h"
+#include "timestep.hpp"
+#include "post_process.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
@@ -239,12 +242,12 @@ private:
 
   PARAMFUNC paramfunc_;
 
-  RCP<Teuchos::Time> ts_time_import;
-  RCP<Teuchos::Time> ts_time_resfill;
-  RCP<Teuchos::Time> ts_time_precfill;
-  RCP<Teuchos::Time> ts_time_nsolve;
-  RCP<Teuchos::Time> ts_time_view;
-  RCP<Teuchos::Time> ts_time_iowrite;
+  Teuchos::RCP<Teuchos::Time> ts_time_import;
+  Teuchos::RCP<Teuchos::Time> ts_time_resfill;
+  Teuchos::RCP<Teuchos::Time> ts_time_precfill;
+  Teuchos::RCP<Teuchos::Time> ts_time_nsolve;
+  Teuchos::RCP<Teuchos::Time> ts_time_view;
+  Teuchos::RCP<Teuchos::Time> ts_time_iowrite;
   //RCP<Teuchos::Time> ts_time_ioread;
 
   //hacked stuff for elem_color

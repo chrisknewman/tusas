@@ -7,14 +7,12 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
-
 #ifndef NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DECL_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DECL_HPP
 
-#include "Thyra_StateFuncModelEvaluatorBase.hpp"	
-#include "Teuchos_ParameterList.hpp"
-#include <Teuchos_TimeMonitor.hpp>
-#include "Epetra_FECrsGraph.h"
+#include "function_def.hpp"
+#ifdef TUSAS_HAVE_CUDA
+#else
 
 #include "Mesh.h"
 #include "preconditioner.hpp"
@@ -24,6 +22,11 @@
 #include "post_process.h"
 #include "periodic_bc.h"
 #include "basis.hpp"
+
+#include "Thyra_StateFuncModelEvaluatorBase.hpp"	
+#include "Teuchos_ParameterList.hpp"
+#include <Teuchos_TimeMonitor.hpp>
+#include "Epetra_FECrsGraph.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
@@ -340,4 +343,5 @@ Epetra_Map Create_OneToOne_Map64(const Epetra_Map& usermap,
 //==================================================================
 
 
+#endif //TUSAS_HAVE_CUDA
 #endif

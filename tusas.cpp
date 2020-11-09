@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 #ifdef TUSAS_KOKKOS_PRINT_CONFIG
   Kokkos::print_configuration( std::cout , false );
 #endif
-  RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Run Time");
+  Teuchos::RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Run Time");
   Teuchos::ParameterList paramList;
 
   // Create a communicator for Epetra objects
@@ -150,9 +150,12 @@ int main(int argc, char *argv[])
     if( paramList.get<std::string> (TusasmethodNameString)  == "tpetra") {
       model = new ModelEvaluatorTPETRA<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
     }
+#ifdef TUSAS_HAVE_CUDA
+#else
     else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
       model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
     }
+#endif
     else {
       std::cout<<"Invalid method."<<"\n"<<"\n";
       return EXIT_FAILURE;
@@ -219,7 +222,7 @@ int decomp(const int mypid,
 
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
-  RCP<Teuchos::Time> ts_time_decomp = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Decomp Time");
+  Teuchos::RCP<Teuchos::Time> ts_time_decomp = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Decomp Time");
   Teuchos::TimeMonitor DecompTimer(*ts_time_decomp);
   if( 0 == mypid ){
     if( !restart && !skipdecomp){

@@ -31,6 +31,7 @@
 #include <Thyra_VectorBase.hpp>
 #include "Thyra_PreconditionerFactoryBase.hpp"
 #include <Thyra_TpetraLinearOp_decl.hpp>
+#include "Thyra_DetachedSpmdVectorView.hpp"
 
 //#include <MueLu_ParameterListInterpreter_decl.hpp>
 //#include <MueLu_MLParameterListInterpreter_decl.hpp>
@@ -42,11 +43,15 @@
 
 #include <Stratimikos_MueLuHelpers.hpp>
 
+#include "NOX_Thyra_MatrixFreeJacobianOperator.hpp"
+#include "NOX_MatrixFree_ModelEvaluatorDecorator.hpp"
+
 #include <algorithm>
 
 //#include <string>
 
 #include "function_def.hpp"
+#include "ParamNames.h"
 
 #define TUSAS_RUN_ON_CPU
 
@@ -178,9 +183,9 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   x_ = Teuchos::rcp(new vector_type(node_overlap_map_));
   y_ = Teuchos::rcp(new vector_type(node_overlap_map_));
   z_ = Teuchos::rcp(new vector_type(node_overlap_map_));
-  ArrayRCP<scalar_type> xv = x_->get1dViewNonConst();
-  ArrayRCP<scalar_type> yv = y_->get1dViewNonConst();
-  ArrayRCP<scalar_type> zv = z_->get1dViewNonConst();
+  Teuchos::ArrayRCP<scalar_type> xv = x_->get1dViewNonConst();
+  Teuchos::ArrayRCP<scalar_type> yv = y_->get1dViewNonConst();
+  Teuchos::ArrayRCP<scalar_type> zv = z_->get1dViewNonConst();
   const size_t localLength = node_overlap_map_->getNodeNumElements();
   for (size_t nn=0; nn < localLength; nn++) {
     xv[nn] = mesh_->get_x(nn);
@@ -449,7 +454,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   
   if (nonnull(outArgs.get_f())){
 
-    const RCP<vector_type> f_vec =
+    const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
 
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
@@ -669,7 +674,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   }//get_f
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
-    const RCP<vector_type> f_vec =
+    const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
@@ -1170,7 +1175,7 @@ ModelEvaluatorTPETRA<scalar_type>::createOutArgsImpl() const
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::advance()
 {
-  Teuchos::RCP< VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
+  Teuchos::RCP< Thyra::VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
   solver_->reset(thyraguess);
 
@@ -1192,7 +1197,7 @@ void ModelEvaluatorTPETRA<scalar_type>::advance()
       );
   Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
 
-  ArrayRCP<scalar_type> uv = u_old_->get1dViewNonConst();
+  Teuchos::ArrayRCP<scalar_type> uv = u_old_->get1dViewNonConst();
   const size_t localLength = num_owned_nodes_;
 
 
@@ -1622,7 +1627,7 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
   int num_nodes = num_overlap_nodes_;
   std::vector<std::vector<double>> output(numeqs_, std::vector<double>(num_nodes));
 
-  const ArrayRCP<scalar_type> uv = temp->get1dViewNonConst();
+  const Teuchos::ArrayRCP<scalar_type> uv = temp->get1dViewNonConst();
   //const size_t localLength = num_owned_nodes_;
 
   for( int k = 0; k < numeqs_; k++ ){

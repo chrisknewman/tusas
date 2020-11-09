@@ -10,6 +10,20 @@
 #ifndef NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP
 
+// local support
+#include "function_def.hpp"
+#ifdef TUSAS_HAVE_CUDA
+#else
+
+#include "preconditioner.hpp"
+#include "ParamNames.h"
+
+#include "elem_color.h"
+
+#include "interpfluxavg.h"
+#include "interpflux.h"
+#include "projection.h"
+
 // Thyra support
 //#include "Thyra_DefaultSpmdVectorSpace.hpp"
 #include "Thyra_DefaultSerialDenseLinearOpWithSolveFactory.hpp"
@@ -44,11 +58,6 @@
 #include <Teuchos_TimeMonitor.hpp>
 #include "Teuchos_Array.hpp"
 
-// local support
-#include "preconditioner.hpp"
-#include "ParamNames.h"
-#include "function_def.hpp"
-
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -59,12 +68,6 @@
 
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <limits>
-
-#include "elem_color.h"
-
-#include "interpfluxavg.h"
-#include "interpflux.h"
-#include "projection.h"
 
 std::string getmypidstring(const int mypid, const int numproc);
 
@@ -3932,4 +3935,5 @@ void ModelEvaluatorNEMESIS<Scalar>::dump_exaconstit(){
 }
 
 
+#endif //TUSAS_HAVE_CUDA
 #endif

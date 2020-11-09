@@ -59,6 +59,7 @@ ${DIR_7}/input/ReadInput.cpp
 ${DIR_7}/input/include/ReadInput.h 
 ${DIR_7}/error_estimator/error_estimator.cpp 
 ${DIR_7}/timestep/include/ModelEvaluatorTPETRA_def.hpp
+${DIR_7}/timestep/include/ModelEvaluatorTPETRA.hpp
 ${DIR_7}/post_process/post_process.cpp 
 ${DIR_7}/post_process/include/post_process.h 
 ${DIR_7}/elem_color/elem_color.cpp 

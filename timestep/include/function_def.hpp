@@ -4478,19 +4478,20 @@ namespace pfhub2 {
 //     return 60.*eta[eqn_id] - 180.*eta[eqn_id]*eta[eqn_id] + 120.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
 //   }
 
-  double g(const double *eta){
+//   double g(const double *eta){
 
-    double aval =0.;
-    for (int i = 0; i < N_; i++){
-      aval += eta[i]*eta[i];
-    }
+//     double aval =0.;
+//     for (int i = 0; i < N_; i++){
+//       aval += eta[i]*eta[i];
+//     }
     
-    double val = 0.;
-    for (int i = 0; i < N_; i++){
-      val += eta[i]*eta[i]*(1.-eta[i])*(1.-eta[i]) + alpha_*eta[i]*eta[i]*aval - alpha_*eta[i]*eta[i]*eta[i]*eta[i];
-    }
-    return val;
-  }
+//     double val = 0.;
+//     for (int i = 0; i < N_; i++){
+//       val += eta[i]*eta[i]*(1.-eta[i])*(1.-eta[i]) + alpha_*eta[i]*eta[i]*aval 
+// 	- alpha_*eta[i]*eta[i]*eta[i]*eta[i];
+//     }
+//     return val;
+//   }
 
   double dgdeta(const double *eta, const int eqn_id){
 
@@ -4498,7 +4499,8 @@ namespace pfhub2 {
     for (int i = 0; i < N_; i++){
       aval += eta[i]*eta[i];
     }
-    return 2.*eta[eqn_id]*(1. - eta[eqn_id])*(1. - eta[eqn_id])  - 2.* eta[eqn_id]* eta[eqn_id]* (1. - eta[eqn_id]) + 
+    return 2.*eta[eqn_id]*(1. - eta[eqn_id])*(1. - eta[eqn_id])  
+      - 2.* eta[eqn_id]* eta[eqn_id]* (1. - eta[eqn_id]) + 
       4.*alpha_*eta[eqn_id] *aval - 4.*alpha_*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
   }
 
@@ -4518,9 +4520,9 @@ namespace pfhub2 {
   {
     double delta_c_a = 0.;
     double delta_c_b = 0.;
-    int max_iter = 20;
-    double tol = 1.e-8;
-    double hh = h(phi);
+    const int max_iter = 20;
+    const double tol = 1.e-8;
+    const double hh = h(phi);
     //c_a[0] = (1.-hh)*c;
     c_a[0] = c - hh*(c_beta_ - c_alpha_);
 
@@ -4781,7 +4783,7 @@ INI_FUNC(init_c_)
 
 INI_FUNC(init_eta_)
 {
-  const double i = (double)(eqn_id -eqn_off_ + 1);
+  const double i = (double)(eqn_id - eqn_off_ + 1);
   return eps_eta_*std::pow(cos((0.01*i)*x-4.)*cos((0.007+0.01*i)*y)
 			   + cos((0.11+0.01*i)*x)*cos((0.11+0.01*i)*y)		   
 			   + psi_*std::pow(cos((0.046+0.001*i)*x+(0.0405+0.001*i)*y)
@@ -5745,6 +5747,213 @@ INI_FUNC(init_phase_pfhub3_)
 }
 
 }//namespace pfhub3
+
+namespace pfhub2
+{
+  int N_ = 1;
+  int eqn_off_ = 1;
+  const double c0_ = .5;
+  const double eps_ = .05;
+  const double eps_eta_ = .1;
+  const double psi_ = 1.5;
+  const double rho_ = std::sqrt(2.);
+  const double c_alpha_ = .3;
+  const double c_beta_ = .7;
+  const double alpha_ = 5.;
+  const double k_c_ = 3.;
+  const double k_eta_ = 3.;
+  const double M_ = 5.;
+  const double L_ = 5.;
+  const double w_ = 1.;
+  double c_a[2] = {0., 0.};
+  double c_b[2] = {0., 0.};
+
+  PARAM_FUNC(param_)
+  {
+    N_ = plist->get<int>("N");
+    eqn_off_ = plist->get<int>("OFFSET");
+  }
+
+  double dhdeta(const double eta){
+
+    //return 30.*eta[eqn_id]*eta[eqn_id] - 60.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id] + 30.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
+    return 30.*eta*eta - 60.*eta*eta*eta + 30.*eta*eta*eta*eta;
+  }
+
+  double h(const double *eta){
+    double val = 0.;
+    for (int i = 0; i < N_; i++){
+      val += eta[i]*eta[i]*eta[i]*(6.*eta[i]*eta[i] - 15.*eta[i] + 10.);
+    }
+    return val;
+  }
+
+  double d2fdc2(){
+    return 2.*rho_*rho_;
+  }
+
+  double df_alphadc(const double c){
+    return 2.*rho_*rho_*(c - c_alpha_);
+  }
+
+  double df_betadc(const double c){
+    return -2.*rho_*rho_*(c_beta_ - c);
+  }
+
+  void solve_kks(const double c, double *phi)//const double phi
+  {
+    double delta_c_a = 0.;
+    double delta_c_b = 0.;
+    const int max_iter = 20;
+    const double tol = 1.e-8;
+    const double hh = h(phi);
+    //c_a[0] = (1.-hh)*c;
+    c_a[0] = c - hh*(c_beta_ - c_alpha_);
+
+    //c_b[0]=hh*c;
+    c_b[0]= c - (1.-hh)*(c_beta_ - c_alpha_);
+
+    //std::cout<<"-1"<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
+    for(int i = 0; i < max_iter; i++){
+      double det = hh*d2fdc2() + (1.-hh)*d2fdc2();
+      double f1 = hh*c_b[0] + (1.- hh)*c_a[0] - c;
+      double f2 = df_betadc(c_b[0]) - df_alphadc(c_a[0]);
+      delta_c_b = (-d2fdc2()*f1 - (1-hh)*f2)/det;
+      delta_c_a = (-d2fdc2()*f1 + hh*f2)/det;
+      c_b[0] = delta_c_b + c_b[0];
+      c_a[0] = delta_c_a + c_a[0];
+      //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
+      if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return;
+    }
+    std::cout<<"###################################  solve_kks falied to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
+	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
+    //if(delta_c_a*delta_c_a+delta_c_b*delta_c_b > 0) exit(0);
+    exit(0);
+    return;
+  }
+
+  double f_alpha(const double c){
+    return rho_*rho_*(c - c_alpha_)*(c - c_alpha_);
+  }
+
+  double f_beta(const double c){
+    return rho_*rho_*(c_beta_ - c)*(c_beta_ - c);
+  }
+
+  double dgdeta(const double *eta, const int eqn_id){
+
+    double aval =0.;
+    for (int i = 0; i < N_; i++){
+      aval += eta[i]*eta[i];
+    }
+    return 2.*eta[eqn_id]*(1. - eta[eqn_id])*(1. - eta[eqn_id])  
+      - 2.* eta[eqn_id]* eta[eqn_id]* (1. - eta[eqn_id]) + 
+      4.*alpha_*eta[eqn_id] *aval - 4.*alpha_*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
+  }
+
+RES_FUNC_TPETRA(residual_c_kks_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[0].dphidx[i];
+  const double dtestdy = basis[0].dphidy[i];
+  //double dtestdz = basis[0].dphidz[i];
+  //test function
+  const double test = basis[0].phi[i];
+  //u, phi
+  const double c[2] = {basis[0].uu, basis[0].uuold};
+  const double dcdx[2] = {basis[0].dudx, basis[0].duolddx};
+  const double dcdy[2] = {basis[0].dudy, basis[0].duolddy};
+
+  double dhdx[2] = {0., 0.};
+  double dhdy[2] = {0., 0.};
+
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    dhdx[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudx;
+    dhdx[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddx;
+    dhdy[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudy;
+    dhdy[1] += dhdeta(basis[kk_off].uuold)*basis[kk_off].duolddy;
+  }
+
+  const double ct = (c[0]-c[1])/dt_*test;
+
+  double eta_array[N_];
+  double eta_array_old[N_];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off].uu;
+    eta_array_old[kk] = basis[kk_off].uuold;
+  }
+
+  solve_kks(c[0],eta_array);
+
+  const double DfDc[2] = {-c_b[0] + c_a[0],
+ 		    -c_b[1] + c_a[1]};
+
+  const double D2fDc2 = 1.;
+  //double D2fDc2 = 1.*d2fdc2();
+
+  const double dfdx[2] = {DfDc[0]*dhdx[0] + D2fDc2*dcdx[0],
+		    DfDc[1]*dhdx[1] + D2fDc2*dcdx[1]};
+  const double dfdy[2] = {DfDc[0]*dhdy[0] + D2fDc2*dcdy[0],
+		    DfDc[1]*dhdy[1] + D2fDc2*dcdy[1]};
+
+  const double divgradc[2] = {M_*(dfdx[0]*dtestdx + dfdy[0]*dtestdy),
+			M_*(dfdx[1]*dtestdx + dfdy[1]*dtestdy)};
+
+  return ct + t_theta_*divgradc[0] + (1.-t_theta_)*divgradc[1];
+}
+
+RES_FUNC_TPETRA(residual_eta_kks_)
+{
+
+  //derivatives of the test function
+  const double dtestdx = basis[eqn_id].dphidx[i];
+  const double dtestdy = basis[eqn_id].dphidy[i];
+  //double dtestdz = basis[0].dphidz[i];
+  //test function
+  const double test = basis[eqn_id].phi[i];
+  //u, phi
+  const double c[2] = {basis[0].uu, basis[0].uuold};
+
+  const double eta[2] = {basis[eqn_id].uu, basis[eqn_id].uuold};
+  const double detadx[2] = {basis[eqn_id].dudx, basis[eqn_id].duolddx};
+  const double detady[2] = {basis[eqn_id].dudy, basis[eqn_id].duolddy};
+
+  double eta_array[N_];
+  double eta_array_old[N_];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off].uu;
+    eta_array_old[kk] = basis[kk_off].uuold;
+  }
+
+  solve_kks(c[0],eta_array);
+
+  const double etat = (eta[0]-eta[1])/dt_*test;
+
+
+  const double F[2] = {f_beta(c_b[0]) - f_alpha(c_a[0]) 
+		 - (c_b[0] - c_a[0])*df_betadc(c_b[0]),
+		 f_beta(c_b[1]) - f_alpha(c_a[1]) 
+		 - (c_b[1] - c_a[1])*df_betadc(c_b[1])};
+
+  const int k = eqn_id - eqn_off_;
+  const double dfdeta[2] = {L_*(F[0]*dhdeta(eta[0]) 
+				    + w_*dgdeta(eta_array,k)    )*test,
+		      L_*(F[1]*dhdeta(eta[1]) 
+				    + w_*dgdeta(eta_array_old,k))*test};
+
+  const double divgradeta[2] = {L_*k_eta_
+			  *(detadx[0]*dtestdx + detady[0]*dtestdy), 
+			  L_*k_eta_
+			  *(detadx[1]*dtestdx + detady[1]*dtestdy)};//(grad u,grad phi)
+ 
+  return etat + t_theta_*divgradeta[0] + t_theta_*dfdeta[0] + (1.-t_theta_)*divgradeta[1] + (1.-t_theta_)*dfdeta[1];
+}
+
+
+}//namespace pfhub2
 }//namespace tpetra
 
 

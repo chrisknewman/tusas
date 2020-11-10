@@ -5765,8 +5765,8 @@ namespace pfhub2
   const double M_ = 5.;
   const double L_ = 5.;
   const double w_ = 1.;
-  double c_a[2] = {0., 0.};
-  double c_b[2] = {0., 0.};
+//   double c_a[2] = {0., 0.};
+//   double c_b[2] = {0., 0.};
 
   PARAM_FUNC(param_)
   {
@@ -5800,7 +5800,7 @@ namespace pfhub2
     return -2.*rho_*rho_*(c_beta_ - c);
   }
 
-  void solve_kks(const double c, double *phi)//const double phi
+  void solve_kks(const double c, double *phi, double &ca, double &cb)//const double phi
   {
     double delta_c_a = 0.;
     double delta_c_b = 0.;
@@ -5808,20 +5808,20 @@ namespace pfhub2
     const double tol = 1.e-8;
     const double hh = h(phi);
     //c_a[0] = (1.-hh)*c;
-    c_a[0] = c - hh*(c_beta_ - c_alpha_);
+    ca = c - hh*(c_beta_ - c_alpha_);
 
     //c_b[0]=hh*c;
-    c_b[0]= c - (1.-hh)*(c_beta_ - c_alpha_);
+    cb = c - (1.-hh)*(c_beta_ - c_alpha_);
 
     //std::cout<<"-1"<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
     for(int i = 0; i < max_iter; i++){
-      double det = hh*d2fdc2() + (1.-hh)*d2fdc2();
-      double f1 = hh*c_b[0] + (1.- hh)*c_a[0] - c;
-      double f2 = df_betadc(c_b[0]) - df_alphadc(c_a[0]);
+      const double det = hh*d2fdc2() + (1.-hh)*d2fdc2();
+      const double f1 = hh*cb + (1.- hh)*ca - c;
+      const double f2 = df_betadc(cb) - df_alphadc(ca);
       delta_c_b = (-d2fdc2()*f1 - (1-hh)*f2)/det;
       delta_c_a = (-d2fdc2()*f1 + hh*f2)/det;
-      c_b[0] = delta_c_b + c_b[0];
-      c_a[0] = delta_c_a + c_a[0];
+      cb = delta_c_b + cb;
+      ca = delta_c_a + ca;
       //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
       if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return;
     }
@@ -5867,6 +5867,9 @@ RES_FUNC_TPETRA(residual_c_kks_)
   double dhdx[2] = {0., 0.};
   double dhdy[2] = {0., 0.};
 
+  double c_a[2] = {0., 0.};
+  double c_b[2] = {0., 0.};
+
   for( int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
     dhdx[0] += dhdeta(basis[kk_off].uu)*basis[kk_off].dudx;
@@ -5885,7 +5888,7 @@ RES_FUNC_TPETRA(residual_c_kks_)
     eta_array_old[kk] = basis[kk_off].uuold;
   }
 
-  solve_kks(c[0],eta_array);
+  solve_kks(c[0],eta_array,c_a[0],c_b[0]);
 
   const double DfDc[2] = {-c_b[0] + c_a[0],
  		    -c_b[1] + c_a[1]};
@@ -5920,6 +5923,9 @@ RES_FUNC_TPETRA(residual_eta_kks_)
   const double detadx[2] = {basis[eqn_id].dudx, basis[eqn_id].duolddx};
   const double detady[2] = {basis[eqn_id].dudy, basis[eqn_id].duolddy};
 
+  double c_a[2] = {0., 0.};
+  double c_b[2] = {0., 0.};
+
   double eta_array[N_];
   double eta_array_old[N_];
   for( int kk = 0; kk < N_; kk++){
@@ -5928,7 +5934,7 @@ RES_FUNC_TPETRA(residual_eta_kks_)
     eta_array_old[kk] = basis[kk_off].uuold;
   }
 
-  solve_kks(c[0],eta_array);
+  solve_kks(c[0],eta_array,c_a[0],c_b[0]);
 
   const double etat = (eta[0]-eta[1])/dt_*test;
 

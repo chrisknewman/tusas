@@ -5751,6 +5751,8 @@ INI_FUNC(init_phase_pfhub3_)
 namespace pfhub2
 {
   TUSAS_DEVICE
+  const int N_MAX = 1;
+  TUSAS_DEVICE
   int N_ = 1;
   TUSAS_DEVICE
   int eqn_off_ = 1;
@@ -5763,7 +5765,7 @@ namespace pfhub2
   TUSAS_DEVICE
   const double psi_ = 1.5;
   TUSAS_DEVICE
-  const double rho_ = std::sqrt(2.);
+  const double rho_ = 1.414213562373095;//std::sqrt(2.);
   TUSAS_DEVICE
   const double c_alpha_ = .3;
   TUSAS_DEVICE
@@ -5860,9 +5862,8 @@ KOKKOS_INLINE_FUNCTION
       //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
       if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return;
     }
-    std::cout<<"###################################  solve_kks falied to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
-	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
-    //if(delta_c_a*delta_c_a+delta_c_b*delta_c_b > 0) exit(0);
+//     std::cout<<"###################################  solve_kks falied to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
+// 	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
     exit(0);
     return;
   }
@@ -5922,8 +5923,8 @@ RES_FUNC_TPETRA(residual_c_kks_)
 
   const double ct = (c[0]-c[1])/dt_*test;
 
-  double eta_array[N_];
-  double eta_array_old[N_];
+  double eta_array[N_MAX];
+  double eta_array_old[N_MAX];
   for( int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off].uu;
@@ -5972,8 +5973,8 @@ RES_FUNC_TPETRA(residual_eta_kks_)
   double c_a[2] = {0., 0.};
   double c_b[2] = {0., 0.};
 
-  double eta_array[N_];
-  double eta_array_old[N_];
+  double eta_array[N_MAX];
+  double eta_array_old[N_MAX];
   for( int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off].uu;

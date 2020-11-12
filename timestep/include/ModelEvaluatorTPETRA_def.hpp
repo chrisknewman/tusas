@@ -505,7 +505,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub3::residual_heat_pfhub3_dp_, sizeof(RESFUNC));
       cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub3::residual_phase_pfhub3_dp_, sizeof(RESFUNC));
-
+    }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub2::residual_c_kks_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub2::residual_eta_kks_dp_, sizeof(RESFUNC));
 
     } else {
       if( 0 == comm_->getRank() ){
@@ -1569,8 +1571,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta+1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &tpetra::pfhub2::residual_c_kks_;
-    (*residualfunc_)[1] = &tpetra::pfhub2::residual_eta_kks_;
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_kks_dp_;
+    (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_kks_dp_;
 #if 0
     if( 4 == numeta){
       (*residualfunc_)[2] = &pfhub2::residual_eta_kks_;
@@ -1620,7 +1622,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &pfhub2::postproc_c_a_;
+    post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

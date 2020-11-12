@@ -5750,56 +5750,91 @@ INI_FUNC(init_phase_pfhub3_)
 
 namespace pfhub2
 {
+  TUSAS_DEVICE
   int N_ = 1;
+  TUSAS_DEVICE
   int eqn_off_ = 1;
+  TUSAS_DEVICE
   const double c0_ = .5;
+  TUSAS_DEVICE
   const double eps_ = .05;
+  TUSAS_DEVICE
   const double eps_eta_ = .1;
+  TUSAS_DEVICE
   const double psi_ = 1.5;
+  TUSAS_DEVICE
   const double rho_ = std::sqrt(2.);
+  TUSAS_DEVICE
   const double c_alpha_ = .3;
+  TUSAS_DEVICE
   const double c_beta_ = .7;
+  TUSAS_DEVICE
   const double alpha_ = 5.;
+  TUSAS_DEVICE
   const double k_c_ = 3.;
+  TUSAS_DEVICE
   const double k_eta_ = 3.;
+  TUSAS_DEVICE
   const double M_ = 5.;
+  TUSAS_DEVICE
   const double L_ = 5.;
+  TUSAS_DEVICE
   const double w_ = 1.;
 //   double c_a[2] = {0., 0.};
 //   double c_b[2] = {0., 0.};
 
   PARAM_FUNC(param_)
   {
-    N_ = plist->get<int>("N");
-    eqn_off_ = plist->get<int>("OFFSET");
+    int N_p = plist->get<int>("N");
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
+#else
+    N_ = N_p;
+#endif
+    int eqn_off_p = plist->get<int>("OFFSET");
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
+#else
+    eqn_off_ = eqn_off_p;
+#endif
   }
-
-  double dhdeta(const double eta){
-
+ 
+KOKKOS_INLINE_FUNCTION 
+  double dhdeta(const double eta)
+  {
     //return 30.*eta[eqn_id]*eta[eqn_id] - 60.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id] + 30.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
     return 30.*eta*eta - 60.*eta*eta*eta + 30.*eta*eta*eta*eta;
   }
-
-  double h(const double *eta){
+ 
+KOKKOS_INLINE_FUNCTION 
+  double h(const double *eta)
+  {
     double val = 0.;
     for (int i = 0; i < N_; i++){
       val += eta[i]*eta[i]*eta[i]*(6.*eta[i]*eta[i] - 15.*eta[i] + 10.);
     }
     return val;
   }
-
-  double d2fdc2(){
+ 
+KOKKOS_INLINE_FUNCTION 
+  double d2fdc2()
+  {
     return 2.*rho_*rho_;
   }
-
-  double df_alphadc(const double c){
+ 
+KOKKOS_INLINE_FUNCTION 
+  double df_alphadc(const double c)
+  {
     return 2.*rho_*rho_*(c - c_alpha_);
   }
-
-  double df_betadc(const double c){
+ 
+KOKKOS_INLINE_FUNCTION 
+  double df_betadc(const double c)
+  {
     return -2.*rho_*rho_*(c_beta_ - c);
   }
-
+ 
+KOKKOS_INLINE_FUNCTION 
   void solve_kks(const double c, double *phi, double &ca, double &cb)//const double phi
   {
     double delta_c_a = 0.;
@@ -5831,16 +5866,22 @@ namespace pfhub2
     exit(0);
     return;
   }
-
-  double f_alpha(const double c){
+ 
+KOKKOS_INLINE_FUNCTION 
+  double f_alpha(const double c)
+  {
     return rho_*rho_*(c - c_alpha_)*(c - c_alpha_);
   }
-
-  double f_beta(const double c){
+ 
+KOKKOS_INLINE_FUNCTION 
+  double f_beta(const double c)
+  {
     return rho_*rho_*(c_beta_ - c)*(c_beta_ - c);
   }
-
-  double dgdeta(const double *eta, const int eqn_id){
+ 
+KOKKOS_INLINE_FUNCTION 
+  double dgdeta(const double *eta, const int eqn_id)
+  {
 
     double aval =0.;
     for (int i = 0; i < N_; i++){
@@ -5851,6 +5892,7 @@ namespace pfhub2
       4.*alpha_*eta[eqn_id] *aval - 4.*alpha_*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
   }
 
+KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_kks_)
 {
   //derivatives of the test function
@@ -5907,6 +5949,10 @@ RES_FUNC_TPETRA(residual_c_kks_)
   return ct + t_theta_*divgradc[0] + (1.-t_theta_)*divgradc[1];
 }
 
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_kks_dp_)) = residual_c_kks_;
+
+KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_)
 {
 
@@ -5958,6 +6004,35 @@ RES_FUNC_TPETRA(residual_eta_kks_)
   return etat + t_theta_*divgradeta[0] + t_theta_*dfdeta[0] + (1.-t_theta_)*divgradeta[1] + (1.-t_theta_)*dfdeta[1];
 }
 
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
+
+PPR_FUNC(postproc_c_a_)
+{
+
+  //cn will need eta_array here...
+  const double cc = u[0];
+  double phi = u[1];
+  double c_a = 0.;
+  double c_b = 0.;
+
+  solve_kks(cc,&phi,c_a,c_b);
+
+  return c_a;
+}
+
+PPR_FUNC(postproc_c_b_)
+{
+  //cn will need eta_array here...
+  const double cc = u[0];
+  double phi = u[1];
+  double c_a = 0.;
+  double c_b = 0.;
+
+  solve_kks(cc,&phi,c_a,c_b);
+
+  return c_b;
+}
 
 }//namespace pfhub2
 }//namespace tpetra

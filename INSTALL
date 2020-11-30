@@ -16,3 +16,6 @@ Running tusas
 From inside the trunk directory where Tusas is built, you can run the tusas executable that was just built with CMake. Note that the input file tusas.xml can be altered to preference.
 
 $ ./tusas --input-file=tusas.xml
+
+For clang may need:
+install_name_tool -add_rpath /usr/local/llvm/10.0.0/lib/ /Users/cnewman/work/tusas_git/fix/pfhub2T/../../VOTD_CLANG_KOKKOS/tusas

@@ -99,7 +99,9 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
       std::cout<<" WARNING::  sizeof(Mesh::mesh_lint_t) != sizeof(global_ordinal_type)"<<std::endl;
       std::cout<<"sizeof(Mesh::mesh_lint_t) = "<<sizeof(Mesh::mesh_lint_t)<<std::endl;
       std::cout<<"sizeof(long long) =  "<<sizeof(long long)<<std::endl;
-      std::cout<<"<sizeof(global_ordinal_type) =  "<<sizeof(global_ordinal_type)<<std::endl;
+      std::cout<<"<sizeof(global_ordinal_type) =  "<<sizeof(global_ordinal_type)<<std::endl<<std::endl;
+      std::cout<<"This is due to incompatablility with global_ordinal_type in Trilinos"<<std::endl;
+      std::cout<<"Mesh::mesh_lint_t in Tusas. Can be addressed via -DNO_MESH_64."<<std::endl;
       std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
       std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
     }

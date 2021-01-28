@@ -55,8 +55,6 @@
 
 #define TUSAS_RUN_ON_CPU
 
-#define TUSAS_MAX_NUMEQS 2
-
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
 #define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 16
 
@@ -570,24 +568,35 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	if(ne < num_elem) {
 	  const int elem = elem_map_1dConst(ne);
 #else
-	  Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){//this loop is fine for openmp re access to elem_map
+	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+// 	for( int neq = 0; neq < numeqs; neq++ )
+// 	  BGPU[neq] = &Bh[neq];
+// 	GPUBasis BGPU_d[2]; BGPU_d[0]= *BGPU[0];BGPU_d[1]= *BGPU[1];
+
+	Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
 	const int elem = elem_map_1d(ne);
 #endif
+	printf ("***** Here 1 ***** %d \n",elem);
+	//GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+	//GPUBasisLHex Bh_d[2];Bh_d[0] = Bh[0];Bh_d[1]=Bh[1];
+	printf ("***** Here 2 ***** %d \n",Bh[0].ngp);
 
-	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
-	
-	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	//GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+	//GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+#if 0
 	if(4 == n_nodes_per_elem)  {
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bq[neq];
+	  //for( int neq = 0; neq < numeqs; neq++ )
+	    //BGPU[neq] = &Bq[neq];
 	}else{
 	  for( int neq = 0; neq < numeqs; neq++ )
 	    BGPU[neq] = &Bh[neq];
 	}
-	
-	const int ngp = BGPU[0]->ngp;
+#endif	
+	//const int ngp = BGPU[0]->ngp;
+	const int ngp = Bh[0].ngp;
+	printf ("***** Here 3 ***** %d \n",ngp);
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];
@@ -619,9 +628,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}//k
 
 	for( int neq = 0; neq < numeqs; neq++ ){
-	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
-	//(&BGPUarr[0])->computeElemData(&xx[0], &yy[0], &zz[0]);
+	  //BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
+	  Bh_d[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
 	}//neq
+	printf ("***** Here 4 ***** %d \n",ngp);
 	for(int gp=0; gp < ngp; gp++) {//gp
 
 	  for( int neq = 0; neq < numeqs; neq++ ){

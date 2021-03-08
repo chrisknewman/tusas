@@ -4990,8 +4990,11 @@ RES_FUNC(residual_eta_kkspp_)
 
 }//namespace pfhub2
 
+#define KODIAK 0
 
-#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis *basis, \
+//#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis &basis,	\
+
+#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasisLQuadNew &basis, \
                                     const int &i,\
                                     const double &dt_,\
 			            const double &t_theta_,\
@@ -5032,6 +5035,13 @@ INI_FUNC(init_heat_test_)
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_heat_test_)
 {
+  double val= (basis.uu-basis.uuold)/dt_*basis.getphi(i)
+    + (basis.dudx*basis.dphidx[i]
+       + basis.dudy*basis.dphidy[i]
+       + basis.dudz*basis.dphidz[i]);
+  //printf("%d %le %le %le %le %le\n",i,basis.uu,basis.dudx,basis.dudy, basis.uuold,val);
+  return val;
+#if KODIAK
   return (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i]
     + t_theta_*k_d*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
@@ -5039,6 +5049,7 @@ RES_FUNC_TPETRA(residual_heat_test_)
     +(1. - t_theta_)*k_d*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
 		   + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
 		   + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i]);
+#endif
 }
 
 TUSAS_DEVICE
@@ -5104,7 +5115,7 @@ double f2(const double &x, const double &y, const double &t)
   const double pi2 = pi*pi;
   return exp(-4.*pi2*t)*pi2*(cos(piy)*cos(piy)*sin(pix)*sin(pix) + cos(pix)*cos(pix)*sin(piy)*sin(piy));
 }
-
+#if KODIAK
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_nlheatimr_test_)
 {
@@ -5161,7 +5172,7 @@ RES_FUNC_TPETRA(residual_nlheatcn_test_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_nlheatcn_test_dp_)) = residual_nlheatcn_test_;
-
+#endif //KODIAK
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_nlheatcn_test_)
@@ -5410,14 +5421,14 @@ double ap(const double &p,const double &px,const double &py,const double &pz,con
 				    /(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)
     : 0.;
 }
-
+#if KODIAK
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_)
 {
   //derivatives of the test function
-  const double dtestdx = basis[eqn_id].dphidx[i];
-  const double dtestdy = basis[eqn_id].dphidy[i];
-  const double dtestdz = basis[eqn_id].dphidz[i];
+  const double dtestdx = basis[1].dphidx[i];
+  const double dtestdy = basis[1].dphidy[i];
+  const double dtestdz = basis[1].dphidz[i];
   //test function
   const double test = basis[0].phi[i];
   //u, phi
@@ -5481,9 +5492,9 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_conc_farzadi_)
 {
   //right now, if explicit, we will have some problems with time derivates below
-  const double dtestdx = basis[eqn_id].dphidx[i];
-  const double dtestdy = basis[eqn_id].dphidy[i];
-  const double dtestdz = basis[eqn_id].dphidz[i];
+  const double dtestdx = basis[0].dphidx[i];
+  const double dtestdy = basis[0].dphidy[i];
+  const double dtestdz = basis[0].dphidz[i];
   const double test = basis[0].phi[i];
   const double u = basis[0].uu;
   const double uold = basis[0].uuold;
@@ -5511,7 +5522,7 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_conc_farzadi_dp_)) = residual_conc_farzadi_;
-
+#endif //KODIAK
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_phase_farzadi_)
@@ -5637,7 +5648,7 @@ namespace pfhub3
 PARAM_FUNC(param_)
 {
 }
-
+#if KODIAK
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_heat_pfhub3_)
 {
@@ -5717,6 +5728,7 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_phase_pfhub3_dp_)) = residual_phase_pfhub3_;
+#endif //KODIAK
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_pfhub3_)
@@ -5892,7 +5904,7 @@ KOKKOS_INLINE_FUNCTION
       - 2.* eta[eqn_id]* eta[eqn_id]* (1. - eta[eqn_id]) + 
       4.*alpha_*eta[eqn_id] *aval - 4.*alpha_*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
   }
-
+#if KODIAK
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_kks_)
 {
@@ -6007,7 +6019,7 @@ RES_FUNC_TPETRA(residual_eta_kks_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
-
+#endif //KODIAK
 PPR_FUNC(postproc_c_a_)
 {
 

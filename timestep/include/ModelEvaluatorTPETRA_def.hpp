@@ -55,6 +55,8 @@
 
 #define TUSAS_RUN_ON_CPU
 
+#define TUSAS_MAX_NUMEQS 2
+
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
 #define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 16
 
@@ -489,25 +491,25 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
     }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
       //cn this will need to be done for each equation
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatimr_test_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatimr_test_dp_, sizeof(RESFUNC));
     }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
       //cn this will need to be done for each equation
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatcn_test_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatcn_test_dp_, sizeof(RESFUNC));
     }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
       cudaMemcpyFromSymbol( &h_rf[1], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
     }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
     }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub3::residual_heat_pfhub3_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub3::residual_phase_pfhub3_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub3::residual_heat_pfhub3_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub3::residual_phase_pfhub3_dp_, sizeof(RESFUNC));
     }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub2::residual_c_kks_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub2::residual_eta_kks_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub2::residual_c_kks_dp_, sizeof(RESFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub2::residual_eta_kks_dp_, sizeof(RESFUNC));
 
     } else {
       if( 0 == comm_->getRank() ){
@@ -524,6 +526,19 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     h_rf = &(*residualfunc_)[0];
 #endif
 
+    //cn want this stuff in the ifdef but also outside of re and prec fills
+//     GPUBasis* f_1 = (GPUBasis*)Kokkos::kokkos_malloc<Kokkos::CudaUVMSpace>(sizeof(GPUBasis));
+//     f_1 = (GPUBasis*)Kokkos::kokkos_malloc<Kokkos::CudaSpace>(sizeof(GPUBasis));
+
+//     Kokkos::fence();     
+//     auto f_1 = Kokkos::View<GPUBasis*, Kokkos::CudaUVMSpace>
+//       (Kokkos::ViewAllocateWithoutInitializing ("view_group"), 1);
+//     //printf("CreateObjects1\n");
+
+//     Kokkos::fence();
+
+   
+
 
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
@@ -537,7 +552,23 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	//elem_map_k[i] = elem_map[i]; 
 	elem_map_1d(i) = elem_map[i]; 
       }
-      //exit(0);
+      
+      //Kokkos::fence();     
+      //auto f_1 = Kokkos::View<GPUBasis*, Kokkos::CudaSpace>(Kokkos::ViewAllocateWithoutInitializing ("view_group"), 1);
+      //printf("CreateObjects1\n");   
+      //Kokkos::View<GPUBasis*,Kokkos::Cuda> f_1(Kokkos::ViewAllocateWithoutInitializing ("view_group"), 1);
+      //Kokkos::View<GPUBasis*, Kokkos::Device<Kokkos::Cuda,Kokkos::CudaSpace>> 
+      //	f_1(Kokkos::ViewAllocateWithoutInitializing ("view_group"), 1);
+      //GPUBasis* f_1 = (GPUBasis*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLQuad));
+
+      
+      //Kokkos::fence();
+
+   
+
+
+
+
       //auto elem_map_2d = Kokkos::subview(elem_map_1d, Kokkos::ALL (), Kokkos::ALL (), 0);
       //std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
       //for (int ne=0; ne < num_elem; ne++) { 
@@ -568,35 +599,18 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	if(ne < num_elem) {
 	  const int elem = elem_map_1dConst(ne);
 #else
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
-// 	for( int neq = 0; neq < numeqs; neq++ )
-// 	  BGPU[neq] = &Bh[neq];
-// 	GPUBasis BGPU_d[2]; BGPU_d[0]= *BGPU[0];BGPU_d[1]= *BGPU[1];
 
-	Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
+
+
+
+    Kokkos::fence();
+      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
 	const int elem = elem_map_1d(ne);
 #endif
-	printf ("***** Here 1 ***** %d \n",elem);
-	//GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
-	//GPUBasisLHex Bh_d[2];Bh_d[0] = Bh[0];Bh_d[1]=Bh[1];
-	printf ("***** Here 2 ***** %d \n",Bh[0].ngp);
 
-	//GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	//GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-#if 0
-	if(4 == n_nodes_per_elem)  {
-	  //for( int neq = 0; neq < numeqs; neq++ )
-	    //BGPU[neq] = &Bq[neq];
-	}else{
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bh[neq];
-	}
-#endif	
+
 	//const int ngp = BGPU[0]->ngp;
-	const int ngp = Bh[0].ngp;
-	printf ("***** Here 3 ***** %d \n",ngp);
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];
@@ -626,19 +640,39 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs*nodeid+neq);
 	  }//neq
 	}//k
+	//printf("computeElemData step1\n");
+
+        //new(&f_1(0)) GPUBasisLQuad(2);  
+	//new((GPUBasisLQuad*)f_1) GPUBasisLQuad(2);
+
+	GPUBasisLQuadNew B(2);
+
+	//printf("%d\n",B.getNgp());
 
 	for( int neq = 0; neq < numeqs; neq++ ){
 	  //BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
-	  Bh_d[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
+	  //f_1(neq).computeElemData(&xx[0], &yy[0], &zz[0]);//we could interp x y z here to save time?
+	  //f_1->computeElemData(&xx[0], &yy[0], &zz[0]);//we could interp x y z here to save time?
+	  B.computeElemData(&xx[0], &yy[0], &zz[0]);//we could interp x y z here to save time?
 	}//neq
-	printf ("***** Here 4 ***** %d \n",ngp);
-	for(int gp=0; gp < ngp; gp++) {//gp
+	//printf("computeElemData step2\n");
 
+	//const int ngp = f_1(0).getNgp();
+	const int ngp = B.getNgp();
+
+	for(int gp=0; gp < ngp; gp++) {//gp
+	  //double jb =0.;
+	  double jf =0.;
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    //we need a basis object that stores all equations here..
-	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],NULL);
+	    //jb=BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],NULL);
+	    //jf=f_1(neq).getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem]);
+	    //jf=f_1->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem]);
+
+	    jf=B.getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem]);
 	  }//neq
-	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
+
+	  const double jacwt = jf;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const int lrow = numeqs*meshc[elemrow+i];
@@ -646,17 +680,21 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
-	      //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,neq));
-	      const double val = jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
+	      //const double val = jacwt*((d_rf[neq])(BGPU,i,dt,t_theta,time,neq));
+	      //const double val = jacwt*((d_rf[neq])(f_1(neq),i,dt,t_theta,time,neq));
+	      double val =0;
+	      //if(1==c) val = jacwt*((d_rf[neq])(*f_1,i,dt,t_theta,time,neq));
+	      val = jacwt*((d_rf[neq])(B,i,dt,t_theta,time,neq));
+	      //printf("BGPU %d %le %le\n",neq,jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq)),val);
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
-	      //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
 	      const double val = jacwt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq));
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
 	      //std::cout<<lid<<"   "<<jacwt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq))<<std::endl;
 	      f_1d[lid] += val;
+	      //if(0==c) printf("%d %le %le %d\n",lid,jacwt*((d_rf[neq])(*f_1,i,dt,t_theta,time,neq)),f_1d[lid],c);
 	    }//neq
 	  }//i
 	}//gp
@@ -664,15 +702,19 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			       }//if ne
 #else
 #endif
+			   //f_1(0).~GPUBasis();
+			   //f_1->~GPUBasis();
       });//parallel_for
 		     //};//ne
-
+	//Kokkos::kokkos_free<Kokkos::CudaSpace>(f_1);
+	//Kokkos::fence();
     }//c 
 
 #ifdef TUSAS_HAVE_CUDA
   cudaFree(d_rf);
   free(h_rf);
 #endif
+
 
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
@@ -769,24 +811,23 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     cudaMalloc((double**)&d_pf,numeqs_*sizeof(PREFUNC));
 
     if("heat" == paramList.get<std::string> (TusastestNameString)){
-      //cn this will need to be done for each equation
       cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
     }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
-      cudaMemcpyFromSymbol( &h_pf[1], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[1], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
-      cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
     }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
-      cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
     }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::pfhub3::prec_heat_pfhub3_dp_, sizeof(PREFUNC));
-      cudaMemcpyFromSymbol( &h_pf[1], tpetra::pfhub3::prec_phase_pfhub3_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[0], tpetra::pfhub3::prec_heat_pfhub3_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[1], tpetra::pfhub3::prec_phase_pfhub3_dp_, sizeof(PREFUNC));
     }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
     }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
+      //kodiak cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
     } else {
       if( 0 == comm_->getRank() ){
 	std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
@@ -833,7 +874,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    BGPU[neq] = &Bh[neq];
 	}
 	
-	const int ngp = BGPU[0]->ngp;
+	const int ngp = BGPU[0]->getNgp();
 
 	//const int elem = elem_map_k[ne];
 	const int elem = elem_map_1d(ne);
@@ -864,9 +905,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	for(int gp=0; gp < ngp; gp++) {//gp
 	  for( int neq = 0; neq < numeqs; neq++ ){
-	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);
+	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL);
 	  }//neq
-	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
+	  const double jacwt = BGPU[0]->getJac()*BGPU[0]->getWt();
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 	    //const local_ordinal_type lrow = numeqs*meshc[elemrow+i];
 	    const local_ordinal_type lrow = numeqs*meshc_1d(elemrow+i);
@@ -1363,7 +1404,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tpetra::residual_nlheatimr_test_dp_;
+    //kodiak (*residualfunc_)[0] = tpetra::residual_nlheatimr_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
@@ -1396,7 +1437,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tpetra::residual_nlheatcn_test_dp_;
+    //kodiak (*residualfunc_)[0] = tpetra::residual_nlheatcn_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::prec_nlheatcn_test_dp_;
@@ -1430,8 +1471,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
 
-    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
-    (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
+    //kodiak (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
+    //kodiak (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
@@ -1470,8 +1511,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
 //     (*residualfunc_)[0] = &cummins::residual_heat_;
 //     (*residualfunc_)[1] = &cummins::residual_phase_;
-    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
-    (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
+    //kodiak (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
+    //kodiak (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
 
 //     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
 //     (*preconfunc_)[0] = &cummins::prec_heat_;
@@ -1503,8 +1544,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[1] = &tpetra::farzadi3d::init_phase_farzadi_;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
-    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
+    //kodiak (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
+    //kodiak (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
@@ -1529,8 +1570,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[1] = &tpetra::farzadi3d::init_phase_farzadi_test_;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
-    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
+    //kodiak (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
+    //kodiak (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
@@ -1558,8 +1599,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[1] = &tpetra::pfhub3::init_phase_pfhub3_;
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub3::residual_heat_pfhub3_dp_;
-    (*residualfunc_)[1] = tpetra::pfhub3::residual_phase_pfhub3_dp_;
+    //kodiak (*residualfunc_)[0] = tpetra::pfhub3::residual_heat_pfhub3_dp_;
+    //kodiak (*residualfunc_)[1] = tpetra::pfhub3::residual_phase_pfhub3_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::pfhub3::prec_heat_pfhub3_dp_;
@@ -1583,8 +1624,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta+1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_kks_dp_;
-    (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_kks_dp_;
+    //kodiak (*residualfunc_)[0] = tpetra::pfhub2::residual_c_kks_dp_;
+    //kodiak (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_kks_dp_;
 #if 0
     if( 4 == numeta){
       (*residualfunc_)[2] = &pfhub2::residual_eta_kks_;

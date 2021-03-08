@@ -204,7 +204,8 @@ private:
   std::vector<std::string> *varnames_;
 
   //do we want to move these typedefs to function_def.hpp? would need to do it for nemesis class as well
-  typedef double (*RESFUNC)(const GPUBasis *basis, 
+  //typedef double (*RESFUNC)(const GPUBasis &basis, 
+  typedef double (*RESFUNC)(const GPUBasisLQuadNew &basis, 
 			    const int &i, 
 			    const double &dt_, 
 			    const double &t_theta_, 

@@ -645,7 +645,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
         //new(&f_1(0)) GPUBasisLQuad(2);  
 	//new((GPUBasisLQuad*)f_1) GPUBasisLQuad(2);
 
-	GPUBasisLQuadNew B(2);
+	GPUBasisLQuadNew B;
 
 	//printf("%d\n",B.getNgp());
 

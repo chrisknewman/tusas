@@ -3075,7 +3075,8 @@ public:
 
 
 public:
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuadNew(const int n = 2){
+  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuadNew(){
+    const int n = 2;
     sngp = n;
     jac = -9999.;
     if( 3 == n){

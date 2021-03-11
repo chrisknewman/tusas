@@ -55,8 +55,6 @@
 
 #define TUSAS_RUN_ON_CPU
 
-#define TUSAS_MAX_NUMEQS 2
-
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
 #define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 16
 
@@ -526,17 +524,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     h_rf = &(*residualfunc_)[0];
 #endif
 
-    //cn want this stuff in the ifdef but also outside of re and prec fills
-//     GPUBasis* f_1 = (GPUBasis*)Kokkos::kokkos_malloc<Kokkos::CudaUVMSpace>(sizeof(GPUBasis));
-//     f_1 = (GPUBasis*)Kokkos::kokkos_malloc<Kokkos::CudaSpace>(sizeof(GPUBasis));
 
-//     Kokkos::fence();     
-//     auto f_1 = Kokkos::View<GPUBasis*, Kokkos::CudaUVMSpace>
-//       (Kokkos::ViewAllocateWithoutInitializing ("view_group"), 1);
-//     //printf("CreateObjects1\n");
+      GPUBasisLQuadNew* f_1 = (GPUBasisLQuadNew*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLQuadNew));
 
-//     Kokkos::fence();
+      Kokkos::parallel_for(
+        "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
+	  new(f_1) GPUBasisLQuadNew();
+        });
 
+   
    
 
 
@@ -553,21 +549,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	elem_map_1d(i) = elem_map[i]; 
       }
       
-      //Kokkos::fence();     
-      //auto f_1 = Kokkos::View<GPUBasis*, Kokkos::CudaSpace>(Kokkos::ViewAllocateWithoutInitializing ("view_group"), 1);
-      //printf("CreateObjects1\n");   
-      //Kokkos::View<GPUBasis*,Kokkos::Cuda> f_1(Kokkos::ViewAllocateWithoutInitializing ("view_group"), 1);
-      //Kokkos::View<GPUBasis*, Kokkos::Device<Kokkos::Cuda,Kokkos::CudaSpace>> 
-      //	f_1(Kokkos::ViewAllocateWithoutInitializing ("view_group"), 1);
-      //GPUBasis* f_1 = (GPUBasis*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLQuad));
-
-      
-      //Kokkos::fence();
-
-   
-
-
-
 
       //auto elem_map_2d = Kokkos::subview(elem_map_1d, Kokkos::ALL (), Kokkos::ALL (), 0);
       //std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
@@ -609,8 +590,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	const int elem = elem_map_1d(ne);
 #endif
 
-
-	//const int ngp = BGPU[0]->ngp;
+#if KODIAK
+	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+	
+	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	if(4 == n_nodes_per_elem)  {
+	  for( int neq = 0; neq < numeqs; neq++ )
+	    BGPU[neq] = &Bq[neq];
+	}else{
+	  for( int neq = 0; neq < numeqs; neq++ )
+	    BGPU[neq] = &Bh[neq];
+	}
+	const int ngp = BGPU[0]->getNgp();
+#endif
+	const int ngp = f_1->getNgp();
+	
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];
@@ -640,36 +635,51 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs*nodeid+neq);
 	  }//neq
 	}//k
-	//printf("computeElemData step1\n");
 
-        //new(&f_1(0)) GPUBasisLQuad(2);  
-	//new((GPUBasisLQuad*)f_1) GPUBasisLQuad(2);
-
-	GPUBasisLQuadNew B;
-
-	//printf("%d\n",B.getNgp());
-
+#if KODIAK
 	for( int neq = 0; neq < numeqs; neq++ ){
-	  //BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
-	  //f_1(neq).computeElemData(&xx[0], &yy[0], &zz[0]);//we could interp x y z here to save time?
-	  //f_1->computeElemData(&xx[0], &yy[0], &zz[0]);//we could interp x y z here to save time?
-	  B.computeElemData(&xx[0], &yy[0], &zz[0]);//we could interp x y z here to save time?
+	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
 	}//neq
-	//printf("computeElemData step2\n");
-
-	//const int ngp = f_1(0).getNgp();
-	const int ngp = B.getNgp();
+#endif
 
 	for(int gp=0; gp < ngp; gp++) {//gp
-	  //double jb =0.;
-	  double jf =0.;
+	  double jf = 0.;
+
+	  double phi[4]={0.,0.,0.,0.};
+	  double dphidx[4]={0.,0.,0.,0.};
+	  double dphidy[4]={0.,0.,0.,0.};
+	  double dphidz[4]={0.,0.,0.,0.};
+
+	  double u[TUSAS_MAX_NUMEQS] = {0.,0.};
+	  double dudx[TUSAS_MAX_NUMEQS] = {0.,0.};
+	  double dudy[TUSAS_MAX_NUMEQS] = {0.,0.};
+	  double dudz[TUSAS_MAX_NUMEQS] = {0.,0.};
+
+	  double uold[TUSAS_MAX_NUMEQS] = {0.,0.};
+	  double duolddx[TUSAS_MAX_NUMEQS] = {0.,0.};
+	  double duolddy[TUSAS_MAX_NUMEQS] = {0.,0.};
+	  double duolddz[TUSAS_MAX_NUMEQS] = {0.,0.};
+
+	  double x = 0.;
+	  double y = 0.;
+	  double z = 0.;
+
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    //we need a basis object that stores all equations here..
-	    //jb=BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],NULL);
-	    //jf=f_1(neq).getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem]);
-	    //jf=f_1->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem]);
-
-	    jf=B.getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem]);
+#if KODIAK
+	    jf=BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem]);
+#endif
+	    jf=getBasis(f_1,gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],
+			&phi[0],&dphidx[0],&dphidy[0],&dphidz[0],
+			u[neq],dudx[neq],dudy[neq],dudz[neq],
+			uold[neq],duolddx[neq],duolddy[neq],duolddz[neq],
+			x,y,z);
+// 	    printf("%le %le %le %le %le\n             %le %le %le %le\n             %le %le %le %le\n             %le %le %le %le\n",
+// 		   jf,phi[0],phi[1],phi[2],phi[3],
+// 		   dphidx[0], dphidx[1],dphidx[2],dphidx[3],
+// 		   u,dudx,dudy,dudz,
+// 		   uold,duolddx,duolddy,duolddz);
+                
 	  }//neq
 
 	  const double jacwt = jf;
@@ -680,12 +690,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
-	      //const double val = jacwt*((d_rf[neq])(BGPU,i,dt,t_theta,time,neq));
-	      //const double val = jacwt*((d_rf[neq])(f_1(neq),i,dt,t_theta,time,neq));
 	      double val =0;
-	      //if(1==c) val = jacwt*((d_rf[neq])(*f_1,i,dt,t_theta,time,neq));
-	      val = jacwt*((d_rf[neq])(B,i,dt,t_theta,time,neq));
-	      //printf("BGPU %d %le %le\n",neq,jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq)),val);
+#if KODIAK
+	      val = jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
+#endif
+	      double val2 = jacwt*((tpetra::heat)(i,dt,t_theta,time,neq,
+						  &phi[0],&dphidx[0],&dphidy[0],&dphidz[0],
+						  &u[0],&dudx[0],&dudy[0],&dudz[0],
+						  &uold[0],&duolddx[0],&duolddy[0],&duolddz[0],
+						  x,y,z));
+	      val = val2;
+	      //printf("%d %le %le\n",c,val,val2);
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      const double val = jacwt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq));
@@ -694,7 +709,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      const int lid = lrow+neq;
 	      //std::cout<<lid<<"   "<<jacwt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq))<<std::endl;
 	      f_1d[lid] += val;
-	      //if(0==c) printf("%d %le %le %d\n",lid,jacwt*((d_rf[neq])(*f_1,i,dt,t_theta,time,neq)),f_1d[lid],c);
 	    }//neq
 	  }//i
 	}//gp
@@ -706,7 +720,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			   //f_1->~GPUBasis();
       });//parallel_for
 		     //};//ne
-	//Kokkos::kokkos_free<Kokkos::CudaSpace>(f_1);
 	//Kokkos::fence();
     }//c 
 
@@ -715,6 +728,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   free(h_rf);
 #endif
 
+       Kokkos::parallel_for(
+        "DestroyObjects", 1, KOKKOS_LAMBDA(const int&) {
+          f_1->~GPUBasisLQuadNew();
+        });
+	Kokkos::kokkos_free<Kokkos::CudaSpace>(f_1);
 
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  

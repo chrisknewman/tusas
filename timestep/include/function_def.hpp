@@ -19,6 +19,8 @@
 
 
 
+#define TUSAS_MAX_NUMEQS 2
+
 #if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
 #define TUSAS_DEVICE __device__
 #define TUSAS_HAVE_CUDA
@@ -4994,12 +4996,14 @@ RES_FUNC(residual_eta_kkspp_)
 
 //#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis &basis,	\
 
-#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasisLQuadNew &basis, \
+//#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasisLQuadNew &basis, \
+
+#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis *basis,	\
                                     const int &i,\
                                     const double &dt_,\
 			            const double &t_theta_,\
                                     const double &time,\
-				    const int &eqn_id)
+					   const int &eqn_id)
 
 #define PRE_FUNC_TPETRA(NAME)  double NAME(const GPUBasis *basis, \
                                     const int &i,\
@@ -5035,13 +5039,6 @@ INI_FUNC(init_heat_test_)
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_heat_test_)
 {
-  double val= (basis.uu-basis.uuold)/dt_*basis.getphi(i)
-    + (basis.dudx*basis.dphidx[i]
-       + basis.dudy*basis.dphidy[i]
-       + basis.dudz*basis.dphidz[i]);
-  //printf("%d %le %le %le %le %le\n",i,basis.uu,basis.dudx,basis.dudy, basis.uuold,val);
-  return val;
-#if KODIAK
   return (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i]
     + t_theta_*k_d*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
@@ -5049,11 +5046,42 @@ RES_FUNC_TPETRA(residual_heat_test_)
     +(1. - t_theta_)*k_d*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
 		   + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
 		   + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i]);
-#endif
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
+
+KOKKOS_INLINE_FUNCTION 
+double heat(const int &i,
+	    const double &dt_,
+	    const double &t_theta_,
+	    const double &time,
+	    const int &eqn_id,
+	    const double phi[BASIS_NODES_PER_ELEM],
+	    const double dphidx[BASIS_NODES_PER_ELEM],
+	    const double dphidy[BASIS_NODES_PER_ELEM],
+	    const double dphidz[BASIS_NODES_PER_ELEM],
+	    const double uu[TUSAS_MAX_NUMEQS],
+	    const double dudx[TUSAS_MAX_NUMEQS],
+	    const double dudy[TUSAS_MAX_NUMEQS],
+	    const double dudz[TUSAS_MAX_NUMEQS],
+	    const double uuold[TUSAS_MAX_NUMEQS],
+	    const double duolddx[TUSAS_MAX_NUMEQS],
+	    const double duolddy[TUSAS_MAX_NUMEQS],
+	    const double duolddz[TUSAS_MAX_NUMEQS],
+	    const double &xx,
+	    const double &yy,
+	    const double &zz)
+{
+  
+  double val = (uu[eqn_id]-uuold[eqn_id])/dt_*phi[i]
+    + t_theta_*k_d*(dudx[eqn_id]*dphidx[i]
+		    + dudy[eqn_id]*dphidy[i]
+		    + dudz[eqn_id]*dphidz[i]);;
+
+  return val;
+}
+
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)

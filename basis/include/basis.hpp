@@ -2954,37 +2954,13 @@ public:
 class GPUBasisLQuadNew{
 public:
   double phi[BASIS_NODES_PER_ELEM];
-  //double dphidxi[BASIS_NODES_PER_ELEM];
-  //double dphideta[BASIS_NODES_PER_ELEM];
 
-  /// Access value of u at the current Gauss point.
-  //double uu;
-  /// Access value of u_old at the current Gauss point.
-  //double uuold;
-  /// Access value of du / dx at the current Gauss point.
-  //double dudx;
-  /// Access value of du / dy at the current Gauss point.
-  //double dudy;
 
 private:
     /// Access number of Gauss points.
   int ngp;
 
-  /// Access value of dxi / dx  at the current Gauss point.
-  //double dxidx;
-  /// Access value of dxi / dy  at the current Gauss point.
-  //double dxidy;
-  /// Access value of deta / dx  at the current Gauss point.
-  //double detadx;
-  /// Access value of deta / dy  at the current Gauss point.
-  //double detady;
 public:
-  /// Access value of the derivative of the basis function wrt to x at the current Gauss point.
-//double dphidx[BASIS_NODES_PER_ELEM];
-  /// Access value of the derivative of the basis function wrt to y at the current Gauss point.
-//double dphidy[BASIS_NODES_PER_ELEM];
-  /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
-//double dphidz[BASIS_NODES_PER_ELEM];
 
   /// Access value of the Gauss weight  at the current Gauss point.
   double wt;
@@ -2995,47 +2971,9 @@ private:
   // Variables that are calculated at the gauss point
   /// Access number of Gauss points.
   int sngp;
-  /// Access value of dphi / dzta  at the current Gauss point.
-  //double dphidzta[BASIS_NODES_PER_ELEM];
-  
-  /// Access value of dxi / dz  at the current Gauss point.
-  //double dxidz;
 
-  /// Access value of deta / dz  at the current Gauss point.
-  //double detadz;
-
-  /// Access value of dzta / dx  at the current Gauss point.
-  //double dztadx;
-  /// Access value of dzta / dy  at the current Gauss point.
-  //double dztady;
-  /// Access value of dzta / dz  at the current Gauss point.
-  //double dztadz;
 
 public:
-  /// Access value of du / dz at the current Gauss point.
-//double dudz;
-  /// Access value of du_old / dx at the current Gauss point.
-//double duolddx;
-  /// Access value of du_old / dy at the current Gauss point.
-//double duolddy;
-  /// Access value of du_old / dz at the current Gauss point.
-//double duolddz;
-private:
-  /// Access value of u_old_old at the current Gauss point.
-  //double uuoldold;
-  /// Access value of du_old_old / dx at the current Gauss point.
-  //double duoldolddx;
-  /// Access value of du_old_old / dy at the current Gauss point.
-  //double duoldolddy;
-  /// Access value of du_old_old / dz at the current Gauss point.
-  //double duoldolddz;
-public:
-  /// Access value of x coordinate in real space at the current Gauss point.
-//double xx;
-  /// Access value of y coordinate in real space at the current Gauss point.
-//double yy;
-  /// Access value of z coordinate in real space at the current Gauss point.
-//double zz;
 
   double phinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
   double dphidxinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
@@ -3068,22 +3006,7 @@ public:
 
 public:
   TUSAS_CUDA_CALLABLE_MEMBER int getNgp() const {return ngp;};
-#if 0
-  TUSAS_CUDA_CALLABLE_MEMBER double getJac(const int e){if(e!=elem)return 0;return jac;};
-  TUSAS_CUDA_CALLABLE_MEMBER double getWt(const int e){if(e!=elem)return 0;return wt;};
-  TUSAS_CUDA_CALLABLE_MEMBER double getphi(const int e, const int i) const {if(e!=elem)return 0.; return phi[i];};
-  TUSAS_CUDA_CALLABLE_MEMBER double getdphidx(const int e, const int i) const {if(e!=elem)return 0.; return dphidx[i];};
-  TUSAS_CUDA_CALLABLE_MEMBER double getdphidy(const int e, const int i) const {if(e!=elem)return 0.; return dphidy[i];};
-  TUSAS_CUDA_CALLABLE_MEMBER double getdphidz(const int e, const int i) const {if(e!=elem)return 0.; return dphidz[i];};
-  TUSAS_CUDA_CALLABLE_MEMBER double getuu(const int e) const {if(e!=elem)return 0;return uu;};
-  TUSAS_CUDA_CALLABLE_MEMBER double getuuold(const int e) const {if(e!=elem)return 0;return uuold;};
-  TUSAS_CUDA_CALLABLE_MEMBER double getdudx(const int e) const {if(e!=elem)return 0;return dudx;};
-  TUSAS_CUDA_CALLABLE_MEMBER double getdudy(const int e) const {if(e!=elem)return 0;return dudy;};
-  TUSAS_CUDA_CALLABLE_MEMBER double getdudz(const int e) const {if(e!=elem)return 0;return dudz;};
-  TUSAS_CUDA_CALLABLE_MEMBER double getxx(const int e){if(e!=elem)return 0;return xx;};
-  TUSAS_CUDA_CALLABLE_MEMBER double getyy(const int e){if(e!=elem)return 0;return yy;};
-  TUSAS_CUDA_CALLABLE_MEMBER double getzz(const int e){if(e!=elem)return 0;return zz;};
-#endif
+
 public:
   TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuadNew(){
     const int n = 2;
@@ -3146,142 +3069,6 @@ public:
 
   //TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLQuad(){}
 
-  TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
-						   const double y[BASIS_NODES_PER_ELEM],  
-						   const double z[BASIS_NODES_PER_ELEM]) {
-   
-    //printf("lquad 1 %le %le %le %le\n",x[0],x[1],x[2],x[3]);
-    exit(0);
-    //printf("lquad 2\n");
-    return;
-
-}
-
-  TUSAS_CUDA_CALLABLE_MEMBER double getBasis( const int gp,
-					   const double x[BASIS_NODES_PER_ELEM], 
-					   const double y[BASIS_NODES_PER_ELEM],  
-					   const double z[BASIS_NODES_PER_ELEM],
-					   const double u[BASIS_NODES_PER_ELEM],
-					     const double uold[BASIS_NODES_PER_ELEM]){//,
-					       //const double uoldold[BASIS_NODES_PER_ELEM]) {
-#if 0
-  /// difference in nodal coordinates
-    double nodaldiff[36];//12 for lquad, 36 for lhex
-    nodaldiff[0] = x[1]-x[0];
-    nodaldiff[1] = x[3]-x[0];
-    nodaldiff[2] = y[1]-y[0];
-    nodaldiff[3] = y[3]-y[0];
-    nodaldiff[4] = z[1]-z[0];
-    nodaldiff[5] = z[3]-z[0];
-
-    nodaldiff[6] = x[2]-x[3];
-    nodaldiff[7] = x[2]-x[1];
-    nodaldiff[8] = y[2]-y[3];
-    nodaldiff[9] = y[2]-y[1];
-    nodaldiff[10] = z[2]-z[3];
-    nodaldiff[11] = z[2]-z[1];
-
-  // Calculate basis function and derivatives at nodal pts
-//   phi[0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
-//   phi[1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
-//   phi[2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
-//   phi[3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
-
-    //phi=phinew[gp];
-  for (int i=0; i < 4; i++) {
-    phi[i]=phinew[gp][i];
-  }
-
-//   dphidxi[0]=-(1.0-eta[gp])/4.0;
-//   dphidxi[1]= (1.0-eta[gp])/4.0;
-//   dphidxi[2]= (1.0+eta[gp])/4.0;
-//   dphidxi[3]=-(1.0+eta[gp])/4.0;
-
-//   dphideta[0]=-(1.0-xi[gp])/4.0;
-//   dphideta[1]=-(1.0+xi[gp])/4.0;
-//   dphideta[2]= (1.0+xi[gp])/4.0;
-//   dphideta[3]= (1.0-xi[gp])/4.0;
-  
-  // Caculate basis function and derivative at GP.
-  //std::cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<x[3]<<std::endl;
-//   double dxdxi  = .25*( (x[1]-x[0])*(1.-eta[gp])+(x[2]-x[3])*(1.+eta[gp]) );
-//   double dxdeta = .25*( (x[3]-x[0])*(1.- xi[gp])+(x[2]-x[1])*(1.+ xi[gp]) );
-//   double dydxi  = .25*( (y[1]-y[0])*(1.-eta[gp])+(y[2]-y[3])*(1.+eta[gp]) );
-//   double dydeta = .25*( (y[3]-y[0])*(1.- xi[gp])+(y[2]-y[1])*(1.+ xi[gp]) );
-//   double dzdxi  = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
-//   double dzdeta = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
-
-  double dxdxi  = .25*( (nodaldiff[0])*(1.-eta[gp])+(nodaldiff[6])*(1.+eta[gp]) );
-  double dxdeta = .25*( (nodaldiff[1])*(1.- xi[gp])+(nodaldiff[7])*(1.+ xi[gp]) );
-  double dydxi  = .25*( (nodaldiff[2])*(1.-eta[gp])+(nodaldiff[8])*(1.+eta[gp]) );
-  double dydeta = .25*( (nodaldiff[3])*(1.- xi[gp])+(nodaldiff[9])*(1.+ xi[gp]) );
-  double dzdxi  = .25*( (nodaldiff[4])*(1.-eta[gp])+(nodaldiff[10])*(1.+eta[gp]) );
-  double dzdeta = .25*( (nodaldiff[5])*(1.- xi[gp])+(nodaldiff[11])*(1.+ xi[gp]) );
-
-
-
-  wt = nwt[gp];
-
-  //jac = dxdxi * dydeta - dxdeta * dydxi;
-  const double jac1 = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
-	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
-	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
-  jac = jac1;
-
-  dxidx = dydeta / jac1;
-  dxidy = -dxdeta / jac1;
-  dxidz = 0.;
-  detadx = -dydxi / jac1;
-  detady = dxdxi / jac1;
-  detadz =0.;
-  dztadx =0.;
-  dztady =0.;
-  dztadz =0.;
-  // Caculate basis function and derivative at GP.
-  xx=0.0;
-  yy=0.0;
-  zz=0.0;
-  uu=0.0;
-  uuold=0.0;
-  //uuoldold=0.0;
-  dudx=0.0;
-  dudy=0.0;
-  dudz=0.0;
-  duolddx = 0.;
-  duolddy = 0.;
-  duolddz = 0.;
-  //duoldolddx = 0.;
-  //duoldolddy = 0.;
-  //duoldolddz = 0.;
-  // x[i] is a vector of node coords, x(j, k) 
-  for (int i=0; i < 4; i++) {
-    xx += x[i] * phinew[gp][i];
-    yy += y[i] * phinew[gp][i];
-    zz += z[i] * phi[i];
-    dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx;
-    dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady;
-    dphidz[i] = 0.0;
-    dphidzta[i]= 0.0;
-    if( u ){
-      uu += u[i] * phinew[gp][i];
-      dudx += u[i] * dphidx[i];
-      dudy += u[i]* dphidy[i];
-//     }
-//     if( uold ){
-      uuold += uold[i] * phinew[gp][i];
-      duolddx += uold[i] * dphidx[i];
-      duolddy += uold[i]* dphidy[i];
-    }
-//     if( uoldold ){
-//       uuoldold += uoldold[i] * phi[i];
-//       duoldolddx += uoldold[i] * dphidx[i];
-//       duoldolddy += uoldold[i]* dphidy[i];
-//     }
-  }
-  
-#endif
-  return jac*wt;
-  }
 };
 
 KOKKOS_INLINE_FUNCTION

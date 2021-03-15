@@ -5521,25 +5521,25 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   const double uold = uuold[0];
   const double phi1 = uu[1];
   const double phi1old = uuold[1];
-  const double dph1idx = dudx[1];
-  const double dph1idy = dudy[1];
-  const double dph1idz = dudz[1];
+  const double dphi1dx = dudx[1];
+  const double dphi1dy = dudy[1];
+  const double dphi1dz = dudz[1];
 
   const double ut = (1.+k)/2.*(u-uold)/dt_*test;
-#if KODIAK
   const double divgradu = D_liquid_*(1.-phi1)/2.*(dudx[0]*dtestdx 
 						 + dudy[0]*dtestdy 
 						 + dudz[0]*dtestdz);//(grad u,grad phi)
 
-  const double normd = (phi*phi < absphi) ? 1./sqrt(dphidx*dphidx + dphidy*dphidy + dphidz*dphidz) : 0.; //cn lim grad phi/|grad phi| may -> 1 here?
+  const double normd = (phi1*phi1 < absphi) ? 1./sqrt(dphi1dx*dphi1dx + dphi1dy*dphi1dy + dphi1dz*dphi1dz) : 0.; //cn lim grad phi/|grad phi| may -> 1 here?
 
-  const double j_coef = (1.+(1.-k)*u)/sqrt(8.)*normd*(phi-phiold)/dt_;
-  const double divj = j_coef*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);
+  const double j_coef = (1.+(1.-k)*u)/sqrt(8.)*normd*(phi1-phi1old)/dt_;
+  const double divj = j_coef*(dphi1dx*dtestdx + dphi1dy*dtestdy + dphi1dz*dtestdz);
 
-  double phitu = -.5*(phi-phiold)/dt_*(1.+(1.-k)*u)*test; 
+  double phitu = -.5*(phi1-phi1old)/dt_*(1.+(1.-k)*u)*test; 
   
   //double val = ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
   //printf("%lf\n",val);
+#if KODIAK
 
   return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
 #endif //KODIAK

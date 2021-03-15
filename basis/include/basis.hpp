@@ -2950,6 +2950,7 @@ public:
     return jac1*wt;
   }
 };
+#if 0
 class GPUBasisNew{
 public:
   TUSAS_CUDA_CALLABLE_MEMBER  GPUBasisNew(){};
@@ -2978,6 +2979,7 @@ public:
   KOKKOS_INLINE_FUNCTION virtual int getNgp(){return 0;};
 
 };
+#endif
 class GPUBasisLQuadNew{
 public:
   double phi[BASIS_NODES_PER_ELEM];
@@ -3189,7 +3191,7 @@ double getBasis(const int gp,
 };
 
 
-class GPUBasisLHexNew:public GPUBasisNew{
+class GPUBasisLHexNew{
 public:
   double phi[BASIS_NODES_PER_ELEM];
 

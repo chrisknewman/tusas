@@ -1505,8 +1505,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
 
-    //kodiak (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
-    //kodiak (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
+    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
+    (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
@@ -1578,8 +1578,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[1] = &tpetra::farzadi3d::init_phase_farzadi_;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    //kodiak (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
-    //kodiak (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
+    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;

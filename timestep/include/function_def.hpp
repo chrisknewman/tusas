@@ -5444,57 +5444,55 @@ double ap(const double &p,const double &px,const double &py,const double &pz,con
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_)
 {
-#if KODIAK
   //derivatives of the test function
-  const double dtestdx = basis[1].dphidx[i];
-  const double dtestdy = basis[1].dphidy[i];
-  const double dtestdz = basis[1].dphidz[i];
+  const double dtestdx = dphidx[i];
+  const double dtestdy = dphidy[i];
+  const double dtestdz = dphidz[i];
   //test function
-  const double test = basis[0].phi[i];
+  const double test = phi[i];
   //u, phi
-  const double u = basis[0].uu;
-  const double uold = basis[0].uuold;
-  const double phi = basis[1].uu;
-  const double phiold = basis[1].uuold;
+  const double u = uu[0];
+  const double uold = uuold[0];
+  const double phi_ = uu[1];
+  const double phi_old = uuold[1];
 
-  const double dphidx = basis[1].dudx;
-  const double dphidy = basis[1].dudy;
-  const double dphidz = basis[1].dudz;
+  const double dphi_dx = dudx[1];
+  const double dphi_dy = dudy[1];
+  const double dphi_dz = dudz[1];
 
-  const double as = a(phi,dphidx,dphidy,dphidz,eps);
+  const double as = a(phi_,dphi_dx,dphi_dy,dphi_dz,eps);
   //const double as = 1.;
   //double gs2 = as*as;
 
-  const double divgradphi = as*as*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);//(grad u,grad phi)
+  const double divgradphi = as*as*(dphi_dx*dtestdx + dphi_dy*dtestdy + dphi_dz*dtestdz);//(grad u,grad phi)
 
-  const double phit = (1.+(1.-k)*u)*as*as*(phi-phiold)/dt_*test;
+  const double phit = (1.+(1.-k)*u)*as*as*(phi_-phi_old)/dt_*test;
 
   //double curlgrad = -dgdtheta*dphidy*dtestdx + dgdtheta*dphidx*dtestdy;
-  const double curlgrad = as*(dphidx*dphidx + dphidy*dphidy + dphidz*dphidz)
-    *(ap(phi,dphidx,dphidy,dphidz,dphidx,eps)*dtestdx 
-      + ap(phi,dphidx,dphidy,dphidz,dphidy,eps)*dtestdy 
-      + ap(phi,dphidx,dphidy,dphidz,dphidz,eps)*dtestdz);
+  const double curlgrad = as*(dphi_dx*dphi_dx + dphi_dy*dphi_dy + dphi_dz*dphi_dz)
+    *(ap(phi_,dphi_dx,dphi_dy,dphi_dz,dphi_dx,eps)*dtestdx 
+      + ap(phi_,dphi_dx,dphi_dy,dphi_dz,dphi_dy,eps)*dtestdy 
+      + ap(phi_,dphi_dx,dphi_dy,dphi_dz,dphi_dz,eps)*dtestdz);
 
-  const double gp1 = -(phi - phi*phi*phi);
+  const double gp1 = -(phi_ - phi_*phi_*phi_);
   const double phidel2 = gp1*test;
 
-  const double x = basis[0].xx;
-  
+  const double x = xx;
   
   // frozen temperature approximation: linear pulling of the temperature field
-  double xx = x*w0;
+  double xx_ = x*w0;
 
 
   //cn this should probablly be: (time+dt_)*tau
   double tt = time*tau0;
-  //double t_scale = (xx-R*tt)/l_T0;
-  double t_scale = ((dT < 0.001) ? (xx-R*tt)/l_T0 : dT);
+  //double t_scale = (xx_-R*tt)/l_T0;
+  double t_scale = ((dT < 0.001) ? (xx_-R*tt)/l_T0 : dT);
   
   //std::cout<<xx<<"  "<<tt<<"  "<<t_scale<<std::endl;
   // need to plot t_scale
   //double t_scale = farzadi::tscale_(x,time);
 
-  const double hp1 = lambda*(1. - phi*phi)*(1. - phi*phi)*(u+t_scale);
+  const double hp1 = lambda*(1. - phi_*phi_)*(1. - phi_*phi_)*(u+t_scale);
   const double phidel = hp1*test;
   
   const double rhs = divgradphi + curlgrad + phidel2 + phidel;
@@ -5503,7 +5501,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   //printf("%lf\n",val);
 
   return phit + t_theta_*rhs;	// + (1.-t_theta_)*rhs_old*0.;
-#endif
+
 }
 
 TUSAS_DEVICE
@@ -5519,30 +5517,28 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   const double test = phi[i];
   const double u = uu[0];
   const double uold = uuold[0];
-  const double phi1 = uu[1];
-  const double phi1old = uuold[1];
-  const double dphi1dx = dudx[1];
-  const double dphi1dy = dudy[1];
-  const double dphi1dz = dudz[1];
+  const double phi_ = uu[1];
+  const double phi_old = uuold[1];
+  const double dphi_dx = dudx[1];
+  const double dphi_dy = dudy[1];
+  const double dphi_dz = dudz[1];
 
   const double ut = (1.+k)/2.*(u-uold)/dt_*test;
-  const double divgradu = D_liquid_*(1.-phi1)/2.*(dudx[0]*dtestdx 
+  const double divgradu = D_liquid_*(1.-phi_)/2.*(dudx[0]*dtestdx 
 						 + dudy[0]*dtestdy 
 						 + dudz[0]*dtestdz);//(grad u,grad phi)
 
-  const double normd = (phi1*phi1 < absphi) ? 1./sqrt(dphi1dx*dphi1dx + dphi1dy*dphi1dy + dphi1dz*dphi1dz) : 0.; //cn lim grad phi/|grad phi| may -> 1 here?
+  const double normd = (phi_*phi_ < absphi) ? 1./sqrt(dphi_dx*dphi_dx + dphi_dy*dphi_dy + dphi_dz*dphi_dz) : 0.; //cn lim grad phi/|grad phi| may -> 1 here?
 
-  const double j_coef = (1.+(1.-k)*u)/sqrt(8.)*normd*(phi1-phi1old)/dt_;
-  const double divj = j_coef*(dphi1dx*dtestdx + dphi1dy*dtestdy + dphi1dz*dtestdz);
+  const double j_coef = (1.+(1.-k)*u)/sqrt(8.)*normd*(phi_-phi_old)/dt_;
+  const double divj = j_coef*(dphi_dx*dtestdx + dphi_dy*dtestdy + dphi_dz*dtestdz);
 
-  double phitu = -.5*(phi1-phi1old)/dt_*(1.+(1.-k)*u)*test; 
+  double phitu = -.5*(phi_-phi_old)/dt_*(1.+(1.-k)*u)*test; 
   
   //double val = ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
   //printf("%lf\n",val);
-#if KODIAK
 
   return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
-#endif //KODIAK
 }
 
 TUSAS_DEVICE

@@ -544,7 +544,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #if 0
 			   new(B) GPUBasisLQuadNew(LTP_quadrature_order);
 #endif
-			   new((GPUBasisLHexNew*)B) GPUBasisLHexNew(LTP_quadrature_order);
+			   new(B) GPUBasisLHexNew(LTP_quadrature_order);
 			 });
    
  

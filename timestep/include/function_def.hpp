@@ -5517,17 +5517,19 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   const double dtestdy = dphidy[i];
   const double dtestdz = dphidz[i];
   const double test = phi[i];
-#if KODIAK
-  const double u = basis[0].uu;
-  const double uold = basis[0].uuold;
-  const double phi = basis[1].uu;
-  const double phiold = basis[1].uuold;
-  const double dphidx = basis[1].dudx;
-  const double dphidy = basis[1].dudy;
-  const double dphidz = basis[1].dudz;
+  const double u = uu[0];
+  const double uold = uuold[0];
+  const double phi1 = uu[1];
+  const double phi1old = uuold[1];
+  const double dph1idx = dudx[1];
+  const double dph1idy = dudy[1];
+  const double dph1idz = dudz[1];
 
   const double ut = (1.+k)/2.*(u-uold)/dt_*test;
-  const double divgradu = D_liquid_*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+#if KODIAK
+  const double divgradu = D_liquid_*(1.-phi1)/2.*(dudx[0]*dtestdx 
+						 + dudy[0]*dtestdy 
+						 + dudz[0]*dtestdz);//(grad u,grad phi)
 
   const double normd = (phi*phi < absphi) ? 1./sqrt(dphidx*dphidx + dphidy*dphidy + dphidz*dphidz) : 0.; //cn lim grad phi/|grad phi| may -> 1 here?
 

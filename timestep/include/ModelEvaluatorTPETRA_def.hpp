@@ -535,9 +535,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Kokkos::parallel_for(
 			 "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
 #if 0
-			   new(f_1) GPUBasisLQuadNew();
+			   new(f_1) GPUBasisLQuadNew(LTP_quadrature_order);
 #endif
-			   new(f_1) GPUBasisLHexNew();
+			   new(f_1) GPUBasisLHexNew(LTP_quadrature_order);
 			 });
    
  

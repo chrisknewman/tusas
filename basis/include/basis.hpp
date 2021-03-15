@@ -3012,8 +3012,7 @@ public:
 public:
   //TUSAS_CUDA_CALLABLE_MEMBER 
   KOKKOS_INLINE_FUNCTION
-  GPUBasisLQuadNew(){
-    const int n = 2;
+  GPUBasisLQuadNew(const int n = 2){
     sngp = n;
     //jac = -9999.;
     if( 3 == n){
@@ -3224,8 +3223,8 @@ public:
 public:
   //TUSAS_CUDA_CALLABLE_MEMBER 
   KOKKOS_INLINE_FUNCTION
-  GPUBasisLHexNew(){ 
-    const int n = 3;//hardcoded for now
+  GPUBasisLHexNew(const int n = 2){ 
+    //const int n = 3;//hardcoded for now
     sngp = n;
       //jac = -9999.;
     if( 3 == n){

@@ -5441,10 +5441,10 @@ double ap(const double &p,const double &px,const double &py,const double &pz,con
 				    /(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)
     : 0.;
 }
-#if KODIAK
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_)
 {
+#if KODIAK
   //derivatives of the test function
   const double dtestdx = basis[1].dphidx[i];
   const double dtestdy = basis[1].dphidy[i];
@@ -5503,6 +5503,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   //printf("%lf\n",val);
 
   return phit + t_theta_*rhs;	// + (1.-t_theta_)*rhs_old*0.;
+#endif
 }
 
 TUSAS_DEVICE
@@ -5512,10 +5513,11 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_conc_farzadi_)
 {
   //right now, if explicit, we will have some problems with time derivates below
-  const double dtestdx = basis[0].dphidx[i];
-  const double dtestdy = basis[0].dphidy[i];
-  const double dtestdz = basis[0].dphidz[i];
-  const double test = basis[0].phi[i];
+  const double dtestdx = dphidx[i];
+  const double dtestdy = dphidy[i];
+  const double dtestdz = dphidz[i];
+  const double test = phi[i];
+#if KODIAK
   const double u = basis[0].uu;
   const double uold = basis[0].uuold;
   const double phi = basis[1].uu;
@@ -5538,11 +5540,11 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   //printf("%lf\n",val);
 
   return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
+#endif //KODIAK
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_conc_farzadi_dp_)) = residual_conc_farzadi_;
-#endif //KODIAK
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_phase_farzadi_)

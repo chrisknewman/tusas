@@ -497,8 +497,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
       cudaMemcpyFromSymbol( &h_rf[1], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
-      //kodiak cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
-      //kodiak cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
+      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
     }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
       //kodiak cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
       //kodiak cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));

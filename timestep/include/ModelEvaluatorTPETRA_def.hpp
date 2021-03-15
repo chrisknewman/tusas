@@ -525,15 +525,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #endif
 
 
-      GPUBasisLQuadNew* f_1 = (GPUBasisLQuadNew*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLQuadNew));
+    
 
-      Kokkos::parallel_for(
-        "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
-	  new(f_1) GPUBasisLQuadNew();
-        });
+#if 0
+    GPUBasisLQuadNew* f_1 = (GPUBasisLQuadNew*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLQuadNew));
+#endif
+    GPUBasisLHexNew* f_1 = (GPUBasisLHexNew*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLHexNew));
 
+    Kokkos::parallel_for(
+			 "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
+#if 0
+			   new(f_1) GPUBasisLQuadNew();
+#endif
+			   new(f_1) GPUBasisLHexNew();
+			 });
    
-   
+ 
 
 
     for(int c = 0; c < num_color; c++){
@@ -728,11 +735,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   free(h_rf);
 #endif
 
-       Kokkos::parallel_for(
-        "DestroyObjects", 1, KOKKOS_LAMBDA(const int&) {
-          f_1->~GPUBasisLQuadNew();
-        });
-	Kokkos::kokkos_free<Kokkos::CudaSpace>(f_1);
+    Kokkos::parallel_for(
+			 "DestroyObjects", 1, KOKKOS_LAMBDA(const int&) {
+#if 0
+			   f_1->~GPUBasisLQuadNew();
+#endif
+			   f_1->~GPUBasisLHexNew();
+			 });
+
+
+    Kokkos::kokkos_free<Kokkos::CudaSpace>(f_1);
 
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  

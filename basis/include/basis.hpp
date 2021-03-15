@@ -2963,9 +2963,9 @@ private:
 public:
 
   /// Access value of the Gauss weight  at the current Gauss point.
-  double wt;
+  //double wt;
   /// Access value of the mapping Jacobian.
-  double jac;
+  //double jac;
 
 private:
   // Variables that are calculated at the gauss point
@@ -3015,7 +3015,7 @@ public:
   GPUBasisLQuadNew(){
     const int n = 2;
     sngp = n;
-    jac = -9999.;
+    //jac = -9999.;
     if( 3 == n){
       abscissa[0] = -3.872983346207417/5.0;
       abscissa[1] =  0.0;
@@ -3137,6 +3137,9 @@ double getBasis(const int gp,
   duolddx=0.;
   duolddy=0.;
   duolddz=0.;
+  xx=0.0;
+  yy=0.0;
+  zz=0.0;
   for (int i=0; i < 4; i++) {
     dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx;
     dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady;
@@ -3159,6 +3162,290 @@ double getBasis(const int gp,
 }
 };
 
+
+class GPUBasisLHexNew{
+public:
+  double phi[BASIS_NODES_PER_ELEM];
+
+
+private:
+    /// Access number of Gauss points.
+  int ngp;
+
+public:
+
+  /// Access value of the Gauss weight  at the current Gauss point.
+  //double wt;
+  /// Access value of the mapping Jacobian.
+  //double jac;
+
+private:
+  // Variables that are calculated at the gauss point
+  /// Access number of Gauss points.
+  int sngp;
+
+
+public:
+
+  double phinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidxinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidetanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+
+  //we could also do phi[BASIS_NODES_PER_ELEM] and set each element explicity below...
+  //double *phi;
+  
+
+  //also looks like abscissa[2], wt[2], xi[4],...,nwt[4]
+  //for linear quad.  need to change this below
+  //in general probably want abscissa[3] (or more) and xi[3*3*3], etc
+private:
+  /// Access a pointer to the coordinates of the Gauss points in canonical space.
+  double abscissa[BASIS_SNGP_PER_ELEM];
+  /// Access a pointer to the Gauss weights.
+  double weight[BASIS_SNGP_PER_ELEM];
+public:
+  /// Access a pointer to the xi coordinate at each Gauss point.
+  double xi[BASIS_NGP_PER_ELEM];
+  //double *xi;
+  /// Access a pointer to the eta coordinate at each Gauss point.
+  double eta[BASIS_NGP_PER_ELEM];
+  /// Access a pointer to the zta coordinate at each Gauss point.
+  double zta[BASIS_NGP_PER_ELEM];
+  /// Access the number of Gauss weights.
+  double nwt[BASIS_NGP_PER_ELEM];
+
+
+public:
+  //TUSAS_CUDA_CALLABLE_MEMBER 
+  KOKKOS_INLINE_FUNCTION
+  int getNgp() const {return ngp;};
+
+public:
+  //TUSAS_CUDA_CALLABLE_MEMBER 
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisLHexNew(){ 
+    const int n = 3;//hardcoded for now
+    sngp = n;
+      //jac = -9999.;
+    if( 3 == n){
+      abscissa[0] = -3.872983346207417/5.0;
+      abscissa[1] =  0.0;
+      abscissa[2] =  3.872983346207417/5.0;
+      weight[0] = 5.0/9.0;
+      weight[1] = 8.0/9.0;
+      weight[2] = 5.0/9.0;
+    } else if ( 4 == n ) {
+      abscissa[0] =  -30.13977090579184/35.0;
+      abscissa[1] =  -11.89933652546997/35.0;
+      abscissa[2] =   11.89933652546997/35.0;
+      abscissa[3] =   30.13977090579184/35.0;
+      weight[0] = (18.0-5.477225575051661)/36.0;
+      weight[1] = (18.0+5.477225575051661)/36.0;
+      weight[2] = (18.0+5.477225575051661)/36.0;
+      weight[3] = (18.0-5.477225575051661)/36.0;
+    } else {
+      sngp = 2;
+      abscissa[0] = -1.0/1.732050807568877;
+      abscissa[1] =  1.0/1.732050807568877;
+      weight[0] = 1.0;
+      weight[1] = 1.0;
+    }
+    ngp = sngp*sngp*sngp;
+
+    int c = 0;
+    for( int i = 0; i < sngp; i++ ){
+      for( int j = 0; j < sngp; j++ ){
+	for( int k = 0; k < sngp; k++ ){
+	  //std::cout<<i+j+k+c<<"   "<<i<<"   "<<j<<"   "<<k<<std::endl;
+	  xi[i+j+k+c]  = abscissa[i];
+	  eta[i+j+k+c] = abscissa[j];
+	  zta[i+j+k+c] = abscissa[k];
+	  nwt[i+j+k+c]  = weight[i] * weight[j] * weight[k]; 
+	}   
+	c = c + sngp - 1;
+      }
+      c = c + sngp - 1;
+    }
+    //exit(0);
+
+    for(int gp = 0; gp < ngp; gp++){
+      phinew[gp][0]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+      phinew[gp][1]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+      phinew[gp][2]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+      phinew[gp][3]   =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+      phinew[gp][4]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+      phinew[gp][5]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+      phinew[gp][6]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+      phinew[gp][7]   =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+   
+      dphidxinew[gp][0] = -0.125 * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+      dphidxinew[gp][1] =  0.125 * (1.0 - eta[gp]) * (1.0 - zta[gp]);
+      dphidxinew[gp][2] =  0.125 * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+      dphidxinew[gp][3] = -0.125 * (1.0 + eta[gp]) * (1.0 - zta[gp]);
+      dphidxinew[gp][4] = -0.125 * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+      dphidxinew[gp][5] =  0.125 * (1.0 - eta[gp]) * (1.0 + zta[gp]);
+      dphidxinew[gp][6] =  0.125 * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+      dphidxinew[gp][7] = -0.125 * (1.0 + eta[gp]) * (1.0 + zta[gp]);
+      
+      dphidetanew[gp][0] = -0.125 * (1.0 - xi[gp]) * (1.0 - zta[gp]);
+      dphidetanew[gp][1] = -0.125 * (1.0 + xi[gp]) * (1.0 - zta[gp]);
+      dphidetanew[gp][2] =  0.125 * (1.0 + xi[gp]) * (1.0 - zta[gp]);
+      dphidetanew[gp][3] =  0.125 * (1.0 - xi[gp]) * (1.0 - zta[gp]);
+      dphidetanew[gp][4] = -0.125 * (1.0 - xi[gp]) * (1.0 + zta[gp]);
+      dphidetanew[gp][5] = -0.125 * (1.0 + xi[gp]) * (1.0 + zta[gp]);
+      dphidetanew[gp][6] =  0.125 * (1.0 + xi[gp]) * (1.0 + zta[gp]);
+      dphidetanew[gp][7] =  0.125 * (1.0 - xi[gp]) * (1.0 + zta[gp]);
+      
+      dphidztanew[gp][0] = -0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]);
+      dphidztanew[gp][1] = -0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]);
+      dphidztanew[gp][2] = -0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]);
+      dphidztanew[gp][3] = -0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]);
+      dphidztanew[gp][4] =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]);
+      dphidztanew[gp][5] =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]);
+      dphidztanew[gp][6] =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]);
+      dphidztanew[gp][7] =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]);
+    }
+
+  }
+KOKKOS_INLINE_FUNCTION
+double getBasis(const int gp,
+		const double x[BASIS_NODES_PER_ELEM], 
+		const double y[BASIS_NODES_PER_ELEM],  
+		const double z[BASIS_NODES_PER_ELEM],
+		const double u[BASIS_NODES_PER_ELEM],
+		const double uold[BASIS_NODES_PER_ELEM],
+		double phi[BASIS_NODES_PER_ELEM],
+		double dphidx[BASIS_NODES_PER_ELEM],
+		double dphidy[BASIS_NODES_PER_ELEM],
+		double dphidz[BASIS_NODES_PER_ELEM],
+		double &uu,
+		double &dudx,
+		double &dudy,
+		double &dudz,
+		double &uuold,
+		double &duolddx,
+		double &duolddy,
+		double &duolddz,
+		double &xx,
+		double &yy,
+		double &zz){
+  double nodaldiff[36];//12 for lquad, 36 for lhex
+  nodaldiff[0] = x[1]-x[0];
+  nodaldiff[1] = x[3]-x[0];
+  nodaldiff[2] = x[4]-x[0];
+  nodaldiff[3] = y[1]-y[0];
+  nodaldiff[4] = y[3]-y[0];
+  nodaldiff[5] = y[4]-y[0];
+  nodaldiff[6] = z[1]-z[0];
+  nodaldiff[7] = z[3]-z[0];
+  nodaldiff[8] = z[4]-z[0];
+  
+  nodaldiff[9] = x[2]-x[3];
+  nodaldiff[10] = x[2]-x[1];
+  nodaldiff[11] = x[5]-x[1];
+  nodaldiff[12] = y[2]-y[3];
+  nodaldiff[13] = y[2]-y[1];
+  nodaldiff[14] = y[5]-y[1];
+  nodaldiff[15] = z[2]-z[3];
+  nodaldiff[16] = z[2]-z[1];
+  nodaldiff[17] = z[5]-z[1];
+  
+  nodaldiff[18] = x[5]-x[4];
+  nodaldiff[19] = x[7]-x[4];
+  nodaldiff[20] = x[6]-x[2];
+  nodaldiff[21] = y[5]-y[4];
+  nodaldiff[22] = y[7]-y[4];
+  nodaldiff[23] = y[6]-y[2];
+  nodaldiff[24] = z[5]-z[4];
+  nodaldiff[25] = z[7]-z[4];
+  nodaldiff[26] = z[6]-z[2];
+  
+  nodaldiff[27] = x[6]-x[7];
+  nodaldiff[28] = x[6]-x[5];
+  nodaldiff[29] = x[7]-x[3];
+  nodaldiff[30] = y[6]-y[7];
+  nodaldiff[31] = y[6]-y[5];
+  nodaldiff[32] = y[7]-y[3];
+  nodaldiff[33] = z[6]-z[7];
+  nodaldiff[34] = z[6]-z[5];
+  nodaldiff[35] = z[7]-z[3];
+  
+  const double dxdxi  = 0.125*( (nodaldiff[0])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[9])*(1.+eta[gp])*(1.-zta[gp]) 
+				+ (nodaldiff[18])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[27])*(1.+eta[gp])*(1.+zta[gp]) );
+  const double dxdeta = 0.125*( (nodaldiff[1])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[10])*(1.+ xi[gp])*(1.-zta[gp]) 
+				+ (nodaldiff[19])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[28])*(1.+ xi[gp])*(1.+zta[gp]) );
+  const double dxdzta = 0.125*( (nodaldiff[2])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[11])*(1.+ xi[gp])*(1.-eta[gp])
+				+ (nodaldiff[20])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[29])*(1.- xi[gp])*(1.+eta[gp]) );
+  
+  const double dydxi  = 0.125*( (nodaldiff[3])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[12])*(1.+eta[gp])*(1.-zta[gp])
+				+ (nodaldiff[21])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[30])*(1.+eta[gp])*(1.+zta[gp]) );
+  const double dydeta = 0.125*( (nodaldiff[4])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[13])*(1.+ xi[gp])*(1.-zta[gp]) 
+				+ (nodaldiff[22])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[31])*(1.+ xi[gp])*(1.+zta[gp]) );
+  const double dydzta = 0.125*( (nodaldiff[5])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[14])*(1.+ xi[gp])*(1.-eta[gp])
+				+ (nodaldiff[23])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[32])*(1.- xi[gp])*(1.+eta[gp]) );
+  
+  const double dzdxi  = 0.125*( (nodaldiff[6])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[15])*(1.+eta[gp])*(1.-zta[gp])
+				+ (nodaldiff[24])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[33])*(1.+eta[gp])*(1.+zta[gp]) );
+  const double dzdeta = 0.125*( (nodaldiff[7])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[16])*(1.+ xi[gp])*(1.-zta[gp]) 
+				+ (nodaldiff[25])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[34])*(1.+ xi[gp])*(1.+zta[gp]) );
+  const double dzdzta = 0.125*( (nodaldiff[8])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[17])*(1.+ xi[gp])*(1.-eta[gp])
+				+ (nodaldiff[26])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[35])*(1.- xi[gp])*(1.+eta[gp]) );
+  
+  
+  const double jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
+    + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
+  
+  for (int i=0; i < 8; i++) {
+    phi[i]=phinew[gp][i];
+  }  
+  
+  const double dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
+  const double dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
+  const double dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;
+  
+  const double detadx =  ( dydzta*dzdxi - dydxi*dzdzta) / jac;
+  const double detady =  (-dxdzta*dzdxi + dxdxi*dzdzta) / jac;
+  const double detadz =  ( dxdzta*dydxi - dxdxi*dydzta) / jac;
+  
+  const double dztadx =  ( dydxi*dzdeta - dydeta*dzdxi) / jac;
+  const double dztady =  (-dxdxi*dzdeta + dxdeta*dzdxi) / jac;
+  const double dztadz =  ( dxdxi*dydeta - dxdeta*dydxi) / jac;
+  
+  uu=0.0;
+  dudx=0.;
+  dudy=0.;
+  dudz=0.;
+  uuold=0.0;
+  duolddx=0.;
+  duolddy=0.;
+  duolddz=0.;
+  xx=0.0;
+  yy=0.0;
+  zz=0.0;
+  for (int i=0; i < 8; i++) {
+    dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx+dphidztanew[gp][i]*dztadx;
+    dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady+dphidztanew[gp][i]*dztady;
+    dphidz[i] = dphidxinew[gp][i]*dxidz+dphidetanew[gp][i]*detadz+dphidztanew[gp][i]*dztadz;
+    
+    uu += u[i] * phinew[gp][i];
+    dudx += u[i] * dphidx[i];
+    dudy += u[i] * dphidy[i];
+    dudz += u[i] * dphidz[i];
+    
+    uuold += uold[i] * phinew[gp][i];
+    duolddx += uold[i] * dphidx[i];
+    duolddy += uold[i] * dphidy[i];
+    duolddz += uold[i] * dphidz[i];
+    
+    xx += x[i] * phinew[gp][i];
+    yy += y[i] * phinew[gp][i];
+    zz += z[i] * phinew[gp][i];
+  }
+  
+  return jac*nwt[gp];
+}
+};
 
 #endif
 

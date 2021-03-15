@@ -645,10 +645,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	for(int gp=0; gp < ngp; gp++) {//gp
 	  double jf = 0.;
 
-	  double phi[4]={0.,0.,0.,0.};
-	  double dphidx[4]={0.,0.,0.,0.};
-	  double dphidy[4]={0.,0.,0.,0.};
-	  double dphidz[4]={0.,0.,0.,0.};
+	  double phi[TUSAS_MAX_NUMNODES]={0.,0.,0.,0.,0.,0.,0.,0.};
+	  double dphidx[TUSAS_MAX_NUMNODES]={0.,0.,0.,0.,0.,0.,0.,0.};
+	  double dphidy[TUSAS_MAX_NUMNODES]={0.,0.,0.,0.,0.,0.,0.,0.};
+	  double dphidz[TUSAS_MAX_NUMNODES]={0.,0.,0.,0.,0.,0.,0.,0.};
 
 	  double u[TUSAS_MAX_NUMEQS] = {0.,0.};
 	  double dudx[TUSAS_MAX_NUMEQS] = {0.,0.};
@@ -669,7 +669,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #if KODIAK
 	    jf=BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem]);
 #endif
-	    jf=getBasis(f_1,gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],
+	    jf=f_1->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],
 			&phi[0],&dphidx[0],&dphidy[0],&dphidz[0],
 			u[neq],dudx[neq],dudy[neq],dudz[neq],
 			uold[neq],duolddx[neq],duolddy[neq],duolddz[neq],
@@ -694,7 +694,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #if KODIAK
 	      val = jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
 #endif
-	      double val2 = jacwt*((tpetra::heat)(i,dt,t_theta,time,neq,
+	      double val2 = jacwt*((d_rf[neq])(i,dt,t_theta,time,neq,
 						  &phi[0],&dphidx[0],&dphidy[0],&dphidz[0],
 						  &u[0],&dudx[0],&dudy[0],&dudz[0],
 						  &uold[0],&duolddx[0],&duolddy[0],&duolddz[0],

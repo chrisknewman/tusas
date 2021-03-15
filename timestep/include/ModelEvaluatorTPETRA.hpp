@@ -207,12 +207,33 @@ private:
   
  
   //typedef double (*RESFUNC)(const GPUBasisLQuadNew &basis,
-  typedef double (*RESFUNC)(const GPUBasis *basis,  
+  typedef double (*RESFUNCOLD)(const GPUBasis *basis,  
 			    const int &i, 
 			    const double &dt_, 
 			    const double &t_theta_, 
 			    const double &time,
 			    const int &eqn_id);
+
+  typedef double (*RESFUNC)(const int &i,
+	    const double &dt_,
+	    const double &t_theta_,
+	    const double &time,
+	    const int &eqn_id,
+	    const double phi[BASIS_NODES_PER_ELEM],
+	    const double dphidx[BASIS_NODES_PER_ELEM],
+	    const double dphidy[BASIS_NODES_PER_ELEM],
+	    const double dphidz[BASIS_NODES_PER_ELEM],
+	    const double uu[TUSAS_MAX_NUMEQS],
+	    const double dudx[TUSAS_MAX_NUMEQS],
+	    const double dudy[TUSAS_MAX_NUMEQS],
+	    const double dudz[TUSAS_MAX_NUMEQS],
+	    const double uuold[TUSAS_MAX_NUMEQS],
+	    const double duolddx[TUSAS_MAX_NUMEQS],
+	    const double duolddy[TUSAS_MAX_NUMEQS],
+	    const double duolddz[TUSAS_MAX_NUMEQS],
+	    const double &xx,
+	    const double &yy,
+	    const double &zz);
 
   std::vector<RESFUNC> *residualfunc_;
 

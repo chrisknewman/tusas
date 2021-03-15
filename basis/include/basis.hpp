@@ -3072,12 +3072,8 @@ public:
   }
 
   //TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLQuad(){}
-
-};
-
 KOKKOS_INLINE_FUNCTION
-double getBasis(const GPUBasisLQuadNew *b,
-		const int gp,
+double getBasis(const int gp,
 		const double x[BASIS_NODES_PER_ELEM], 
 		const double y[BASIS_NODES_PER_ELEM],  
 		const double z[BASIS_NODES_PER_ELEM],
@@ -3113,19 +3109,19 @@ double getBasis(const GPUBasisLQuadNew *b,
   nodaldiff[10] = z[2]-z[3];
   nodaldiff[11] = z[2]-z[1];
 
-  const double dxdxi  = .25*( (nodaldiff[0])*(1.-b->eta[gp])+(nodaldiff[6])*(1.+b->eta[gp]) );
-  const double dxdeta = .25*( (nodaldiff[1])*(1.- b->xi[gp])+(nodaldiff[7])*(1.+ b->xi[gp]) );
-  const double dydxi  = .25*( (nodaldiff[2])*(1.-b->eta[gp])+(nodaldiff[8])*(1.+b->eta[gp]) );
-  const double dydeta = .25*( (nodaldiff[3])*(1.- b->xi[gp])+(nodaldiff[9])*(1.+ b->xi[gp]) );
-  const double dzdxi  = .25*( (nodaldiff[4])*(1.-b->eta[gp])+(nodaldiff[10])*(1.+b->eta[gp]) );
-  const double dzdeta = .25*( (nodaldiff[5])*(1.- b->xi[gp])+(nodaldiff[11])*(1.+ b->xi[gp]) );
+  const double dxdxi  = .25*( (nodaldiff[0])*(1.-eta[gp])+(nodaldiff[6])*(1.+eta[gp]) );
+  const double dxdeta = .25*( (nodaldiff[1])*(1.- xi[gp])+(nodaldiff[7])*(1.+ xi[gp]) );
+  const double dydxi  = .25*( (nodaldiff[2])*(1.-eta[gp])+(nodaldiff[8])*(1.+eta[gp]) );
+  const double dydeta = .25*( (nodaldiff[3])*(1.- xi[gp])+(nodaldiff[9])*(1.+ xi[gp]) );
+  const double dzdxi  = .25*( (nodaldiff[4])*(1.-eta[gp])+(nodaldiff[10])*(1.+eta[gp]) );
+  const double dzdeta = .25*( (nodaldiff[5])*(1.- xi[gp])+(nodaldiff[11])*(1.+ xi[gp]) );
 
   const double jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
 	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
 	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
 
   for (int i=0; i < 4; i++) {
-    phi[i]=b->phinew[gp][i];
+    phi[i]=phinew[gp][i];
   }
 
   const double dxidx = dydeta / jac;
@@ -3142,24 +3138,27 @@ double getBasis(const GPUBasisLQuadNew *b,
   duolddy=0.;
   duolddz=0.;
   for (int i=0; i < 4; i++) {
-    dphidx[i] = b->dphidxinew[gp][i]*dxidx+b->dphidetanew[gp][i]*detadx;
-    dphidy[i] = b->dphidxinew[gp][i]*dxidy+b->dphidetanew[gp][i]*detady;
+    dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx;
+    dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady;
     dphidz[i] = 0.0;
 
-    uu += u[i] * b->phinew[gp][i];
+    uu += u[i] * phinew[gp][i];
     dudx += u[i] * dphidx[i];
     dudy += u[i] * dphidy[i];
 
-    uuold += uold[i] * b->phinew[gp][i];
+    uuold += uold[i] * phinew[gp][i];
     duolddx += uold[i] * dphidx[i];
     duolddy += uold[i] * dphidy[i];
 
-    xx += x[i] * b->phinew[gp][i];
-    yy += y[i] * b->phinew[gp][i];
-    zz += z[i] * b->phinew[gp][i];
+    xx += x[i] * phinew[gp][i];
+    yy += y[i] * phinew[gp][i];
+    zz += z[i] * phinew[gp][i];
   }
 
-  return jac*b->nwt[gp];
+  return jac*nwt[gp];
 }
+};
+
+
 #endif
 

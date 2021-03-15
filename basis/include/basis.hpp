@@ -2950,7 +2950,34 @@ public:
     return jac1*wt;
   }
 };
-//class GPUBasisLQuadNew:public GPUBasis{
+class GPUBasisNew{
+public:
+  TUSAS_CUDA_CALLABLE_MEMBER  GPUBasisNew(){};
+  KOKKOS_INLINE_FUNCTION ~GPUBasisNew(){};
+  KOKKOS_INLINE_FUNCTION virtual double getBasis(const int gp,
+		const double x[BASIS_NODES_PER_ELEM], 
+		const double y[BASIS_NODES_PER_ELEM],  
+		const double z[BASIS_NODES_PER_ELEM],
+		const double u[BASIS_NODES_PER_ELEM],
+		const double uold[BASIS_NODES_PER_ELEM],
+		double phi[BASIS_NODES_PER_ELEM],
+		double dphidx[BASIS_NODES_PER_ELEM],
+		double dphidy[BASIS_NODES_PER_ELEM],
+		double dphidz[BASIS_NODES_PER_ELEM],
+		double &uu,
+		double &dudx,
+		double &dudy,
+		double &dudz,
+		double &uuold,
+		double &duolddx,
+		double &duolddy,
+		double &duolddz,
+		double &xx,
+		double &yy,
+						 double &zz){ return 0.;};
+  KOKKOS_INLINE_FUNCTION virtual int getNgp(){return 0;};
+
+};
 class GPUBasisLQuadNew{
 public:
   double phi[BASIS_NODES_PER_ELEM];
@@ -3162,7 +3189,7 @@ double getBasis(const int gp,
 };
 
 
-class GPUBasisLHexNew{
+class GPUBasisLHexNew:public GPUBasisNew{
 public:
   double phi[BASIS_NODES_PER_ELEM];
 

@@ -524,20 +524,27 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     h_rf = &(*residualfunc_)[0];
 #endif
 
+//     Foo* f_1 = (Foo*)Kokkos::kokkos_malloc(sizeof(Foo_1));
+//     Foo* f_2 = (Foo*)Kokkos::kokkos_malloc(sizeof(Foo_2));
 
+//     Kokkos::parallel_for(
+//         "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
+//           new ((Foo_1*)f_1) Foo_1();
+//           new ((Foo_2*)f_2) Foo_2();
+//         });
     
 
 #if 0
-    GPUBasisLQuadNew* f_1 = (GPUBasisLQuadNew*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLQuadNew));
+    GPUBasisLQuadNew* B = (GPUBasisLQuadNew*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLQuadNew));
 #endif
-    GPUBasisLHexNew* f_1 = (GPUBasisLHexNew*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLHexNew));
+    GPUBasisLHexNew* B = (GPUBasisLHexNew*)Kokkos::kokkos_malloc<Kokkos::Cuda>(sizeof(GPUBasisLHexNew));
 
     Kokkos::parallel_for(
 			 "CreateObjects", 1, KOKKOS_LAMBDA(const int&) {
 #if 0
-			   new(f_1) GPUBasisLQuadNew(LTP_quadrature_order);
+			   new(B) GPUBasisLQuadNew(LTP_quadrature_order);
 #endif
-			   new(f_1) GPUBasisLHexNew(LTP_quadrature_order);
+			   new((GPUBasisLHexNew*)B) GPUBasisLHexNew(LTP_quadrature_order);
 			 });
    
  
@@ -611,7 +618,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}
 	const int ngp = BGPU[0]->getNgp();
 #endif
-	const int ngp = f_1->getNgp();
+	const int ngp = B->getNgp();
 	
 
 	double xx[BASIS_NODES_PER_ELEM];
@@ -676,7 +683,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #if KODIAK
 	    jf=BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem]);
 #endif
-	    jf=f_1->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],
+	    jf=B->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],
 			&phi[0],&dphidx[0],&dphidy[0],&dphidz[0],
 			u[neq],dudx[neq],dudy[neq],dudz[neq],
 			uold[neq],duolddx[neq],duolddy[neq],duolddz[neq],
@@ -697,16 +704,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
-	      double val =0;
+
 #if KODIAK
-	      val = jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
+	      const double val = jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
 #endif
-	      double val2 = jacwt*((d_rf[neq])(i,dt,t_theta,time,neq,
+	      const double val = jacwt*((d_rf[neq])(i,dt,t_theta,time,neq,
 						  &phi[0],&dphidx[0],&dphidy[0],&dphidz[0],
 						  &u[0],&dudx[0],&dudy[0],&dudz[0],
 						  &uold[0],&duolddx[0],&duolddy[0],&duolddz[0],
 						  x,y,z));
-	      val = val2;
 	      //printf("%d %le %le\n",c,val,val2);
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
@@ -723,8 +729,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			       }//if ne
 #else
 #endif
-			   //f_1(0).~GPUBasis();
-			   //f_1->~GPUBasis();
       });//parallel_for
 		     //};//ne
 	//Kokkos::fence();
@@ -738,13 +742,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Kokkos::parallel_for(
 			 "DestroyObjects", 1, KOKKOS_LAMBDA(const int&) {
 #if 0
-			   f_1->~GPUBasisLQuadNew();
+			   B->~GPUBasisLQuadNew();
 #endif
-			   f_1->~GPUBasisLHexNew();
+			   B->~GPUBasisLHexNew();
 			 });
 
 
-    Kokkos::kokkos_free<Kokkos::CudaSpace>(f_1);
+    Kokkos::kokkos_free<Kokkos::CudaSpace>(B);
 
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  

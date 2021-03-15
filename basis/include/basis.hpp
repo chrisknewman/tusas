@@ -3005,10 +3005,14 @@ public:
 
 
 public:
-  TUSAS_CUDA_CALLABLE_MEMBER int getNgp() const {return ngp;};
+  //TUSAS_CUDA_CALLABLE_MEMBER 
+  KOKKOS_INLINE_FUNCTION
+  int getNgp() const {return ngp;};
 
 public:
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuadNew(){
+  //TUSAS_CUDA_CALLABLE_MEMBER 
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisLQuadNew(){
     const int n = 2;
     sngp = n;
     jac = -9999.;

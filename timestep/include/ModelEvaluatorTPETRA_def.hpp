@@ -55,8 +55,6 @@
 
 #define TUSAS_RUN_ON_CPU
 
-#define TUSAS_MAX_NUMEQS 2
-
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
 #define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 16
 
@@ -210,6 +208,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     P_ = rcp(new matrix_type(W_graph_));
     P->setAllToScalar((scalar_type)1.0); 
     P->fillComplete();
+    //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     //cn we need to fill the matrix for muelu
     init_P_();
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
@@ -329,6 +328,11 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 template<class Scalar>
 Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::createOverlapGraph()
 {
+//   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+//   int mypid = comm_->getRank() ;
+//   if( 0 == mypid )
+//     std::cout<<std::endl<<"createOverlapGraph() started."<<std::endl<<std::endl;
+
   Teuchos::RCP<crs_graph_type> W_graph;
 
   int numind = 9*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
@@ -373,6 +377,8 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
   //W_graph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );;
   //exit(0);
 
+//   if( 0 == mypid )
+//     std::cout<<std::endl<<"createOverlapGraph() ended."<<std::endl<<std::endl;
   return W_graph;
 }
 
@@ -570,11 +576,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	if(ne < num_elem) {
 	  const int elem = elem_map_1dConst(ne);
 #else
-	  Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){//this loop is fine for openmp re access to elem_map
+	  //Kokkos::View<GPUBasisLHex *,Kokkos::DefaultExecutionSpace> bh_view("bh_view");
+	  Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
 	const int elem = elem_map_1d(ne);
 #endif
 
+	//GPUBasisLHex * dummy = new (bh_view) GPUBasisLHex(LTP_quadrature_order);
 	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
 	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
@@ -620,7 +628,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	for( int neq = 0; neq < numeqs; neq++ ){
 	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
-	//(&BGPUarr[0])->computeElemData(&xx[0], &yy[0], &zz[0]);
+	  //Bh[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
 	}//neq
 	for(int gp=0; gp < ngp; gp++) {//gp
 
@@ -637,16 +645,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
 	      //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,neq));
-	      const double val = jacwt*((d_rf[neq])(*BGPU,i,dt,t_theta,time,neq));
+	      const double val = jacwt*((d_rf[neq])(BGPU,i,dt,t_theta,time,neq));
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	      const double val = jacwt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq));
+	      double val = jacwt*(h_rf[neq](BGPU,i,dt,t_theta,time,neq));
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
-	      //std::cout<<lid<<"   "<<jacwt*(h_rf[neq](*BGPU,i,dt,t_theta,time,neq))<<std::endl;
 	      f_1d[lid] += val;
+	      //if(0==c) printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
 	    }//neq
 	  }//i
 	}//gp
@@ -663,7 +671,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   cudaFree(d_rf);
   free(h_rf);
 #endif
-
+			    //exit(0);
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
@@ -808,9 +816,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }
       //exit(0);	
 
-      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const size_t ne){
+      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
 
-
+			     //an array of pointers to GPUBasis
 	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
 	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS];
@@ -1486,6 +1494,36 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
 
+    if(paramList.get<double> (TusasthetaNameString) < .49) exit(0);
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::farzadi3d::init_conc_farzadi_;
+    (*initfunc_)[1] = &tpetra::farzadi3d::init_phase_farzadi_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
+    (*preconfunc_)[1] = tpetra::farzadi3d::prec_phase_farzadi_dp_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+    paramfunc_ = tpetra::farzadi3d::param_;
+    //paramfunc_ = farzadi::param_;
+
+  }else if("farzadiexp" == paramList.get<std::string> (TusastestNameString)){
+    //farzadi test
+
+    if(paramList.get<double> (TusasthetaNameString) < .49) exit(0);
+
     numeqs_ = 2;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
@@ -1952,17 +1990,18 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
 template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::init_P_()
 {
+
+  //this could be done with Tpetra::replaceDiagonalCrsMatrix( 	::Tpetra::CrsMatrix< SC, LO, GO, NT > &  	matrix,
+  //		const ::Tpetra::Vector< SC, LO, GO, NT > &  	newDiag 
+  //	) 	
+
     P_->setAllToScalar((scalar_type)-1.0); 
 
-    auto PV = P_->getLocalMatrix();
+    Teuchos::RCP<vector_type > d = Teuchos::rcp(new vector_type(x_owned_map_));
+    d->putScalar((Scalar)27.);
+    Tpetra::replaceDiagonalCrsMatrix(*P_,*d);
 
-    const int numrows = PV.numRows();
-    for ( int i; i < numrows; i++ ){
-      local_ordinal_type row = i;
-      auto RV = PV.row(row);
-      RV.value(row) = 27.;
-    }
-
+    //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     P_->fillComplete();
 }
 #endif

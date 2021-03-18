@@ -19,6 +19,8 @@
 #define TUSAS_CUDA_CALLABLE_MEMBER
 #endif
 
+#define TUSAS_MAX_NUMEQS 2
+
 /// Base class for computation of finite element basis.
 /** All basis classes inherit from this. */
 class Basis {

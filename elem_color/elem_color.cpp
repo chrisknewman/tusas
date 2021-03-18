@@ -37,7 +37,7 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   //cn to revert to old functionality uncomment:
 
-  //dorestart = false;
+  dorestart = false;
 
 
   if(dorestart){

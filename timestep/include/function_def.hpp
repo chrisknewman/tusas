@@ -5660,12 +5660,12 @@ PPR_FUNC(postproc_t_)
 
 namespace pfhub3
 {
-  const double R_ = .3;// 8.;
+  const double R_ = 8.;// 8.;
 
   TUSAS_DEVICE
   const double delta_ = -.3;
   TUSAS_DEVICE
-  const double D_ = 1.;//10.;
+  const double D_ = 10.;//10.;
   TUSAS_DEVICE
   const double eps_ = .05;
   TUSAS_DEVICE
@@ -5690,7 +5690,7 @@ RES_FUNC_TPETRA(residual_heat_pfhub3_)
 			  + basis[eqn_id]->duolddy*basis[eqn_id]->dphidy[i]
 			  + basis[eqn_id]->duolddz*basis[eqn_id]->dphidz[i])};
 
-  const double phit = .5*(basis[1]->uu-basis[1]->uuold)/dt_*basis[1]->phi[i];
+  const double phit = .5*(basis[1]->uu-basis[1]->uuold)/dt_*basis[0]->phi[i];
   return ut
     + t_theta_*divgradu[0] + (1. - t_theta_)*divgradu[1]
     - phit;
@@ -5750,10 +5750,10 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
   const double g[2] = {((phi[0]-lambda_*basis[0]->uu*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
 		       ((phi[1]-lambda_*basis[0]->uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test};
 
-  return (t_theta_*tau[0] + (1. - t_theta_)*tau[1])*phit
-    + t_theta_*divgradphi[0] + (1. - t_theta_)*divgradphi[1]
-    +t_theta_*curlgrad[0] + (1. - t_theta_)*curlgrad[1]
-    -t_theta_*g[0] - (1. - t_theta_)*g[1];
+  return tau[0]*tau[1]*phit
+    + t_theta_*divgradphi[0]*tau[1] + (1. - t_theta_)*divgradphi[1]*tau[0]
+    + t_theta_*curlgrad[0]*tau[1] + (1. - t_theta_)*curlgrad[1]*tau[0]
+    - t_theta_*g[0]*tau[1] - (1. - t_theta_)*g[1]*tau[0];
 }
 
 TUSAS_DEVICE

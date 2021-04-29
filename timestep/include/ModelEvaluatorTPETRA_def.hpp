@@ -1599,7 +1599,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    //paramfunc_ = tpetra::pfhub3::param_;
+    paramfunc_ = tpetra::pfhub3::param_;
 
   }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
 

@@ -5397,6 +5397,7 @@ z0 = z0_p;
 KOKKOS_INLINE_FUNCTION 
 double a(const double &p,const double &px,const double &py,const double &pz, const double ep)
 {
+  //printf("%lf\n",absphi);
   return (p*p < absphi)&&(p*p > 0.) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*
 				    (px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz))
     : 1. + ep;
@@ -5663,9 +5664,9 @@ namespace pfhub3
   const double R_ = 8.;// 8.;
 
   TUSAS_DEVICE
-  const double delta_ = -.3;
+  const double delta_ = -.3;//-.3;
   TUSAS_DEVICE
-  const double D_ = 10.;//10.;
+  const double D_ = 10.;
   TUSAS_DEVICE
   const double eps_ = .05;
   TUSAS_DEVICE
@@ -5677,6 +5678,7 @@ namespace pfhub3
 
 PARAM_FUNC(param_)
 {
+  //tpetra::farzadi3d::absphi = 0.9;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -5686,7 +5688,7 @@ RES_FUNC_TPETRA(residual_heat_pfhub3_)
   double divgradu[2] = {D_*(basis[eqn_id]->dudx*basis[eqn_id]->dphidx[i]
 			  + basis[eqn_id]->dudy*basis[eqn_id]->dphidy[i]
 			  + basis[eqn_id]->dudz*basis[eqn_id]->dphidz[i]),
-		     D_*(basis[eqn_id]->duolddx*basis[eqn_id]->dphidx[i]
+			D_*(basis[eqn_id]->duolddx*basis[eqn_id]->dphidx[i]
 			  + basis[eqn_id]->duolddy*basis[eqn_id]->dphidy[i]
 			  + basis[eqn_id]->duolddz*basis[eqn_id]->dphidz[i])};
 
@@ -5724,7 +5726,7 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
 					     eps_)
   };
 
-  const double tau[2] = {tau0_*as[0],tau0_*as[1]};
+  const double tau[2] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1]};
 
   const double phit = (phi[0]-phi[1])/dt_*test;
 
@@ -5733,7 +5735,7 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
   const double divgradphi[2] = {w[0]*w[0]*(dphidx[0]*dtestdx
 					     + dphidy[0]*dtestdy
 					     + dphidz[0]*dtestdz),
-				W_*as[1]*W_*as[1]*(dphidx[1]*dtestdx
+				w[1]*w[1]*(dphidx[1]*dtestdx
 					     + dphidy[1]*dtestdy
 					     + dphidz[1]*dtestdz)};
 
@@ -5750,10 +5752,10 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
   const double g[2] = {((phi[0]-lambda_*basis[0]->uu*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
 		       ((phi[1]-lambda_*basis[0]->uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test};
 
-  return tau[0]*tau[1]*phit
-    + t_theta_*divgradphi[0]*tau[1] + (1. - t_theta_)*divgradphi[1]*tau[0]
-    + t_theta_*curlgrad[0]*tau[1] + (1. - t_theta_)*curlgrad[1]*tau[0]
-    - t_theta_*g[0]*tau[1] - (1. - t_theta_)*g[1]*tau[0];
+  return phit
+    + t_theta_*divgradphi[0]/tau[0] + (1. - t_theta_)*divgradphi[1]/tau[1]
+    + t_theta_*curlgrad[0]/tau[0]   + (1. - t_theta_)*curlgrad[1]/tau[1]
+    - t_theta_*g[0]/tau[0]          - (1. - t_theta_)*g[1]/tau[1];
 }
 
 TUSAS_DEVICE
@@ -5762,6 +5764,11 @@ RES_FUNC_TPETRA((*residual_phase_pfhub3_dp_)) = residual_phase_pfhub3_;
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_pfhub3_)
 {
+  const double ut = basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
+  const double divgradu = D_*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+			  + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
+			      + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
+  return ut + t_theta_*divgradu;
 }
 
 TUSAS_DEVICE
@@ -5770,6 +5777,24 @@ PRE_FUNC_TPETRA((*prec_heat_pfhub3_dp_)) = prec_heat_pfhub3_;
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_phase_pfhub3_)
 {
+  const double test = basis[eqn_id].phi[i];
+  const double dtestdx = basis[eqn_id].dphidx[i];
+  const double dtestdy = basis[eqn_id].dphidy[i];
+  const double dtestdz = basis[eqn_id].dphidz[i];
+
+  const double phi = basis[eqn_id].uu;
+  const double phit = basis[eqn_id].phi[j]/dt_*test;
+  const double as = tpetra::farzadi3d::a(phi,
+					     basis[eqn_id].dudx,
+					     basis[eqn_id].dudy,
+					     basis[eqn_id].dudz,
+					     eps_);
+  const double tau = tau0_*as*as;
+  const double divgradphi = W_*as*W_*as*(basis[eqn_id].dphidx[j]*dtestdx
+					 + basis[eqn_id].dphidy[j]*dtestdy
+					 + basis[eqn_id].dphidz[j]*dtestdz);
+  return phit
+    + t_theta_*divgradphi/tau;
 }
 
 TUSAS_DEVICE
@@ -5783,7 +5808,9 @@ INI_FUNC(init_heat_pfhub3_)
 INI_FUNC(init_phase_pfhub3_)
 {
   double val = -1.;
-  if(x*x+y*y+z*z < R_*R_) val = 1.;
+  const double r = sqrt(x*x+y*y+z*z);
+  //if(x*x+y*y+z*z < R_*R_) val = 1.;
+  val = tanh((R_-r)/(sqrt(8.)*W_));
   return val;
 }
 

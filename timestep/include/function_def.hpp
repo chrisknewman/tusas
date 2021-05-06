@@ -5723,8 +5723,7 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
 					     dphidx[1],
 					     dphidy[1],
 					     dphidz[1],
-					     eps_)
-  };
+					     eps_)};
 
   const double tau[2] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1]};
 

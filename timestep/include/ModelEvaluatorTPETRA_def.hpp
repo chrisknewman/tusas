@@ -654,7 +654,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
 	      f_1d[lid] += val;
-	      //if(0==c) printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
+	      //printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
 	    }//neq
 	  }//i
 	}//gp
@@ -1251,20 +1251,22 @@ template<class scalar_type>
     
     if( 1 == numproc ){//cn for now
       //if( 0 == mypid ){
-      const char *outfilename = "results.e";
-      ex_id_ = mesh_->create_exodus(outfilename);
+      outfilename = "results.e";
+      ex_id_ = mesh_->create_exodus(outfilename.c_str());//this calls ex_open
       
     }
     else{
       //std::string decompPath="decomp/";
       std::string decompPath=paramList.get<std::string> (TusasoutputpathNameString);
-      //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
-      
+
       std::string mypidstring(getmypidstring(mypid,numproc));
 
-      std::string pfile = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
-      ex_id_ = mesh_->create_exodus(pfile.c_str());
-    }  
+      outfilename = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
+      ex_id_ = mesh_->create_exodus(outfilename.c_str());
+    }//if numproc
+  
+    mesh_->close_exodus(ex_id_);
+
     for( int k = 0; k < numeqs_; k++ ){
       mesh_->add_nodal_field((*varnames_)[k]);
     }
@@ -1272,8 +1274,6 @@ template<class scalar_type>
     output_step_ = 1;
     write_exodus();
   }
-
-
   else{
     restart(u_old_);//,u_old_old_);
 //     if(1==comm_->MyPID())
@@ -1282,7 +1282,7 @@ template<class scalar_type>
     for( int k = 0; k < numeqs_; k++ ){
       mesh_->add_nodal_field((*varnames_)[k]);
     }
-  }
+  }//if !dorestart
    
   if( 0 == comm_->getRank()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
 }
@@ -1702,7 +1702,9 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
 
   //not sre what the bug is here...
   Teuchos::TimeMonitor IOWriteTimer(*ts_time_iowrite);
+  mesh_->open_exodus(outfilename.c_str(),Mesh::WRITE);
   mesh_->write_exodus(ex_id_,output_step_,time_);
+  mesh_->close_exodus(ex_id_);
   output_step_++;
 }
 
@@ -1844,29 +1846,28 @@ template<class scalar_type>
   //cn we need to get u_old_ and u_old_old_
   //and start_time and start_step and modify time_
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
-  int mypid = comm_->getRank();
-  int numproc = comm_->getSize();
+  const int mypid = comm_->getRank();
+  const int numproc = comm_->getSize();
   if( 0 == mypid )
     std::cout<<std::endl<<"Entering restart: PID "<<mypid<<" NumProcs "<<numproc<<std::endl<<std::endl;
-  
+
   if( 1 == numproc ){//cn for now
     //if( 0 == mypid ){
-    const char *outfilename = "results.e";
-    ex_id_ = mesh_->open_exodus(outfilename);
+    outfilename = "results.e";
+    ex_id_ = mesh_->open_exodus(outfilename.c_str(),Mesh::READ);
 
     std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
     
   }
   else{
     std::string decompPath="decomp/";
-    //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
-    
+ 
     std::string mypidstring(getmypidstring(mypid,numproc));
 
-    std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
-    ex_id_ = mesh_->open_exodus(pfile.c_str());
+    outfilename = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
+    ex_id_ = mesh_->open_exodus(outfilename.c_str(),Mesh::READ);
     
-    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<pfile<<std::endl;
+    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
 
     //cn we want to check the number of procs listed in the nem file as well    
     int nem_proc = -99;
@@ -1920,6 +1921,8 @@ template<class scalar_type>
     }
   }
 
+  mesh_->close_exodus(ex_id_);
+
   //cn for now just put current values into old values, 
   //cn ie just start with an initial condition
 
@@ -1941,9 +1944,9 @@ template<class scalar_type>
   u->doExport(*u_temp,*exporter_, Tpetra::INSERT);
   //u_old->doExport(*u_temp,*exporter_, Tpetra::INSERT);
 
+  step = step - 1;
   this->start_time = time;
   int ntstep = (int)(time/dt_);
-  //this->start_step = step-1;//this corresponds to the output frequency, not the actual timestep
   this->start_step = ntstep;
   time_=time;
   output_step_ = step+1;

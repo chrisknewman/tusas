@@ -272,6 +272,7 @@ private: // data members
   boost::ptr_vector<error_estimator> Error_est;
   boost::ptr_vector<post_process> post_proc;
   Teuchos::RCP<elem_color> Elem_col;
+  std::string outfilename;
 
   void set_basis( boost::ptr_vector<Basis> &basis, const std::string elem_type) const;
 

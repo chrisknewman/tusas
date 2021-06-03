@@ -576,7 +576,7 @@ void elem_color::restart(){
   if( 1 == numproc ){//cn for now
     //if( 0 == mypid ){
     const char *outfilename = "results.e";
-    ex_id_ = mesh_->open_exodus(outfilename);
+    ex_id_ = mesh_->open_exodus(outfilename,Mesh::READ);
 
     std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
     
@@ -588,7 +588,7 @@ void elem_color::restart(){
     std::string mypidstring(getmypidstring(mypid,numproc));
 
     std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
-    ex_id_ = mesh_->open_exodus(pfile.c_str());
+    ex_id_ = mesh_->open_exodus(pfile.c_str(),Mesh::READ);
     
     std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<pfile<<std::endl;
 
@@ -629,6 +629,8 @@ void elem_color::restart(){
     exit(0);
   }
 
+  mesh_->close_exodus(ex_id_);
+  
   int max_color = (int)(*max_element(colors.begin(), colors.end()));
   int min_color = (int)(*min_element(colors.begin(), colors.end()));
   num_color_ = max_color - min_color+1;

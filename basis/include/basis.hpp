@@ -2321,8 +2321,10 @@ class GPUBasis{
 
 public:
 
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasis(){};
-  TUSAS_CUDA_CALLABLE_MEMBER virtual ~GPUBasis(){};
+  TUSAS_CUDA_CALLABLE_MEMBER GPUBasis(){//printf("GPUBasis()\n");
+  };
+  TUSAS_CUDA_CALLABLE_MEMBER virtual ~GPUBasis(){//printf("~GPUBasis()\n");
+  };
   TUSAS_CUDA_CALLABLE_MEMBER virtual void getBasis(const int gp,
 						   const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
@@ -2765,9 +2767,11 @@ public:
       dphidztanew[gp][6] =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]);
       dphidztanew[gp][7] =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]);
     }
+    //printf("GPUBasisLHex()\n");
   }
   
-  TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLHex(){}
+  TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLHex(){//printf("~GPUBasisLHex()\n");
+  }
 
   TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  

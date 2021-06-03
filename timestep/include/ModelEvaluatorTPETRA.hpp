@@ -204,7 +204,8 @@ private:
   std::vector<std::string> *varnames_;
 
   //do we want to move these typedefs to function_def.hpp? would need to do it for nemesis class as well
-  typedef double (*RESFUNC)(const GPUBasis * const * basis, 
+  //typedef double (*RESFUNC)(const GPUBasis * const * basis, 
+  typedef double (*RESFUNC)(GPUBasis * basis[], 
 			    const int &i, 
 			    const double &dt_, 
 			    const double &t_theta_, 
@@ -262,6 +263,7 @@ private:
   boost::ptr_vector<post_process> post_proc;
   void postprocess();
   void init_P_();
+  std::string outfilename;
 
 };
 

@@ -4990,7 +4990,8 @@ RES_FUNC(residual_eta_kkspp_)
 
 }//namespace pfhub2
 
-#define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis * const * basis, \
+// #define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis * const * basis, 
+#define RES_FUNC_TPETRA(NAME)  double NAME(GPUBasis * basis[],	\
                                     const int &i,\
                                     const double &dt_,\
 			            const double &t_theta_,\
@@ -5809,6 +5810,7 @@ INI_FUNC(init_phase_pfhub3_)
   double val = -1.;
   const double r = sqrt(x*x+y*y+z*z);
   //if(x*x+y*y+z*z < R_*R_) val = 1.;
+  //see https://aip.scitation.org/doi/pdf/10.1063/1.5142353
   val = tanh((R_-r)/(sqrt(8.)*W_));
   return val;
 }

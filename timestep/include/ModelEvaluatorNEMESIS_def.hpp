@@ -1359,14 +1359,12 @@ template<class Scalar>
     
     if( 1 == numproc ){//cn for now
       //if( 0 == mypid ){
-      const char *outfilename = "results.e";
-      ex_id_ = mesh_->create_exodus(outfilename);
+      outfilename = "results.e";
+      ex_id_ = mesh_->create_exodus(outfilename.c_str());
       
     }
     else{
       std::string decompPath="decomp/";
-      //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
-      
       std::string mypidstring;
       if ( numproc > 9 && mypid < 10 ){
 	mypidstring = std::to_string(0)+std::to_string(mypid);
@@ -1375,9 +1373,11 @@ template<class Scalar>
 	mypidstring = std::to_string(mypid);
       }
       
-      std::string pfile = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
-      ex_id_ = mesh_->create_exodus(pfile.c_str());
+      outfilename = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
+      ex_id_ = mesh_->create_exodus(outfilename.c_str());
     }//numproc
+  
+    mesh_->close_exodus(ex_id_);
     
     for( int k = 0; k < numeqs_; k++ ){
       mesh_->add_nodal_field((*varnames_)[k]);
@@ -1962,7 +1962,9 @@ void ModelEvaluatorNEMESIS<Scalar>::write_exodus()
 //void ModelEvaluatorNEMESIS<Scalar>::write_exodus(const int output_step)
 {
   update_mesh_data();
+  mesh_->open_exodus(outfilename.c_str(),Mesh::WRITE);
   mesh_->write_exodus(ex_id_,output_step_,time_);
+  mesh_->close_exodus(ex_id_);
   output_step_++;
 }
 template<class Scalar>
@@ -2020,22 +2022,20 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   
   if( 1 == numproc ){//cn for now
     //if( 0 == mypid ){
-    const char *outfilename = "results.e";
-    ex_id_ = mesh_->open_exodus(outfilename);
+    outfilename = "results.e";
+    ex_id_ = mesh_->open_exodus(outfilename.c_str(),Mesh::READ);
 
     std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
     
   }
   else{
     std::string decompPath="decomp/";
-    //std::string pfile = decompPath+std::to_string(mypid+1)+"/results.e."+std::to_string(numproc)+"."+std::to_string(mypid);
-    
     std::string mypidstring(getmypidstring(mypid,numproc));
 
-    std::string pfile = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
-    ex_id_ = mesh_->open_exodus(pfile.c_str());
+    outfilename = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
+    ex_id_ = mesh_->open_exodus(outfilename.c_str(),Mesh::READ);
     
-    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<pfile<<std::endl;
+    std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
 
     //cn we want to check the number of procs listed in the nem file as well    
     int nem_proc = -99;
@@ -2096,6 +2096,8 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
       exit(0);
     }
   }
+
+  mesh_->close_exodus(ex_id_);
 
   //cn for now just put current values into old values, 
   //cn ie just start with an initial condition

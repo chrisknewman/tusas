@@ -30,6 +30,8 @@ class Mesh
 {
  public:
 
+  enum WR{WRITE = 0, READ};
+
   //#ifdef NEMESIS
   /// Constructor
   /** Parallel, MPI decomposed; where proc_id = current processor id, nprocs = total number of processors, v = verbosity. */
@@ -69,7 +71,7 @@ class Mesh
   /// Create exodus file based on filename.
   int create_exodus(const char * filename, const bool use64output = false);
   /// Open exodus file based on filename.
-  int open_exodus(const char * filename);
+  int open_exodus(const char * filename, WR wr);
   /// Read time from exodus file with id ex_id and timestep counter.
   int read_time_exodus(const int ex_id, const int counter, double &time);
   /// Read the last timestep index timestep from exodus file with exodus id ex_id.
@@ -193,6 +195,7 @@ class Mesh
   std::vector<int> get_sorted_elem_num_map(){return sorted_elem_num_map;}
   int get_num_nodes_per_ns(const int i){return num_nodes_per_ns[i];}
   std::vector<std::vector<int> > connect;
+  int close_exodus(int ex_id);
 
  private:
 
@@ -293,7 +296,6 @@ class Mesh
   int write_nodal_data_exodus(int ex_id, int counter);
   int write_elem_data_exodus(int ex_id, int counter);
   int write_elem_data_exodus(int ex_id);
-  int close_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
   int get_nodal_field_index(std::string name);
   int read_nodal_field_index(const int ex_id, std::string name);

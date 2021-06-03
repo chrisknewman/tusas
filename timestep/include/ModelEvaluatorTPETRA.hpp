@@ -286,6 +286,7 @@ private:
   boost::ptr_vector<post_process> post_proc;
   void postprocess();
   void init_P_();
+  std::string outfilename;
 
 };
 

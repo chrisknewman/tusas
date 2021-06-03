@@ -38,7 +38,7 @@ Mesh::Mesh( const int pid, const bool v ):
 
 Mesh::~Mesh(){
   //close_exodus(exid);
-  ex_close(exid);
+  //ex_close(exid);
 }
 
 int Mesh::read_exodus(const char * filename){
@@ -1374,17 +1374,28 @@ int Mesh::add_nodal_data(std::string name, double *data){
    return 1;
 
 }
-
-int Mesh::open_exodus(const char * filename){
+int Mesh::open_exodus(const char * filename, WR wr){
   int comp_ws = sizeof(double);// = 8
   int io_ws = sizeof(double);// = 8
   float version;
 
-  int ex_id = ex_open(filename, EX_WRITE, &comp_ws, &io_ws, &version);
   int ex_err;
+  int ex_id;
+
+  switch (wr) {
+  case WRITE:
+    ex_id = ex_open(filename, EX_WRITE, &comp_ws, &io_ws, &version);
 #ifdef MESH_64
-  ex_err = ex_set_int64_status(ex_id,EX_MAPS_INT64_API);
+    ex_err = ex_set_int64_status(ex_id,EX_MAPS_INT64_API);
 #endif
+    break;
+  case READ:
+    ex_id = ex_open(filename, EX_READ, &comp_ws, &io_ws, &version);
+#ifdef MESH_64
+    ex_err = ex_set_int64_status(ex_id,EX_MAPS_INT64_API);
+#endif
+    break;
+  }
   return ex_id;
 }
 

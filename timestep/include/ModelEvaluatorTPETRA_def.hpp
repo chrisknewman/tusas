@@ -1264,13 +1264,13 @@ template<class scalar_type>
       outfilename = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
       ex_id_ = mesh_->create_exodus(outfilename.c_str());
     }//if numproc
-  
+
     mesh_->close_exodus(ex_id_);
 
     for( int k = 0; k < numeqs_; k++ ){
       mesh_->add_nodal_field((*varnames_)[k]);
     }
-    
+
     output_step_ = 1;
     write_exodus();
   }
@@ -1778,7 +1778,7 @@ void ModelEvaluatorTPETRA<scalar_type>::finalize()
 
   //std::cout<<(solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")<<std::endl;
   int ngmres = 0;
-
+  comm_->barrier();
   if ( (solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
        .isSublist("Output") == true){
     if ( (solver_->getList()).sublist("Direction").sublist("Newton").sublist("Linear Solver")
@@ -1861,7 +1861,7 @@ template<class scalar_type>
   }
   else{
     std::string decompPath="decomp/";
- 
+
     std::string mypidstring(getmypidstring(mypid,numproc));
 
     outfilename = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;

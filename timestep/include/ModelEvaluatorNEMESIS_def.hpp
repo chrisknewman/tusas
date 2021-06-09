@@ -1376,7 +1376,7 @@ template<class Scalar>
       outfilename = decompPath+"/results.e."+std::to_string(numproc)+"."+mypidstring;
       ex_id_ = mesh_->create_exodus(outfilename.c_str());
     }//numproc
-  
+
     mesh_->close_exodus(ex_id_);
     
     for( int k = 0; k < numeqs_; k++ ){
@@ -2396,15 +2396,15 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //(*neumannfunc_)[0][2] = &nbc_zero_;						 
     //(*neumannfunc_)[0][3] = &nbc_zero_;
 
-  }else if("robin" == paramList.get<std::string> (TusastestNameString)){
+  }else if("robin_steadystate" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &residual_robin_test_;
+    (*residualfunc_)[0] = &robin_steadystate::residual_robin_test_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &prec_robin_test_;
+    (*preconfunc_)[0] = &robin_steadystate::prec_robin_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &init_neumann_test_;
@@ -2428,10 +2428,46 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
     //(*neumannfunc_)[0][0] = &nbc_one_;							 
-    (*neumannfunc_)[0][1] = &nbc_robin_test_;						 
+    (*neumannfunc_)[0][1] = &robin_steadystate::nbc_robin_test_;						 
     //(*neumannfunc_)[0][2] = &nbc_zero_;						 
     //(*neumannfunc_)[0][3] = &nbc_zero_;
 
+  }else if("robin" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &robin::residual_robin_test_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &robin::prec_robin_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    //(*initfunc_)[0] = &init_neumann_test_;
+    (*initfunc_)[0] = &robin::init_robin_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    //(*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    //neumannfunc_ = NULL;
+    //(*neumannfunc_)[0][0] = &nbc_one_;							 
+    (*neumannfunc_)[0][1] = &robin::nbc_robin_test_;						 
+    //(*neumannfunc_)[0][1] = &nbc_zero_;						 
+    //(*neumannfunc_)[0][2] = &nbc_zero_;						 
+    //(*neumannfunc_)[0][3] = &nbc_zero_;
 
   }else if("liniso" == paramList.get<std::string> (TusastestNameString)){
 

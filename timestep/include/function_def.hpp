@@ -1196,6 +1196,8 @@ PPR_FUNC(postproc_t_)
 // double residual_robin_test_(const boost::ptr_vector<Basis> &basis, 
 // 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
 // 		      const double &time)
+namespace robin_steadystate
+{
 RES_FUNC(residual_robin_test_)
 {
   //1-D robin bc test problem, steady state
@@ -1278,7 +1280,109 @@ NBC_FUNC(nbc_robin_test_)
 
   return b*(1.-u)*test;
 }
+}//namespace robin_steadystate
+namespace robin
+{
+  //  http://ramanujan.math.trinity.edu/rdaileda/teach/s12/m3357/lectures/lecture_2_28_short.pdf
+  // 1-D robin bc test problem, time dependent
+  // Solve D[u, t] - c^2 D[u, x, x] == 0
+  // u(0,t) == 0
+  // D[u, x] /. x -> L == -kappa u(t,L)
+  // => du/dx + kappa u = g = 0
+  // u(x,t) = a E^(-mu^2 t) Sin[mu x]
+  // mu solution to: Tan[mu L] + mu/kappa == 0 && Pi/2 < mu < 3 Pi/2
+  const double mu = 2.028757838110434;
+  const double a = 10.;
+  const double c = 1.;
+  const double L = 1.;
+  const double kappa = 1.;
 
+RES_FUNC(residual_robin_test_)
+{
+  //1-D robin bc test problem, 
+
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  //test function
+  double test = basis[0].phi[i];
+  //u, phi
+  double u = basis[0].uu;
+  double uold = basis[0].uuold;
+
+  //double a =10.;
+
+  double ut = (u-uold)/dt_*test;
+  double divgradu = c*c*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
+  //double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
+ 
+ 
+  return ut + divgradu;
+}
+
+//double prec_robin_test_(const boost::ptr_vector<Basis> &basis, 
+//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+PRE_FUNC(prec_robin_test_)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+  double test = basis[0].phi[i];
+  double divgrad = c*c*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  //double a =10.;
+  double u_t = (basis[0].phi[j])/dt_*test;
+  return u_t + t_theta_*divgrad;
+}
+
+//double nbc_robin_test_(const Basis *basis,
+//	 const int &i, 
+//	 const double &dt_, 
+//	 const double &t_theta_,
+//	 const double &time)
+NBC_FUNC(nbc_robin_test_)
+{
+
+  double test = basis->phi[i];
+  double u = basis[0].uu;
+
+  //du/dn + kappa u = g = 0 on L
+  //(du,dv) - <du/dn,v> = (f,v)
+  //(du,dv) - <g - kappa u,v> = (f,v)
+  //(du,dv) - < - kappa u,v> = (f,v)
+  //          ^^^^^^^^^^^^^^ return this
+
+  return (-kappa*u)*test;
+}
+INI_FUNC(init_robin_test_)
+{
+  return a*sin(mu*x);
+}
+}//namespace robin
 namespace liniso
 {
 // double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 

@@ -3,9 +3,9 @@
 <!-- simulation parameters -->
 
   <Parameter name="dt" type="double" value=".001"/>
-  <Parameter name="nt" type="int" value = "1"/>
-  <Parameter name="meshfile" type="string" value="../../meshes/quad64.e"/>
-  <Parameter name="testcase" type="string" value="robin_steadystate"/>
+  <Parameter name="nt" type="int" value = "10"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/hex64_3d.e"/>
+  <Parameter name="testcase" type="string" value="robin"/>
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="1."/>
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->

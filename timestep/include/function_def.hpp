@@ -5109,6 +5109,12 @@ RES_FUNC(residual_eta_kkspp_)
 				    const double &t_theta_,\
 				    const int &eqn_id)
 
+#define NBC_FUNC_TPETRA(NAME)  double NAME(const GPUBasis *basis,\
+				    const int &i,\
+				    const double &dt_,\
+				    const double &t_theta_,\
+				    const double &time)
+
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
   //namespace heat{
 
@@ -6207,8 +6213,105 @@ PPR_FUNC(postproc_c_b_)
 
   return c_b;
 }
-
 }//namespace pfhub2
+
+namespace robin
+{
+  //  http://ramanujan.math.trinity.edu/rdaileda/teach/s12/m3357/lectures/lecture_2_28_short.pdf
+  // 1-D robin bc test problem, time dependent
+  // Solve D[u, t] - c^2 D[u, x, x] == 0
+  // u(0,t) == 0
+  // D[u, x] /. x -> L == -kappa u(t,L)
+  // => du/dx + kappa u = g = 0
+  // u(x,t) = a E^(-mu^2 t) Sin[mu x]
+  // mu solution to: Tan[mu L] + mu/kappa == 0 && Pi/2 < mu < 3 Pi/2
+  const double mu = 2.028757838110434;
+  const double a = 10.;
+  const double c = 1.;
+  const double L = 1.;
+  const double kappa = 1.;
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_robin_test_)
+{
+  //1-D robin bc test problem, 
+
+  //derivatives of the test function
+  const double dtestdx = basis[0]->dphidx[i];
+  const double dtestdy = basis[0]->dphidy[i];
+  const double dtestdz = basis[0]->dphidz[i];
+  //test function
+  const double test = basis[0]->phi[i];
+  //u, phi
+  const double u = basis[0]->uu;
+  const double uold = basis[0]->uuold;
+
+  //double a =10.;
+
+  const double ut = (u-uold)/dt_*test;
+  const double divgradu = c*c*(basis[0]->dudx*dtestdx + basis[0]->dudy*dtestdy + basis[0]->dudz*dtestdz);//(grad u,grad phi)
+  //double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
+ 
+ 
+  return ut + divgradu;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_robin_test_dp_)) = residual_robin_test_;
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_robin_test_)
+{
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  const double dtestdx = basis[0].dphidx[i];
+  const double dtestdy = basis[0].dphidy[i];
+  const double dtestdz = basis[0].dphidz[i];
+
+  const double dbasisdx = basis[0].dphidx[j];
+  const double dbasisdy = basis[0].dphidy[j];
+  const double dbasisdz = basis[0].dphidz[j];
+  const double test = basis[0].phi[i];
+  const double divgrad = c*c*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  //double a =10.;
+  const double u_t = (basis[0].phi[j])/dt_*test;
+  return u_t + t_theta_*divgrad;
+}
+
+TUSAS_DEVICE
+PRE_FUNC_TPETRA((*prec_robin_test_dp_)) = prec_robin_test_;
+
+NBC_FUNC_TPETRA(nbc_robin_test_)
+{
+
+  const double test = basis->phi[i];
+  const double u = basis[0].uu;
+
+  //du/dn + kappa u = g = 0 on L
+  //(du,dv) - <du/dn,v> = (f,v)
+  //(du,dv) - <g - kappa u,v> = (f,v)
+  //(du,dv) - < - kappa u,v> = (f,v)
+  //          ^^^^^^^^^^^^^^ return this
+
+  return (-kappa*u)*test;
+}
+INI_FUNC(init_robin_test_)
+{
+  return a*sin(mu*x);
+}
+PPR_FUNC(postproc_robin_)
+{
+  const double uu = u[0];
+  const double x = xyz[0];
+  //const double y = xyz[1];
+  //const double z = xyz[2];
+
+  const double s= a*exp(-mu*mu*time)*sin(mu*x);//c?
+
+  return s-uu;
+}
+}//namespace robin
+
 }//namespace tpetra
 
 

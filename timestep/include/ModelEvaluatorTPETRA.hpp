@@ -237,6 +237,15 @@ private:
 			     const double &z,
 			     const int &eqn_id);
 
+  typedef double (*NBCFUNC)(const GPUBasis *basis,
+			    const int &i, 
+			    const double &dt_, 
+			    const double &t_theta_,
+			    const double &time);
+
+  std::vector<std::map<int,NBCFUNC>> *neumannfunc_;
+
+
   std::vector<INITFUNC> *initfunc_;
 
   typedef void (*PARAMFUNC)(Teuchos::ParameterList *plist);

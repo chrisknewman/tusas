@@ -5,10 +5,15 @@
   <Parameter name="dt" type="double" value=".001"/>
   <Parameter name="nt" type="int" value = "10"/>
   <Parameter name="meshfile" type="string" value="../../meshes/hex64_3d.e"/>
+  <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="testcase" type="string" value="robin"/>
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="1."/>
-<!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+<!--  <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+
+  <ParameterList name="Linear Solver"> 
+    <Parameter name="Linear Solver Type" type="string" value="Belos"/>
+  </ParameterList> 
 
   <Parameter name="errorestimator" type="string" value = "{0}"/>
 

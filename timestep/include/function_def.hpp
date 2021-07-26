@@ -125,9 +125,14 @@
 */
 
 #define PPR_FUNC(NAME)  double NAME(const double *u,\
+				    const double *uold,\
+				    const double *uoldold,\
 				    const double *gradu,\
 				    const double *xyz,\
-				    const double &time)
+				    const double &time,\
+				    const double &dt,\
+				    const double &dtold,\
+				    const int &eqn_id)
 
 /** Parameter function to propogate information from input file. Each parameter function is called at the beginning of each simulation.
 - NAME:     name of function to call
@@ -167,7 +172,6 @@ RES_FUNC(residual_heat_test_)
   double divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
   double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
  
- 
   return ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old;
 }
 //double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
@@ -194,9 +198,7 @@ PRE_FUNC(prec_heat_test_)
   double u_t =test * basis[0].phi[j]/dt_;
   return u_t + t_theta_*divgrad;
 }
-//double init_heat_test_(const double &x,
-//		 const double &y,
-//		 const double &z)
+
 INI_FUNC(init_heat_test_)
 {
 
@@ -206,6 +208,60 @@ INI_FUNC(init_heat_test_)
 }
 }//namespace heat
 
+namespace timeadapt
+{
+PPR_FUNC(d2udt2_)
+{
+  //const double tol = 1.e-2;
+
+  const double uu = u[eqn_id];
+  const double uuold = uold[eqn_id];
+  const double uuoldold = uoldold[eqn_id];
+
+  const double duuold = (uuold-uuoldold)/dtold;
+  const double duu = (uu-uuold)/dt;
+  const double d2udt2 = (duu-duuold)/dt;
+  //const double ae = .5*dt*dt*d2udt2;
+
+  double r = 0;
+  r = abs(d2udt2/1.);
+  //if (uu*uu > 1.e-8) r = abs(d2udt2/uu);
+  //r = std::max(abs(d2udt2/uu),1.e-10);
+  //return sqrt(2.*tol*abs(uu)/abs(d2udt2));
+  //return abs(d2udt2/uu);
+  //std::cout<<r<<" "<<uu*uu<<" "<<d2udt2<<std::endl;
+  return r;
+}
+PPR_FUNC(postproc1_)
+{
+  //const double tol = 1.e-2;
+
+  const double uu = u[eqn_id];
+
+  const double x = xyz[0];
+  const double y = xyz[1];
+
+  const double pi = 3.141592653589793;
+  //d2udt2 = 4 E^(-2 \[Pi]^2 t) \[Pi]^4 Sin[\[Pi] x] Sin[\[Pi] y];
+
+  const double uex = exp(-2.*pi*pi*time)*sin(pi*x)*sin(pi*y);
+  //const double d2udt2ex = 4.*pi*pi*pi*pi*exp(-2.*pi*pi*time)*sin(pi*x)*sin(pi*y);
+  //return sqrt(2.*tol*abs(uu)/abs(d2udt2));
+  //return d2udt2;
+  
+  //return abs(d2udt2ex/uex);
+  //return abs(d2udt2ex/1.);
+  return abs(uu-uex);
+}
+PPR_FUNC(normu_)
+{
+  //const double tol = 1.e-2;
+
+  const double uu = u[eqn_id];
+
+  return abs(uu);
+}
+}//namespace timeadapt
 
 double rand_phi_zero_(const double &phi, const double &random_number)
 {

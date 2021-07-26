@@ -106,7 +106,7 @@ public:
 
   void initialize();
   void finalize();
-  void advance();
+  double advance();
   void write_exodus();
 
   void evalModelImpl(

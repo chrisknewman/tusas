@@ -168,12 +168,18 @@ int main(int argc, char *argv[])
     double endTime = curTime + ((double)numSteps-elapsedSteps)*dt;
     
     while ( ( curTime <= endTime ) && ( elapsedSteps < numSteps ) ) {
-      model->advance();
-      curTime += dt;
+      double dtnew = 0.;
+
+      dtnew = model->advance();
+      
+      //this will be dtold
+      curTime += dtnew;
       elapsedSteps++;
+
       if(0 == mypid){
 	cout<< endl << "Time step " <<elapsedSteps <<" of "<<numSteps
-	    << "  ( "<<(float)elapsedSteps/(float)numSteps*100. <<" % )   t = "
+	  //<< "  ( "<<(float)elapsedSteps/(float)numSteps*100. <<" % )   t = "
+	    << "  ( "<<(float)curTime/(float)endTime*100. <<" % )   t = "
 	    <<curTime<<"  t final = "<<endTime<< endl<<endl<<endl;
       }
       if(0 == elapsedSteps%(paramList.get<int> (TusasoutputfreqNameString)) &&
@@ -182,7 +188,7 @@ int main(int argc, char *argv[])
 	
 	model->write_exodus();
       }
-    }
+    }//while
     
     model->finalize();
     

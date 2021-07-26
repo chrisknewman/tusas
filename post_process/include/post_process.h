@@ -42,10 +42,11 @@ class post_process
 public:
   /// Scalar operation enumeration
   /** If \p NONE, no scalar operation will be performed; otherwise the nodal variable will
-      be reduced via \p SCALAR_OP and written to text file at each timestep. */
+      be reduced via \p SCALAR_OP and written to text file at each output. */
   enum SCALAR_OP {NONE, ///< No scalar operation
 		  NORM1, ///< 1-norm.
 		  NORM2, ///< 2-norm.
+		  NORMRMS, ///< RMS norm
 		  NORMINF, ///< Inf-norm
 		  MINVALUE, ///< Minimum value
 		  MAXVALUE, ///< Maximum value
@@ -59,6 +60,8 @@ public:
 	       Mesh *mesh, ///< mesh object
 	       const int index, ///< index of this post process variable
 	       SCALAR_OP s_op = NONE, ///< scalar operation to perform
+	       const int eqn_id = 0, ///< associate this post process variable with an equation
+	       const std::string basename = "pp", ///< basename this post process variable
 	       const double precision = 6 ///< precision for output file
 	       );
   /// Destructor
@@ -66,20 +69,34 @@ public:
   /// Write the post process variable to exodus.
   void update_mesh_data();
   /// Write the scalar op value to a data file.
+  /// This should be preceded by a call to scalar_reduction()
   void update_scalar_data(double time///< time to be written 
 			  );
   /// Compute the post process variable at node index \p i
   void process(const int i,///< index of vector entry
 	       const double *u, ///< solution array
+	       const double *uold, ///< solution array at previous timestep
+	       const double *uoldold, ///< solution array at previous timestep
 	       const double *gradu, ///< solution derivative array
-	       const double &time ///< current time
+	       const double &time, ///< current time
+	       const double &dt, ///< current timestep size 
+	       const double &dtold ///< previous timestep size
 	       );
   /// typedef for post process function pointer
   typedef double (*PPFUNC)(const double *u, ///< solution array
+			   const double *uold, ///< previous solution array
+			   const double *uoldold, ///< previous solution array
 			   const double *gradu, ///< solution derivative array
 			   const double *xyz, ///< node xyz array
-			   const double &time ///< current time
+			   const double &time, ///< current time
+			   const double &dt, ///< current timestep size
+			   const double &dtold, ///< last timestep size
+			   const int &eqn_id ///< equation this postprocess is associated with
 			   );
+  /// Return scalar reduction value
+  double get_scalar_val();
+  /// Perform scalar reduction.
+  void scalar_reduction();
   /// Pointer to the post process function.
   PPFUNC postprocfunc_;
   //double (*postprocfunc_)(const double *u, const double *gradu);
@@ -105,7 +122,12 @@ private:
   double precision_;
   /// Output filename
   std::string filename_;
-
+  /// Scalar reduction value
+  double scalar_val_;
+  /// Equation this post process variable is associated with
+  int eqn_id_;
+  /// Variable and file base name
+  std::string basename_;
 
 
 

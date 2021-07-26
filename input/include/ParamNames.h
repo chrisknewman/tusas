@@ -102,6 +102,48 @@ std::string const TusasexaConstitDocString = "exaconstit (bool): true; false (de
 std::string const Tusasusenemesis64bitNameString = "usenemesis64bit";
 /// Use 64 bit nemesis
 std::string const Tusasusenemesis64bitDocString = "usenemesis64bit (bool): true; false (default)";
+/// Estimate timestep size
+std::string const TusasestimateTimestepNameString = "estimatetimestep";
+/// Estimate timestep size
+std::string const TusasestimateTimestepDocString = "estimatetimestep (bool): true; false (default)";
+/// Perform initial nonlinear solve
+std::string const TusasinitialSolveNameString = "initialsolve";
+/// Perform initial nonlinear solve
+std::string const TusasinitialSolveDocString = "initialsolve (bool): true; false (default)";
+
+/// Perform adaptive timestepping
+std::string const TusasadaptiveTimestepNameString = "adaptivetimestep";
+/// Perform adaptive timestepping
+std::string const TusasadaptiveTimestepDocString = "adaptivetimestep (bool): true; false (default)";
+
+/// Adaptive Timestep parameters list.
+std::string const TusasatslistNameString = "Adaptive Timestep Parameters";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsmaxiterNameString = "maxiter";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsmaxiterDocString = "maxiter (int): default 1";
+/// Adaptive Timestep parameters list.
+std::string const TusasatstolNameString = "tolerance";
+/// Adaptive Timestep parameters list.
+std::string const TusasatstolDocString = "tolerance (double): default 0.01";
+/// Adaptive Timestep parameters list.
+std::string const TusasatssfNameString = "safety factor";
+/// Adaptive Timestep parameters list.
+std::string const TusasatssfDocString = "safety factor (double): default 0.9";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsrmaxNameString = "rmax";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsrmaxDocString = "rmax (double): default 2.0";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsrminNameString = "rmin";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsrminDocString = "rmin (double): default 0.5";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsepsNameString = "eps";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsepsDocString = "eps (double): default 1.e-10";
+
+
 
 //other parameters not in the input file
 /// Restart.

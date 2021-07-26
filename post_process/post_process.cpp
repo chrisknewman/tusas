@@ -18,13 +18,19 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
 			   Mesh *mesh, 
 			   const int index,
 			   SCALAR_OP s_op,
+			   const int eqn_id,
+			   const std::string basename,
 			   double precision):  
   comm_(comm),
   mesh_(mesh),
   index_(index),
   s_op_(s_op),
+  eqn_id_(eqn_id),
+  basename_(basename),
   precision_(precision)
 {
+  scalar_val_ =  0.;
+
   std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
 
   overlap_map_ = Teuchos::rcp(new Epetra_Map(-1,
@@ -44,7 +50,7 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   importer_ = Teuchos::rcp(new Epetra_Import(*overlap_map_, *node_map_));
 
   ppvar_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
-  std::string ystring="pp"+std::to_string(index_);
+  std::string ystring=basename_+std::to_string(index_);
   mesh_->add_nodal_field(ystring);
 
   if ( (0 == comm_->MyPID()) && (s_op_ != NONE) ){
@@ -55,13 +61,20 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   }
 
   if ( 0 == comm_->MyPID())
-    std::cout<<"Post process created for variable "<<index_<<std::endl<<std::endl;
+    std::cout<<"Post process created for variable "<<index_<<" with name "<<ystring<<std::endl<<std::endl;
   //exit(0);
 };
 
 post_process::~post_process(){};
 
-void post_process::process(const int i,const double *u, const double *gradu, const double &time)
+void post_process::process(const int i,
+			   const double *u, 
+			   const double *uold, 
+			   const double *uoldold, 
+			   const double *gradu, 
+			   const double &time, 
+			   const double &dt, 
+			   const double &dtold)
 {
 #ifdef MESH_64
   Mesh::mesh_lint_t gid_node = node_map_->GID64(i);
@@ -73,7 +86,7 @@ void post_process::process(const int i,const double *u, const double *gradu, con
   xyz[0]=mesh_->get_x(lid_overlap);
   xyz[1]=mesh_->get_y(lid_overlap);
   xyz[2]=mesh_->get_z(lid_overlap);
-  (*ppvar_)[i] = (*postprocfunc_)(u, gradu, &xyz[0], time);
+  (*ppvar_)[i] = (*postprocfunc_)(u, uold, uoldold, gradu, &xyz[0], time, dt, dtold, eqn_id_);
 };
 
 void post_process::update_mesh_data(){
@@ -86,13 +99,27 @@ void post_process::update_mesh_data(){
   for (int nn=0; nn < num_nodes; nn++) {
       ppvar[nn]=(*temp)[nn];
   }
-  std::string ystring="pp"+std::to_string(index_);
+  std::string ystring=basename_+std::to_string(index_);
   mesh_->update_nodal_data(ystring, &ppvar[0]);
 
 };
 void post_process::update_scalar_data(double time){
 
-  double scalar_val =  0.;
+  if ( (0 == comm_->MyPID()) && (s_op_ != NONE) ){
+    std::ofstream outfile;
+    outfile.open(filename_, std::ios::app );
+    outfile << std::setprecision(precision_)
+	    <<time<<" "<<scalar_val_<<std::endl;
+    outfile.close();
+  }
+
+};
+double post_process::get_scalar_val(){
+  return scalar_val_;
+};
+void post_process::scalar_reduction(){
+
+  scalar_val_ =  0.;
   
   switch(s_op_){
 
@@ -100,39 +127,37 @@ void post_process::update_scalar_data(double time){
     return;
 
   case NORM1:
-    ppvar_->Norm1(&scalar_val);
+    ppvar_->Norm1(&scalar_val_);
     break;
 
   case NORM2:
-    ppvar_->Norm2(&scalar_val);
+    ppvar_->Norm2(&scalar_val_);
     break;
 
+  case NORMRMS:{
+    Epetra_Vector *temp = new Epetra_Vector(*ppvar_);
+    temp->PutScalar(1.);
+    ppvar_->NormWeighted(*temp,&scalar_val_);
+    break;
+  }
+
   case NORMINF:
-    ppvar_->NormInf(&scalar_val);
+    ppvar_->NormInf(&scalar_val_);
     break;
 
   case MAXVALUE:
-    ppvar_->MaxValue(&scalar_val);
+    ppvar_->MaxValue(&scalar_val_);
     break;
 
   case MINVALUE:
-    ppvar_->MinValue(&scalar_val);
+    ppvar_->MinValue(&scalar_val_);
     break;
 
   case MEANVALUE:
-    ppvar_->MeanValue(&scalar_val);
+    ppvar_->MeanValue(&scalar_val_);
     break;
 
   default:    
     return;
   }
-
-  if ( (0 == comm_->MyPID()) && (s_op_ != NONE) ){
-    std::ofstream outfile;
-    outfile.open(filename_, std::ios::app );
-    outfile << std::setprecision(precision_)
-	    <<time<<" "<<scalar_val<<std::endl;
-    outfile.close();
-  }
-
 };

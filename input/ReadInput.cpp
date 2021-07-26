@@ -68,9 +68,24 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasexaConstitNameString,(bool)false,TusasexaConstitDocString);
 
+  paramList.set(TusasestimateTimestepNameString,(bool)false,TusasestimateTimestepDocString);
+
+  paramList.set(TusasinitialSolveNameString,(bool)false,TusasinitialSolveDocString);
+
   //paramList.set(TusasdecompmethodNameString,"INERTIAL",TusasdecompmethodDocString);
 
   paramList.set(Tusasusenemesis64bitNameString,(bool)false,Tusasusenemesis64bitDocString);
+
+  paramList.set(TusasadaptiveTimestepNameString,(bool)false,TusasadaptiveTimestepDocString);
+
+  Teuchos::ParameterList *ATSList;
+  ATSList = &paramList.sublist(TusasatslistNameString,false);
+  ATSList->set(TusasatsmaxiterNameString,1);
+  ATSList->set(TusasatstolNameString,1.e-2);
+  ATSList->set(TusasatssfNameString,.9);
+  ATSList->set(TusasatsrmaxNameString,2.0);
+  ATSList->set(TusasatsrminNameString,.5);
+  ATSList->set(TusasatsepsNameString,1.e-10);
 
   //ML parameters for ML and MueLu
   Teuchos::ParameterList *MLList;
@@ -182,6 +197,20 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     std::cout << "Default values:\n" << "\n";
   }
 
+  if((true == paramList.get<bool>(TusasadaptiveTimestepNameString))
+     &&(.5 < paramList.get<double>(TusasthetaNameString)) ){
+    paramList.set(TusasestimateTimestepNameString,(bool)true);
+  } else {
+    paramList.set(TusasadaptiveTimestepNameString,(bool)false);
+    //paramList.set(TusasestimateTimestepNameString,(bool)false);
+    //should print something here
+    if( 0 == mypid )
+      std::cout <<"   Adaptive timestep only implemented for theta = 1"
+		<<std::endl<<std::endl;
+  }
+  if((true == paramList.get<bool>(TusasestimateTimestepNameString)) ){
+    paramList.set(TusasinitialSolveNameString,(bool)true);    
+  }
 //   if((0 != paramList.get<int>(TusasntNameString))%(paramList.get<int>(TusasoutputfreqNameString)))
 //     paramList.set(TusasoutputfreqNameString,(int)1,TusasoutputfreqDocString);
 

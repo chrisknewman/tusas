@@ -101,6 +101,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   showGetInvalidArg_(false)
 {
   dt_ = paramList.get<double> (TusasdtNameString);
+  dtold_ = dt_;
   t_theta_ = paramList.get<double> (TusasthetaNameString);
 
   set_test_case();
@@ -183,6 +184,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 
   u_old_ = rcp(new Epetra_Vector(*f_owned_map_));
   u_old_old_ = rcp(new Epetra_Vector(*f_owned_map_));
+  u_old_old_old_ = rcp(new Epetra_Vector(*f_owned_map_));
   dudt_ = rcp(new Epetra_Vector(*f_owned_map_));
 
   random_vector_ = rcp(new Epetra_Vector(*f_owned_map_));
@@ -1266,7 +1268,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 
 
 template<class Scalar>
-void ModelEvaluatorNEMESIS<Scalar>::advance()
+double ModelEvaluatorNEMESIS<Scalar>::advance()
 {
   //if( 0 == comm_->MyPID()) std::cout<<std::endl<<"advance started"<<std::endl<<std::endl;
   Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
@@ -1275,40 +1277,86 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
 
   random_number_= ((double)rand()/(RAND_MAX)*2.-1.);
   random_vector_->Random();
-  //random_vector_->Print(std::cout);
 
-  //std::cout<<"random_number_= "<<random_number_<<std::endl;
-  {
-    Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
-    NOX::StatusTest::StatusType solvStatus = solver_->solve();
-    if( !(NOX::StatusTest::Converged == solvStatus)) {
-      std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
-      if(200 == paramList.get<int> (TusasnoxmaxiterNameString)) exit(0);
+  int maxiter = 1;
+  bool timeadapt = paramList.get<bool>(TusasadaptiveTimestepNameString);
+  Teuchos::ParameterList *atsList;
+  atsList = &paramList.sublist (TusasatslistNameString, false );
+  if( timeadapt ) maxiter = atsList->get<int>(TusasatsmaxiterNameString);
+
+  double dtpred = dt_;
+  for(int k = 0; k<maxiter; k++){
+    //newton solve
+    {
+      Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
+      NOX::StatusTest::StatusType solvStatus = solver_->solve();
+      if( !(NOX::StatusTest::Converged == solvStatus)) {
+	std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
+	if(200 == paramList.get<int> (TusasnoxmaxiterNameString)) exit(0);
+      }
     }
-  }
-  nnewt_ += solver_->getNumIterations();
+    nnewt_ += solver_->getNumIterations();
+    
+    const Thyra::VectorBase<double> * sol = 
+      &(dynamic_cast<const NOX::Thyra::Vector&>(
+						solver_->getSolutionGroup().getX()
+						).getThyraVector()
+	);
+    //u_old_ = get_Epetra_Vector (*f_owned_map_,Teuchos::rcp_const_cast< ::Thyra::VectorBase< double > >(Teuchos::rcpFromRef(*sol))	);
+    
+    Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+    
+    RCP<Epetra_Vector> temp;
+    if ( timeadapt ) temp = Teuchos::rcp(new Epetra_Vector(*u_old_old_old_ ));
+    
+    *u_old_old_old_ = *u_old_old_;
+    *u_old_old_ = *u_old_;
 
-  const Thyra::VectorBase<double> * sol = 
-    &(dynamic_cast<const NOX::Thyra::Vector&>(
-					      solver_->getSolutionGroup().getX()
-					      ).getThyraVector()
-      );
-  //u_old_ = get_Epetra_Vector (*f_owned_map_,Teuchos::rcp_const_cast< ::Thyra::VectorBase< double > >(Teuchos::rcpFromRef(*sol))	);
+    for (int nn=0; nn < num_my_nodes_; nn++) {//cn figure out a better way here...
+      for( int k = 0; k < numeqs_; k++ ){
+	(*u_old_)[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
+      }
+    }  
+    
+    if(paramList.get<bool> (TusasestimateTimestepNameString)){ 
+      dtpred = estimatetimestep();
+    }//if
+    
+    if( timeadapt ){
+      //dt_ = dtnew;
+      if(dtpred < dt_){
+	//and copy back vectors 
+	*u_old_ = *u_old_old_;
+	*u_old_old_ = *u_old_old_old_;
+	*u_old_old_old_ = *temp;
+	
+	dt_ = dtpred;
+      }else if(maxiter == k){
+	if( 0 == comm_->MyPID())std::cout<<"advance() with max iterations k = "<<k
+					 <<" reached"<<std::endl;
+	exit(0);
+	
+      }else{
+	if( 0 == comm_->MyPID())std::cout<<"advance() step accepted with dt = "<<dt_
+					 <<"; new dt = "<<dtpred
+					 <<"; and iterations = "<<k<<std::endl;
 
-  Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+	break;
 
-  *u_old_old_ = *u_old_;
 
-  for (int nn=0; nn < num_my_nodes_; nn++) {//cn figure out a better way here...
+	//what if he hit maxiters here without dtpred < dt_ ?????
+	//seems that this leads to a solver failure
+	//need to fix
 
-    for( int k = 0; k < numeqs_; k++ ){
-      (*u_old_)[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
-    }
-  }
+
+      }//if
+    }//if
+  }//for
+
+  //end of timestep updates here
   //u_old_->Print(std::cout);
   random_number_old_=random_number_;
   random_vector_old_->Scale((double)1.,*random_vector_);
-  time_ +=dt_;
   //update_mesh_data();
   //if((paramList.get<std::string> (TusastestNameString)=="cummins") && ( (TusasmethodNameString)  == "phaseheat")){
   if((paramList.get<std::string> (TusastestNameString)=="cummins") && (1== comm_->NumProc())){
@@ -1320,10 +1368,13 @@ void ModelEvaluatorNEMESIS<Scalar>::advance()
     it->estimate_gradient(u_old_);
     it->estimate_error(u_old_);
   }
-    
-  postprocess();
-  //if( 0 == comm_->MyPID()) std::cout<<std::endl<<"advance finished"<<std::endl<<std::endl;
+  
+  postprocess(post_proc);
 
+  dtold_ = dt_;
+  time_ += dt_;
+  dt_ = dtpred;
+  return dtold_;
 }
 
 template<class Scalar>
@@ -1351,8 +1402,64 @@ template<class Scalar>
       exit(0);
     }
 #endif    
+
     init(u_old_);
-    *u_old_old_ = *u_old_;
+    //u_old_old_->PutScalar(0.0);
+    u_old_old_->Update (1.,*u_old_ , 0.);
+    u_old_old_old_->PutScalar(0.0);
+
+    if(paramList.get<bool> (TusasestimateTimestepNameString)
+       ||paramList.get<bool> (TusasinitialSolveNameString)){
+      double t_theta_temp = t_theta_;
+      t_theta_ = 0.;
+
+      Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
+      NOX::StatusTest::StatusType solvStatus = solver_->solve();
+      if( !(NOX::StatusTest::Converged == solvStatus)) {
+	std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
+	if(20 == paramList.get<int> (TusasnoxmaxiterNameString)) exit(0);
+      }
+
+      const Thyra::VectorBase<double> * sol = 
+	&(dynamic_cast<const NOX::Thyra::Vector&>(
+						  solver_->getSolutionGroup().getX()
+						  ).getThyraVector());
+
+      Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+
+      //now,
+      //dudt(t=0) = (x_vec-u_old_)/dt_
+      //so, also
+      //dudt(t=0) = (u_old_ - u_old_old_)/dt_
+      //u_old_old_ = u_old_ - dt_*dudt(t=0)
+      //           = 2*u_old_ - x_vec
+      for (int nn=0; nn < num_my_nodes_; nn++) {//cn figure out a better way here...
+	for( int k = 0; k < numeqs_; k++ ){
+
+	  (*u_old_old_)[numeqs_*nn+k] = 2.*(*u_old_)[numeqs_*nn+k] - x_vec[numeqs_*nn+k];
+  
+// 	  std::cout<<(*u_old_old_)[numeqs_*nn+k]<<"  "<<std::endl;
+	}
+      }
+      t_theta_ = t_theta_temp;
+    }
+    
+    //u_old_old_->Update (1.,*u_old_ , 0.);
+    //u_old_old_old_->PutScalar(0.0);
+
+    if(paramList.get<bool> (TusasestimateTimestepNameString)){    
+
+      for( int k = 0; k < numeqs_; k++ ){
+	temporal_est.push_back(new post_process(comm_,mesh_,
+						k, 
+						post_process::NORMRMS, 
+						k, 
+						"temperror"));
+	temporal_est[0].postprocfunc_ = &timeadapt::d2udt2_;
+      }
+//       temporal_est.push_back(new post_process(comm_,mesh_,(int)1,post_process::MAXVALUE));
+//       temporal_est[1].postprocfunc_ = &timeadapt::postproc1_;
+    }
 
     int mypid = comm_->MyPID();
     int numproc = comm_->NumProc();
@@ -1943,6 +2050,13 @@ int ModelEvaluatorNEMESIS<Scalar>:: update_mesh_data()
 
   boost::ptr_vector<post_process>::iterator itp;
   for(itp = post_proc.begin();itp != post_proc.end();++itp){
+    itp->scalar_reduction();
+    itp->update_mesh_data();
+    itp->update_scalar_data(time_);
+  }
+
+  for(itp = temporal_est.begin();itp != temporal_est.end();++itp){
+    itp->scalar_reduction();
     itp->update_mesh_data();
     itp->update_scalar_data(time_);
   }
@@ -2337,6 +2451,46 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*dirichletfunc_)[0][3] = &dbc_zero_;
 
     neumannfunc_ = NULL;
+
+  }else if("timeadapt" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &heat::residual_heat_test_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &heat::prec_heat_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &heat::init_heat_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(comm_,
+					 mesh_,
+					 (int)0,
+					 post_process::NORMRMS,
+					 0,
+					 "pp",
+					 16));
+    post_proc[0].postprocfunc_ = &timeadapt::postproc1_;
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1,post_process::MAXVALUE));
+    post_proc[1].postprocfunc_ = &timeadapt::normu_;
 
 }else if("omp" == paramList.get<std::string> (TusastestNameString)){
 
@@ -3217,8 +3371,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*varnames_)[5] = "al";
     (*varnames_)[6] = "phi";
 
-    //dirichletfunc_ = NULL;
-    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    dirichletfunc_ = NULL;
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
@@ -3788,12 +3942,16 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
   const int dim = 3;
 
   std::vector<double> uu(numeqs_);
+  std::vector<double> uuold(numeqs_);
+  std::vector<double> uuoldold(numeqs_);
   std::vector<double> ug(dim*numee);
 
   //#pragma omp parallel for
   for (int nn=0; nn < num_my_nodes_; nn++) {
     for( int k = 0; k < numeqs_; k++ ){
       uu[k] = (*u_old_)[numeqs_*nn+k];
+      uuold[k] = (*u_old_old_)[numeqs_*nn+k];
+      uuoldold[k] = (*u_old_old_old_)[numeqs_*nn+k];
     }
 
     for( int k = 0; k < numee; k++ ){
@@ -3804,7 +3962,50 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess()
 
     boost::ptr_vector<post_process>::iterator itp;
     for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      itp->process(nn,&uu[0],&ug[0],time_);
+      itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
+      //std::cout<<nn<<" "<<mesh_->get_local_id((x_owned_map_->GID(nn))/numeqs_)<<" "<<xyz[0]<<std::endl;
+    }
+    for(itp = temporal_est.begin();itp != temporal_est.end();++itp){
+      itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
+      //std::cout<<nn<<" "<<mesh_->get_local_id((x_owned_map_->GID(nn))/numeqs_)<<" "<<xyz[0]<<std::endl;
+    }
+
+  }//nn
+
+}
+
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::postprocess(boost::ptr_vector<post_process> pp)
+{
+  if(0 == pp.size() ) return;
+
+  int numee = Error_est.size();
+  //ordering is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz
+
+  const int dim = 3;
+
+  std::vector<double> uu(numeqs_);
+  std::vector<double> uuold(numeqs_);
+  std::vector<double> uuoldold(numeqs_);
+  std::vector<double> ug(dim*numee);
+
+  //#pragma omp parallel for
+  for (int nn=0; nn < num_my_nodes_; nn++) {
+    for( int k = 0; k < numeqs_; k++ ){
+      uu[k] = (*u_old_)[numeqs_*nn+k];
+      uuold[k] = (*u_old_old_)[numeqs_*nn+k];
+      uuoldold[k] = (*u_old_old_old_)[numeqs_*nn+k];
+    }
+
+    for( int k = 0; k < numee; k++ ){
+      ug[k*dim] = (*(Error_est[k].gradx_))[nn];
+      ug[k*dim+1] = (*(Error_est[k].grady_))[nn];
+      ug[k*dim+2] = (*(Error_est[k].gradz_))[nn];
+    }
+
+    boost::ptr_vector<post_process>::iterator itp;
+    for(itp = pp.begin();itp != pp.end();++itp){
+      itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
       //std::cout<<nn<<" "<<mesh_->get_local_id((x_owned_map_->GID(nn))/numeqs_)<<" "<<xyz[0]<<std::endl;
     }
 
@@ -3972,6 +4173,61 @@ void ModelEvaluatorNEMESIS<Scalar>::dump_exaconstit(){
   }
 }
 
+template<class Scalar>
+double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
+{
+  double dtpred = 0.;
+
+  Teuchos::ParameterList *atsList;
+  atsList = &paramList.sublist (TusasatslistNameString, false );
+
+  const double tol = atsList->get<double>(TusasatstolNameString);
+  const double sf = atsList->get<double>(TusasatssfNameString);
+  const double rmax = atsList->get<double>(TusasatsrmaxNameString);
+  const double rmin = atsList->get<double>(TusasatsrminNameString);
+  const double eps = atsList->get<double>(TusasatsepsNameString);
+
+  postprocess(temporal_est); 
+  boost::ptr_vector<post_process>::iterator itp;
+  for(itp = temporal_est.begin();itp != temporal_est.end();++itp){
+    itp->scalar_reduction();
+  }
+  
+  std::vector<double> maxdt(numeqs_);
+  std::vector<double> mindt(numeqs_);
+  std::vector<double> error(numeqs_);
+  
+  if( 0 == comm_->MyPID()){
+    std::cout<<std::endl<<"     Estimating timestep size"<<std::endl;	
+    std::cout<<"     with tol = "<<tol
+	     <<"; sf = "<<sf<<"; rmax = "<<rmax<<"; rmin = "<<rmin<<"; current dt = "<<dt_<<std::endl;
+    
+  }
+  for( int k = 0; k < numeqs_; k++ ){
+    error[k] = dt_*dt_/2.*(temporal_est[k].get_scalar_val());
+    const double abserr = std::max(error[k],eps);
+    const double factor = sf*dt_*sqrt(tol/abserr);
+    maxdt[k] = std::max(factor,dt_*rmin);
+    mindt[k] = std::min(factor,dt_*rmax);
+    if( 0 == comm_->MyPID()){
+      std::cout<<std::endl<<"     Variable: "<<(*varnames_)[k]<<std::endl;
+      std::cout<<"                            error = "<<error[k]<<std::endl;
+      std::cout<<"                   max(error,eps) = "<<abserr<<std::endl;
+      std::cout<<"                    sqrt(tol/err) = "<<sqrt(tol/abserr)<<std::endl;
+      std::cout<<"          h = sf*dt*sqrt(tol/err) = "<<factor<<std::endl;
+      std::cout<<"                   max(h,dt*rmin) = "<<maxdt[k]<<std::endl;
+      std::cout<<"                   min(h,dt*rmax) = "<<mindt[k]<<std::endl<<std::endl;
+    }
+  }//k
+  const double dt1 = *min_element(maxdt.begin(), maxdt.end());
+  const double dt2 = *max_element(mindt.begin(), mindt.end());
+  dtpred = std::max(dt1,dt2);
+  if( 0 == comm_->MyPID()){
+    std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl<<std::endl;	
+  }
+  
+  return dtpred;
+}
 
 #endif //TUSAS_HAVE_CUDA
 #endif

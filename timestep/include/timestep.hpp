@@ -25,7 +25,7 @@ public:
   /** Initial conditions. Write initial conditions to output exodusII file. */
   virtual void initialize() = 0;
   /// Advance one timestep.
-  virtual void advance() = 0;
+  virtual double advance() = 0;
   /// Finalize
   /** Write final timestep to output exodusII file. Cleanup. */ 
   virtual void finalize() = 0;

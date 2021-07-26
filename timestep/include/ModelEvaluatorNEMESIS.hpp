@@ -78,7 +78,7 @@ public:
   void init_nox();
   void initialize();
   void finalize();
-  void advance();
+  double advance();
   /// Compute a global L^2 error based on an analytic solution.
   void compute_error( double *u);
   //void write_exodus(const int output_step);
@@ -110,6 +110,7 @@ private: // data members
 
   //const Scalar  dt_;
   double dt_;
+  double dtold_;
 
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > x_space_;
   Teuchos::RCP<const Epetra_Map>   x_owned_map_;
@@ -134,6 +135,7 @@ private: // data members
   Teuchos::RCP<NOX::Solver::Generic> solver_;
   Teuchos::RCP<Epetra_Vector> u_old_;
   Teuchos::RCP<Epetra_Vector> u_old_old_;
+  Teuchos::RCP<Epetra_Vector> u_old_old_old_;
   Teuchos::RCP<Epetra_Vector> dudt_;
 
   void set_test_case();
@@ -252,10 +254,12 @@ private: // data members
   //post process stuff
   //cn need this to be a function of all variables eventually
 //   std::vector<double (*)(const double *u, const double *gradu)> *postprocfunc_;
-  void postprocess();
+  void postprocess();  
+  void postprocess(boost::ptr_vector<post_process>pp);
 //   int numpostprocvar_;
 //   std::vector<std::string> *postprocvarnames_;
 //   Teuchos::RCP<Epetra_Vector> u_postproc_;
+  double estimatetimestep();
 
   //tip velocity stuff
   std::map<double,int> x_node;
@@ -271,6 +275,7 @@ private: // data members
   RCP<Teuchos::Time> ts_time_nsolve;
   boost::ptr_vector<error_estimator> Error_est;
   boost::ptr_vector<post_process> post_proc;
+  boost::ptr_vector<post_process> temporal_est;
   Teuchos::RCP<elem_color> Elem_col;
   std::string outfilename;
 

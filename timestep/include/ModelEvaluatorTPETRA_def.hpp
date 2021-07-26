@@ -676,13 +676,91 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
     }
-//    f_overlap->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-//     f_vec->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-//     auto f_view = f_overlap->getLocalView<Kokkos::HostSpace>();
-//     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
-//     for(int i = 0; i<15; i++)std::cout<<comm_->getRank()<<" "<<i<<" "<<f_1d[i]<<" "<<x_overlap_map_->getGlobalElement(i)<<std::endl;
-    //exit(0);
+  }//get_f
 
+  if (nonnull(outArgs.get_f())) {
+    if (NULL != neumannfunc_) {
+
+      //we would need to utilize coloring and implement a view for:
+      //mesh_->get_side_set_node_list(ss_id)
+      //in order to get this working with kokkos on openmp, gpu
+      //with a kokkos function for the nbc function
+      
+      
+      
+      //     if( (0==elem_type.compare("HEX8")) 
+      // 	|| (0==elem_type.compare("HEX")) 
+      // 	|| (0==elem_type.compare("hex8")) 
+      // 	|| (0==elem_type.compare("hex"))  ){ // linear hex
+      //     } 
+      if(8 == n_nodes_per_elem) { // linear hex
+      }
+      else {
+	exit(0);
+      }   
+      
+      const Teuchos::RCP<vector_type> f_vec =
+	ConverterT::getTpetraVector(outArgs.get_f());
+      Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
+      //we zero nodes on the nonowning proc here, so that we do not add in the values twice
+      //this also does no communication
+      {
+	Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
+      }
+      
+      auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+      GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
+      GPUBasis * BGPU = &Bq;
+      const int num_node_per_side = 4;
+      
+      const int ngp = BGPU->ngp;
+      
+      std::map<int,NBCFUNC>::iterator it;
+      
+      for( int k = 0; k < numeqs_; k++ ){
+	for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
+	  const int ss_id = it->first;
+	  
+	  //loop over element faces--this will be the parallel loop eventually
+	  //we would need toto know coloring on the sideset or switch to scattered mesh
+	  for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces--this will be the parallel loop
+	    double xx[BASIS_NODES_PER_ELEM];
+	    double yy[BASIS_NODES_PER_ELEM];
+	    double zz[BASIS_NODES_PER_ELEM];
+	    double uu[BASIS_NODES_PER_ELEM];
+	    for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
+	      const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+ll];
+	      xx[ll] = x_1dra(lid);
+	      yy[ll] = y_1dra(lid);
+	      zz[ll] = z_1dra(lid);
+	      uu[ll] = u_1dra(numeqs_*lid+k);
+	    }//ll
+	    
+	    BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
+	    for ( int gp = 0; gp < ngp; gp++){
+	      BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], NULL, NULL);
+	      const double jacwt = BGPU->jac*BGPU->wt;
+	      for( int i = 0; i < num_node_per_side; i++ ){  
+		
+		const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
+		const int row = numeqs_*lid + k;
+		
+		const double val = -jacwt*(it->second)(BGPU,i,dt_,t_theta_,time_);
+		
+		f_1d[row] += val;
+		
+	      }//i
+	    }//gp
+	  }//j
+	}//it
+      }//k
+      {
+	Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+	f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
+      }
+    }//neumann
   }//get_f
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
@@ -748,86 +826,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }
   }//get_f
 
-  if (nonnull(outArgs.get_f()) && NULL != neumannfunc_) {
-
-    //we would need to utilize coloring and implement a view for:
-    //mesh_->get_side_set_node_list(ss_id)
-    //in order to get this working with kokkos on openmp, gpu
-    //with a kokkos function for the nbc function
-
-
-
-//     if( (0==elem_type.compare("HEX8")) 
-// 	|| (0==elem_type.compare("HEX")) 
-// 	|| (0==elem_type.compare("hex8")) 
-// 	|| (0==elem_type.compare("hex"))  ){ // linear hex
-//     } 
-    if(8 == n_nodes_per_elem) { // linear hex
-    }
-    else {
-      exit(0);
-    }   
-
-    const Teuchos::RCP<vector_type> f_vec =
-      ConverterT::getTpetraVector(outArgs.get_f());
-    Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
-    //we zero nodes on the nonowning proc here, so that we do not add in the values twice
-    {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);
-      f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
-    }
-
-    auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
-    auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
-    GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
-    GPUBasis * BGPU = &Bq;
-    const int num_node_per_side = 4;
-
-    const int ngp = BGPU->ngp;
-
-    std::map<int,NBCFUNC>::iterator it;
-
-    for( int k = 0; k < numeqs_; k++ ){
-      for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
-	const int ss_id = it->first;
-	
-	//loop over element faces--this will be the parallel loop eventually
-	for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces--this will be the parallel loop
-	  double xx[BASIS_NODES_PER_ELEM];
-	  double yy[BASIS_NODES_PER_ELEM];
-	  double zz[BASIS_NODES_PER_ELEM];
-	  double uu[BASIS_NODES_PER_ELEM];
-	  for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
-	    const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+ll];
-	    xx[ll] = x_1dra(lid);
-	    yy[ll] = y_1dra(lid);
-	    zz[ll] = z_1dra(lid);
-	    uu[ll] = u_1dra(numeqs_*lid+k);
-	  }//ll
-	  
-	  BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
-	  for ( int gp = 0; gp < ngp; gp++){
-	    BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], NULL, NULL);
-	    const double jacwt = BGPU->jac*BGPU->wt;
-	    for( int i = 0; i < num_node_per_side; i++ ){  
-
-	      const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
-	      const int row = numeqs_*lid + k;
-
-	      const double val = -jacwt*(it->second)(BGPU,i,dt_,t_theta_,time_);
-	    
-	      f_1d[row] += val;
-
-	    }//i
-	  }//gp
-	}//j
-      }//it
-    }//k
-    {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
-      f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
-    }
-  }//get_f
 
 
       
@@ -1270,7 +1268,7 @@ ModelEvaluatorTPETRA<scalar_type>::createOutArgsImpl() const
 }
 
 template<class scalar_type>
-void ModelEvaluatorTPETRA<scalar_type>::advance()
+double ModelEvaluatorTPETRA<scalar_type>::advance()
 {
   Teuchos::RCP< Thyra::VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
@@ -1317,6 +1315,8 @@ void ModelEvaluatorTPETRA<scalar_type>::advance()
    
   postprocess();
 
+  double dtnew = dt_;
+  return dtnew;
 }
 
 template<class scalar_type>
@@ -1897,6 +1897,7 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
 
   boost::ptr_vector<post_process>::iterator itp;
   for(itp = post_proc.begin();itp != post_proc.end();++itp){
+    itp->scalar_reduction();
     itp->update_mesh_data();
     itp->update_scalar_data(time_);
   }
@@ -2128,7 +2129,7 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
 
     boost::ptr_vector<post_process>::iterator itp;
     for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      itp->process(nn,&uu[0],&ug[0],time_);
+      itp->process(nn,&uu[0],NULL,NULL,&ug[0],time_,dt_,dt_);
     }
 
   }//nn

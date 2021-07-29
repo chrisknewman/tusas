@@ -104,7 +104,8 @@ void post_process::update_mesh_data(){
 
 };
 void post_process::update_scalar_data(double time){
-
+  
+  scalar_reduction();//not sure if we need this here
   if ( (0 == comm_->MyPID()) && (s_op_ != NONE) ){
     std::ofstream outfile;
     outfile.open(filename_, std::ios::app );

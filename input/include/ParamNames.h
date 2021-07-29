@@ -50,6 +50,10 @@ std::string const TusasnoxrelresDocString = "nox relative residual tolerance (do
 std::string const TusasnoxmaxiterNameString = "noxmaxiter";
 /// Nox maximum number of iterations.
 std::string const TusasnoxmaxiterDocString = "nox max number iterations (int): default 200";
+/// Nox accept failed solve
+std::string const TusasnoxacceptNameString = "noxacceptfailed";
+/// Nox accept failed solve
+std::string const TusasnoxacceptDocString = "nox accept failed solve (bool): true; false (default)";
 /// Write exodusII output every int steps.
 std::string const TusasoutputfreqNameString = "outputfreq";
 /// Write exodusII output every int steps.
@@ -123,9 +127,12 @@ std::string const TusasatsmaxiterNameString = "maxiter";
 /// Adaptive Timestep parameters list.
 std::string const TusasatsmaxiterDocString = "maxiter (int): default 1";
 /// Adaptive Timestep parameters list.
-std::string const TusasatstolNameString = "tolerance";
+std::string const TusasatsatolNameString = "atol";
 /// Adaptive Timestep parameters list.
-std::string const TusasatstolDocString = "tolerance (double): default 0.01";
+std::string const TusasatsatolDocString = "absolute tolerance (double): default 0.01";
+std::string const TusasatsrtolNameString = "rtol";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsrtolDocString = "relative tolerance (double): default 0.0";
 /// Adaptive Timestep parameters list.
 std::string const TusasatssfNameString = "safety factor";
 /// Adaptive Timestep parameters list.

@@ -50,7 +50,9 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasnoxmaxiterNameString,(int)200,TusasnoxmaxiterDocString);
 
-  paramList.set(TusasoutputfreqNameString,(int)(1e10),TusasoutputfreqDocString);
+  paramList.set(TusasnoxacceptNameString,(bool)false,TusasnoxacceptDocString);
+
+  paramList.set(TusasoutputfreqNameString,(int)(1e9),TusasoutputfreqDocString);
 
   //paramList.set(TusasrestartstepNameString,(int)0,TusasrestartstepDocString);
 
@@ -80,8 +82,9 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   Teuchos::ParameterList *ATSList;
   ATSList = &paramList.sublist(TusasatslistNameString,false);
-  ATSList->set(TusasatsmaxiterNameString,1);
-  ATSList->set(TusasatstolNameString,1.e-2);
+  ATSList->set(TusasatsmaxiterNameString,2);
+  ATSList->set(TusasatsatolNameString,1.e-2);
+  ATSList->set(TusasatsrtolNameString,0.0);
   ATSList->set(TusasatssfNameString,.9);
   ATSList->set(TusasatsrmaxNameString,2.0);
   ATSList->set(TusasatsrminNameString,.5);

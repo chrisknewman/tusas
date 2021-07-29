@@ -212,8 +212,6 @@ namespace timeadapt
 {
 PPR_FUNC(d2udt2_)
 {
-  //const double tol = 1.e-2;
-
   const double uu = u[eqn_id];
   const double uuold = uold[eqn_id];
   const double uuoldold = uoldold[eqn_id];
@@ -234,8 +232,6 @@ PPR_FUNC(d2udt2_)
 }
 PPR_FUNC(postproc1_)
 {
-  //const double tol = 1.e-2;
-
   const double uu = u[eqn_id];
 
   const double x = xyz[0];
@@ -251,15 +247,32 @@ PPR_FUNC(postproc1_)
   
   //return abs(d2udt2ex/uex);
   //return abs(d2udt2ex/1.);
-  return abs(uu-uex);
+  return uex-uu;
+}
+PPR_FUNC(postproc2_)
+{
+  //const double uu = u[eqn_id];
+
+  const double x = xyz[0];
+  const double y = xyz[1];
+
+  const double pi = 3.141592653589793;
+  //d2udt2 = 4 E^(-2 \[Pi]^2 t) \[Pi]^4 Sin[\[Pi] x] Sin[\[Pi] y];
+
+  const double uex = exp(-2.*pi*pi*time)*sin(pi*x)*sin(pi*y);
+  //const double d2udt2ex = 4.*pi*pi*pi*pi*exp(-2.*pi*pi*time)*sin(pi*x)*sin(pi*y);
+  //return sqrt(2.*tol*abs(uu)/abs(d2udt2));
+  //return d2udt2;
+  
+  //return abs(d2udt2ex/uex);
+  //return abs(d2udt2ex/1.);
+  return uex;
 }
 PPR_FUNC(normu_)
 {
-  //const double tol = 1.e-2;
-
   const double uu = u[eqn_id];
 
-  return abs(uu);
+  return uu;
 }
 }//namespace timeadapt
 

@@ -182,6 +182,7 @@ int main(int argc, char *argv[])
 	    << "  ( "<<(float)curTime/(float)endTime*100. <<" % )   t = "
 	    <<curTime<<"  t final = "<<endTime<< endl<<endl<<endl;
       }
+
       if(0 == elapsedSteps%(paramList.get<int> (TusasoutputfreqNameString)) &&
 	 elapsedSteps != numSteps){
 	if(0 == mypid) std::cout<<"Writing exodus file : timestep :"<<elapsedSteps<<"\n";

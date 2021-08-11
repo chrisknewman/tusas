@@ -149,6 +149,12 @@ std::string const TusasatsrminDocString = "rmin (double): default 0.5";
 std::string const TusasatsepsNameString = "eps";
 /// Adaptive Timestep parameters list.
 std::string const TusasatsepsDocString = "eps (double): default 1.e-10";
+std::string const TusasatsmaxdtNameString = "max dt";
+/// Adaptive Timestep parameters list.
+std::string const TusasatsmaxdtDocString = "max dt (double): default 1.e-1";
+std::string const TusasatstypeNameString = "type";
+/// Adaptive Timestep parameters list.
+std::string const TusasatstypeDocString = "type (string): predictor corrector (default); second derivative";
 
 
 

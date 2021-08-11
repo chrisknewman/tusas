@@ -81,7 +81,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   paramList.set(TusasadaptiveTimestepNameString,(bool)false,TusasadaptiveTimestepDocString);
 
   Teuchos::ParameterList *ATSList;
-  ATSList = &paramList.sublist(TusasatslistNameString,false);
+  ATSList = &paramList.sublist(TusasatslistNameString,(bool)false);
   ATSList->set(TusasatsmaxiterNameString,2);
   ATSList->set(TusasatsatolNameString,1.e-2);
   ATSList->set(TusasatsrtolNameString,0.0);
@@ -89,6 +89,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   ATSList->set(TusasatsrmaxNameString,2.0);
   ATSList->set(TusasatsrminNameString,.5);
   ATSList->set(TusasatsepsNameString,1.e-10);
+  ATSList->set(TusasatsmaxdtNameString,1.e-1);
+  ATSList->set(TusasatstypeNameString,"predictor corrector",TusasatstypeDocString);
 
   //ML parameters for ML and MueLu
   Teuchos::ParameterList *MLList;
@@ -211,7 +213,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
       std::cout <<"   Adaptive timestep only implemented for theta = 1"
 		<<std::endl<<std::endl;
   }
-  if((true == paramList.get<bool>(TusasestimateTimestepNameString)) ){
+  if((true == paramList.get<bool>(TusasestimateTimestepNameString))
+     && ATSList->get<std::string> (TusasatstypeNameString) == "second derivative"){
     paramList.set(TusasinitialSolveNameString,(bool)true);    
   }
 //   if((0 != paramList.get<int>(TusasntNameString))%(paramList.get<int>(TusasoutputfreqNameString)))

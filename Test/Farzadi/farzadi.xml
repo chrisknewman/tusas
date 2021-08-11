@@ -12,7 +12,8 @@
   <Parameter name="outputfreq" type="int" value = "15"/>
   <Parameter name="noxrelres" type="double" value="1.e-7"/>
   <Parameter name="ltpquadord" type="int" value = "3"/>
-  
+  <Parameter name="noxmaxiter" type="int" value = "10"/>  
+  <Parameter name="noxacceptfailed" type="bool" value = "true"/>
  
 <!--sublist("Direction").sublist("Newton").set("Forcing Term Minimum Tolerance", 1.0e-5)-->
 <!--   <ParameterList name="Nonlinear Solver">-->

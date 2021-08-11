@@ -178,6 +178,7 @@ private: // data members
   int update_mesh_data();
 
   double t_theta_;
+  double t_theta2_;
 
   double theta_0_;
 
@@ -203,6 +204,7 @@ private: // data members
 			    const int &i, 
 			    const double &dt_, 
 			    const double &t_theta_, 
+			    const double &t_theta2_,
 			    const double &time,
 			    const int &eqn_id);
 
@@ -262,6 +264,7 @@ private: // data members
 //   std::vector<std::string> *postprocvarnames_;
 //   Teuchos::RCP<Epetra_Vector> u_postproc_;
   double estimatetimestep();
+  void predictor();
 
   //tip velocity stuff
   std::map<double,int> x_node;

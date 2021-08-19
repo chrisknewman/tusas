@@ -1264,6 +1264,9 @@ ModelEvaluatorTPETRA<scalar_type>::createOutArgsImpl() const
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::advance()
 {
+  auto comm_ = Teuchos::DefaultComm<int>::getComm();
+  const int mypid = comm_->getRank();
+
   Teuchos::RCP< Thyra::VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
   solver_->reset(thyraguess);

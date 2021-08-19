@@ -4220,7 +4220,6 @@ void ModelEvaluatorNEMESIS<Scalar>::temporalpostprocess(boost::ptr_vector<post_p
   std::vector<double> uuoldold(numeqs_);
   std::vector<double> ug(dim*numee);
 
-  //#pragma omp parallel for
   for (int nn=0; nn < num_my_nodes_; nn++) {
     for( int k = 0; k < numeqs_; k++ ){
       uu[k] = (*u_new_)[numeqs_*nn+k];
@@ -4460,7 +4459,7 @@ double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
   }//k
   const double dt1 = *min_element(maxdt.begin(), maxdt.end());
   const double dt2 = *max_element(mindt.begin(), mindt.end());
-  dtpred = std::max(dt1,dt2);
+  dtpred = std::min(dt1,dt2);//max?
   if( 0 == comm_->MyPID()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	
   }
@@ -4478,13 +4477,33 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
   //right now theta2=0 corresponds to FE, BE and TR
   //theta2=1 and theta = 0 corresponds to AB
 
-  const double t_theta_temp = t_theta_;
-  t_theta_ = 0.;
-  t_theta2_ = 0.;
-
   if( 0 == comm_->MyPID()){
     std::cout<<std::endl<<std::endl<<std::endl<<"     Predictor step started"<<std::endl;	
   }
+
+  bool precon = paramList.get<bool> (TusaspreconNameString);
+  if(precon){
+#ifdef MESH_64
+    const Mesh::mesh_lint_t num_node = x_owned_map_->NumGlobalElements64();
+#else
+    const Mesh::mesh_lint_t num_node = x_owned_map_->NumGlobalElements();
+#endif
+    Teuchos::ParameterList MLmasslist;
+    //MLmasslist.set("ML output",5);
+    //MLmasslist.set("ML print initial list",0);
+    MLmasslist.set("cycle applications",(int)1);
+    //MLmasslist.set("smoother: sweeps",(int)1);
+    MLmasslist.set("max levels",(int)1);
+    MLmasslist.set("eigen-analysis: type","Anorm");
+    //MLmasslist.set("coarse: type","Jacobi");
+    MLmasslist.set("coarse: max size",(int)num_node);//this cast may be a future problem
+    prec_->SetParameterList(MLmasslist);
+    //if( 0 == comm_->MyPID()) prec_->PrintList();
+  }
+
+  const double t_theta_temp = t_theta_;
+  t_theta_ = 0.;
+  t_theta2_ = 0.;
 
   Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
@@ -4502,6 +4521,7 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
 
   //need to use a temp vector or something other than u_old_old_ here
 
+  //#pragma omp parallel for
   for (int nn=0; nn < num_my_nodes_; nn++) {//cn figure out a better way here...
     for( int k = 0; k < numeqs_; k++ ){
       (*u_old_old_)[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
@@ -4511,6 +4531,11 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
 
   if( 0 == comm_->MyPID()){
     std::cout<<std::endl<<"     Predictor step ended"<<std::endl<<std::endl<<std::endl;
+  }
+
+  if(precon){
+    prec_->SetParameterList(paramList.sublist("ML"));
+    prec_->ReComputePreconditioner();
   }
 
   t_theta_ = t_theta_temp;

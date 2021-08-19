@@ -85,6 +85,10 @@ public:
   int ReComputePreconditioner () const;
   /// Initially compute  the ML hierarchy
   int ComputePreconditioner () const;
+  /// Print paramlist
+  void PrintList(){MLPrec_->PrintList();}
+  int SetParameterList(const Teuchos::ParameterList &List){
+    return MLPrec_->SetParameterList (List);}
 private:
   /// The preconditioning matrix object.
   RCP< Epetra_CrsMatrix> W_;

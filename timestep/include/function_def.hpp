@@ -214,21 +214,24 @@ namespace timeonly
 
 RES_FUNC(residual_test_)
 {
-
-  const double pi = 3.141592653589793;
+  //const double pi = 3.141592653589793;
   const double lambda = -10.;//pi*pi;
   //test function
-  double test = basis[0].phi[i];
+  const double test = basis[0].phi[i];
   //u, phi
-  double u = basis[0].uu;
-  double uold = basis[0].uuold;
-  double uoldold = basis[0].uuoldold;
+  const double u = basis[0].uu;
+  const double uold = basis[0].uuold;
+  //const double uoldold = basis[0].uuoldold;
 
-  double ut = (u-uold)/dt_*test;
+  const double ut = (u-uold)/dt_*test;
 
-  return ut - t_theta_*lambda*u*test 
-    - (1.-t_theta_)*(.5*t_theta2_+1.)*lambda*uold*test
-    +.5*t_theta2_*lambda*uoldold*test;
+  const double f = lambda*u*test;
+  const double fold = lambda*uold*test;
+  const double foldold = lambda*basis[0].uuoldold*test;
+
+  return ut - t_theta_*f
+    - (1.-t_theta_)*(.5*t_theta2_+1.)*fold
+    +.5*t_theta2_*foldold;
 }
 
 INI_FUNC(init_test_)
@@ -6060,18 +6063,25 @@ RES_FUNC(residual_phase_pfhub3_n_)
 					     eps_)};
 
   const double tau[2] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1]};
-  if(tau[0]!= tau[0]) std::cout<<tau[1]<<" "<<tau[0]<<" "
-			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
-			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<std::endl;
+//   if(tau[0]!= tau[0]) std::cout<<tau[1]<<" "<<tau[0]<<" "
+// 			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
+// 			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<std::endl;
 
   const double phit = (phi[0]-phi[1])/dt_*test;
 
   const double w[2] = {W_*as[0],W_*as[1]};
 
-  const double divgradphi[2] = {w[0]*w[0]*(dphidx[0]*dtestdx
+//   const double divgradphi[2] = {w[0]*w[0]*(dphidx[0]*dtestdx
+// 					     + dphidy[0]*dtestdy
+// 					     + dphidz[0]*dtestdz),
+// 				w[1]*w[1]*(dphidx[1]*dtestdx
+// 					     + dphidy[1]*dtestdy
+// 					     + dphidz[1]*dtestdz)};
+
+  const double divgradphi[2] = {W_*W_*(dphidx[0]*dtestdx
 					     + dphidy[0]*dtestdy
 					     + dphidz[0]*dtestdz),
-				w[1]*w[1]*(dphidx[1]*dtestdx
+				W_*W_*(dphidx[1]*dtestdx
 					     + dphidy[1]*dtestdy
 					     + dphidz[1]*dtestdz)};
 
@@ -6087,13 +6097,16 @@ RES_FUNC(residual_phase_pfhub3_n_)
 
   const double g[2] = {((phi[0]-lambda_*basis[0].uu*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
 		       ((phi[1]-lambda_*basis[0].uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test};
-//   std::cout<<phit
+
+//   return phit
 //     + t_theta_*divgradphi[0]/tau[0] + (1. - t_theta_)*divgradphi[1]/tau[1]
 //     + t_theta_*curlgrad[0]/tau[0]   + (1. - t_theta_)*curlgrad[1]/tau[1]
-//     - t_theta_*g[0]/tau[0]<<std::endl;
+//     - t_theta_*g[0]/tau[0] 
+    - (1. - t_theta_)*g[1]/tau[1];
+
   return phit
-    + t_theta_*divgradphi[0]/tau[0] + (1. - t_theta_)*divgradphi[1]/tau[1]
-    + t_theta_*curlgrad[0]/tau[0]   + (1. - t_theta_)*0.*curlgrad[1]/tau[1]
+    + t_theta_*divgradphi[0]/tau0_ + (1. - t_theta_)*divgradphi[1]/tau0_
+    + t_theta_*curlgrad[0]/tau[0]   + (1. - t_theta_)*curlgrad[1]/tau[1]
     - t_theta_*g[0]/tau[0]          - (1. - t_theta_)*g[1]/tau[1];
 }
 

@@ -1273,8 +1273,14 @@ void ModelEvaluatorTPETRA<scalar_type>::advance()
 
     NOX::StatusTest::StatusType solvStatus = solver_->solve();
     if( !(NOX::StatusTest::Converged == solvStatus)) {
-      std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
-      if(200 == paramList.get<int> (TusasnoxmaxiterNameString)) exit(0);
+      if( 0 == mypid )
+	std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
+      if(paramList.get<bool> (TusasnoxacceptNameString)){
+	if( 0 == mypid )
+	  std::cout<<" Accepting step since "<<TusasnoxacceptNameString<<" is true."<<std::endl<<std::endl;
+      }else{
+	exit(0);
+      }
     }
   }
   nnewt_ += solver_->getNumIterations();

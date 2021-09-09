@@ -283,6 +283,131 @@ PPR_FUNC(postproc3_)
 }
 }//namespace timeonly
 
+namespace ode
+{
+
+  //https://documen.site/download/math-3795-lecture-18-numerical-solution-of-ordinary-differential-equations-goals_pdf#
+
+const double k1 = .0001;
+const double k2 = 1.;
+const double k3 = .0008;
+
+RES_FUNC(residual_a_)
+{
+  const double test = basis[0].phi[i];
+  //u, phi
+  const double u = basis[0].uu;
+  const double uold = basis[0].uuold;
+  const double uoldold = basis[0].uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+
+  double f[3];
+  f[0] = -k1*u*test-k2*u*basis[1].uu*test;
+  f[1] = -k1*uold*test-k2*u*basis[1].uuold*test;
+  f[2] = -k1*uoldold*test-k2*u*basis[1].uuold*test;
+
+  return ut - t_theta_*f[0]
+    - (1.-t_theta_)*(.5*t_theta2_+1.)*f[1]
+    +.5*t_theta2_*f[2];
+}
+
+RES_FUNC(residual_b_)
+{
+  const double test = basis[1].phi[i];
+  //u, phi
+  const double u = basis[1].uu;
+  const double uold = basis[1].uuold;
+  //const double uoldold = basis[1].uuoldold;
+  const double a = basis[0].uu;
+  const double aold = basis[0].uuold;
+  const double aoldold = basis[0].uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+  double f[3];
+  f[0] = (k1*a - k2*a*u + 2.*k3*basis[2].uu)*test;
+  f[1] = (k1*aold - k2*aold*uold + 2.*k3*basis[2].uuold)*test;
+  f[2] = (k1*aoldold - k2*aoldold*basis[1].uuoldold + 2.*k3*basis[2].uuoldold)*test;
+
+  return ut - t_theta_*f[0]
+    - (1.-t_theta_)*(.5*t_theta2_+1.)*f[1]
+    +.5*t_theta2_*f[2];
+}
+
+RES_FUNC(residual_ab_)
+{
+  const double test = basis[1].phi[i];
+  //u, phi
+  const double u = basis[2].uu;
+  const double uold = basis[2].uuold;
+  //const double uoldold = basis[1].uuoldold;
+  const double b = basis[1].uu;
+  const double bold = basis[1].uuold;
+  const double boldold = basis[1].uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+  double f[3];
+  f[0] = (k2*b*basis[0].uu - k3*u)*test;
+  f[1] = (k2*bold*basis[0].uuold - k3*uold)*test;
+  f[2] = (k2*boldold*basis[0].uuoldold - k3*basis[2].uuoldold)*test;
+
+  return ut - t_theta_*f[0]
+    - (1.-t_theta_)*(.5*t_theta2_+1.)*f[1]
+    +.5*t_theta2_*f[2];
+}
+
+
+RES_FUNC(residual_c_)
+{
+  const double test = basis[1].phi[i];
+  //u, phi
+  const double u = basis[3].uu;
+  const double uold = basis[3].uuold;
+  //const double uoldold = basis[1].uuoldold;
+  const double a = basis[0].uu;
+  const double aold = basis[0].uuold;
+  const double aoldold = basis[0].uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+  double f[3];
+  f[0] = (k1*a + k3*basis[2].uu)*test;
+  f[1] = (k1*aold + k3*basis[2].uuold)*test;
+  f[2] = (k1*aoldold + k3*basis[2].uuoldold)*test;
+
+  return ut - t_theta_*f[0]
+    - (1.-t_theta_)*(.5*t_theta2_+1.)*f[1]
+    +.5*t_theta2_*f[2];
+}
+
+INI_FUNC(init_a_)
+{
+  return 1.;
+}
+
+INI_FUNC(init_b_)
+{
+  return 0.;
+}
+
+INI_FUNC(init_ab_)
+{
+  return 0.;
+}
+
+
+INI_FUNC(init_c_)
+{
+  return 0.;
+}
+
+
+
+
+
+
+}//namespace ode
+
+
 namespace timeadapt
 {
 PPR_FUNC(d2udt2_)
@@ -309,7 +434,8 @@ PPR_FUNC(predictor_)
 {
   const double uu = u[eqn_id];
   //const double uuold = uold[eqn_id];
-  const double uuoldold = uoldold[eqn_id];
+  //const double uuoldold = uoldold[eqn_id];
+  const double uuoldold = gradu[eqn_id];
   //std::cout<<uu<<"  "<<uuoldold<<"  "<<uu - uuoldold<<std::endl;
   return .5*(uu - uuoldold);
 }

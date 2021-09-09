@@ -189,6 +189,13 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   u_old_old_old_ = rcp(new Epetra_Vector(*f_owned_map_));
   dudt_ = rcp(new Epetra_Vector(*f_owned_map_));
 
+//   if(paramList.get<bool> (TusasestimateTimestepNameString)){
+//     Teuchos::ParameterList *atsList;
+//     atsList = &paramList.sublist (TusasatslistNameString, false );
+//     if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
+      pred_temp_ = rcp(new Epetra_Vector(*f_owned_map_));
+//   }
+
   random_vector_ = rcp(new Epetra_Vector(*f_owned_map_));
   random_vector_->Random();
   random_vector_old_ = rcp(new Epetra_Vector(*f_owned_map_));
@@ -1314,16 +1321,19 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
   for(int k = 0; k<maxiter; k++){
     //newton solve
     {
+      Teuchos::RCP< VectorBase< double > > guess;
+      guess = Thyra::create_Vector(u_old_,x_space_);
       Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
       
       if(paramList.get<bool> (TusasestimateTimestepNameString)){
 	Teuchos::ParameterList *atsList;
 	atsList = &paramList.sublist (TusasatslistNameString, false );
-	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
+	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector"){
 	  predictor();
+	  //guess = Thyra::create_Vector(u_old_,x_space_);
+	  guess = Thyra::create_Vector(pred_temp_,x_space_);
+	}
       }
-
-      Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
       NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
       solver_->reset(thyraguess);
 
@@ -1337,7 +1347,7 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
 	}else{
 	  exit(0);
 	}
-      }
+      }//if
     }
     nnewt_ += solver_->getNumIterations();
     
@@ -2656,6 +2666,77 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 "pp",
 					 16));
     post_proc[3].postprocfunc_ = &timeonly::postproc2_;
+
+
+  }else if("ode" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 4;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &ode::residual_a_;
+    (*residualfunc_)[1] = &ode::residual_b_;
+    (*residualfunc_)[2] = &ode::residual_ab_;
+    (*residualfunc_)[3] = &ode::residual_c_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &heat::prec_heat_test_;
+    (*preconfunc_)[1] = &heat::prec_heat_test_;
+    (*preconfunc_)[2] = &heat::prec_heat_test_;
+    (*preconfunc_)[3] = &heat::prec_heat_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &ode::init_a_;
+    (*initfunc_)[1] = &ode::init_b_;
+    (*initfunc_)[2] = &ode::init_ab_;
+    (*initfunc_)[3] = &ode::init_c_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "a";
+    (*varnames_)[1] = "b";
+    (*varnames_)[2] = "ab";
+    (*varnames_)[3] = "c";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+#if 0
+    post_proc.push_back(new post_process(comm_,
+					 mesh_,
+					 (int)0,
+					 post_process::NORMRMS,
+					 0,
+					 "pp",
+					 16));
+    post_proc[0].postprocfunc_ = &timeonly::postproc1_;
+
+    post_proc.push_back(new post_process(comm_,
+					 mesh_,
+					 (int)1,
+					 post_process::MAXVALUE,
+					 0,
+					 "pp",
+					 16));
+    post_proc[1].postprocfunc_ = &timeadapt::normu_;
+
+    post_proc.push_back(new post_process(comm_,
+					 mesh_,
+					 (int)2,
+					 post_process::MAXVALUE,
+					 0,
+					 "pp",
+					 16));
+    post_proc[2].postprocfunc_ = &timeonly::postproc3_;
+
+    post_proc.push_back(new post_process(comm_,
+					 mesh_,
+					 (int)3,
+					 post_process::MAXVALUE,
+					 0,
+					 "pp",
+					 16));
+    post_proc[3].postprocfunc_ = &timeonly::postproc2_;
+#endif
 
   }else if("omp" == paramList.get<std::string> (TusastestNameString)){
 
@@ -4218,13 +4299,15 @@ void ModelEvaluatorNEMESIS<Scalar>::temporalpostprocess(boost::ptr_vector<post_p
   std::vector<double> uu(numeqs_);
   std::vector<double> uuold(numeqs_);
   std::vector<double> uuoldold(numeqs_);
-  std::vector<double> ug(dim*numee);
+  std::vector<double> ug(numeqs_);
 
   for (int nn=0; nn < num_my_nodes_; nn++) {
     for( int k = 0; k < numeqs_; k++ ){
       uu[k] = (*u_new_)[numeqs_*nn+k];
       uuold[k] = (*u_old_)[numeqs_*nn+k];
-      uuoldold[k] = (*u_old_old_)[numeqs_*nn+k];
+      //uuoldold[k] = (*u_old_old_)[numeqs_*nn+k];
+      uuoldold[k] = (*pred_temp_)[numeqs_*nn+k];
+      ug[k] = (*pred_temp_)[numeqs_*nn+k];
     }
 
     boost::ptr_vector<post_process>::iterator itp;
@@ -4459,7 +4542,8 @@ double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
   }//k
   const double dt1 = *min_element(maxdt.begin(), maxdt.end());
   const double dt2 = *max_element(mindt.begin(), mindt.end());
-  dtpred = std::min(dt1,dt2);//max?
+  //dtpred = std::min(dt1,dt2);//we had this as max earlier ??????
+  dtpred = std::max(dt1,dt2);//we had this as max earlier ??????
   if( 0 == comm_->MyPID()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	
   }
@@ -4509,22 +4593,23 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
   solver_->reset(thyraguess);
 
-  NOX::StatusTest::StatusType solvStatus = solver_->solve();
-  if( !(NOX::StatusTest::Converged == solvStatus)) {
-    exit(0);
-  }
+  //NOX::StatusTest::StatusType solvStatus = solver_->solve();
+  NOX::StatusTest::StatusType solvStatus = solver_->step();
+  
+//   if( !(NOX::StatusTest::Converged == solvStatus)) {
+//     //probably accept solve anyway
+//     //exit(0);
+//   }
   const Thyra::VectorBase<double> * sol = 
     &(dynamic_cast<const NOX::Thyra::Vector&>(solver_->getSolutionGroup().getX()
 					      ).getThyraVector()
       );    
   Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
 
-  //need to use a temp vector or something other than u_old_old_ here
-
   //#pragma omp parallel for
   for (int nn=0; nn < num_my_nodes_; nn++) {//cn figure out a better way here...
     for( int k = 0; k < numeqs_; k++ ){
-      (*u_old_old_)[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
+      (*pred_temp_)[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
       //std::cout<<(*u_old_old_)[numeqs_*nn+k]<<" "<<x_vec[numeqs_*nn+k]<<std::endl;
     }
   } 
@@ -4535,7 +4620,6 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
 
   if(precon){
     prec_->SetParameterList(paramList.sublist("ML"));
-    prec_->ReComputePreconditioner();
   }
 
   t_theta_ = t_theta_temp;

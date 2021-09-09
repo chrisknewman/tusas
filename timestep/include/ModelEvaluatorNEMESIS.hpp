@@ -138,6 +138,7 @@ private: // data members
   Teuchos::RCP<Epetra_Vector> u_old_old_old_;
   Teuchos::RCP<Epetra_Vector> dudt_;
   Teuchos::RCP<Epetra_Vector> u_new_;
+  Teuchos::RCP<Epetra_Vector> pred_temp_;
 
   void set_test_case();
 

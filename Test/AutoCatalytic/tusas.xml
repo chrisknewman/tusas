@@ -9,7 +9,7 @@
 
   <Parameter name="meshfile" type="string" value="./quad1.e"/>
 <!--    <Parameter name="meshfile" type="string" value="../../meshes/quad4096.e"/> -->
-  <Parameter name="testcase" type="string" value="ode"/>
+  <Parameter name="testcase" type="string" value="autocatalytic4"/>
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="1."/>
   <Parameter name="outputfreq" type="int" value = "1"/>

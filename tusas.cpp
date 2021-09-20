@@ -184,7 +184,9 @@ int main(int argc, char *argv[])
       }
 
       if(0 == elapsedSteps%(paramList.get<int> (TusasoutputfreqNameString)) &&
-	 elapsedSteps != numSteps){
+	 curTime <= endTime &&
+ 	 elapsedSteps != numSteps){
+
 	if(0 == mypid) std::cout<<"Writing exodus file : timestep :"<<elapsedSteps<<"\n";
 	
 	model->write_exodus();

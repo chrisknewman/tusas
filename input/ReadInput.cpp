@@ -203,14 +203,14 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   }
 
   if((true == paramList.get<bool>(TusasadaptiveTimestepNameString))
-     &&(.5 < paramList.get<double>(TusasthetaNameString)) ){
+     &&(0. < paramList.get<double>(TusasthetaNameString)) ){
     paramList.set(TusasestimateTimestepNameString,(bool)true);
   } else {
     paramList.set(TusasadaptiveTimestepNameString,(bool)false);
     //paramList.set(TusasestimateTimestepNameString,(bool)false);
     //should print something here
     if( 0 == mypid )
-      std::cout <<"   Adaptive timestep only implemented for theta = 1"
+      std::cout <<"   Adaptive timestep only implemented for theta > 1"
 		<<std::endl<<std::endl;
   }
   if((true == paramList.get<bool>(TusasestimateTimestepNameString))

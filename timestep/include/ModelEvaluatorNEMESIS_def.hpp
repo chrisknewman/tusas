@@ -552,6 +552,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 		  const double val = jacwt * (*residualfunc_)[k](basis,
 								 i,
 								 dt_,
+								 dtold_,
 								 t_theta_,
 								 t_theta2_,
 								 time_,
@@ -1318,6 +1319,7 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
   if( timeadapt ) maxiter = atsList->get<int>(TusasatsmaxiterNameString);
 
   double dtpred = dt_;
+  int numit = 0;
   for(int k = 0; k<maxiter; k++){
     //newton solve
     {
@@ -1348,6 +1350,7 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
 	  exit(0);
 	}
       }//if
+      numit++;
     }
     nnewt_ += solver_->getNumIterations();
     
@@ -1392,12 +1395,12 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
 
 	if( 0 == comm_->MyPID())std::cout<<"     advance() step NOT ACCEPTED with dt = "<<dt_
 					 <<"; new dt = "<<dtpred
-					 <<"; and iterations = "<<k<<std::endl;
+					 <<"; and iterations = "<<numit<<std::endl;
 	
       }else{
 	if( 0 == comm_->MyPID())std::cout<<"     advance() step accepted with dt = "<<dt_
 					 <<"; new dt = "<<dtpred
-					 <<"; and iterations = "<<k<<std::endl;
+					 <<"; and iterations = "<<numit<<std::endl;
 
 	break;
 
@@ -1425,12 +1428,13 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
     it->estimate_error(u_old_);
   }
   
-  postprocess(post_proc);
-
   dtold_ = dt_;
   time_ += dt_;
+  //std::cout<<"time = "<<time_<<std::endl;
+  postprocess(post_proc);
   dt_ = dtpred;
   return dtold_;
+  //return dt_;
 }
 
 template<class Scalar>
@@ -1466,13 +1470,17 @@ template<class Scalar>
     Teuchos::ParameterList *atsList;
     atsList = &paramList.sublist (TusasatslistNameString, false );
 
+    //initial solve need by second derivative error estimate
+    //ie get a solution at u_{-1}
     if(((atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
 	&&paramList.get<bool> (TusasestimateTimestepNameString))
+       ||((atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
+	&&paramList.get<bool> (TusasestimateTimestepNameString)&&t_theta_ < 1.)
        ||paramList.get<bool> (TusasinitialSolveNameString)){
       const double t_theta_temp = t_theta_;
       t_theta_ = 0.;
-      const double dt_temp = dt_;
-      dt_ = 1.;//e-4;
+
+      t_theta2_ = 0.;
 
       if( 0 == comm_->MyPID()) 
 	std::cout<<std::endl<<"Performing initial NOX solve"<<std::endl<<std::endl;
@@ -1486,11 +1494,6 @@ template<class Scalar>
 
       if( 0 == comm_->MyPID()) 
 	std::cout<<std::endl<<"Initial NOX solve completed"<<std::endl<<std::endl;
-
-      Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
-      NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
-      solver_->reset(thyraguess);
-
       const Thyra::VectorBase<double> * sol = 
 	&(dynamic_cast<const NOX::Thyra::Vector&>(
 						  solver_->getSolutionGroup().getX()
@@ -1500,7 +1503,7 @@ template<class Scalar>
 
       //now,
       //dudt(t=0) = (x_vec-u_old_)/dt_
-      //with dt = 1
+      //
       //so, also
       //dudt(t=0) = (u_old_ - u_old_old_)/dt_
       //u_old_old_ = u_old_ - dt_*dudt(t=0)
@@ -1510,11 +1513,16 @@ template<class Scalar>
 
 	  (*u_old_old_)[numeqs_*nn+k] = 2.*(*u_old_)[numeqs_*nn+k] - x_vec[numeqs_*nn+k];
   
-// 	  std::cout<<(*u_old_old_)[numeqs_*nn+k]<<"  "<<std::endl;
+//  	  std::cout<<(*u_old_old_)[numeqs_*nn+k]<<"  "<<(*u_old_)[numeqs_*nn+k]<<"  "<<x_vec[numeqs_*nn+k]<<"  "
+// 		   <<-dt_*(x_vec[numeqs_*nn+k]-(*u_old_)[numeqs_*nn+k])+(*u_old_)[numeqs_*nn+k]<<std::endl;
 	}
       }
+
+      Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
+      NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
+      solver_->reset(thyraguess);
+
       t_theta_ = t_theta_temp;
-      dt_ = dt_temp;
     }
     
     //u_old_old_->Update (1.,*u_old_ , 0.);
@@ -1534,10 +1542,25 @@ template<class Scalar>
 						k, 
 						"temperror",
 						16));
+	//be with an error estimate based on second derivative
 	if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
 	   temporal_est[k].postprocfunc_ = &timeadapt::d2udt2_;
+	//be with error estimate based on fe predictor: fe-be
 	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
-	  temporal_est[k].postprocfunc_ = &timeadapt::predictor_;
+	  temporal_est[k].postprocfunc_ = &timeadapt::predictor_fe_;
+
+	//we will have tr with adams-bashforth predictor: ab-tr
+	//would require a small first step to get ab going
+	//or get u_n-1 via initial solve above with maybe a better update
+	//see gresho for a wierd ab way for this--can use regular ab
+
+	//and possibly tr with an explicit midpoint rule (huen) predictor: huen-tr
+	//(we could use initial solve above 
+	//with better update to get
+	//(up_n+1 - u_n-1)/(2 dt) = f(t_n)
+	//with error = - (u_n+1 - up_n+1)/5
+	//see https://www.cs.princeton.edu/courses/archive/fall11/cos323/notes/cos323_f11_lecture17_ode2.pdf
+	//we would utilize t_theta2_ similarly
 
 	temporal_norm.push_back(new post_process(comm_,
 						 mesh_,
@@ -1600,6 +1623,9 @@ template<class Scalar>
     }
   }// !restart
 
+  *u_new_ =  *u_old_;
+  postprocess(post_proc);
+
   if( 0 == comm_->MyPID()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
 }
 
@@ -1615,6 +1641,10 @@ void ModelEvaluatorNEMESIS<Scalar>::finalize()
   //update_mesh_data();
    
   //mesh_->write_exodus(ex_id_,2,time_);
+
+  //****this writes the last timestep into the exodus file a second time
+      //**** probably only when outputting at every step, we need to check for this 
+      //****removing it at this point would mean reblessing all tests...
   write_exodus();
   
   //cn we should trigger this in xml file
@@ -2176,6 +2206,7 @@ template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::write_exodus()
 //void ModelEvaluatorNEMESIS<Scalar>::write_exodus(const int output_step)
 {
+  //std::cout<<"write_exodus(): output_step_ = "<<output_step_<<" time_ = "<<time_<<std::endl;
   update_mesh_data();
   mesh_->open_exodus(outfilename.c_str(),Mesh::WRITE);
   mesh_->write_exodus(ex_id_,output_step_,time_);
@@ -2634,49 +2665,42 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     post_proc.push_back(new post_process(comm_,
 					 mesh_,
 					 (int)0,
-					 post_process::NORMRMS,
-					 0,
-					 "pp",
-					 16));
-    post_proc[0].postprocfunc_ = &timeonly::postproc1_;
-
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
-					 (int)1,
 					 post_process::MAXVALUE,
 					 0,
 					 "pp",
 					 16));
-    post_proc[1].postprocfunc_ = &timeadapt::normu_;
+    post_proc[0].postprocfunc_ = &timeadapt::postproc1_;
 
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
-					 (int)2,
-					 post_process::MAXVALUE,
-					 0,
-					 "pp",
-					 16));
-    post_proc[2].postprocfunc_ = &timeonly::postproc3_;
+//     post_proc.push_back(new post_process(comm_,
+// 					 mesh_,
+// 					 (int)1,
+// 					 post_process::MAXVALUE,
+// 					 0,
+// 					 "pp",
+// 					 16));
+//     post_proc[1].postprocfunc_ = &timeadapt::postproc2_;
 
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
-					 (int)3,
-					 post_process::MAXVALUE,
-					 0,
-					 "pp",
-					 16));
-    post_proc[3].postprocfunc_ = &timeonly::postproc2_;
+//     post_proc.push_back(new post_process(comm_,
+// 					 mesh_,
+// 					 (int)2,
+// 					 post_process::MAXVALUE,
+// 					 0,
+// 					 "pp",
+// 					 16));
+//     post_proc[2].postprocfunc_ = &timeonly::postproc3_;
 
 
-  }else if("ode" == paramList.get<std::string> (TusastestNameString)){
+
+
+  }else if("autocatalytic4" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 4;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &ode::residual_a_;
-    (*residualfunc_)[1] = &ode::residual_b_;
-    (*residualfunc_)[2] = &ode::residual_ab_;
-    (*residualfunc_)[3] = &ode::residual_c_;
+    (*residualfunc_)[0] = &autocatalytic4::residual_a_;
+    (*residualfunc_)[1] = &autocatalytic4::residual_b_;
+    (*residualfunc_)[2] = &autocatalytic4::residual_ab_;
+    (*residualfunc_)[3] = &autocatalytic4::residual_c_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &heat::prec_heat_test_;
@@ -2685,10 +2709,10 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*preconfunc_)[3] = &heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &ode::init_a_;
-    (*initfunc_)[1] = &ode::init_b_;
-    (*initfunc_)[2] = &ode::init_ab_;
-    (*initfunc_)[3] = &ode::init_c_;
+    (*initfunc_)[0] = &autocatalytic4::init_a_;
+    (*initfunc_)[1] = &autocatalytic4::init_b_;
+    (*initfunc_)[2] = &autocatalytic4::init_ab_;
+    (*initfunc_)[3] = &autocatalytic4::init_c_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "a";
@@ -4252,6 +4276,12 @@ void ModelEvaluatorNEMESIS<Scalar>::postprocess(boost::ptr_vector<post_process> 
 {
   if(0 == pp.size() ) return;
 
+  //there is currently an issue where the post process variables or files are not written correctly
+  //at t=0.  The values are 0 at t=0, and should be based on the initial condition.
+
+  //also the last timestep is being written to data files twice
+
+
   int numee = Error_est.size();
   //ordering is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz
 
@@ -4514,18 +4544,39 @@ double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
   std::vector<double> norm(numeqs_,0.);
   
   if( 0 == comm_->MyPID()){
-    std::cout<<std::endl<<"     Estimating timestep size"<<std::endl;	
+    std::cout<<std::endl<<"     Estimating timestep size:"<<std::endl;
+    std::cout<<"     using "<<atsList->get<std::string> (TusasatstypeNameString)
+	     <<" and theta = "<<t_theta_<<std::endl;
     std::cout<<"     with atol = "<<atol
 	     <<"; rtol = "<<rtol
 	     <<"; sf = "<<sf<<"; rmax = "<<rmax<<"; rmin = "<<rmin<<"; current dt = "<<dt_<<std::endl;
   }
 
+  double err_coef = 1.;
+  if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
+    err_coef = 1.;
+  if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
+    if(t_theta_ > .51){
+      err_coef = .5;
+    }
+    else{
+      err_coef = 1./3./(1.+dtold_/dt_);
+    }
+
   for( int k = 0; k < numeqs_; k++ ){
-    error[k] = temporal_est[k].get_scalar_val();
+    error[k] = err_coef*(temporal_est[k].get_scalar_val());
     norm[k] = temporal_norm[k].get_scalar_val();
     const double abserr = std::max(error[k],eps);
     const double tol = atol + rtol*norm[k];
-    const double factor = sf*dt_*sqrt(tol/abserr);
+    double rr;
+    if(t_theta_ > .51){
+      rr = std::sqrt(tol/abserr);
+    }
+    else{
+      rr = std::cbrt(tol/abserr);
+      //rr = std::pow(tol/abserr, 1./3.);
+    }
+    const double factor = sf*dt_*rr;
     maxdt[k] = std::max(factor,dt_*rmin);
     mindt[k] = std::min(factor,dt_*rmax);
     if( 0 == comm_->MyPID()){
@@ -4534,8 +4585,8 @@ double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
       std::cout<<"                            error = "<<error[k]<<std::endl;
       std::cout<<"                           max dt = "<<dtmax<<std::endl;
       std::cout<<"                   max(error,eps) = "<<abserr<<std::endl;
-      std::cout<<"                    sqrt(tol/err) = "<<sqrt(tol/abserr)<<std::endl;
-      std::cout<<"          h = sf*dt*sqrt(tol/err) = "<<factor<<std::endl;
+      std::cout<<"                    (tol/err)^1/p = "<<rr<<std::endl;
+      std::cout<<"          h = sf*dt*(tol/err)^1/p = "<<factor<<std::endl;
       std::cout<<"                   max(h,dt*rmin) = "<<maxdt[k]<<std::endl;
       std::cout<<"                   min(h,dt*rmax) = "<<mindt[k]<<std::endl<<std::endl;
     }
@@ -4559,7 +4610,7 @@ template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::predictor()
 {
   //right now theta2=0 corresponds to FE, BE and TR
-  //theta2=1 and theta = 0 corresponds to AB
+  //theta2=1 corresponds to AB
 
   if( 0 == comm_->MyPID()){
     std::cout<<std::endl<<std::endl<<std::endl<<"     Predictor step started"<<std::endl;	
@@ -4586,8 +4637,11 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
   }
 
   const double t_theta_temp = t_theta_;
-  t_theta_ = 0.;
+
   t_theta2_ = 0.;
+  if(t_theta_ > 0. && t_theta_ <1.) t_theta2_ = 1.;
+  //fe predictor    be corrector
+  t_theta_ = 0.;
 
   Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view

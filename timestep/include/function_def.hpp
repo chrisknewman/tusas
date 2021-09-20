@@ -44,6 +44,7 @@
 #define RES_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
                                     const int &i,\
                                     const double &dt_,\
+                                    const double &dtold_,\
 			            const double &t_theta_,\
 			            const double &t_theta2_,\
                                     const double &time,\
@@ -211,27 +212,29 @@ INI_FUNC(init_heat_test_)
 
 namespace timeonly
 {
+const double pi = 3.141592653589793;
+  //const double lambda = 10.;//pi*pi;
+const double lambda = pi*pi;
+
+const double ff(const double &u)
+{
+  return -lambda*u;
+}
 
 RES_FUNC(residual_test_)
 {
-  //const double pi = 3.141592653589793;
-  const double lambda = -10.;//pi*pi;
   //test function
   const double test = basis[0].phi[i];
   //u, phi
-  const double u = basis[0].uu;
-  const double uold = basis[0].uuold;
-  //const double uoldold = basis[0].uuoldold;
+  const double u[3] = {basis[0].uu,basis[0].uuold,basis[0].uuoldold};
 
-  const double ut = (u-uold)/dt_*test;
+  const double ut = (u[0]-u[1])/dt_*test;
 
-  const double f = lambda*u*test;
-  const double fold = lambda*uold*test;
-  const double foldold = lambda*basis[0].uuoldold*test;
-
-  return ut - t_theta_*f
-    - (1.-t_theta_)*(.5*t_theta2_+1.)*fold
-    +.5*t_theta2_*foldold;
+  const double f[3] = {ff(u[0])*test,ff(u[1])*test,ff(u[2])*test};
+  //std::cout<<u[1]<<"  "<<u[2]<<std::endl;
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 INI_FUNC(init_test_)
@@ -248,7 +251,6 @@ PPR_FUNC(postproc1_)
   const double pi = 3.141592653589793;
   //d2udt2 = 4 E^(-2 \[Pi]^2 t) \[Pi]^4 Sin[\[Pi] x] Sin[\[Pi] y];
 
-  const double lambda = 10.;//pi*pi;
   const double uex = exp(-lambda*time);
   return uex-uu;
 }
@@ -259,10 +261,9 @@ PPR_FUNC(postproc2_)
 //   const double x = xyz[0];
 //   const double y = xyz[1];
 
-  const double pi = 3.141592653589793;
+  //const double pi = 3.141592653589793;
   //d2udt2 = 4 E^(-2 \[Pi]^2 t) \[Pi]^4 Sin[\[Pi] x] Sin[\[Pi] y];
 
-  const double lambda = 10.;//pi*pi;
   const double uex = exp(-lambda*time);
 
   return uex;
@@ -279,11 +280,11 @@ PPR_FUNC(postproc3_)
 
   //const double uex = exp(-pi*pi*time);
 
-  return uoldold[eqn_id];
+  return u[eqn_id];
 }
 }//namespace timeonly
 
-namespace ode
+namespace autocatalytic4
 {
 
   //https://documen.site/download/math-3795-lecture-18-numerical-solution-of-ordinary-differential-equations-goals_pdf#
@@ -307,9 +308,9 @@ RES_FUNC(residual_a_)
   f[1] = -k1*uold*test-k2*u*basis[1].uuold*test;
   f[2] = -k1*uoldold*test-k2*u*basis[1].uuold*test;
 
-  return ut - t_theta_*f[0]
-    - (1.-t_theta_)*(.5*t_theta2_+1.)*f[1]
-    +.5*t_theta2_*f[2];
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 RES_FUNC(residual_b_)
@@ -329,9 +330,9 @@ RES_FUNC(residual_b_)
   f[1] = (k1*aold - k2*aold*uold + 2.*k3*basis[2].uuold)*test;
   f[2] = (k1*aoldold - k2*aoldold*basis[1].uuoldold + 2.*k3*basis[2].uuoldold)*test;
 
-  return ut - t_theta_*f[0]
-    - (1.-t_theta_)*(.5*t_theta2_+1.)*f[1]
-    +.5*t_theta2_*f[2];
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 RES_FUNC(residual_ab_)
@@ -351,9 +352,9 @@ RES_FUNC(residual_ab_)
   f[1] = (k2*bold*basis[0].uuold - k3*uold)*test;
   f[2] = (k2*boldold*basis[0].uuoldold - k3*basis[2].uuoldold)*test;
 
-  return ut - t_theta_*f[0]
-    - (1.-t_theta_)*(.5*t_theta2_+1.)*f[1]
-    +.5*t_theta2_*f[2];
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 
@@ -374,9 +375,9 @@ RES_FUNC(residual_c_)
   f[1] = (k1*aold + k3*basis[2].uuold)*test;
   f[2] = (k1*aoldold + k3*basis[2].uuoldold)*test;
 
-  return ut - t_theta_*f[0]
-    - (1.-t_theta_)*(.5*t_theta2_+1.)*f[1]
-    +.5*t_theta2_*f[2];
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 INI_FUNC(init_a_)
@@ -400,12 +401,7 @@ INI_FUNC(init_c_)
   return 0.;
 }
 
-
-
-
-
-
-}//namespace ode
+}//namespace autocatalytic4
 
 
 namespace timeadapt
@@ -430,14 +426,14 @@ PPR_FUNC(d2udt2_)
   //std::cout<<r<<" "<<uu*uu<<" "<<d2udt2<<std::endl;
   return .5*dt*dt*d2udt2;
 }
-PPR_FUNC(predictor_)
+PPR_FUNC(predictor_fe_)
 {
   const double uu = u[eqn_id];
   //const double uuold = uold[eqn_id];
   //const double uuoldold = uoldold[eqn_id];
-  const double uuoldold = gradu[eqn_id];
+  const double uuoldold = gradu[eqn_id];//hack for now
   //std::cout<<uu<<"  "<<uuoldold<<"  "<<uu - uuoldold<<std::endl;
-  return .5*(uu - uuoldold);
+  return (uu - uuoldold);
 }
 PPR_FUNC(postproc1_)
 {
@@ -456,7 +452,7 @@ PPR_FUNC(postproc1_)
   
   //return abs(d2udt2ex/uex);
   //return abs(d2udt2ex/1.);
-  return uex-uu;
+  return uu;
 }
 PPR_FUNC(postproc2_)
 {
@@ -475,7 +471,8 @@ PPR_FUNC(postproc2_)
   
   //return abs(d2udt2ex/uex);
   //return abs(d2udt2ex/1.);
-  return uex;
+  const double uuoldold = gradu[eqn_id];//hack for now
+  return uuoldold;
 }
 PPR_FUNC(normu_)
 {
@@ -2084,7 +2081,7 @@ RES_FUNC(residual_linisobodyforce_y_test_)
 
   double bf = -1.e10*5.e-6;
 
-  double divgradu = residual_liniso_y_test_(basis,i,dt_,t_theta_,t_theta_,time,eqn_id) + bf*test;
+  double divgradu = residual_liniso_y_test_(basis,i,dt_,dt_,t_theta_,t_theta_,time,eqn_id) + bf*test;
  
   return divgradu;
 }
@@ -2102,7 +2099,7 @@ RES_FUNC(residual_linisoheat_x_test_)
   double alpha = 1.e-4;;
   double E = 1.;
 
-  double divgradu = c*residual_liniso_x_test_(basis,i,dt_,t_theta_,t_theta_,time,eqn_id) - alpha*E*gradu*dtestdx;
+  double divgradu = c*residual_liniso_x_test_(basis,i,dt_,dt_,t_theta_,t_theta_,time,eqn_id) - alpha*E*gradu*dtestdx;
  
   return divgradu;
 }
@@ -2124,7 +2121,7 @@ RES_FUNC(residual_linisoheat_y_test_)
   double E = 1.;
 
 
-  double divgradu = c*residual_liniso_y_test_(basis,i,dt_,t_theta_,t_theta_,time,eqn_id) - alpha*E*gradu*dtestdy;
+  double divgradu = c*residual_liniso_y_test_(basis,i,dt_,dt_,t_theta_,t_theta_,time,eqn_id) - alpha*E*gradu*dtestdy;
  
   return divgradu;
 }
@@ -2144,7 +2141,7 @@ RES_FUNC(residual_linisoheat_z_test_)
   double alpha = 1.e-4;
   double E = 1.;
 
-  double divgradu = c*residual_liniso_z_test_(basis,i,dt_,t_theta_,t_theta_,time,eqn_id) - alpha*E*gradu*dtestdz;
+  double divgradu = c*residual_liniso_z_test_(basis,i,dt_,dt_,t_theta_,t_theta_,time,eqn_id) - alpha*E*gradu*dtestdz;
  
   return divgradu;
 }
@@ -2476,10 +2473,10 @@ RES_FUNC(residual_heat_)
   
   //thermal term
   double stress = test*alpha*u*(residual_stress_x_dt_(basis, 
-						      i, dt_, t_theta_,t_theta_,
+						      i, dt_, dt_, t_theta_,t_theta_,
 						      time, eqn_id)
 				+residual_stress_y_dt_(basis, 
-						       i, dt_, t_theta_,t_theta_,
+						       i, dt_, dt_, t_theta_,t_theta_,
 						       time, eqn_id));
   
 
@@ -2736,10 +2733,10 @@ PRE_FUNC(prec_heat_)
   double test = basis[0].phi[i];
 
   double stress = test*alpha*basis[1].phi[j]*(residual_stress_x_dt_(basis, 
-						      i, dt_, t_theta_,t_theta_,
+						      i, dt_, dt_, t_theta_,t_theta_,
 								    0.,0)
 				+residual_stress_y_dt_(basis, 
-						       i, dt_, t_theta_,t_theta_,
+						       i, dt_, dt_, t_theta_,t_theta_,
 						       0.,0));
   double divgrad = k*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
   double u_t =rho*c*basis[1].phi[j]/dt_*test;
@@ -3072,10 +3069,10 @@ RES_FUNC(residual_heat_)
   
   //thermal term
   double stress = test*uehara::alpha*u*(uehara::residual_stress_x_dt_(basis, 
-						      i, dt_, t_theta_, t_theta_,
+						      i, dt_, dt_, t_theta_, t_theta_,
 						      time, eqn_id)
 				+uehara::residual_stress_y_dt_(basis, 
-						       i, dt_, t_theta_,t_theta_,
+						       i, dt_,  dt_,t_theta_,t_theta_,
 						       time, eqn_id));
   
 

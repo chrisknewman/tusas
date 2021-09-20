@@ -204,6 +204,7 @@ private: // data members
   typedef double (*RESFUNC)(const boost::ptr_vector<Basis> &basis, 
 			    const int &i, 
 			    const double &dt_, 
+			    const double &dtold_, 
 			    const double &t_theta_, 
 			    const double &t_theta2_,
 			    const double &time,

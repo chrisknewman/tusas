@@ -307,7 +307,7 @@ RES_FUNC(residual_a_)
   f[0] = -k1*u*test-k2*u*basis[1].uu*test;
   f[1] = -k1*uold*test-k2*u*basis[1].uuold*test;
   f[2] = -k1*uoldold*test-k2*u*basis[1].uuold*test;
-
+  //if(t_theta2_>.99)std::cout<<t_theta2_<<" "<<t_theta_<<" "<<dt_<<" "<<dtold_<<std::endl;
   return ut - (1.-t_theta2_)*t_theta_*f[0]
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
@@ -5784,7 +5784,7 @@ z0 = z0_p;
 KOKKOS_INLINE_FUNCTION 
 double a(const double &p,const double &px,const double &py,const double &pz, const double ep)
 {
-  //printf("%lf\n",absphi);
+  //std::cout<<farzadi3d::absphi<<" "<<p*p<<std::endl;
   return (p*p < farzadi3d::absphi)&&(p*p > 1.-farzadi3d::absphi) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*
 				    (px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz))
     : 1. + ep;
@@ -6072,7 +6072,7 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_heat_pfhub3_)
 {
   const double ut = (basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*basis[eqn_id]->phi[i];
-  double divgradu[2] = {D_*(basis[eqn_id]->dudx*basis[eqn_id]->dphidx[i]
+  double divgradu[3] = {D_*(basis[eqn_id]->dudx*basis[eqn_id]->dphidx[i]
 			  + basis[eqn_id]->dudy*basis[eqn_id]->dphidy[i]
 			  + basis[eqn_id]->dudz*basis[eqn_id]->dphidz[i]),
 			D_*(basis[eqn_id]->duolddx*basis[eqn_id]->dphidx[i]
@@ -6137,6 +6137,11 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
   const double g[2] = {((phi[0]-lambda_*basis[0]->uu*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
 		       ((phi[1]-lambda_*basis[0]->uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test};
 
+  if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
+			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
+			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<" "<<g[0]<<" "<<divgradphi[0]
+			       <<" "<<curlgrad[0]<<std::endl;
+
   return phit
     + t_theta_*divgradphi[0]/tau[0] + (1. - t_theta_)*divgradphi[1]/tau[1]
     + t_theta_*curlgrad[0]/tau[0]   + (1. - t_theta_)*curlgrad[1]/tau[1]
@@ -6146,20 +6151,31 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
 RES_FUNC(residual_heat_pfhub3_n_)
 {
   const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
-  double divgradu[2] = {D_*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
-			  + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
-			  + basis[eqn_id].dudz*basis[eqn_id].dphidz[i]),
-			D_*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
-			  + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
-			  + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i])};
+  const double divgradu[3] = {D_*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
+				  + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
+				  + basis[eqn_id].dudz*basis[eqn_id].dphidz[i]),
+			      D_*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
+				  + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
+				  + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i]),
+			      D_*(basis[eqn_id].duoldolddx*basis[eqn_id].dphidx[i]
+				  + basis[eqn_id].duoldolddy*basis[eqn_id].dphidy[i]
+				  + basis[eqn_id].duoldolddz*basis[eqn_id].dphidz[i])};
 
-  const double phit = .5*(basis[1].uu-basis[1].uuold)/dt_*basis[0].phi[i];
+  const double phit[2] = {.5*(basis[1].uu-basis[1].uuold)/dt_*basis[0].phi[i],
+			  .5*(basis[1].uuold-basis[1].uuoldold)/dt_*basis[0].phi[i]};
+  double f[3];
+  f[0] = -divgradu[0] + phit[0];
+  f[1] = -divgradu[1] + phit[1];
+  f[2] = -divgradu[2] + phit[1];
 //   std::cout<<ut
 //     + t_theta_*divgradu[0] + (1. - t_theta_)*divgradu[1]
-//     - t_theta_*phit<<std::endl;
-  return ut
-    + t_theta_*divgradu[0] + (1. - t_theta_)*divgradu[1]
-    - phit;//hack
+//     - t_theta_*phit<<std::endl
+
+//   return ut - t_theta_*f[0]
+//     - (1.-t_theta_)*f[1];
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 RES_FUNC(residual_phase_pfhub3_n_)
@@ -6174,7 +6190,7 @@ RES_FUNC(residual_phase_pfhub3_n_)
   const double dphidy[2] = {basis[eqn_id].dudy,basis[eqn_id].duolddy};
   const double dphidz[2] = {basis[eqn_id].dudz,basis[eqn_id].duolddz};
 
-  const double as[2] = {tpetra::farzadi3d::a(phi[0],
+  const double as[3] = {tpetra::farzadi3d::a(phi[0],
 					     dphidx[0],
 					     dphidy[0],
 					     dphidz[0],
@@ -6183,54 +6199,71 @@ RES_FUNC(residual_phase_pfhub3_n_)
 					     dphidx[1],
 					     dphidy[1],
 					     dphidz[1],
+					     eps_),
+			tpetra::farzadi3d::a(phi[2],
+					     dphidx[2],
+					     dphidy[2],
+					     dphidz[2],
 					     eps_)};
 
-  const double tau[2] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1]};
-//   if(tau[0]!= tau[0]) std::cout<<tau[1]<<" "<<tau[0]<<" "
-// 			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
-// 			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<std::endl;
+  const double tau[3] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1],tau0_*as[2]*as[2]};
 
   const double phit = (phi[0]-phi[1])/dt_*test;
 
-  const double w[2] = {W_*as[0],W_*as[1]};
+  const double w[3] = {W_*as[0],W_*as[1],W_*as[2]};
 
-//   const double divgradphi[2] = {w[0]*w[0]*(dphidx[0]*dtestdx
+//   const double divgradphi[3] = {w[0]*w[0]*(dphidx[0]*dtestdx
 // 					     + dphidy[0]*dtestdy
 // 					     + dphidz[0]*dtestdz),
 // 				w[1]*w[1]*(dphidx[1]*dtestdx
 // 					     + dphidy[1]*dtestdy
-// 					     + dphidz[1]*dtestdz)};
+// 					     + dphidz[1]*dtestdz),
+// 				w[2]*w[2]*(dphidx[2]*dtestdx
+// 					     + dphidy[2]*dtestdy
+// 					     + dphidz[2]*dtestdz)};
 
-  const double divgradphi[2] = {W_*W_*(dphidx[0]*dtestdx
+  const double divgradphi[3] = {W_*W_*(dphidx[0]*dtestdx
 					     + dphidy[0]*dtestdy
 					     + dphidz[0]*dtestdz),
 				W_*W_*(dphidx[1]*dtestdx
 					     + dphidy[1]*dtestdy
-					     + dphidz[1]*dtestdz)};
+					     + dphidz[1]*dtestdz),
+				W_*W_*(dphidx[2]*dtestdx
+					     + dphidy[2]*dtestdy
+					     + dphidz[2]*dtestdz)};
 
-  const double wp[2] = {W_*(tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidx[0],eps_)*dtestdx 
+  const double wp[3] = {W_*(tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidx[0],eps_)*dtestdx 
 			    + tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidy[0],eps_)*dtestdy 
 			    + tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidz[0],eps_)*dtestdz),
 			W_*(tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidx[1],eps_)*dtestdx 
 			    + tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidy[1],eps_)*dtestdy 
-			    + tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps_)*dtestdz)};
+			    + tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps_)*dtestdz),
+			W_*(tpetra::farzadi3d::ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidx[2],eps_)*dtestdx 
+			    + tpetra::farzadi3d::ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidy[2],eps_)*dtestdy 
+			    + tpetra::farzadi3d::ap(phi[2],dphidx[2],dphidy[2],dphidz[1],dphidz[2],eps_)*dtestdz)};
 
-  const double curlgrad[2] = {w[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])*wp[0],
-			      w[1]*(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1])*wp[1]};
+  const double curlgrad[3] = {w[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])*wp[0],
+			      w[1]*(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1])*wp[1],
+			      w[2]*(dphidx[2]*dphidx[2] + dphidy[2]*dphidy[2] + dphidz[2]*dphidz[2])*wp[2]};
 
-  const double g[2] = {((phi[0]-lambda_*basis[0].uu*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
-		       ((phi[1]-lambda_*basis[0].uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test};
+  const double g[3] = {((phi[0]-lambda_*basis[0].uu*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
+		       ((phi[1]-lambda_*basis[0].uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test,
+		       ((phi[2]-lambda_*basis[0].uuoldold*(1.-phi[2]*phi[2]))*(1.-phi[2]*phi[2]))*test};
 
-//   return phit
-//     + t_theta_*divgradphi[0]/tau[0] + (1. - t_theta_)*divgradphi[1]/tau[1]
-//     + t_theta_*curlgrad[0]/tau[0]   + (1. - t_theta_)*curlgrad[1]/tau[1]
-//     - t_theta_*g[0]/tau[0] 
-    - (1. - t_theta_)*g[1]/tau[1];
+  if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
+			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
+			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<" "<<g[0]<<" "<<divgradphi[0]
+			       <<" "<<curlgrad[0]<<std::endl;
 
-  return phit
-    + t_theta_*divgradphi[0]/tau0_ + (1. - t_theta_)*divgradphi[1]/tau0_
-    + t_theta_*curlgrad[0]/tau[0]   + (1. - t_theta_)*curlgrad[1]/tau[1]
-    - t_theta_*g[0]/tau[0]          - (1. - t_theta_)*g[1]/tau[1];
+  double f[3];
+  f[0] = -(divgradphi[0]/tau0_+curlgrad[0]/tau[0]-g[0]/tau[0]);
+  f[1] = -(divgradphi[1]/tau0_+curlgrad[1]/tau[1]-g[1]/tau[1]);
+  f[2] = -(divgradphi[2]/tau0_+curlgrad[2]/tau[2]-g[2]/tau[2]);
+//   return phit - t_theta_*f[0]
+//     - (1.-t_theta_)*f[1];
+  return phit - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 TUSAS_DEVICE

@@ -1464,7 +1464,8 @@ template<class Scalar>
 #endif    
     init(u_old_);
     //u_old_old_->PutScalar(0.0);
-    u_old_old_->Update (1.,*u_old_ , 0.);
+    //u_old_old_->Update (1.,*u_old_ , 0.);
+    u_old_old_->Scale(1.,*u_old_);
     u_old_old_old_->PutScalar(0.0);
 
     Teuchos::ParameterList *atsList;
@@ -1478,7 +1479,7 @@ template<class Scalar>
 	&&paramList.get<bool> (TusasestimateTimestepNameString)&&t_theta_ < 1.)
        ||paramList.get<bool> (TusasinitialSolveNameString)){
       const double t_theta_temp = t_theta_;
-      t_theta_ = 0.;
+      t_theta_ = 1.;
 
       t_theta2_ = 0.;
 
@@ -4593,8 +4594,7 @@ double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
   }//k
   const double dt1 = *min_element(maxdt.begin(), maxdt.end());
   const double dt2 = *max_element(mindt.begin(), mindt.end());
-  //dtpred = std::min(dt1,dt2);//we had this as max earlier ??????
-  dtpred = std::max(dt1,dt2);//we had this as max earlier ??????
+  dtpred = std::min(dt1,dt2);//not sure if we want the smallest max?????
   if( 0 == comm_->MyPID()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	
   }
@@ -4635,6 +4635,8 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
     prec_->SetParameterList(MLmasslist);
     //if( 0 == comm_->MyPID()) prec_->PrintList();
   }
+
+  //we might turn off the forcing term temporaily here
 
   const double t_theta_temp = t_theta_;
 

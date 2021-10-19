@@ -1462,6 +1462,9 @@ template<class Scalar>
        ||((atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
 	&&paramList.get<bool> (TusasestimateTimestepNameString)&&t_theta_ < 1.)
        ||paramList.get<bool> (TusasinitialSolveNameString)){
+      
+      //right now, for TR it doesn't really matter in turns of performance if we set theta to 1
+      //here or leave it at .5
       const double t_theta_temp = t_theta_;
       t_theta_ = 1.;
 
@@ -1474,7 +1477,7 @@ template<class Scalar>
       NOX::StatusTest::StatusType solvStatus = solver_->solve();
       if( !(NOX::StatusTest::Converged == solvStatus)) {
 	std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
-	if(20 == paramList.get<int> (TusasnoxmaxiterNameString)) exit(0);
+	exit(0);
       }
 
       if( 0 == comm_->MyPID()) 

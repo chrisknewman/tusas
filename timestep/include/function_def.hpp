@@ -6204,7 +6204,7 @@ double a(const double &p,const double &px,const double &py,const double &pz, con
 {
   double val = 1. + ep;
   const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
-  val = (d*d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/d)
+  val = (d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/d)
     : 1. + ep;
 //   if(val!=val)  std::cout<<farzadi3d::absphi<<" "<<1.-farzadi3d::absphi<<" "<<p*p<<" "<<px*px+py*py+pz*pz<<" "<<val<<" "<<
 // 	   (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*
@@ -6216,7 +6216,7 @@ KOKKOS_INLINE_FUNCTION
 double ap(const double &p,const double &px,const double &py,const double &pz,const double &pd, const double ep)
 {
   const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
-  return (d*d > smalld_) ? 4.*ep*
+  return (d > smalld_) ? 4.*ep*
 				    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
 				    /(px*px+py*py+pz*pz)/d
     : 0.;

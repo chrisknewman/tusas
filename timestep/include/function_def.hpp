@@ -288,6 +288,7 @@ namespace autocatalytic4
 {
 
   //https://documen.site/download/math-3795-lecture-18-numerical-solution-of-ordinary-differential-equations-goals_pdf#
+  //https://media.gradebuddy.com/documents/2449908/0c88cf76-7605-4aec-b2ad-513ddbebefec.pdf
 
 const double k1 = .0001;
 const double k2 = 1.;
@@ -402,6 +403,126 @@ INI_FUNC(init_c_)
 }
 
 }//namespace autocatalytic4
+
+namespace chem
+{
+
+  //https://documen.site/download/math-3795-lecture-18-numerical-solution-of-ordinary-differential-equations-goals_pdf#
+  //https://media.gradebuddy.com/documents/2449908/0c88cf76-7605-4aec-b2ad-513ddbebefec.pdf
+
+const double k1 = .01;
+const double k2 = 1.;
+const double k3 = .0008;
+
+RES_FUNC(residual_a_)
+{
+  const double test = basis[0].phi[i];
+  //u, phi
+  const double u = basis[0].uu;
+  const double uold = basis[0].uuold;
+  const double uoldold = basis[0].uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+
+  double f[3];
+  f[0] = -k1*u*basis[1].uu*test;
+  f[1] = -k1*uold*basis[1].uuold*test;
+  f[2] = -k1*uoldold*basis[1].uuold*test;
+  //if(t_theta2_>.99)std::cout<<t_theta2_<<" "<<t_theta_<<" "<<dt_<<" "<<dtold_<<std::endl;
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+RES_FUNC(residual_b_)
+{
+  const double test = basis[1].phi[i];
+  //u, phi
+  const double u = basis[1].uu;
+  const double uold = basis[1].uuold;
+  //const double uoldold = basis[1].uuoldold;
+  const double a = basis[0].uu;
+  const double aold = basis[0].uuold;
+  const double aoldold = basis[0].uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+  double f[3];
+  f[0] = -k1*a*u*test;
+  f[1] = -k1*aold*uold*test;
+  f[2] = -k1*aoldold*basis[1].uuoldold*test;
+
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+RES_FUNC(residual_ab_)
+{
+  const double test = basis[1].phi[i];
+  //u, phi
+  const double u = basis[2].uu;
+  const double uold = basis[2].uuold;
+  //const double uoldold = basis[1].uuoldold;
+  const double b = basis[1].uu;
+  const double bold = basis[1].uuold;
+  const double boldold = basis[1].uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+  double f[3];
+  f[0] = (k2*b*basis[0].uu - k3*u)*test;
+  f[1] = (k2*bold*basis[0].uuold - k3*uold)*test;
+  f[2] = (k2*boldold*basis[0].uuoldold - k3*basis[2].uuoldold)*test;
+
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+
+RES_FUNC(residual_c_)
+{
+  const double test = basis[1].phi[i];
+  //u, phi
+  const double u = basis[2].uu;
+  const double uold = basis[2].uuold;
+  //const double uoldold = basis[1].uuoldold;
+  const double a = basis[0].uu;
+  const double aold = basis[0].uuold;
+  const double aoldold = basis[0].uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+  double f[3];
+  f[0] = k1*a*basis[1].uu*test;
+  f[1] = k1*aold*basis[1].uuold*test;
+  f[2] = k1*aoldold*basis[1].uuoldold*test;
+
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+INI_FUNC(init_a_)
+{
+  return 1.;
+}
+
+INI_FUNC(init_b_)
+{
+  return .5;
+}
+
+INI_FUNC(init_ab_)
+{
+  return 0.;
+}
+
+
+INI_FUNC(init_c_)
+{
+  return 0.;
+}
+
+}//namespace chem
 
 
 namespace timeadapt
@@ -5729,6 +5850,7 @@ y0 = y0_p;
 double z0_p = plist->get<double>("z0", 20.0);
 z0 = z0_p;
 
+//double absphi_p = plist->get<double>("absphi", absphi);
 
   //the calculated values need local vars to work....
 
@@ -5781,13 +5903,18 @@ z0 = z0_p;
   //std::cout<<l_T0<<"   "<<G<<"  "<<Vp0<<"  "<<tau0<<"   "<<w0<<std::endl;
 }
   
+  //see tpetra::pfhub3 for a possibly better implementation of a,ap
 KOKKOS_INLINE_FUNCTION 
 double a(const double &p,const double &px,const double &py,const double &pz, const double ep)
 {
-  //std::cout<<farzadi3d::absphi<<" "<<p*p<<std::endl;
-  return (p*p < farzadi3d::absphi)&&(p*p > 1.-farzadi3d::absphi) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*
+  double val = 1. + ep;
+  val = (p*p < farzadi3d::absphi)&&(p*p > 1.-farzadi3d::absphi) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*
 				    (px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz))
     : 1. + ep;
+//   if(val!=val)  std::cout<<farzadi3d::absphi<<" "<<1.-farzadi3d::absphi<<" "<<p*p<<" "<<px*px+py*py+pz*pz<<" "<<val<<" "<<
+// 	   (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*
+// 				    (px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz))<<std::endl;
+  return val;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -6051,6 +6178,8 @@ namespace pfhub3
   const double R_ = 8.;// 8.;
 
   TUSAS_DEVICE
+  double smalld_ = 0.;
+  TUSAS_DEVICE
   const double delta_ = -.3;//-.3;
   TUSAS_DEVICE
   const double D_ = 10.;
@@ -6065,7 +6194,32 @@ namespace pfhub3
 
 PARAM_FUNC(param_)
 {
-  //tpetra::farzadi3d::absphi = 0.9;
+  //we will need to propgate this to device
+  double smalld_p = plist->get<double>("smalld", smalld_);
+  smalld_ = smalld_p;
+}
+
+KOKKOS_INLINE_FUNCTION 
+double a(const double &p,const double &px,const double &py,const double &pz, const double ep)
+{
+  double val = 1. + ep;
+  const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
+  val = (d*d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/d)
+    : 1. + ep;
+//   if(val!=val)  std::cout<<farzadi3d::absphi<<" "<<1.-farzadi3d::absphi<<" "<<p*p<<" "<<px*px+py*py+pz*pz<<" "<<val<<" "<<
+// 	   (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*
+// 				    (px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz))<<std::endl;
+  return val;
+}
+
+KOKKOS_INLINE_FUNCTION 
+double ap(const double &p,const double &px,const double &py,const double &pz,const double &pd, const double ep)
+{
+  const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
+  return (d*d > smalld_) ? 4.*ep*
+				    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
+				    /(px*px+py*py+pz*pz)/d
+    : 0.;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -6185,28 +6339,31 @@ RES_FUNC(residual_phase_pfhub3_n_)
   const double dtestdy = basis[eqn_id].dphidy[i];
   const double dtestdz = basis[eqn_id].dphidz[i];
 
-  const double phi[2] = {basis[eqn_id].uu,basis[eqn_id].uuold};
-  const double dphidx[2] = {basis[eqn_id].dudx,basis[eqn_id].duolddx};
-  const double dphidy[2] = {basis[eqn_id].dudy,basis[eqn_id].duolddy};
-  const double dphidz[2] = {basis[eqn_id].dudz,basis[eqn_id].duolddz};
+  const double phi[3] = {basis[eqn_id].uu,basis[eqn_id].uuold,basis[eqn_id].uuoldold};
+  const double dphidx[3] = {basis[eqn_id].dudx,basis[eqn_id].duolddx,basis[eqn_id].duoldolddx};
+  const double dphidy[3] = {basis[eqn_id].dudy,basis[eqn_id].duolddy,basis[eqn_id].duoldolddy};
+  const double dphidz[3] = {basis[eqn_id].dudz,basis[eqn_id].duolddz,basis[eqn_id].duoldolddz};
 
-  const double as[3] = {tpetra::farzadi3d::a(phi[0],
-					     dphidx[0],
-					     dphidy[0],
-					     dphidz[0],
-					     eps_),
-			tpetra::farzadi3d::a(phi[1],
-					     dphidx[1],
-					     dphidy[1],
-					     dphidz[1],
-					     eps_),
-			tpetra::farzadi3d::a(phi[2],
-					     dphidx[2],
-					     dphidy[2],
-					     dphidz[2],
-					     eps_)};
+  const double as[3] = {a(phi[0],
+			  dphidx[0],
+			  dphidy[0],
+			  dphidz[0],
+			  eps_),
+			a(phi[1],
+			  dphidx[1],
+			  dphidy[1],
+			  dphidz[1],
+			  eps_),
+			a(phi[2],
+			  dphidx[2],
+			  dphidy[2],
+			  dphidz[2],
+			  eps_)};
 
   const double tau[3] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1],tau0_*as[2]*as[2]};
+  if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
+			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
+			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<std::endl;
 
   const double phit = (phi[0]-phi[1])/dt_*test;
 
@@ -6232,15 +6389,15 @@ RES_FUNC(residual_phase_pfhub3_n_)
 					     + dphidy[2]*dtestdy
 					     + dphidz[2]*dtestdz)};
 
-  const double wp[3] = {W_*(tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidx[0],eps_)*dtestdx 
-			    + tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidy[0],eps_)*dtestdy 
-			    + tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidz[0],eps_)*dtestdz),
-			W_*(tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidx[1],eps_)*dtestdx 
-			    + tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidy[1],eps_)*dtestdy 
-			    + tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps_)*dtestdz),
-			W_*(tpetra::farzadi3d::ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidx[2],eps_)*dtestdx 
-			    + tpetra::farzadi3d::ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidy[2],eps_)*dtestdy 
-			    + tpetra::farzadi3d::ap(phi[2],dphidx[2],dphidy[2],dphidz[1],dphidz[2],eps_)*dtestdz)};
+  const double wp[3] = {W_*(ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidx[0],eps_)*dtestdx 
+			    + ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidy[0],eps_)*dtestdy 
+			    + ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidz[0],eps_)*dtestdz),
+			W_*(ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidx[1],eps_)*dtestdx 
+			    + ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidy[1],eps_)*dtestdy 
+			    + ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps_)*dtestdz),
+			W_*(ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidx[2],eps_)*dtestdx 
+			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidy[2],eps_)*dtestdy 
+			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[1],dphidz[2],eps_)*dtestdz)};
 
   const double curlgrad[3] = {w[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])*wp[0],
 			      w[1]*(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1])*wp[1],
@@ -6250,10 +6407,10 @@ RES_FUNC(residual_phase_pfhub3_n_)
 		       ((phi[1]-lambda_*basis[0].uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test,
 		       ((phi[2]-lambda_*basis[0].uuoldold*(1.-phi[2]*phi[2]))*(1.-phi[2]*phi[2]))*test};
 
-  if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
-			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
-			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<" "<<g[0]<<" "<<divgradphi[0]
-			       <<" "<<curlgrad[0]<<std::endl;
+//   if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
+// 			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
+// 			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<" "<<g[0]<<" "<<divgradphi[0]
+// 			       <<" "<<curlgrad[0]<<std::endl;
 
   double f[3];
   f[0] = -(divgradphi[0]/tau0_+curlgrad[0]/tau[0]-g[0]/tau[0]);
@@ -6358,7 +6515,12 @@ INI_FUNC(init_phase_pfhub3_)
   //if(x*x+y*y+z*z < R_*R_) val = 1.;
   //see https://aip.scitation.org/doi/pdf/10.1063/1.5142353
   //we should have a general function for this
-  val = tanh((R_-r)/(sqrt(8.)*W_));
+  //val = tanh((R_-r)/(sqrt(8.)*W_));
+  val = tanh((R_-r)/(sqrt(2.)*W_));
+
+
+  //should probably be:
+  //val = -tanh( (x*x+y*y+z*z - R_*R_)/(sqrt(2.)*W_) );
   return val;
 }
 

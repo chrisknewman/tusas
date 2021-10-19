@@ -1443,35 +1443,19 @@ template<class Scalar>
   if( 0 == comm_->MyPID()) std::cout<<std::endl<<"initialize started"<<std::endl<<std::endl;
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   if (!dorestart){
-#if 0
-    if(paramList.get<std::string> (TusastestNameString)=="cummins"){
-      init(u_old_);
-    }else if(paramList.get<std::string> (TusastestNameString)=="multi"){
-      multi(u_old_);
-    }else if(paramList.get<std::string> (TusastestNameString)=="pool"){
-      pool(u_old_);
-    }else if(paramList.get<std::string> (TusastestNameString)=="furtado"){
-      //init(u_old_);
-      init_square(u_old_);
-    }else if(paramList.get<std::string> (TusastestNameString)=="karma"){
-      init_karma(u_old_);
-    }else if(paramList.get<std::string> (TusastestNameString)=="branch"){
-      init(u_old_);
-    }else{
-      std::cout<<"Unknown initialization testcase."<<std::endl;
-      exit(0);
-    }
-#endif    
+   
     init(u_old_);
     //u_old_old_->PutScalar(0.0);
     //u_old_old_->Update (1.,*u_old_ , 0.);
     u_old_old_->Scale(1.,*u_old_);
-    u_old_old_old_->PutScalar(0.0);
+    //u_old_old_old_->PutScalar(0.0);
+    u_old_old_old_->Scale(1.,*u_old_);
 
     Teuchos::ParameterList *atsList;
     atsList = &paramList.sublist (TusasatslistNameString, false );
 
     //initial solve need by second derivative error estimate
+    //and for lagged coupled time derivatives
     //ie get a solution at u_{-1}
     if(((atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
 	&&paramList.get<bool> (TusasestimateTimestepNameString))
@@ -2762,6 +2746,35 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 16));
     post_proc[3].postprocfunc_ = &timeonly::postproc2_;
 #endif
+
+  }else if("chem" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 3;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &chem::residual_a_;
+    (*residualfunc_)[1] = &chem::residual_b_;
+    (*residualfunc_)[2] = &chem::residual_c_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &heat::prec_heat_test_;
+    (*preconfunc_)[1] = &heat::prec_heat_test_;
+    (*preconfunc_)[2] = &heat::prec_heat_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &chem::init_a_;
+    (*initfunc_)[1] = &chem::init_b_;
+    (*initfunc_)[2] = &chem::init_c_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "a";
+    (*varnames_)[1] = "b";
+    (*varnames_)[2] = "c";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
 
   }else if("omp" == paramList.get<std::string> (TusastestNameString)){
 
@@ -4582,7 +4595,7 @@ double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
     mindt[k] = std::min(factor,dt_*rmax);
     if( 0 == comm_->MyPID()){
       std::cout<<std::endl<<"     Variable: "<<(*varnames_)[k]<<std::endl;
-      std::cout<<"                              tol = "<<tol<<std::endl;
+      //std::cout<<"                              tol = "<<tol<<std::endl;
       std::cout<<"                            error = "<<error[k]<<std::endl;
       std::cout<<"                           max dt = "<<dtmax<<std::endl;
       std::cout<<"                   max(error,eps) = "<<abserr<<std::endl;
@@ -4594,7 +4607,20 @@ double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
   }//k
   const double dt1 = *min_element(maxdt.begin(), maxdt.end());
   const double dt2 = *max_element(mindt.begin(), mindt.end());
-  dtpred = std::min(dt1,dt2);//not sure if we want the smallest max?????
+  //dtpred = std::min(dt1,dt2);//not sure if we want the smallest max????? ie dt1??
+  dtpred = dt1;
+
+//   if( 0 == comm_->MyPID()){
+//     double e0 = std::max(error[0],eps);
+//     double e1 = std::max(error[1],eps);
+//     double es = std::sqrt(e0*e0+e1*e1);
+//     std::cout<<std::cbrt(atol/es)<<std::endl;
+//     std::cout<<sf*dt_*std::cbrt(atol/es)<<std::endl;
+//     std::cout<<dt1<<std::endl;
+//     std::cout<<dt2<<std::endl;
+//   }
+
+
   if( 0 == comm_->MyPID()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	
   }

@@ -1332,10 +1332,10 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
 	atsList = &paramList.sublist (TusasatslistNameString, false );
 	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector"){
 	  predictor();
-	  //guess = Thyra::create_Vector(u_old_,x_space_);
 	  guess = Thyra::create_Vector(pred_temp_,x_space_);
 	}
       }
+
       NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
       solver_->reset(thyraguess);
 
@@ -1473,6 +1473,10 @@ template<class Scalar>
       if( 0 == comm_->MyPID()) 
 	std::cout<<std::endl<<"Performing initial NOX solve"<<std::endl<<std::endl;
  
+      Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
+      NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
+      solver_->reset(thyraguess);
+
       Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
       NOX::StatusTest::StatusType solvStatus = solver_->solve();
       if( !(NOX::StatusTest::Converged == solvStatus)) {
@@ -1506,9 +1510,9 @@ template<class Scalar>
 	}
       }
 
-      Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
-      NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
-      solver_->reset(thyraguess);
+//       Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
+//       NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
+//       solver_->reset(thyraguess);
 
       t_theta_ = t_theta_temp;
     }
@@ -4670,10 +4674,12 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
   const double t_theta_temp = t_theta_;
 
   t_theta2_ = 0.;
-  if(t_theta_ > 0. && t_theta_ <1.) t_theta2_ = 1.;
+  if(t_theta_ > 0. && t_theta_ <1.) t_theta2_ = 1.;//ab predictor tr corrector
   //fe predictor    be corrector
   t_theta_ = 0.;
 
+  //enabling the initial guess here may lead to a more accurate predicor
+  //but disabling it certainly cuts down runtime
   Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
   solver_->reset(thyraguess);
@@ -4681,10 +4687,6 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
   //NOX::StatusTest::StatusType solvStatus = solver_->solve();
   NOX::StatusTest::StatusType solvStatus = solver_->step();
   
-//   if( !(NOX::StatusTest::Converged == solvStatus)) {
-//     //probably accept solve anyway
-//     //exit(0);
-//   }
   const Thyra::VectorBase<double> * sol = 
     &(dynamic_cast<const NOX::Thyra::Vector&>(solver_->getSolutionGroup().getX()
 					      ).getThyraVector()

@@ -6203,22 +6203,30 @@ KOKKOS_INLINE_FUNCTION
 double a(const double &p,const double &px,const double &py,const double &pz, const double ep)
 {
   double val = 1. + ep;
-  const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
-  val = (d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/d)
+  const double d = (px*px+py*py+pz*pz);
+  val = (d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(d*d))
     : 1. + ep;
-//   if(val!=val)  std::cout<<farzadi3d::absphi<<" "<<1.-farzadi3d::absphi<<" "<<p*p<<" "<<px*px+py*py+pz*pz<<" "<<val<<" "<<
-// 	   (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*
-// 				    (px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz))<<std::endl;
+  //older version produced nicer dendrite
+//   const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
+//   val = (d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/d)
+//     : 1. + ep;
+
   return val;
 }
 
 KOKKOS_INLINE_FUNCTION 
 double ap(const double &p,const double &px,const double &py,const double &pz,const double &pd, const double ep)
 {
-  const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
+  //older version produced nicer dendrite  
+//   const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
+//   return (d > smalld_) ? 4.*ep*
+// 				    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
+// 				    /(px*px+py*py+pz*pz)/d
+//     : 0.;
+  const double d = (px*px+py*py+pz*pz);
   return (d > smalld_) ? 4.*ep*
-				    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
-				    /(px*px+py*py+pz*pz)/d
+    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
+    /(d*d*d)
     : 0.;
 }
 
@@ -6361,9 +6369,9 @@ RES_FUNC(residual_phase_pfhub3_n_)
 			  eps_)};
 
   const double tau[3] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1],tau0_*as[2]*as[2]};
-  if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
-			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
-			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<std::endl;
+//   if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
+// 			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
+// 			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<std::endl;
 
   const double phit = (phi[0]-phi[1])/dt_*test;
 

@@ -34,6 +34,7 @@
 #include "Thyra_PreconditionerBase.hpp"
 #include "Thyra_MLPreconditionerFactory.hpp"
 #include "Thyra_DetachedSpmdVectorView.hpp"
+#include "Thyra_EpetraThyraWrappers.hpp"
 
 // NOX support
 #include "NOX_Thyra_MatrixFreeJacobianOperator.hpp"
@@ -104,6 +105,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   dt_ = paramList.get<double> (TusasdtNameString);
   dtold_ = dt_;
   t_theta_ = paramList.get<double> (TusasthetaNameString);
+  t_theta2_ = 0.;
 
   set_test_case();
 
@@ -229,8 +231,6 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
 #ifdef TUSAS_COLOR_CPU
   Elem_col = rcp(new elem_color(comm_,mesh_));
 #endif
-
-  t_theta2_ = 0.;
 
   init_nox();
 
@@ -1138,7 +1138,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	//exit(0);
 	//std::cout<<" one norm P_ = "<<P_->NormOne()<<std::endl<<" inf norm P_ = "<<P_->NormInf()<<std::endl<<" fro norm P_ = "<<P_->NormFrobenius()<<std::endl;
 	//Epetra_Vector d(*f_owned_map_);P_->ExtractDiagonalCopy(d);d.Print(std::cout);	
-	prec_->ReComputePreconditioner();
+	prec_->ReComputePreconditioner(false);
       }
     }	
     return;
@@ -1284,8 +1284,6 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 
   Teuchos::RCP<Teuchos::ParameterList> nl_params =
     Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasnlsNameString)));
-  if( 0 == mypid )
-    nl_params->print(std::cout);
   Teuchos::ParameterList& nlPrintParams = nl_params->sublist("Printing");
   nlPrintParams.set("Output Information",
 		  NOX::Utils::OuterIteration  +
@@ -1294,13 +1292,67 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
 		    NOX::Utils::Details //+
 		    //NOX::Utils::LinearSolverDetails
 		    );
+  //nl_params->print(std::cout);
+  //combo->print(std::cout);
   // Create the solver
   solver_ =  NOX::Solver::buildSolver(nox_group, combo, nl_params);
+  solver_->getList().print(std::cout);
+
+
+  if(paramList.get<bool> (TusasestimateTimestepNameString)){
+    Teuchos::ParameterList *atsList;
+    atsList = &paramList.sublist (TusasatslistNameString, false );
+    if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector"){
+      //init_predictor(); 
+      
+      Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp1 =
+	Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
+      
+      jfnkOp1->setParameterList(jfnkParams);
+      
+      Teuchos::RCP<NOX::Thyra::Group> noxpred_group =
+	Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, 
+					   thyraModel, 
+					   jfnkOp1, 
+					   lowsFactory, 
+					   Teuchos::null, 
+					   Teuchos::null, 
+					   Teuchos::null, 
+					   Teuchos::null));
+      jfnkOp1->setBaseEvaluationToNOXGroup(noxpred_group.create_weak());
+      noxpred_group->computeF();
+      Teuchos::RCP<NOX::StatusTest::NormF>relresid1 = 
+	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestol));//1.0e-6 for paper
+      Teuchos::RCP<NOX::StatusTest::Combo> converged1 =
+	Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::AND));
+      converged1->addStatusTest(relresid1);
+      //combo->addStatusTest(converged);
+      
+      Teuchos::RCP<Teuchos::ParameterList> nl_params1 =
+	Teuchos::rcp(new Teuchos::ParameterList);
+      nl_params1->set("Nonlinear Solver", "Line Search Based");
+      nl_params1->sublist("Direction").sublist("Newton").set("Forcing Term Method", "Type 2");
+      nl_params1->sublist("Direction").sublist("Newton").set("Forcing Term Initial Tolerance", 1.0e-1);
+      nl_params1->sublist("Direction").sublist("Newton").set("Forcing Term Maximum Tolerance", 1.0e-2);
+      nl_params1->sublist("Direction").sublist("Newton").set("Forcing Term Minimum Tolerance", 1.0e-5);
+      Teuchos::ParameterList& nlPrintParams1 = nl_params1->sublist("Printing");
+      nlPrintParams1.set("Output Information",
+			 NOX::Utils::OuterIteration  +
+			 //                      NOX::Utils::OuterIterationStatusTest +
+			 NOX::Utils::InnerIteration +
+		    NOX::Utils::Details //+
+			 //NOX::Utils::LinearSolverDetails
+			 );
+      
+      predictor_ =  NOX::Solver::buildSolver(noxpred_group, converged1, nl_params1);
+    }
+  }
+
+ 
 
   if( 0 == mypid )
     std::cout<<std::endl<<"init_nox() completed."<<std::endl<<std::endl;
 }
-
 
 template<class Scalar>
 double ModelEvaluatorNEMESIS<Scalar>::advance()
@@ -1317,10 +1369,12 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
   Teuchos::ParameterList *atsList;
   atsList = &paramList.sublist (TusasatslistNameString, false );
   if( timeadapt ) maxiter = atsList->get<int>(TusasatsmaxiterNameString);
+//   std::cout<<maxiter<<std::endl;
+//   exit(0);
 
   double dtpred = dt_;
   int numit = 0;
-  for(int k = 0; k<maxiter; k++){
+  for(int iter = 0; iter<maxiter; iter++){
     //newton solve
     {
       Teuchos::RCP< VectorBase< double > > guess;
@@ -1335,7 +1389,7 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
 	  guess = Thyra::create_Vector(pred_temp_,x_space_);
 	}
       }
-
+      //note that solver_->reset() will utilize the last solution as next guess
       NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
       solver_->reset(thyraguess);
 
@@ -1351,7 +1405,7 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
 	}
       }//if
       numit++;
-    }
+    }//timer
     nnewt_ += solver_->getNumIterations();
     
     const Thyra::VectorBase<double> * sol = 
@@ -1378,7 +1432,6 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
       }
     } 
     
-
     if((paramList.get<bool> (TusasestimateTimestepNameString))
        && !timeadapt){ 
       const double d = estimatetimestep();
@@ -1406,7 +1459,7 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
 
       }//if
     }//if
-  }//k
+  }//iter
     
   *u_old_old_old_ = *u_old_old_;
   *u_old_old_ = *u_old_;
@@ -1462,110 +1515,15 @@ template<class Scalar>
        ||((atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
 	&&paramList.get<bool> (TusasestimateTimestepNameString)&&t_theta_ < 1.)
        ||paramList.get<bool> (TusasinitialSolveNameString)){
-      
-      //right now, for TR it doesn't really matter in turns of performance if we set theta to 1
-      //here or leave it at .5
-      const double t_theta_temp = t_theta_;
-      t_theta_ = 1.;
 
-      t_theta2_ = 0.;
-
-      if( 0 == comm_->MyPID()) 
-	std::cout<<std::endl<<"Performing initial NOX solve"<<std::endl<<std::endl;
- 
-      Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
-      NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
-      solver_->reset(thyraguess);
-
-      Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
-      NOX::StatusTest::StatusType solvStatus = solver_->solve();
-      if( !(NOX::StatusTest::Converged == solvStatus)) {
-	std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
-	exit(0);
-      }
-
-      if( 0 == comm_->MyPID()) 
-	std::cout<<std::endl<<"Initial NOX solve completed"<<std::endl<<std::endl;
-      const Thyra::VectorBase<double> * sol = 
-	&(dynamic_cast<const NOX::Thyra::Vector&>(
-						  solver_->getSolutionGroup().getX()
-						  ).getThyraVector());
-
-      Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
-
-      //now,
-      //dudt(t=0) = (x_vec-u_old_)/dt_
-      //
-      //so, also
-      //dudt(t=0) = (u_old_ - u_old_old_)/dt_
-      //u_old_old_ = u_old_ - dt_*dudt(t=0)
-      //           = 2*u_old_ - x_vec
-      for (int nn=0; nn < num_my_nodes_; nn++) {//cn figure out a better way here...
-	for( int k = 0; k < numeqs_; k++ ){
-
-	  (*u_old_old_)[numeqs_*nn+k] = 2.*(*u_old_)[numeqs_*nn+k] - x_vec[numeqs_*nn+k];
-  
-//  	  std::cout<<(*u_old_old_)[numeqs_*nn+k]<<"  "<<(*u_old_)[numeqs_*nn+k]<<"  "<<x_vec[numeqs_*nn+k]<<"  "
-// 		   <<-dt_*(x_vec[numeqs_*nn+k]-(*u_old_)[numeqs_*nn+k])+(*u_old_)[numeqs_*nn+k]<<std::endl;
-	}
-      }
-
-//       Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
-//       NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
-//       solver_->reset(thyraguess);
-
-      t_theta_ = t_theta_temp;
+      initialsolve();
     }
     
     //u_old_old_->Update (1.,*u_old_ , 0.);
     //u_old_old_old_->PutScalar(0.0);
 
     if(paramList.get<bool> (TusasestimateTimestepNameString)){    
-      //cn this is not going to work with multiple k
-      //what do we do with temporal_est[0].pos....
-      //is index_ correct here??
-      Teuchos::ParameterList *atsList;
-      atsList = &paramList.sublist (TusasatslistNameString, false );
-      for( int k = 0; k < numeqs_; k++ ){
-	temporal_est.push_back(new post_process(comm_,
-						mesh_,
-						k, 
-						post_process::NORMRMS, 
-						k, 
-						"temperror",
-						16));
-	//be with an error estimate based on second derivative
-	if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
-	   temporal_est[k].postprocfunc_ = &timeadapt::d2udt2_;
-	//be with error estimate based on fe predictor: fe-be
-	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
-	  temporal_est[k].postprocfunc_ = &timeadapt::predictor_fe_;
-
-	//we will have tr with adams-bashforth predictor: ab-tr
-	//would require a small first step to get ab going
-	//or get u_n-1 via initial solve above with maybe a better update
-	//see gresho for a wierd ab way for this--can use regular ab
-
-	//and possibly tr with an explicit midpoint rule (huen) predictor: huen-tr
-	//(we could use initial solve above 
-	//with better update to get
-	//(up_n+1 - u_n-1)/(2 dt) = f(t_n)
-	//with error = - (u_n+1 - up_n+1)/5
-	//see https://www.cs.princeton.edu/courses/archive/fall11/cos323/notes/cos323_f11_lecture17_ode2.pdf
-	//we would utilize t_theta2_ similarly
-
-	temporal_norm.push_back(new post_process(comm_,
-						 mesh_,
-						 k, 
-						 post_process::NORMRMS, 
-						 k, 
-						 "tempnorm",
-						 16));
- 	temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
-
-      }
-//       temporal_est.push_back(new post_process(comm_,mesh_,(int)1,post_process::MAXVALUE));
-//       temporal_est[1].postprocfunc_ = &timeadapt::postproc1_;
+      setadaptivetimestep();
     }
 
     int mypid = comm_->MyPID();
@@ -4649,28 +4607,6 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
     std::cout<<std::endl<<std::endl<<std::endl<<"     Predictor step started"<<std::endl;	
   }
 
-  bool precon = paramList.get<bool> (TusaspreconNameString);
-  if(precon){
-#ifdef MESH_64
-    const Mesh::mesh_lint_t num_node = x_owned_map_->NumGlobalElements64();
-#else
-    const Mesh::mesh_lint_t num_node = x_owned_map_->NumGlobalElements();
-#endif
-    Teuchos::ParameterList MLmasslist;
-    //MLmasslist.set("ML output",5);
-    //MLmasslist.set("ML print initial list",0);
-    MLmasslist.set("cycle applications",(int)1);
-    //MLmasslist.set("smoother: sweeps",(int)1);
-    MLmasslist.set("max levels",(int)1);
-    MLmasslist.set("eigen-analysis: type","Anorm");
-    //MLmasslist.set("coarse: type","Jacobi");
-    MLmasslist.set("coarse: max size",(int)num_node);//this cast may be a future problem
-    prec_->SetParameterList(MLmasslist);
-    //if( 0 == comm_->MyPID()) prec_->PrintList();
-  }
-
-  //we might turn off the forcing term temporaily here
-
   const double t_theta_temp = t_theta_;
 
   t_theta2_ = 0.;
@@ -4678,26 +4614,23 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
   //fe predictor    be corrector
   t_theta_ = 0.;
 
-  //enabling the initial guess here may lead to a more accurate predicor
-  //but disabling it certainly cuts down runtime
   Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
-  solver_->reset(thyraguess);
 
-  //NOX::StatusTest::StatusType solvStatus = solver_->solve();
-  NOX::StatusTest::StatusType solvStatus = solver_->step();
+  predictor_->reset(thyraguess);
+
+  NOX::StatusTest::StatusType solvStatus = predictor_->solve();
   
   const Thyra::VectorBase<double> * sol = 
-    &(dynamic_cast<const NOX::Thyra::Vector&>(solver_->getSolutionGroup().getX()
+    &(dynamic_cast<const NOX::Thyra::Vector&>(
+					      predictor_->getSolutionGroup().getX()
 					      ).getThyraVector()
       );    
   Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
 
-  //#pragma omp parallel for
   for (int nn=0; nn < num_my_nodes_; nn++) {//cn figure out a better way here...
     for( int k = 0; k < numeqs_; k++ ){
       (*pred_temp_)[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
-      //std::cout<<(*u_old_old_)[numeqs_*nn+k]<<" "<<x_vec[numeqs_*nn+k]<<std::endl;
     }
   } 
 
@@ -4705,12 +4638,201 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
     std::cout<<std::endl<<"     Predictor step ended"<<std::endl<<std::endl<<std::endl;
   }
 
-  if(precon){
-    prec_->SetParameterList(paramList.sublist("ML"));
-  }
-
   t_theta_ = t_theta_temp;
   t_theta2_ = 0.;
  }
+
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::initialsolve()
+ {      
+   //right now, for TR it doesn't really matter in turns of performance if we set theta to 1
+   //here or leave it at .5
+   const double t_theta_temp = t_theta_;
+   t_theta_ = 1.;
+   
+   t_theta2_ = 0.;
+   
+   if( 0 == comm_->MyPID()) 
+     std::cout<<std::endl<<"Performing initial NOX solve"<<std::endl<<std::endl;
+   
+   Teuchos::RCP< VectorBase< double > > guess = Thyra::create_Vector(u_old_,x_space_);
+   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
+   solver_->reset(thyraguess);
+   
+   Teuchos::TimeMonitor NSolveTimer(*ts_time_nsolve);
+   NOX::StatusTest::StatusType solvStatus = solver_->solve();
+   if( !(NOX::StatusTest::Converged == solvStatus)) {
+     std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
+     exit(0);
+   }
+   
+   if( 0 == comm_->MyPID()) 
+     std::cout<<std::endl<<"Initial NOX solve completed"<<std::endl<<std::endl;
+   const Thyra::VectorBase<double> * sol = 
+     &(dynamic_cast<const NOX::Thyra::Vector&>(
+					       solver_->getSolutionGroup().getX()
+					       ).getThyraVector());
+   
+   Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+   
+   //now,
+   //dudt(t=0) = (x_vec-u_old_)/dt_
+   //
+   //so, also
+   //dudt(t=0) = (u_old_ - u_old_old_)/dt_
+   //u_old_old_ = u_old_ - dt_*dudt(t=0)
+   //           = 2*u_old_ - x_vec
+   for (int nn=0; nn < num_my_nodes_; nn++) {//cn figure out a better way here...
+     for( int k = 0; k < numeqs_; k++ ){
+       
+       (*u_old_old_)[numeqs_*nn+k] = 2.*(*u_old_)[numeqs_*nn+k] - x_vec[numeqs_*nn+k];
+       
+       //  	  std::cout<<(*u_old_old_)[numeqs_*nn+k]<<"  "<<(*u_old_)[numeqs_*nn+k]<<"  "<<x_vec[numeqs_*nn+k]<<"  "
+       // 		   <<-dt_*(x_vec[numeqs_*nn+k]-(*u_old_)[numeqs_*nn+k])+(*u_old_)[numeqs_*nn+k]<<std::endl;
+     }
+   }
+   
+   t_theta_ = t_theta_temp;
+ }
+
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::setadaptivetimestep()
+  {
+      //cn this is not going to work with multiple k
+      //what do we do with temporal_est[0].pos....
+      //is index_ correct here??
+      Teuchos::ParameterList *atsList;
+      atsList = &paramList.sublist (TusasatslistNameString, false );
+      for( int k = 0; k < numeqs_; k++ ){
+	temporal_est.push_back(new post_process(comm_,
+						mesh_,
+						k, 
+						post_process::NORMRMS, 
+						k, 
+						"temperror",
+						16));
+	//be with an error estimate based on second derivative
+	if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
+	   temporal_est[k].postprocfunc_ = &timeadapt::d2udt2_;
+	//be with error estimate based on fe predictor: fe-be
+	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
+	  temporal_est[k].postprocfunc_ = &timeadapt::predictor_fe_;
+
+	//we will have tr with adams-bashforth predictor: ab-tr
+	//would require a small first step to get ab going
+	//or get u_n-1 via initial solve above with maybe a better update
+	//see gresho for a wierd ab way for this--can use regular ab
+
+	//and possibly tr with an explicit midpoint rule (huen) predictor: huen-tr
+	//(we could use initial solve above 
+	//with better update to get
+	//(up_n+1 - u_n-1)/(2 dt) = f(t_n)
+	//with error = - (u_n+1 - up_n+1)/5
+	//see https://www.cs.princeton.edu/courses/archive/fall11/cos323/notes/cos323_f11_lecture17_ode2.pdf
+	//we would utilize t_theta2_ similarly
+
+	temporal_norm.push_back(new post_process(comm_,
+						 mesh_,
+						 k, 
+						 post_process::NORMRMS, 
+						 k, 
+						 "tempnorm",
+						 16));
+ 	temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
+
+      }
+  }
+template<class Scalar>
+void ModelEvaluatorNEMESIS<Scalar>::init_predictor()
+  { 
+    //currently there is some issue with the predictor_ solver not being created correctly
+    //right now we dont call this code
+    //this is handled in init_nox()
+#if 0
+    double relrestol = 1.0e-6;
+    relrestol = paramList.get<double> (TusasnoxrelresNameString);
+    
+    Teuchos::ParameterList printParams;    
+    Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
+    
+
+    Teuchos::RCP< ::Thyra::VectorBase<double> >
+      initial_guess = this->getNominalValues().get_x()->clone_v();
+
+    Teuchos::RCP< ::Thyra::ModelEvaluator<double> > Model = Teuchos::rcpFromRef(*this);
+    // Wrap the model evaluator in a JFNK Model Evaluator
+    Teuchos::RCP< ::Thyra::ModelEvaluator<double> > thyraModel =
+      Teuchos::rcp(new NOX::MatrixFreeModelEvaluatorDecorator<double>(Model));
+    
+    ::Stratimikos::DefaultLinearSolverBuilder builder;
+
+    Teuchos::RCP<Teuchos::ParameterList> lsparams =
+      Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusaslsNameString)));
+    
+    builder.setParameterList(lsparams);
+
+    Teuchos::RCP< ::Thyra::LinearOpWithSolveFactoryBase<double> >
+      lowsFactory = builder.createLinearSolveStrategy("");
+    
+    // Setup output stream and the verbosity level
+    Teuchos::RCP<Teuchos::FancyOStream>
+      out = Teuchos::VerboseObjectBase::getDefaultOStream();
+    lowsFactory->setOStream(out);
+    lowsFactory->setVerbLevel(Teuchos::VERB_EXTREME);
+    
+    //this->set_W_factory(lowsFactory);
+    
+    Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp1 =
+      Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
+    
+    jfnkOp1->setParameterList(jfnkParams);
+    
+    Teuchos::RCP<NOX::Thyra::Group> noxpred_group =
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, 
+					 thyraModel, 
+					 jfnkOp1, 
+					 lowsFactory, 
+					 Teuchos::null, 
+					 Teuchos::null, 
+					 Teuchos::null, 
+					 Teuchos::null));
+    jfnkOp1->setBaseEvaluationToNOXGroup(noxpred_group.create_weak());
+    noxpred_group->computeF();
+    Teuchos::RCP<NOX::StatusTest::NormF>relresid1 = 
+      Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestol));//1.0e-6 for paper
+    Teuchos::RCP<NOX::StatusTest::Combo> converged1 =
+      Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::AND));
+    converged1->addStatusTest(relresid1);
+    //combo->addStatusTest(converged);
+    Teuchos::RCP<Teuchos::ParameterList> nl_params1 =
+      Teuchos::rcp(new Teuchos::ParameterList);
+   
+    nl_params1->set("Nonlinear Solver", "Line Search Based");
+    nl_params1->sublist("Direction").sublist("Newton").set("Forcing Term Method", "Type 2");
+    nl_params1->sublist("Direction").sublist("Newton").set("Forcing Term Initial Tolerance", 1.0e-1);
+    nl_params1->sublist("Direction").sublist("Newton").set("Forcing Term Maximum Tolerance", 1.0e-2);
+    nl_params1->sublist("Direction").sublist("Newton").set("Forcing Term Minimum Tolerance", 1.0e-5);
+    Teuchos::ParameterList& nlPrintParams = nl_params1->sublist("Printing");
+    nlPrintParams.set("Output Information",
+		      NOX::Utils::OuterIteration  +
+		      //                      NOX::Utils::OuterIterationStatusTest +
+		      NOX::Utils::InnerIteration +
+		      NOX::Utils::Details //+
+		      //NOX::Utils::LinearSolverDetails
+		    );
+    
+    predictor_ =  NOX::Solver::buildSolver(noxpred_group, converged1, nl_params1);
+    if( 0 == comm_->MyPID() ){
+      std::cout<<std::endl<<std::endl<<std::endl<<std::endl;
+      std::cout<<std::endl<<std::endl<<std::endl<<std::endl;
+      std::cout<<std::endl<<std::endl<<std::endl<<std::endl;
+      std::cout<<std::endl<<std::endl<<std::endl<<std::endl;
+      std::cout<<std::endl<<std::endl<<std::endl<<std::endl;
+      //nl_params1->print(std::cout);
+    }
+    predictor_->getList().print(std::cout);
+    //exit(0);
+#endif
+  }
 #endif //TUSAS_HAVE_CUDA
 #endif

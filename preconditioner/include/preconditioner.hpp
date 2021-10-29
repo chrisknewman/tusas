@@ -82,7 +82,7 @@ public:
 	     Epetra_MultiVector &Y ///< output vector
 	     ) const;//cn this will be virtual 
   /// Recompute the ML hierarchy.
-  int ReComputePreconditioner () const;
+  int ReComputePreconditioner (bool keepFineLevelSmoother = false) const;
   /// Initially compute  the ML hierarchy
   int ComputePreconditioner () const;
   /// Print paramlist

@@ -5494,7 +5494,9 @@ RES_FUNC(residual_eta_kkspp_)
 #define RES_FUNC_TPETRA(NAME)  double NAME(GPUBasis * basis[],	\
                                     const int &i,\
                                     const double &dt_,\
+                                    const double &dtold_,\
 			            const double &t_theta_,\
+			            const double &t_theta2_,\
                                     const double &time,\
 				    const int &eqn_id)
 
@@ -6203,8 +6205,8 @@ KOKKOS_INLINE_FUNCTION
 double a(const double &p,const double &px,const double &py,const double &pz, const double ep)
 {
   double val = 1. + ep;
-  const double d = (px*px+py*py+pz*pz);
-  val = (d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/(d*d))
+  const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
+  val = (d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/d)
     : 1. + ep;
   //older version produced nicer dendrite
 //   const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
@@ -6223,10 +6225,10 @@ double ap(const double &p,const double &px,const double &py,const double &pz,con
 // 				    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
 // 				    /(px*px+py*py+pz*pz)/d
 //     : 0.;
-  const double d = (px*px+py*py+pz*pz);
+  const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
   return (d > smalld_) ? 4.*ep*
     (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
-    /(d*d*d)
+    /((px*px+py*py+pz*pz)*d)
     : 0.;
 }
 
@@ -6239,12 +6241,22 @@ RES_FUNC_TPETRA(residual_heat_pfhub3_)
 			  + basis[eqn_id]->dudz*basis[eqn_id]->dphidz[i]),
 			D_*(basis[eqn_id]->duolddx*basis[eqn_id]->dphidx[i]
 			  + basis[eqn_id]->duolddy*basis[eqn_id]->dphidy[i]
-			  + basis[eqn_id]->duolddz*basis[eqn_id]->dphidz[i])};
+			  + basis[eqn_id]->duolddz*basis[eqn_id]->dphidz[i]),
+			D_*(basis[eqn_id]->duoldolddx*basis[eqn_id]->dphidx[i]
+			  + basis[eqn_id]->duoldolddy*basis[eqn_id]->dphidy[i]
+			  + basis[eqn_id]->duoldolddz*basis[eqn_id]->dphidz[i])};
 
-  const double phit = .5*(basis[1]->uu-basis[1]->uuold)/dt_*basis[0]->phi[i];
-  return ut
-    + t_theta_*divgradu[0] + (1. - t_theta_)*divgradu[1]
-    - phit;
+  const double phit[2] = {.5*(basis[1]->uu-basis[1]->uuold)/dt_*basis[0]->phi[i],
+			  .5*(basis[1]->uuold-basis[1]->uuoldold)/dt_*basis[0]->phi[i]};
+
+  double f[3];
+  f[0] = -divgradu[0] + phit[0];
+  f[1] = -divgradu[1] + phit[1];
+  f[2] = -divgradu[2] + phit[1];
+
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_heat_pfhub3_dp_)) = residual_heat_pfhub3_;
@@ -6257,57 +6269,78 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
   const double dtestdy = basis[eqn_id]->dphidy[i];
   const double dtestdz = basis[eqn_id]->dphidz[i];
 
-  const double phi[2] = {basis[eqn_id]->uu,basis[eqn_id]->uuold};
-  const double dphidx[2] = {basis[eqn_id]->dudx,basis[eqn_id]->duolddx};
-  const double dphidy[2] = {basis[eqn_id]->dudy,basis[eqn_id]->duolddy};
-  const double dphidz[2] = {basis[eqn_id]->dudz,basis[eqn_id]->duolddz};
+  const double phi[3] = {basis[eqn_id]->uu,basis[eqn_id]->uuold,basis[eqn_id]->uuoldold};
+  const double dphidx[3] = {basis[eqn_id]->dudx,basis[eqn_id]->duolddx,basis[eqn_id]->duoldolddx};
+  const double dphidy[3] = {basis[eqn_id]->dudy,basis[eqn_id]->duolddy,basis[eqn_id]->duoldolddy};
+  const double dphidz[3] = {basis[eqn_id]->dudz,basis[eqn_id]->duolddz,basis[eqn_id]->duoldolddz};
 
-  const double as[2] = {tpetra::farzadi3d::a(phi[0],
-					     dphidx[0],
-					     dphidy[0],
-					     dphidz[0],
-					     eps_),
-			tpetra::farzadi3d::a(phi[1],
-					     dphidx[1],
-					     dphidy[1],
-					     dphidz[1],
-					     eps_)};
+  const double as[3] = {a(phi[0],
+			  dphidx[0],
+			  dphidy[0],
+			  dphidz[0],
+			  eps_),
+			a(phi[1],
+			  dphidx[1],
+			  dphidy[1],
+			  dphidz[1],
+			  eps_),
+			a(phi[2],
+			  dphidx[2],
+			  dphidy[2],
+			  dphidz[2],
+			  eps_)};
 
-  const double tau[2] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1]};
+  const double tau[3] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1],tau0_*as[2]*as[2]};
 
   const double phit = (phi[0]-phi[1])/dt_*test;
 
-  const double w[2] = {W_*as[0],W_*as[1]};
+  const double w[3] = {W_*as[0],W_*as[1],W_*as[2]};
 
-  const double divgradphi[2] = {w[0]*w[0]*(dphidx[0]*dtestdx
+//   const double divgradphi[3] = {w[0]*w[0]*(dphidx[0]*dtestdx
+// 					     + dphidy[0]*dtestdy
+// 					     + dphidz[0]*dtestdz),
+// 				w[1]*w[1]*(dphidx[1]*dtestdx
+// 					     + dphidy[1]*dtestdy
+// 					     + dphidz[1]*dtestdz),
+// 				w[2]*w[2]*(dphidx[2]*dtestdx
+// 					     + dphidy[2]*dtestdy
+// 					     + dphidz[2]*dtestdz)};
+  const double divgradphi[3] = {W_*W_*(dphidx[0]*dtestdx
 					     + dphidy[0]*dtestdy
 					     + dphidz[0]*dtestdz),
-				w[1]*w[1]*(dphidx[1]*dtestdx
+				W_*W_*(dphidx[1]*dtestdx
 					     + dphidy[1]*dtestdy
-					     + dphidz[1]*dtestdz)};
+					     + dphidz[1]*dtestdz),
+				W_*W_*(dphidx[2]*dtestdx
+					     + dphidy[2]*dtestdy
+					     + dphidz[2]*dtestdz)};
 
-  const double wp[2] = {W_*(tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidx[0],eps_)*dtestdx 
-			    + tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidy[0],eps_)*dtestdy 
-			    + tpetra::farzadi3d::ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidz[0],eps_)*dtestdz),
-			W_*(tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidx[1],eps_)*dtestdx 
-			    + tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidy[1],eps_)*dtestdy 
-			    + tpetra::farzadi3d::ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps_)*dtestdz)};
+  const double wp[3] = {W_*(ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidx[0],eps_)*dtestdx 
+			    + ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidy[0],eps_)*dtestdy 
+			    + ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidz[0],eps_)*dtestdz),
+			W_*(ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidx[1],eps_)*dtestdx 
+			    + ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidy[1],eps_)*dtestdy 
+			    + ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps_)*dtestdz),
+			W_*(ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidx[2],eps_)*dtestdx 
+			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidy[2],eps_)*dtestdy 
+			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidz[2],eps_)*dtestdz)};
 
-  const double curlgrad[2] = {w[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])*wp[0],
-			      w[1]*(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1])*wp[1]};
+  const double curlgrad[3] = {w[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])*wp[0],
+			      w[1]*(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1])*wp[1],
+			      w[2]*(dphidx[2]*dphidx[2] + dphidy[2]*dphidy[2] + dphidz[2]*dphidz[2])*wp[2]};
 
-  const double g[2] = {((phi[0]-lambda_*basis[0]->uu*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
-		       ((phi[1]-lambda_*basis[0]->uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test};
+  const double g[3] = {((phi[0]-lambda_*basis[0]->uu*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
+		       ((phi[1]-lambda_*basis[0]->uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test,
+		       ((phi[2]-lambda_*basis[0]->uuoldold*(1.-phi[2]*phi[2]))*(1.-phi[2]*phi[2]))*test};
 
-  if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
-			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
-			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<" "<<g[0]<<" "<<divgradphi[0]
-			       <<" "<<curlgrad[0]<<std::endl;
+  double f[3];
+  f[0] = -(divgradphi[0]/tau0_+curlgrad[0]/tau[0]-g[0]/tau[0]);
+  f[1] = -(divgradphi[1]/tau0_+curlgrad[1]/tau[1]-g[1]/tau[1]);
+  f[2] = -(divgradphi[2]/tau0_+curlgrad[2]/tau[2]-g[2]/tau[2]);
 
-  return phit
-    + t_theta_*divgradphi[0]/tau[0] + (1. - t_theta_)*divgradphi[1]/tau[1]
-    + t_theta_*curlgrad[0]/tau[0]   + (1. - t_theta_)*curlgrad[1]/tau[1]
-    - t_theta_*g[0]/tau[0]          - (1. - t_theta_)*g[1]/tau[1];
+  return phit - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
  
 RES_FUNC(residual_heat_pfhub3_n_)
@@ -6325,6 +6358,7 @@ RES_FUNC(residual_heat_pfhub3_n_)
 
   const double phit[2] = {.5*(basis[1].uu-basis[1].uuold)/dt_*basis[0].phi[i],
 			  .5*(basis[1].uuold-basis[1].uuoldold)/dt_*basis[0].phi[i]};
+
   double f[3];
   f[0] = -divgradu[0] + phit[0];
   f[1] = -divgradu[1] + phit[1];
@@ -6405,7 +6439,7 @@ RES_FUNC(residual_phase_pfhub3_n_)
 			    + ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps_)*dtestdz),
 			W_*(ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidx[2],eps_)*dtestdx 
 			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidy[2],eps_)*dtestdy 
-			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[1],dphidz[2],eps_)*dtestdz)};
+			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidz[2],eps_)*dtestdz)};
 
   const double curlgrad[3] = {w[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])*wp[0],
 			      w[1]*(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1])*wp[1],
@@ -6467,16 +6501,16 @@ PRE_FUNC_TPETRA(prec_phase_pfhub3_)
 
   const double phi = basis[eqn_id].uu;
   const double phit = basis[eqn_id].phi[j]/dt_*test;
-  const double as = tpetra::farzadi3d::a(phi,
-					     basis[eqn_id].dudx,
-					     basis[eqn_id].dudy,
-					     basis[eqn_id].dudz,
-					     eps_);
-  const double tau = tau0_*as*as;
+//   const double as = a(phi,
+// 		      basis[eqn_id].dudx,
+// 		      basis[eqn_id].dudy,
+// 		      basis[eqn_id].dudz,
+// 		      eps_);
+  const double tau = tau0_;//*as*as;
 
-  const double divgradphi = W_*as*W_*as*(basis[eqn_id].dphidx[j]*dtestdx
-					 + basis[eqn_id].dphidy[j]*dtestdy
-					 + basis[eqn_id].dphidz[j]*dtestdz);
+  const double divgradphi = W_*W_*(basis[eqn_id].dphidx[j]*dtestdx
+				   + basis[eqn_id].dphidy[j]*dtestdy
+				   + basis[eqn_id].dphidz[j]*dtestdz);
 
   return phit
     + t_theta_*divgradphi/tau;
@@ -6918,6 +6952,105 @@ PPR_FUNC(postproc_robin_)
   return s-uu;
 }
 }//namespace robin
+
+namespace autocatalytic4
+{
+
+  //https://documen.site/download/math-3795-lecture-18-numerical-solution-of-ordinary-differential-equations-goals_pdf#
+  //https://media.gradebuddy.com/documents/2449908/0c88cf76-7605-4aec-b2ad-513ddbebefec.pdf
+
+const double k1 = .0001;
+const double k2 = 1.;
+const double k3 = .0008;
+
+RES_FUNC_TPETRA(residual_a_)
+{
+  const double test = basis[0]->phi[i];
+  //u, phi
+  const double u = basis[0]->uu;
+  const double uold = basis[0]->uuold;
+  const double uoldold = basis[0]->uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+
+  double f[3];
+  f[0] = -k1*u*test-k2*u*basis[1]->uu*test;
+  f[1] = -k1*uold*test-k2*u*basis[1]->uuold*test;
+  f[2] = -k1*uoldold*test-k2*u*basis[1]->uuold*test;
+  //if(t_theta2_>.99)std::cout<<t_theta2_<<" "<<t_theta_<<" "<<dt_<<" "<<dtold_<<std::endl;
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+RES_FUNC_TPETRA(residual_b_)
+{
+  const double test = basis[1]->phi[i];
+  //u, phi
+  const double u = basis[1]->uu;
+  const double uold = basis[1]->uuold;
+  //const double uoldold = basis[1]->uuoldold;
+  const double a = basis[0]->uu;
+  const double aold = basis[0]->uuold;
+  const double aoldold = basis[0]->uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+  double f[3];
+  f[0] = (k1*a - k2*a*u + 2.*k3*basis[2]->uu)*test;
+  f[1] = (k1*aold - k2*aold*uold + 2.*k3*basis[2]->uuold)*test;
+  f[2] = (k1*aoldold - k2*aoldold*basis[1]->uuoldold + 2.*k3*basis[2]->uuoldold)*test;
+
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+RES_FUNC_TPETRA(residual_ab_)
+{
+  const double test = basis[1]->phi[i];
+  //u, phi
+  const double u = basis[2]->uu;
+  const double uold = basis[2]->uuold;
+  //const double uoldold = basis[1]->uuoldold;
+  const double b = basis[1]->uu;
+  const double bold = basis[1]->uuold;
+  const double boldold = basis[1]->uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+  double f[3];
+  f[0] = (k2*b*basis[0]->uu - k3*u)*test;
+  f[1] = (k2*bold*basis[0]->uuold - k3*uold)*test;
+  f[2] = (k2*boldold*basis[0]->uuoldold - k3*basis[2]->uuoldold)*test;
+
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+
+RES_FUNC_TPETRA(residual_c_)
+{
+  const double test = basis[1]->phi[i];
+  //u, phi
+  const double u = basis[3]->uu;
+  const double uold = basis[3]->uuold;
+  //const double uoldold = basis[1]->uuoldold;
+  const double a = basis[0]->uu;
+  const double aold = basis[0]->uuold;
+  const double aoldold = basis[0]->uuoldold;
+
+  const double ut = (u-uold)/dt_*test;
+  double f[3];
+  f[0] = (k1*a + k3*basis[2]->uu)*test;
+  f[1] = (k1*aold + k3*basis[2]->uuold)*test;
+  f[2] = (k1*aoldold + k3*basis[2]->uuoldold)*test;
+
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+}//namespace autocatalytic4
 
 }//namespace tpetra
 

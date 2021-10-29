@@ -82,7 +82,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   Teuchos::ParameterList *ATSList;
   ATSList = &paramList.sublist(TusasatslistNameString,(bool)false);
-  ATSList->set(TusasatsmaxiterNameString,2);
+  ATSList->set(TusasatsmaxiterNameString,1);
   ATSList->set(TusasatsatolNameString,1.e-2);
   ATSList->set(TusasatsrtolNameString,0.0);
   ATSList->set(TusasatssfNameString,.9);
@@ -209,9 +209,9 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     paramList.set(TusasadaptiveTimestepNameString,(bool)false);
     //paramList.set(TusasestimateTimestepNameString,(bool)false);
     //should print something here
-    if( 0 == mypid )
-      std::cout <<"   Adaptive timestep only implemented for theta > 1"
-		<<std::endl<<std::endl;
+//     if( 0 == mypid )
+//       std::cout <<"   Adaptive timestep set to false"
+// 		<<std::endl<<std::endl;
   }
   if((true == paramList.get<bool>(TusasestimateTimestepNameString))
      && ATSList->get<std::string> (TusasatstypeNameString) == "second derivative"){

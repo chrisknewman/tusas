@@ -2632,11 +2632,11 @@ public:
       duolddx += uold[i] * dphidx[i];
       duolddy += uold[i]* dphidy[i];
     }
-//     if( uoldold ){
-//       uuoldold += uoldold[i] * phi[i];
-//       duoldolddx += uoldold[i] * dphidx[i];
-//       duoldolddy += uoldold[i]* dphidy[i];
-//     }
+    if( uoldold ){
+      uuoldold += uoldold[i] * phi[i];
+      duoldolddx += uoldold[i] * dphidx[i];
+      duoldolddy += uoldold[i]* dphidy[i];
+    }
   }
   
   return;
@@ -2927,12 +2927,12 @@ public:
 	duolddz += uold[i] * dphidz[i];
 	//exit(0);
       }
-//       if( uoldold ){
-// 	uuoldold += uoldold[i] * phinew[gp][i];
-// 	duoldolddx += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
-// 	duoldolddy += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
-// 	duoldolddz += uoldold[i] * (dphidxi[i]*dxidx+dphideta[i]*detadx+dphidzta[i]*dztadx);
-//       }
+      if( uoldold ){
+	uuoldold += uoldold[i] * phinew[gp][i];
+	duoldolddx += uoldold[i] * dphidx[i];
+	duoldolddy += uoldold[i] * dphidy[i];
+	duoldolddz += uoldold[i] * dphidz[i];
+      }
     }
     return;
   }

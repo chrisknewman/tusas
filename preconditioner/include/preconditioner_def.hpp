@@ -74,10 +74,10 @@ int preconditioner<Scalar>::Apply (const Epetra_MultiVector &X, Epetra_MultiVect
   return err;
 };
 template<class Scalar>
-int preconditioner<Scalar>::ReComputePreconditioner () const
+int preconditioner<Scalar>::ReComputePreconditioner (bool keepFineLevelSmoother) const
 {
   if (0 == MLPrec_->IsPreconditionerComputed () ) MLPrec_->ComputePreconditioner();
-  int err = MLPrec_->ReComputePreconditioner();
+  int err = MLPrec_->ReComputePreconditioner(keepFineLevelSmoother);
 
   //std::cout<<"MLPrec_->ReComputePreconditioner() = "<<err<<std::endl;
   //std::cout<<" one norm W_ = "<<W_->NormOne()<<std::endl<<" inf norm W_ = "<<W_->NormInf()<<std::endl<<" fro norm W_ = "<<W_->NormFrobenius()<<std::endl;

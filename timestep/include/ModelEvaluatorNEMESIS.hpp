@@ -133,6 +133,7 @@ private: // data members
   Teuchos::RCP<Epetra_FECrsMatrix> P_;
   Teuchos::RCP<preconditioner <Scalar> > prec_;
   Teuchos::RCP<NOX::Solver::Generic> solver_;
+  Teuchos::RCP<NOX::Solver::Generic> predictor_;
   Teuchos::RCP<Epetra_Vector> u_old_;
   Teuchos::RCP<Epetra_Vector> u_old_old_;
   Teuchos::RCP<Epetra_Vector> u_old_old_old_;
@@ -261,12 +262,19 @@ private: // data members
 //   std::vector<double (*)(const double *u, const double *gradu)> *postprocfunc_;
   void postprocess();  
   void postprocess(boost::ptr_vector<post_process>pp);
-  void temporalpostprocess(boost::ptr_vector<post_process>pp);
 //   int numpostprocvar_;
 //   std::vector<std::string> *postprocvarnames_;
 //   Teuchos::RCP<Epetra_Vector> u_postproc_;
-  double estimatetimestep();
+
   void predictor();
+  void init_predictor();
+  void initialsolve();
+
+  double estimatetimestep();
+  void temporalpostprocess(boost::ptr_vector<post_process>pp);
+  boost::ptr_vector<post_process> temporal_est;
+  boost::ptr_vector<post_process> temporal_norm;
+  void setadaptivetimestep();
 
   //tip velocity stuff
   std::map<double,int> x_node;
@@ -282,8 +290,6 @@ private: // data members
   RCP<Teuchos::Time> ts_time_nsolve;
   boost::ptr_vector<error_estimator> Error_est;
   boost::ptr_vector<post_process> post_proc;
-  boost::ptr_vector<post_process> temporal_est;
-  boost::ptr_vector<post_process> temporal_norm;
   Teuchos::RCP<elem_color> Elem_col;
   std::string outfilename;
 

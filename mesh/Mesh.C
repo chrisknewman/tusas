@@ -1035,6 +1035,8 @@ int Mesh::write_nodal_data_exodus(int ex_id, int counter){
 
   for(int i = 0; i < num_nodal_fields; i++){
 
+    if(verbose)
+      std::cout<<"   i  "<<i<<"  "<<nodal_fields[i].size()<<std::endl<<std::endl;
     ex_err = ex_put_nodal_var (ex_id, counter, i + 1, num_nodes, &nodal_fields[i][0]);
     //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<nodal_fields[i][j]<<std::endl;
   
@@ -1283,7 +1285,8 @@ int Mesh::add_nodal_field(const std::string name){
       
       std::cout<<"=== add nodal field ==="<<std::endl
 	       <<" num_nodal_fields "<<num_nodal_fields<<std::endl
-	       <<" sizeof nodal_field_names "<<nodal_field_names.size()<<std::endl;
+	       <<" sizeof nodal_field_names "<<nodal_field_names.size()<<std::endl
+	       <<" nodal_field_names "<<name<<std::endl;
     //}
   return 1;
 

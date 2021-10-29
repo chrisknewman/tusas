@@ -167,8 +167,12 @@ private:
   Teuchos::RCP<const import_type > importer_;
   Teuchos::RCP<const export_type > exporter_;
   Teuchos::RCP<NOX::Solver::Generic> solver_;
+  Teuchos::RCP<NOX::Solver::Generic> predictor_;
 
   Teuchos::RCP<vector_type> u_old_;
+  Teuchos::RCP<vector_type> u_old_old_;
+  Teuchos::RCP<vector_type> u_new_;
+  Teuchos::RCP<vector_type> pred_temp_;
 
   Teuchos::RCP<vector_type> x_;
   Teuchos::RCP<vector_type> y_;
@@ -183,7 +187,9 @@ private:
   
   int nnewt_;
   double dt_;
+  double dtold_;
   double t_theta_;
+  double t_theta2_;
   Teuchos::ParameterList paramList;
 
   Thyra::ModelEvaluatorBase::InArgs<Scalar> nominalValues_;
@@ -208,7 +214,9 @@ private:
   typedef double (*RESFUNC)(GPUBasis * basis[], 
 			    const int &i, 
 			    const double &dt_, 
+			    const double &dtold_, 
 			    const double &t_theta_, 
+			    const double &t_theta2_, 
 			    const double &time,
 			    const int &eqn_id);
 
@@ -271,6 +279,16 @@ private:
   boost::ptr_vector<error_estimator> Error_est;
   boost::ptr_vector<post_process> post_proc;
   void postprocess();
+
+  void predictor();
+  void initialsolve();
+
+  double estimatetimestep();
+  void temporalpostprocess(boost::ptr_vector<post_process>pp);
+  boost::ptr_vector<post_process> temporal_est;
+  boost::ptr_vector<post_process> temporal_norm;
+  void setadaptivetimestep();
+
   void init_P_();
   std::string outfilename;
 

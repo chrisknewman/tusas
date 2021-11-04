@@ -3877,6 +3877,15 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     paramfunc_ = pfhub2::param_;
 
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &pfhub2::postproc_c_a_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
+
   }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
 
     //same as above with c_alpha and c_beta coupled independently

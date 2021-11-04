@@ -4924,7 +4924,7 @@ namespace pfhub2 {
   const double c_alpha_ = .3;
   const double c_beta_ = .7;
   const double alpha_ = 5.;
-  const double k_c_ = 3.;
+  const double k_c_ = 0.;//3.
   const double k_eta_ = 3.;
   const double M_ = 5.;
   const double L_ = 5.;
@@ -5045,6 +5045,18 @@ namespace pfhub2 {
 	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
     //if(delta_c_a*delta_c_a+delta_c_b*delta_c_b > 0) exit(0);
     exit(0);
+    return;
+  }
+
+  void solve_kks_exact(const double c, double *phi)//const double phi
+  {
+    const double hh = h(phi);
+    //c_a[0] = (1.-hh)*c;
+    c_a[0] = (-c +(c_beta_ + c_alpha_)*hh)/(-1.+2.*hh);
+
+    //c_b[0]=hh*c;
+    c_b[0]= (c +(c_beta_ + c_alpha_)*(hh-1.))/(-1.+2.*hh);
+
     return;
   }
 
@@ -5369,6 +5381,7 @@ PPR_FUNC(postproc_c_b_)
   double phi = u[1];
 
   solve_kks(cc,&phi);
+  //solve_kks_exact(cc,&phi);
 
   return c_b[0];
 }
@@ -5380,9 +5393,34 @@ PPR_FUNC(postproc_c_a_)
   double phi = u[1];
 
   solve_kks(cc,&phi);
+  //solve_kks_exact(cc,&phi);
 
   return c_a[0];
 }
+
+PPR_FUNC(postproc_h_)
+{
+
+  //cn will need eta_array here...
+  //double cc = u[0];
+  double phi = u[1];
+
+  return h(&phi);
+}
+
+PPR_FUNC(postproc_c_)
+{
+
+  //cn will need eta_array here...
+  double cc = u[0];
+  double phi = u[1];
+
+  solve_kks(cc,&phi);
+  //solve_kks_exact(cc,&phi);
+
+  return (1.-h(&phi))*c_a[0]+h(&phi)*c_b[0];
+}
+
 
 RES_FUNC(residual_c_kkspp_)
 {

@@ -3898,12 +3898,12 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     numeqs_ = numeta+1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &pfhub2::residual_c_kks_;
-    (*residualfunc_)[1] = &pfhub2::residual_eta_kks_;
+    (*residualfunc_)[0] = &pfhub2::residual_c_;
+    (*residualfunc_)[1] = &pfhub2::residual_eta_;
     if( 4 == numeta){
-      (*residualfunc_)[2] = &pfhub2::residual_eta_kks_;
-      (*residualfunc_)[3] = &pfhub2::residual_eta_kks_;
-      (*residualfunc_)[4] = &pfhub2::residual_eta_kks_;
+      (*residualfunc_)[2] = &pfhub2::residual_eta_;
+      (*residualfunc_)[3] = &pfhub2::residual_eta_;
+      (*residualfunc_)[4] = &pfhub2::residual_eta_;
     }
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
@@ -3947,6 +3947,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     post_proc.push_back(new post_process(comm_,mesh_,(int)1));
     post_proc[1].postprocfunc_ = &pfhub2::postproc_c_a_;
 
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
 
 }else if("pfhub2kkspp" == paramList.get<std::string> (TusastestNameString)){
 

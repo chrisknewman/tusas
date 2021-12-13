@@ -1470,7 +1470,7 @@ template<class scalar_type>
        ||paramList.get<bool> (TusasinitialSolveNameString)){
 
       initialsolve();
-    }
+    }//if
 
     int mypid = comm_->getRank();
     int numproc = comm_->getSize();
@@ -2229,6 +2229,31 @@ template<class scalar_type>
     exit(0);
   }
 
+  double min_time = 1.e12;
+  Teuchos::reduceAll<int,double>(*comm_,Teuchos::REDUCE_MIN,
+				 1,
+				 &time,
+				 &min_time);
+  double max_time = 1.e-12;
+  Teuchos::reduceAll<int,double>(*comm_,Teuchos::REDUCE_MAX,
+				 1,
+				 &time,
+				 &max_time);
+
+  //this is probably fixed by setting time = min_time and reading that timestep.
+  //care may need to be taken when overwriting the max_time step, may need a clobber/noclobber
+
+  //dt_/4 is arbitrary
+  if(fabs(max_time-min_time)>dt_/4.){
+    if( 0 == mypid ){
+      std::cout<<"  Error reading restart min and max time differ"<<std::endl;
+      std::cout<<"    Reading restart min time = "<<min_time<<std::endl;
+      std::cout<<"    Reading restart max time = "<<max_time<<std::endl;
+      std::cout<<"    Reading restart difference = "<<fabs(max_time-min_time)<<std::endl;
+    }
+    exit(0);
+  }
+
   const double dt = paramList.get<double> (TusasdtNameString);
   const int numSteps = paramList.get<int> (TusasntNameString);
 
@@ -2349,7 +2374,7 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
 
   auto unewview = u_new_->get1dView();
   auto uoldview = u_old_->get1dView();
-  auto predtempview = u_old_->get1dView();
+  auto predtempview = pred_temp_->get1dView();
 
   for (int nn=0; nn < num_owned_nodes_; nn++) {
     for( int k = 0; k < numeqs_; k++ ){

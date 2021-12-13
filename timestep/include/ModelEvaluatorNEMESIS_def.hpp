@@ -2263,6 +2263,20 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
     exit(0);
   }
 
+  double min_time = 1.e12;
+  comm_->MinAll(&time, &min_time, 1);
+  double max_time = 1.e-12;
+  comm_->MaxAll(&time, &max_time, 1);
+  if(fabs(max_time-min_time)>dt_/4.){
+    if( 0 == mypid ){
+      std::cout<<"  Error reading restart min and max time differ"<<std::endl;
+      std::cout<<"    Reading restart min time = "<<min_time<<std::endl;
+      std::cout<<"    Reading restart max time = "<<max_time<<std::endl;
+      std::cout<<"    Reading restart difference = "<<fabs(max_time-min_time)<<std::endl;
+    }
+    exit(0);
+  }
+
 #if 0
   int step_old = step - 1;
   double time_old = -99.99;
@@ -3825,6 +3839,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
   }else if("pfhub2" == paramList.get<std::string> (TusastestNameString)){
 
+    //this is pfhub2 as described on website. WBM model with k_c=0, no kks
+
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
 
@@ -3878,81 +3894,17 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     paramfunc_ = pfhub2::param_;
 
     post_proc.push_back(new post_process(comm_,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
+    post_proc[0].postprocfunc_ = &pfhub2::postproc_c_a_;
 
     post_proc.push_back(new post_process(comm_,mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &pfhub2::postproc_c_a_;
+    post_proc[1].postprocfunc_ = &pfhub2::postproc_c_b_;
 
     post_proc.push_back(new post_process(comm_,mesh_,(int)2));
     post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
 
-  }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
+  }else if("pfhub2wbmkks_g" == paramList.get<std::string> (TusastestNameString)){
 
-    //same as above with c_alpha and c_beta coupled independently
-
-    Teuchos::ParameterList *problemList;
-    problemList = &paramList.sublist ( "ProblemParams", false );
-
-    int numeta = problemList->get<int>("N");
-
-    numeqs_ = numeta+1;
-
-    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &pfhub2::residual_c_;
-    (*residualfunc_)[1] = &pfhub2::residual_eta_;
-    if( 4 == numeta){
-      (*residualfunc_)[2] = &pfhub2::residual_eta_;
-      (*residualfunc_)[3] = &pfhub2::residual_eta_;
-      (*residualfunc_)[4] = &pfhub2::residual_eta_;
-    }
-
-    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &pfhub2::prec_c_;
-    (*preconfunc_)[1] = &pfhub2::prec_eta_;
-    if( 4 == numeta){
-      (*preconfunc_)[2] = &pfhub2::prec_eta_;
-      (*preconfunc_)[3] = &pfhub2::prec_eta_;
-      (*preconfunc_)[4] = &pfhub2::prec_eta_;
-    }
-
-    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &pfhub2::init_c_;
-    (*initfunc_)[1] = &pfhub2::init_eta_;
-    if( 4 == numeta){
-      (*initfunc_)[2] = &pfhub2::init_eta_;
-      (*initfunc_)[3] = &pfhub2::init_eta_;
-      (*initfunc_)[4] = &pfhub2::init_eta_;
-    }
-
-    varnames_ = new std::vector<std::string>(numeqs_);
-    (*varnames_)[0] = "c";
-    (*varnames_)[1] = "eta0";
-    if( 4 == numeta){
-      (*varnames_)[2] = "eta1";
-      (*varnames_)[3] = "eta2";
-      (*varnames_)[4] = "eta3";
-    }
-
-    // numeqs_ number of variables(equations) 
-    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
-    dirichletfunc_ = NULL;
-
-    neumannfunc_ = NULL;
-
-    paramfunc_ = pfhub2::param_;
-
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
-
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &pfhub2::postproc_c_a_;
-
-    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
-    post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
-
-}else if("pfhub2kkspp" == paramList.get<std::string> (TusastestNameString)){
-
-    //same as above with c_alpha and c_beta coupled fully
+    //same WBM model as above with c_alpha and c_beta globally coupled via the global kks equations
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
@@ -3962,14 +3914,86 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     numeqs_ = numeta+3;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &pfhub2::residual_c_kkspp_;
-    (*residualfunc_)[1] = &pfhub2::residual_c_alpha_;
-    (*residualfunc_)[2] = &pfhub2::residual_c_beta_;
-    (*residualfunc_)[3] = &pfhub2::residual_eta_kkspp_;
+    (*residualfunc_)[0] = &pfhub2::residual_c_;
+    (*residualfunc_)[1] = &pfhub2::residual_c_alpha_g_;
+    (*residualfunc_)[2] = &pfhub2::residual_c_beta_g_;
+    (*residualfunc_)[3] = &pfhub2::residual_eta_;
     if( 4 == numeta){
-      (*residualfunc_)[4] = &pfhub2::residual_eta_kkspp_;
-      (*residualfunc_)[5] = &pfhub2::residual_eta_kkspp_;
-      (*residualfunc_)[6] = &pfhub2::residual_eta_kkspp_;
+      (*residualfunc_)[4] = &pfhub2::residual_eta_;
+      (*residualfunc_)[5] = &pfhub2::residual_eta_;
+      (*residualfunc_)[6] = &pfhub2::residual_eta_;
+    }
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &pfhub2::prec_c_;
+    (*preconfunc_)[1] = &pfhub2::prec_c_;
+    (*preconfunc_)[2] = &pfhub2::prec_c_;
+    (*preconfunc_)[3] = &pfhub2::prec_eta_;
+    if( 4 == numeta){
+      (*preconfunc_)[4] = &pfhub2::prec_eta_;
+      (*preconfunc_)[5] = &pfhub2::prec_eta_;
+      (*preconfunc_)[6] = &pfhub2::prec_eta_;
+    }
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &pfhub2::init_c_;
+    (*initfunc_)[1] = &pfhub2::init_c_alpha_;
+    (*initfunc_)[2] = &pfhub2::init_c_beta_;
+    (*initfunc_)[3] = &pfhub2::init_eta_;
+    if( 4 == numeta){
+      (*initfunc_)[4] = &pfhub2::init_eta_;
+      (*initfunc_)[5] = &pfhub2::init_eta_;
+      (*initfunc_)[6] = &pfhub2::init_eta_;
+    }
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "c_a";
+    (*varnames_)[2] = "c_b";
+    (*varnames_)[3] = "eta0";
+    if( 4 == numeta){
+      (*varnames_)[4] = "eta1";
+      (*varnames_)[5] = "eta2";
+      (*varnames_)[6] = "eta3";
+    }
+
+    // numeqs_ number of variables(equations) 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+    paramfunc_ = pfhub2::param_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &pfhub2::postproc_c_a_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &pfhub2::postproc_c_b_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
+
+}else if("pfhub2wbmkks_l" == paramList.get<std::string> (TusastestNameString)){
+
+    //same WBM model as above with c_alpha and c_beta globally coupled via local kks equations
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    int numeta = problemList->get<int>("N");
+
+    numeqs_ = numeta+3;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &pfhub2::residual_c_;
+    (*residualfunc_)[1] = &pfhub2::residual_c_alpha_l_;
+    (*residualfunc_)[2] = &pfhub2::residual_c_beta_l_;
+    (*residualfunc_)[3] = &pfhub2::residual_eta_;
+    if( 4 == numeta){
+      (*residualfunc_)[4] = &pfhub2::residual_eta_;
+      (*residualfunc_)[5] = &pfhub2::residual_eta_;
+      (*residualfunc_)[6] = &pfhub2::residual_eta_;
     }
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
@@ -4013,6 +4037,80 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     neumannfunc_ = NULL;
 
     paramfunc_ = pfhub2::param_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &pfhub2::postproc_c_a_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &pfhub2::postproc_c_b_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
+
+  }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
+
+    //this is pfhub2 brute force kks with k_c=0
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    int numeta = problemList->get<int>("N");
+
+    numeqs_ = numeta+1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &pfhub2::residual_c_kks_;
+    (*residualfunc_)[1] = &pfhub2::residual_eta_kks_;
+    if( 4 == numeta){
+      (*residualfunc_)[2] = &pfhub2::residual_eta_;
+      (*residualfunc_)[3] = &pfhub2::residual_eta_;
+      (*residualfunc_)[4] = &pfhub2::residual_eta_;
+    }
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &pfhub2::prec_c_;
+    (*preconfunc_)[1] = &pfhub2::prec_eta_;
+    if( 4 == numeta){
+      (*preconfunc_)[2] = &pfhub2::prec_eta_;
+      (*preconfunc_)[3] = &pfhub2::prec_eta_;
+      (*preconfunc_)[4] = &pfhub2::prec_eta_;
+    }
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &pfhub2::init_c_;
+    (*initfunc_)[1] = &pfhub2::init_eta_;
+    if( 4 == numeta){
+      (*initfunc_)[2] = &pfhub2::init_eta_;
+      (*initfunc_)[3] = &pfhub2::init_eta_;
+      (*initfunc_)[4] = &pfhub2::init_eta_;
+    }
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "eta0";
+    if( 4 == numeta){
+      (*varnames_)[2] = "eta1";
+      (*varnames_)[3] = "eta2";
+      (*varnames_)[4] = "eta3";
+    }
+
+    // numeqs_ number of variables(equations) 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
+    dirichletfunc_ = NULL;
+
+
+    neumannfunc_ = NULL;
+
+    paramfunc_ = pfhub2::param_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &pfhub2::postproc_c_a_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &pfhub2::postproc_c_b_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
 
   }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
 

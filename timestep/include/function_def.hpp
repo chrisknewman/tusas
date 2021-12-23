@@ -303,12 +303,12 @@ RES_FUNC(residual_a_)
   const double uoldold = basis[0].uuoldold;
 
   const double ut = (u-uold)/dt_*test;
+  //std::cout<<ut<<" "<<dt_<<" "<<time<<std::endl;
 
   double f[3];
-  f[0] = -k1*u*test-k2*u*basis[1].uu*test;
-  f[1] = -k1*uold*test-k2*u*basis[1].uuold*test;
-  f[2] = -k1*uoldold*test-k2*u*basis[1].uuold*test;
-  //if(t_theta2_>.99)std::cout<<t_theta2_<<" "<<t_theta_<<" "<<dt_<<" "<<dtold_<<std::endl;
+  f[0] = (-k1*u       - k2*u*basis[1].uu)*test;
+  f[1] = (-k1*uold    - k2*u*basis[1].uuold)*test;
+  f[2] = (-k1*uoldold - k2*u*basis[1].uuoldold)*test;
   return ut - (1.-t_theta2_)*t_theta_*f[0]
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
@@ -327,8 +327,8 @@ RES_FUNC(residual_b_)
 
   const double ut = (u-uold)/dt_*test;
   double f[3];
-  f[0] = (k1*a - k2*a*u + 2.*k3*basis[2].uu)*test;
-  f[1] = (k1*aold - k2*aold*uold + 2.*k3*basis[2].uuold)*test;
+  f[0] = (k1*a       - k2*a*u                       + 2.*k3*basis[2].uu)*test;
+  f[1] = (k1*aold    - k2*aold*uold                 + 2.*k3*basis[2].uuold)*test;
   f[2] = (k1*aoldold - k2*aoldold*basis[1].uuoldold + 2.*k3*basis[2].uuoldold)*test;
 
   return ut - (1.-t_theta2_)*t_theta_*f[0]
@@ -349,15 +349,14 @@ RES_FUNC(residual_ab_)
 
   const double ut = (u-uold)/dt_*test;
   double f[3];
-  f[0] = (k2*b*basis[0].uu - k3*u)*test;
-  f[1] = (k2*bold*basis[0].uuold - k3*uold)*test;
+  f[0] = (k2*b*basis[0].uu             - k3*u)*test;
+  f[1] = (k2*bold*basis[0].uuold       - k3*uold)*test;
   f[2] = (k2*boldold*basis[0].uuoldold - k3*basis[2].uuoldold)*test;
 
   return ut - (1.-t_theta2_)*t_theta_*f[0]
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
-
 
 RES_FUNC(residual_c_)
 {
@@ -372,8 +371,8 @@ RES_FUNC(residual_c_)
 
   const double ut = (u-uold)/dt_*test;
   double f[3];
-  f[0] = (k1*a + k3*basis[2].uu)*test;
-  f[1] = (k1*aold + k3*basis[2].uuold)*test;
+  f[0] = (k1*a       + k3*basis[2].uu)*test;
+  f[1] = (k1*aold    + k3*basis[2].uuold)*test;
   f[2] = (k1*aoldold + k3*basis[2].uuoldold)*test;
 
   return ut - (1.-t_theta2_)*t_theta_*f[0]
@@ -552,9 +551,10 @@ PPR_FUNC(predictor_fe_)
   const double uu = u[eqn_id];
   //const double uuold = uold[eqn_id];
   //const double uuoldold = uoldold[eqn_id];
-  const double uuoldold = gradu[eqn_id];//hack for now
-  //std::cout<<uu<<"  "<<uuoldold<<"  "<<uu - uuoldold<<std::endl;
-  return (uu - uuoldold);
+  const double uupred = gradu[eqn_id];//hack for now
+  //std::cout<<eqn_id<<" "<<uold[eqn_id]<<std::endl;
+  //std::cout<<eqn_id<<" "<<uu<<"  "<<uupred<<"  "<<uu - uupred<<std::endl;
+  return (uu - uupred);
 }
 PPR_FUNC(postproc1_)
 {
@@ -6986,12 +6986,13 @@ RES_FUNC_TPETRA(residual_a_)
   const double uoldold = basis[0]->uuoldold;
 
   const double ut = (u-uold)/dt_*test;
-
+  //std::cout<<ut<<" "<<dt_<<" "<<time<<std::endl;
+ 
   double f[3];
-  f[0] = -k1*u*test-k2*u*basis[1]->uu*test;
-  f[1] = -k1*uold*test-k2*u*basis[1]->uuold*test;
-  f[2] = -k1*uoldold*test-k2*u*basis[1]->uuold*test;
-  //if(t_theta2_>.99)std::cout<<t_theta2_<<" "<<t_theta_<<" "<<dt_<<" "<<dtold_<<std::endl;
+  f[0] = (-k1*u       - k2*u*basis[1]->uu)*test;
+  f[1] = (-k1*uold    - k2*u*basis[1]->uuold)*test;
+  f[2] = (-k1*uoldold - k2*u*basis[1]->uuoldold)*test;
+
   return ut - (1.-t_theta2_)*t_theta_*f[0]
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
@@ -7010,8 +7011,8 @@ RES_FUNC_TPETRA(residual_b_)
 
   const double ut = (u-uold)/dt_*test;
   double f[3];
-  f[0] = (k1*a - k2*a*u + 2.*k3*basis[2]->uu)*test;
-  f[1] = (k1*aold - k2*aold*uold + 2.*k3*basis[2]->uuold)*test;
+  f[0] = (k1*a       - k2*a*u                        + 2.*k3*basis[2]->uu)*test;
+  f[1] = (k1*aold    - k2*aold*uold                  + 2.*k3*basis[2]->uuold)*test;
   f[2] = (k1*aoldold - k2*aoldold*basis[1]->uuoldold + 2.*k3*basis[2]->uuoldold)*test;
 
   return ut - (1.-t_theta2_)*t_theta_*f[0]
@@ -7032,15 +7033,14 @@ RES_FUNC_TPETRA(residual_ab_)
 
   const double ut = (u-uold)/dt_*test;
   double f[3];
-  f[0] = (k2*b*basis[0]->uu - k3*u)*test;
-  f[1] = (k2*bold*basis[0]->uuold - k3*uold)*test;
+  f[0] = (k2*b*basis[0]->uu             - k3*u)*test;
+  f[1] = (k2*bold*basis[0]->uuold       - k3*uold)*test;
   f[2] = (k2*boldold*basis[0]->uuoldold - k3*basis[2]->uuoldold)*test;
 
   return ut - (1.-t_theta2_)*t_theta_*f[0]
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
-
 
 RES_FUNC_TPETRA(residual_c_)
 {
@@ -7055,8 +7055,8 @@ RES_FUNC_TPETRA(residual_c_)
 
   const double ut = (u-uold)/dt_*test;
   double f[3];
-  f[0] = (k1*a + k3*basis[2]->uu)*test;
-  f[1] = (k1*aold + k3*basis[2]->uuold)*test;
+  f[0] = (k1*a       + k3*basis[2]->uu)*test;
+  f[1] = (k1*aold    + k3*basis[2]->uuold)*test;
   f[2] = (k1*aoldold + k3*basis[2]->uuoldold)*test;
 
   return ut - (1.-t_theta2_)*t_theta_*f[0]
@@ -7065,6 +7065,34 @@ RES_FUNC_TPETRA(residual_c_)
 }
 
 }//namespace autocatalytic4
+
+namespace timeonly
+{
+const double pi = 3.141592653589793;
+  //const double lambda = 10.;//pi*pi;
+const double lambda = pi*pi;
+
+const double ff(const double &u)
+{
+  return -lambda*u;
+}
+
+RES_FUNC_TPETRA(residual_test_)
+{
+  //test function
+  const double test = basis[0]->phi[i];
+  //u, phi
+  const double u[3] = {basis[0]->uu,basis[0]->uuold,basis[0]->uuoldold};
+
+  const double ut = (u[0]-u[1])/dt_*test;
+
+  const double f[3] = {ff(u[0])*test,ff(u[1])*test,ff(u[2])*test};
+  //std::cout<<u[1]<<"  "<<u[2]<<std::endl;
+  return ut - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+}//namespace timeonly
 
 }//namespace tpetra
 

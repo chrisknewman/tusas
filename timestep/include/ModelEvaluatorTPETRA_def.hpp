@@ -56,7 +56,7 @@
 #define TUSAS_RUN_ON_CPU
 
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
-#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 16
+#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 32
 
 std::string getmypidstring(const int mypid, const int numproc);
 
@@ -86,7 +86,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   dtold_ = dt_;
   t_theta_ = paramList.get<double> (TusasthetaNameString);
   t_theta2_ = 0.;
-
+  numsteps_ = 0;
   set_test_case();
 
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
@@ -1354,14 +1354,13 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
       if(paramList.get<bool> (TusasestimateTimestepNameString)){
 	Teuchos::ParameterList *atsList;
 	atsList = &paramList.sublist (TusasatslistNameString, false );
-	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector"){
-	  
+	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector"){	  
 	  predictor();
 	  guess = Thyra::createVector(pred_temp_,x_space_);	
-	}
-      }
+	}//if
+      }//if
 
-      NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
+      NOX::Thyra::Vector thyraguess(*guess);
       solver_->reset(thyraguess);
       
       NOX::StatusTest::StatusType solvStatus = solver_->solve();
@@ -1374,7 +1373,7 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 	}else{
 	  exit(0);
 	}
-      }
+      }//if
       numit++;
     }//timer
     nnewt_ += solver_->getNumIterations();
@@ -1405,39 +1404,39 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
     }//if
     
     if( timeadapt ){
-      //dt_ = dtnew;
+
       if(dtpred < dt_){
 	
 	dt_ = dtpred;
 
 	if( 0 == mypid)std::cout<<"     advance() step NOT ACCEPTED with dt = "<<dt_
-					 <<"; new dt = "<<dtpred
-					 <<"; and iterations = "<<numit<<std::endl;
+				<<"; new dt = "<<dtpred
+				<<"; and iterations = "<<numit<<std::endl;
 	
       }else{
 	if( 0 == mypid)std::cout<<"     advance() step accepted with dt = "<<dt_
-					 <<"; new dt = "<<dtpred
-					 <<"; and iterations = "<<numit<<std::endl;
+				<<"; new dt = "<<dtpred
+				<<"; and iterations = "<<numit<<std::endl;
 
 	break;
 
       }//if
     }//if
 
-
   }//iter
 
-  *u_old_old_ = *u_old_;
-  *u_old_ = *u_new_;
+  //*u_old_old_ = *u_old_;
+  u_old_old_->update(1.,*u_old_,0.);
+  //*u_old_ = *u_new_;
+  u_old_->update(1.,*u_new_,0.);
 
   for(boost::ptr_vector<error_estimator>::iterator it = Error_est.begin();it != Error_est.end();++it){
     //it->test_lapack();
-
     it->estimate_gradient(u_old_);
     it->estimate_error(u_old_);
-
   }
-   
+  ++numsteps_;   
+
   dtold_ = dt_;
   time_ += dt_;
   postprocess();
@@ -1948,6 +1947,27 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::robin::postproc_robin_;
 
+  }else if("timeonly" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::timeonly::residual_test_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::prec_heat_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &timeonly::init_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
   }else if("autocatalytic4" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 4;
@@ -2003,12 +2023,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   Teuchos::ParameterList *problemList;
   problemList = &paramList.sublist ( "ProblemParams", false );
   
-  if ( NULL != paramfunc_ ){
-    
+  if ( NULL != paramfunc_ ){    
     paramfunc_(problemList);
   }
   
-
 }
 
 template<class scalar_type>
@@ -2119,7 +2137,8 @@ void ModelEvaluatorTPETRA<scalar_type>::finalize()
   }
 
   if( 0 == mypid ){
-    int numstep = paramList.get<int> (TusasntNameString) - this->start_step;
+    //int numstep = paramList.get<int> (TusasntNameString) - this->start_step;
+    int numstep = numsteps_;
     std::cout<<std::endl
 	     <<"Total number of Newton iterations:     "<<nnewt_<<std::endl
 	     <<"Total number of GMRES iterations:      "<<ngmres<<std::endl 
@@ -2371,10 +2390,11 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
   std::vector<double> uuold(numeqs_);
   std::vector<double> uuoldold(numeqs_);
   std::vector<double> ug(numeqs_);
-
-  auto unewview = u_new_->get1dView();
-  auto uoldview = u_old_->get1dView();
-  auto predtempview = pred_temp_->get1dView();
+  
+  //used auto here previously and got wrong results
+  Teuchos::ArrayRCP<const scalar_type> unewview = u_new_->get1dView();
+  Teuchos::ArrayRCP<const scalar_type> uoldview = u_old_->get1dView();
+  Teuchos::ArrayRCP<const scalar_type> predtempview = pred_temp_->get1dView();
 
   for (int nn=0; nn < num_owned_nodes_; nn++) {
     for( int k = 0; k < numeqs_; k++ ){
@@ -2416,7 +2436,7 @@ template<class Scalar>
 double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
 {
   double dtpred = 0.;
-
+  //std::cout<<std::setprecision(std::numeric_limits<double>::digits10 + 1);
   Teuchos::ParameterList *atsList;
   atsList = &paramList.sublist (TusasatslistNameString, false );
 
@@ -2498,17 +2518,6 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   //dtpred = std::min(dt1,dt2);//not sure if we want the smallest max????? ie dt1??
   dtpred = dt1;
 
-//   if( 0 == comm_->MyPID()){
-//     double e0 = std::max(error[0],eps);
-//     double e1 = std::max(error[1],eps);
-//     double es = std::sqrt(e0*e0+e1*e1);
-//     std::cout<<std::cbrt(atol/es)<<std::endl;
-//     std::cout<<sf*dt_*std::cbrt(atol/es)<<std::endl;
-//     std::cout<<dt1<<std::endl;
-//     std::cout<<dt2<<std::endl;
-//   }
-
-
   if( 0 == Comm->MyPID()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	
   }
@@ -2534,7 +2543,7 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
   const double t_theta_temp = t_theta_;
 
   t_theta2_ = 0.;
-  if(t_theta_ > 0. && t_theta_ <1.) t_theta2_ = 1.;//ab predictor tr corrector
+  if(t_theta_ > 0.45 && t_theta_ <.55) t_theta2_ = 1.;//ab predictor tr corrector
   //fe predictor    be corrector
   t_theta_ = 0.;
 
@@ -2542,7 +2551,6 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
   predictor_->reset(thyraguess);
 
-  //NOX::StatusTest::StatusType solvStatus = solver_->solve();
   NOX::StatusTest::StatusType solvStatus = predictor_->solve();
   
   const Thyra::VectorBase<double> * sol = 
@@ -2553,7 +2561,9 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
 
   Teuchos::ArrayRCP<scalar_type> predtempview = pred_temp_->get1dViewNonConst();
 
-  for (int nn=0; nn < num_owned_nodes_; nn++) {//cn figure out a better way here...
+  const int localLength = num_owned_nodes_;
+
+  for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
     for( int k = 0; k < numeqs_; k++ ){
       predtempview[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
     }

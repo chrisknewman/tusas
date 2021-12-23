@@ -1322,7 +1322,7 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
       jfnkOp1->setBaseEvaluationToNOXGroup(noxpred_group.create_weak());
       noxpred_group->computeF();
       Teuchos::RCP<NOX::StatusTest::NormF>relresid1 = 
-	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestol));//1.0e-6 for paper
+	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestol));
       Teuchos::RCP<NOX::StatusTest::Combo> converged1 =
 	Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::AND));
       converged1->addStatusTest(relresid1);
@@ -1387,8 +1387,8 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
 	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector"){
 	  predictor();
 	  guess = Thyra::create_Vector(pred_temp_,x_space_);
-	}
-      }
+	}//if
+      }//if
       //note that solver_->reset() will utilize the last solution as next guess
       NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
       solver_->reset(thyraguess);
@@ -1441,7 +1441,7 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
     }//if
     
     if( timeadapt ){
-      //dt_ = dtnew;
+
       if(dtpred < dt_){
 	
 	dt_ = dtpred;
@@ -1459,6 +1459,7 @@ double ModelEvaluatorNEMESIS<Scalar>::advance()
 
       }//if
     }//if
+
   }//iter
     
   *u_old_old_old_ = *u_old_old_;
@@ -2688,43 +2689,6 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     dirichletfunc_ = NULL;
 
     neumannfunc_ = NULL;
-#if 0
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
-					 (int)0,
-					 post_process::NORMRMS,
-					 0,
-					 "pp",
-					 16));
-    post_proc[0].postprocfunc_ = &timeonly::postproc1_;
-
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
-					 (int)1,
-					 post_process::MAXVALUE,
-					 0,
-					 "pp",
-					 16));
-    post_proc[1].postprocfunc_ = &timeadapt::normu_;
-
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
-					 (int)2,
-					 post_process::MAXVALUE,
-					 0,
-					 "pp",
-					 16));
-    post_proc[2].postprocfunc_ = &timeonly::postproc3_;
-
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
-					 (int)3,
-					 post_process::MAXVALUE,
-					 0,
-					 "pp",
-					 16));
-    post_proc[3].postprocfunc_ = &timeonly::postproc2_;
-#endif
 
   }else if("chem" == paramList.get<std::string> (TusastestNameString)){
 
@@ -4602,7 +4566,7 @@ template<class Scalar>
 double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
 {
   double dtpred = 0.;
-
+  //std::cout<<std::setprecision(std::numeric_limits<double>::digits10 + 1);
   Teuchos::ParameterList *atsList;
   atsList = &paramList.sublist (TusasatslistNameString, false );
 
@@ -4684,17 +4648,6 @@ double ModelEvaluatorNEMESIS<Scalar>::estimatetimestep()
   //dtpred = std::min(dt1,dt2);//not sure if we want the smallest max????? ie dt1??
   dtpred = dt1;
 
-//   if( 0 == comm_->MyPID()){
-//     double e0 = std::max(error[0],eps);
-//     double e1 = std::max(error[1],eps);
-//     double es = std::sqrt(e0*e0+e1*e1);
-//     std::cout<<std::cbrt(atol/es)<<std::endl;
-//     std::cout<<sf*dt_*std::cbrt(atol/es)<<std::endl;
-//     std::cout<<dt1<<std::endl;
-//     std::cout<<dt2<<std::endl;
-//   }
-
-
   if( 0 == comm_->MyPID()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	
   }
@@ -4719,7 +4672,7 @@ void ModelEvaluatorNEMESIS<Scalar>::predictor()
   const double t_theta_temp = t_theta_;
 
   t_theta2_ = 0.;
-  if(t_theta_ > 0. && t_theta_ <1.) t_theta2_ = 1.;//ab predictor tr corrector
+  if(t_theta_ > 0.45 && t_theta_ <.55) t_theta2_ = 1.;//ab predictor tr corrector
   //fe predictor    be corrector
   t_theta_ = 0.;
 

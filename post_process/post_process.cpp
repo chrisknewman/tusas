@@ -110,6 +110,7 @@ void post_process::update_scalar_data(double time){
     std::ofstream outfile;
     outfile.open(filename_, std::ios::app );
     outfile << std::setprecision(precision_)
+      //<< std::setprecision(std::numeric_limits<double>::digits10 + 1)
 	    <<time<<" "<<scalar_val_<<std::endl;
     outfile.close();
   }

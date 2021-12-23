@@ -156,6 +156,7 @@ private:
   int numeqs_;
   int num_owned_nodes_;
   int num_overlap_nodes_;
+  int numsteps_;
 
   Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > x_space_;
   Teuchos::RCP<const map_type > x_overlap_map_;

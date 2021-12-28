@@ -156,6 +156,10 @@ std::string const TusasatstypeNameString = "type";
 /// Adaptive Timestep parameters list.
 std::string const TusasatstypeDocString = "type (string): predictor corrector (default); second derivative";
 
+/// Predictor relative residual tolerance.
+std::string const TusaspredrelresNameString = "predrelres";
+/// Predictor relative residual tolerance.
+std::string const TusaspredrelresDocString = "predictor relative residual tolerance (double): default 1e-6";
 
 
 //other parameters not in the input file

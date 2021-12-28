@@ -244,6 +244,10 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     std::cout<<"\n"<<"Initial parameter list completed."<<"\n"<<"\n"<<"\n";
   }
 
+  //need to somehow fix this such that TusasnoxrelresNameString is default but can be overridden
+  if( !ATSList->isParameter(TusaspredrelresNameString) )
+    ATSList->set(TusaspredrelresNameString,paramList.get<double>(TusasnoxrelresNameString));
+
   //exit(0);
 
 };

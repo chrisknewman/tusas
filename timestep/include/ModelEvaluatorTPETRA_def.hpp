@@ -1260,8 +1260,11 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 					   Teuchos::null));
       jfnkOp1->setBaseEvaluationToNOXGroup(noxpred_group.create_weak());
       noxpred_group->computeF();
+      atsList = &paramList.sublist (TusasatslistNameString, false );
+
       Teuchos::RCP<NOX::StatusTest::NormF>relresid1 = 
-	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestol));//1.0e-6 for paper
+	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), atsList->get<double>(TusaspredrelresNameString)));//1.0e-6 for paper
+      //Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestol));//1.0e-6 for paper
       Teuchos::RCP<NOX::StatusTest::Combo> converged1 =
 	Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::AND));
       converged1->addStatusTest(relresid1);
@@ -2385,11 +2388,12 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
   //ordering is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz
 
   const int dim = 3;
+  const int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
 
-  std::vector<double> uu(numeqs_);
-  std::vector<double> uuold(numeqs_);
-  std::vector<double> uuoldold(numeqs_);
-  std::vector<double> ug(numeqs_);
+  std::vector<double> uu(numeqs);
+  std::vector<double> uuold(numeqs);
+  std::vector<double> uuoldold(numeqs);
+  std::vector<double> ug(numeqs);
   
   //used auto here previously and got wrong results
   Teuchos::ArrayRCP<const scalar_type> unewview = u_new_->get1dView();
@@ -2397,12 +2401,12 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
   Teuchos::ArrayRCP<const scalar_type> predtempview = pred_temp_->get1dView();
 
   for (int nn=0; nn < num_owned_nodes_; nn++) {
-    for( int k = 0; k < numeqs_; k++ ){
-      uu[k] = unewview[numeqs_*nn+k];
-      uuold[k] = uoldview[numeqs_*nn+k];
+    for( int k = 0; k < numeqs; k++ ){
+      uu[k] = unewview[numeqs*nn+k];
+      uuold[k] = uoldview[numeqs*nn+k];
       //uuoldold[k] = (*u_old_old_)[numeqs_*nn+k];
-      uuoldold[k] = predtempview[numeqs_*nn+k];
-      ug[k] = predtempview[numeqs_*nn+k];
+      uuoldold[k] = predtempview[numeqs*nn+k];
+      ug[k] = predtempview[numeqs*nn+k];
     }
 
     boost::ptr_vector<post_process>::iterator itp;

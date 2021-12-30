@@ -101,8 +101,6 @@ public:
   /// Pointer to the post process function.
   PPFUNC postprocfunc_;
   //double (*postprocfunc_)(const double *u, const double *gradu);
-  /// Timing object.
-  Teuchos::RCP<Teuchos::Time> ts_time_postproc;
 
 private:
   /// Mesh object.

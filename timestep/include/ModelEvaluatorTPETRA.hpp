@@ -267,6 +267,8 @@ private:
   Teuchos::RCP<Teuchos::Time> ts_time_nsolve;
   Teuchos::RCP<Teuchos::Time> ts_time_view;
   Teuchos::RCP<Teuchos::Time> ts_time_iowrite;
+  Teuchos::RCP<Teuchos::Time> ts_time_temperr;
+  Teuchos::RCP<Teuchos::Time> ts_time_predsolve;
   //RCP<Teuchos::Time> ts_time_ioread;
 
   //hacked stuff for elem_color

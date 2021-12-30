@@ -259,6 +259,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
   ts_time_view= Teuchos::TimeMonitor::getNewTimer("Tusas: Total View Time");
   ts_time_iowrite= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Write Time");
+  ts_time_temperr= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Temporal Error Est Time");
+  ts_time_predsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Predictor Solve Time");
   //ts_time_ioread= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Read Time");
 
   //HACK
@@ -2384,6 +2386,8 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
 {
   if(0 == pp.size() ) return;
 
+  Teuchos::TimeMonitor ImportTimer(*ts_time_temperr);
+
   int numee = Error_est.size();
   //ordering is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz
 
@@ -2395,11 +2399,12 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
   std::vector<double> uuoldold(numeqs);
   std::vector<double> ug(numeqs);
   
-  //used auto here previously and got wrong results
+  //right now for cuda, do this on cpu since the function pointer is buried in another class
+  //and it takes very little percentage of time
+  //another approach would be to use tpetra vectors here
   Teuchos::ArrayRCP<const scalar_type> unewview = u_new_->get1dView();
   Teuchos::ArrayRCP<const scalar_type> uoldview = u_old_->get1dView();
   Teuchos::ArrayRCP<const scalar_type> predtempview = pred_temp_->get1dView();
-
   for (int nn=0; nn < num_owned_nodes_; nn++) {
     for( int k = 0; k < numeqs; k++ ){
       uu[k] = unewview[numeqs*nn+k];
@@ -2414,7 +2419,6 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
       itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
       //std::cout<<nn<<" "<<mesh_->get_local_id((x_owned_map_->GID(nn))/numeqs_)<<" "<<xyz[0]<<std::endl;
     }
-
   }//nn
 }
 
@@ -2555,8 +2559,11 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
   predictor_->reset(thyraguess);
 
-  NOX::StatusTest::StatusType solvStatus = predictor_->solve();
-  
+  {
+    Teuchos::TimeMonitor PredTimer(*ts_time_predsolve);
+    NOX::StatusTest::StatusType solvStatus = predictor_->solve();
+  }
+
   const Thyra::VectorBase<double> * sol = 
     &(dynamic_cast<const NOX::Thyra::Vector&>(predictor_->getSolutionGroup().getX()
 					      ).getThyraVector()

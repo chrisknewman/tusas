@@ -63,7 +63,6 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   if ( 0 == comm_->MyPID())
     std::cout<<"Post process created for variable "<<index_<<" with name "<<ystring<<std::endl<<std::endl;
   //exit(0);
-  ts_time_postproc = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Postprocess Time");
 };
 
 post_process::~post_process(){};
@@ -77,7 +76,6 @@ void post_process::process(const int i,
 			   const double &dt, 
 			   const double &dtold)
 {
-  Teuchos::TimeMonitor PostProcTimer(*ts_time_postproc); 
 
 #ifdef MESH_64
   Mesh::mesh_lint_t gid_node = node_map_->GID64(i);

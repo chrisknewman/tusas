@@ -2555,7 +2555,7 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
   //fe predictor    be corrector
   t_theta_ = 0.;
 
-  Teuchos::RCP< VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
+  Teuchos::RCP< ::Thyra::VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
   NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
   predictor_->reset(thyraguess);
 
@@ -2601,7 +2601,7 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
    if( 0 == Comm->MyPID()) 
      std::cout<<std::endl<<"Performing initial NOX solve"<<std::endl<<std::endl;
    
-   Teuchos::RCP< VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
+   Teuchos::RCP< ::Thyra::VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
    NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
    solver_->reset(thyraguess);
    

@@ -562,53 +562,26 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //auto elem_map_2d = Kokkos::subview(elem_map_1d, Kokkos::ALL (), Kokkos::ALL (), 0);
       //std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
       //for (int ne=0; ne < num_elem; ne++) { 
-      //#define USE_TEAM
-#ifdef USE_TEAM
-#ifdef TUSAS_HAVE_CUDA
-      int team_size = 512;//this is teamsize (#of threads in team) < 1024; preferably 256
-#else
-      int team_size = 1;//openmp
-#endif
-      int num_teams = (num_elem/team_size)+1;//this is # of thread teams (also league size); unlimited
-      Kokkos::View<const int*,Kokkos::DefaultExecutionSpace> elem_map_1dConst(elem_map_1d);
 
-//       int strides[1]; // any integer type works in stride()
-//       elem_map_1dConst.stride (strides);
-//       std::cout<<strides[0]<<std::endl;
-
-
-      typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type member_type;
-
-      //TeamPolicy <ExecutionSpace >( numberOfTeams , teamSize)
-      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy (num_teams, team_size );
-      //std::cout<<policy.league_size()<<"    "<<policy.team_size()<<std::endl;
-      Kokkos::parallel_for (policy, KOKKOS_LAMBDA (member_type team_member) {
-        // Calculate a global thread id
-        int ne = team_member.league_rank () * team_member.team_size () +
-                team_member.team_rank ();
-	if(ne < num_elem) {
-	  const int elem = elem_map_1dConst(ne);
-#else
 	  //Kokkos::View<GPUBasisLHex *,Kokkos::DefaultExecutionSpace> bh_view("bh_view");
-	  Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
+      //GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+      //GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+      //GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+
+      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
 	const int elem = elem_map_1d(ne);
-#endif
 
 	//GPUBasisLHex * dummy = new (bh_view) GPUBasisLHex(LTP_quadrature_order);
-	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+//  	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
-	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-	if(4 == n_nodes_per_elem)  {
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bq[neq];
-	}else{
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bh[neq];
-	}
+#ifdef TUSAS3D	
+	GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+#else
+ 	GPUBasisLQuad B[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+#endif
 	
-	const int ngp = BGPU[0]->ngp;
+	const int ngp = B[0].ngp;
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];
@@ -642,16 +615,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}//k
 
 	for( int neq = 0; neq < numeqs; neq++ ){
-	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
-	  //Bh[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
+	  //BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
+	  B[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
 	}//neq
+	
 	for(int gp=0; gp < ngp; gp++) {//gp
 
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    //we need a basis object that stores all equations here..
-	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
+	    //BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
+	    B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	  }//neq
-	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
+
+	//const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
+	  const double jacwt = B[0].jac*B[0].wt;
+
+	  //#if 0
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const int lrow = numeqs*meshc[elemrow+i];
@@ -660,7 +639,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
 	      //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,neq));
-	      const double val = jacwt*((d_rf[neq])(BGPU,i,dt,dtold,t_theta,t_theta2,time,neq));
+	      //const double val = jacwt*((d_rf[neq])(BGPU,i,dt,dtold,t_theta,t_theta2,time,neq));
+	      const double val = jacwt*((d_rf[neq])((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
@@ -672,11 +652,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      //printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
 	    }//neq
 	  }//i
+	  //#endif
 	}//gp
-#ifdef USE_TEAM
-			       }//if ne
-#else
-#endif
       });//parallel_for
 		     //};//ne
 
@@ -686,7 +663,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   cudaFree(d_rf);
   free(h_rf);
 #endif
-			    //exit(0);
+  //exit(0);
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);

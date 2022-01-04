@@ -212,7 +212,9 @@ private:
 
   //do we want to move these typedefs to function_def.hpp? would need to do it for nemesis class as well
   //typedef double (*RESFUNC)(const GPUBasis * const * basis, 
-  typedef double (*RESFUNC)(GPUBasis * basis[], 
+  //typedef double (*RESFUNC)(GPUBasis * basis[], 
+#ifdef TUSAS3D
+  typedef double (*RESFUNC)(GPUBasisLHex * basis, 
 			    const int &i, 
 			    const double &dt_, 
 			    const double &dtold_, 
@@ -220,6 +222,16 @@ private:
 			    const double &t_theta2_, 
 			    const double &time,
 			    const int &eqn_id);
+#else
+  typedef double (*RESFUNC)(GPUBasisLQuad * basis, 
+			    const int &i, 
+			    const double &dt_, 
+			    const double &dtold_, 
+			    const double &t_theta_, 
+			    const double &t_theta2_, 
+			    const double &time,
+			    const int &eqn_id);
+#endif
 
   std::vector<RESFUNC> *residualfunc_;
 

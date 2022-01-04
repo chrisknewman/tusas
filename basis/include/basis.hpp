@@ -2286,7 +2286,7 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
 #define BASIS_NGP_PER_ELEM 64
 //#define BASIS_NGP_PER_ELEM 8
 #define BASIS_SNGP_PER_ELEM 4
-
+#if 0
 class Unified {
 public:
 #ifdef KOKKOS_HAVE_CUDA
@@ -2315,7 +2315,7 @@ public:
   }
 #endif
 };
-
+#endif
 //class GPUBasis:public Unified{
 class GPUBasis{
 

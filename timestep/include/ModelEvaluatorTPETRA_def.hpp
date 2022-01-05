@@ -598,8 +598,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	//GPUBasisLHex * dummy = new (bh_view) GPUBasisLHex(LTP_quadrature_order);
 	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
-	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
 	if(4 == n_nodes_per_elem)  {
 	  for( int neq = 0; neq < numeqs; neq++ )
 	    BGPU[neq] = &Bq[neq];

@@ -724,8 +724,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
       }
       
+      auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto uoldold_view = uoldold->getLocalView<Kokkos::DefaultExecutionSpace>();
       auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
       auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+      Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
+	uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
+      Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
+	uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
       GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
       GPUBasis * BGPU = &Bq;
       const int num_node_per_side = 4;
@@ -745,24 +751,28 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    double yy[BASIS_NODES_PER_ELEM];
 	    double zz[BASIS_NODES_PER_ELEM];
 	    double uu[BASIS_NODES_PER_ELEM];
+	    double uu_old[BASIS_NODES_PER_ELEM];
+	    double uu_oldold[BASIS_NODES_PER_ELEM];
 	    for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
 	      const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+ll];
 	      xx[ll] = x_1dra(lid);
 	      yy[ll] = y_1dra(lid);
 	      zz[ll] = z_1dra(lid);
-	      uu[ll] = u_1dra(numeqs_*lid+k);//we can add uu_old, uu_oldold
+	      uu[ll] = u_1dra(numeqs_*lid+k);
+	      uu_old[ll] = uold_1dra(numeqs_*lid+k);
+	      uu_oldold[ll] = uoldold_1dra(numeqs_*lid+k);
 	    }//ll
 	    
 	    BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
 	    for ( int gp = 0; gp < ngp; gp++){
-	      BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], NULL, NULL);//we can add uu_old, uu_oldold
+	      BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0], &uu_oldold[0]);//we can add uu_old, uu_oldold
 	      const double jacwt = BGPU->jac*BGPU->wt;
 	      for( int i = 0; i < num_node_per_side; i++ ){  
 		
 		const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
 		const int row = numeqs_*lid + k;
 		
-		const double val = -jacwt*(it->second)(BGPU,i,dt_,t_theta_,time_);
+		const double val = -jacwt*(it->second)(BGPU,i,dt,dtold,t_theta,t_theta2,time);
 		
 		f_1d[row] += val;
 		
@@ -1590,6 +1600,47 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::postproc_;
+
+  }else if("radconvbc" == paramList.get<std::string> (TusastestNameString)){
+    // numeqs_ number of variables(equations) 
+    numeqs_ = 1;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
+    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+    
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::radconvbc::init_heat_;
+    
+    
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &tpetra::radconvbc::dbc_;						 
+    //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::radconvbc::dbc_;
+
+    paramfunc_ = tpetra::radconvbc::param_;
+
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    //neumannfunc_ = NULL;
+    //(*neumannfunc_)[0][0] = &tpetra::robin::nbc_robin_test_;								 
+    //(*neumannfunc_)[0][1] = &nbc_zero_;						 
+    (*neumannfunc_)[0][2] = &tpetra::radconvbc::nbc_;						 
+    //(*neumannfunc_)[0][3] = &nbc_zero_;
+
+    //post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &tpetra::postproc_;
 
   }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 

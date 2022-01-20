@@ -5524,7 +5524,9 @@ PPR_FUNC(postproc_c_)
 #define NBC_FUNC_TPETRA(NAME)  double NAME(const GPUBasis *basis,\
 				    const int &i,\
 				    const double &dt_,\
+                                    const double &dtold_,\
 				    const double &t_theta_,\
+			            const double &t_theta2_,\
 				    const double &time)
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
@@ -5554,14 +5556,19 @@ INI_FUNC(init_heat_test_)
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_heat_test_)
 {
-
-  return (basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*basis[eqn_id]->phi[i]
-    + t_theta_*k_d*(basis[eqn_id]->dudx*basis[eqn_id]->dphidx[i]
-       + basis[eqn_id]->dudy*basis[eqn_id]->dphidy[i]
-       + basis[eqn_id]->dudz*basis[eqn_id]->dphidz[i])
-    +(1. - t_theta_)*k_d*(basis[eqn_id]->duolddx*basis[eqn_id]->dphidx[i]
-		   + basis[eqn_id]->duolddy*basis[eqn_id]->dphidy[i]
-		   + basis[eqn_id]->duolddz*basis[eqn_id]->dphidz[i]);
+  const double ut = (basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*basis[eqn_id]->phi[i];
+  const double f[3] = {k_d*(basis[eqn_id]->dudx*basis[eqn_id]->dphidx[i]
+			    + basis[eqn_id]->dudy*basis[eqn_id]->dphidy[i]
+			    + basis[eqn_id]->dudz*basis[eqn_id]->dphidz[i]),
+		       k_d*(basis[eqn_id]->duolddx*basis[eqn_id]->dphidx[i]
+			    + basis[eqn_id]->duolddy*basis[eqn_id]->dphidy[i]
+			    + basis[eqn_id]->duolddz*basis[eqn_id]->dphidz[i]),
+		       k_d*(basis[eqn_id]->duoldolddx*basis[eqn_id]->dphidx[i]
+			    + basis[eqn_id]->duoldolddy*basis[eqn_id]->dphidy[i]
+			    + basis[eqn_id]->duoldolddz*basis[eqn_id]->dphidz[i])};
+  return ut + (1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 TUSAS_DEVICE
@@ -6907,8 +6914,12 @@ RES_FUNC_TPETRA(residual_robin_test_)
   const double divgradu = c*c*(basis[0]->dudx*dtestdx + basis[0]->dudy*dtestdy + basis[0]->dudz*dtestdz);//(grad u,grad phi)
   //double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
  
- 
-  return ut + divgradu;
+  const double f[3] = {c*c*(basis[0]->dudx*dtestdx + basis[0]->dudy*dtestdy + basis[0]->dudz*dtestdz),
+		       c*c*(basis[0]->duolddx*dtestdx + basis[0]->duolddy*dtestdy + basis[0]->duolddz*dtestdz),
+		       c*c*(basis[0]->duoldolddx*dtestdx + basis[0]->duoldolddy*dtestdy + basis[0]->duoldolddz*dtestdz)};
+  return ut + (1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 TUSAS_DEVICE
@@ -6939,16 +6950,19 @@ PRE_FUNC_TPETRA((*prec_robin_test_dp_)) = prec_robin_test_;
 NBC_FUNC_TPETRA(nbc_robin_test_)
 {
 
-  const double test = basis->phi[i];
-  const double u = basis[0].uu;
+  const double test = basis[0].phi[i];
 
   //du/dn + kappa u = g = 0 on L
   //(du,dv) - <du/dn,v> = (f,v)
   //(du,dv) - <g - kappa u,v> = (f,v)
   //(du,dv) - < - kappa u,v> = (f,v)
   //          ^^^^^^^^^^^^^^ return this
-
-  return (-kappa*u)*test;
+  const double f[3] = {-kappa*basis[0].uu*test,
+		       -kappa*basis[0].uuold*test,
+		       -kappa*basis[0].uuoldold*test};
+  return (1.-t_theta2_)*t_theta_*f[0]
+    +(1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 INI_FUNC(init_robin_test_)
 {
@@ -7094,6 +7108,51 @@ RES_FUNC_TPETRA(residual_test_)
 }
 }//namespace timeonly
 
+namespace radconvbc
+{
+
+DBC_FUNC(dbc_) 
+{
+  return 1173.;
+}
+
+NBC_FUNC_TPETRA(nbc_)
+{
+  //https://reference.wolfram.com/language/PDEModels/tutorial/HeatTransfer/HeatTransfer.html#2048120463
+  //h(t-ti)+\ep\sigma(t^4-ti^4)
+  const double h = 50.;
+  const double ep = .7;
+  const double sigma = 5.67037e-9;
+  const double ti = 323.;
+  const double test = basis[0].phi[i];
+  const double u = basis[0].uu;
+  const double uold = basis[0].uuold;
+  const double uoldold = basis[0].uuoldold;
+  const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
+		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
+		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};
+  return (1.-t_theta2_)*t_theta_*f[0]
+    +(1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+INI_FUNC(init_heat_)
+{
+  return 1173.;
+}
+
+PARAM_FUNC(param_)
+{
+  double kk = plist->get<double>("k_",1.);
+
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(k_d,&kk,sizeof(double));
+#else
+  tpetra::k_d = kk;
+#endif
+  tpetra::k_h = kk;
+}
+}//namespace radconvbc
 }//namespace tpetra
 
 

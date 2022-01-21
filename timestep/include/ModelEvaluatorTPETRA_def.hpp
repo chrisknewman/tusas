@@ -568,16 +568,19 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
       //GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
 
+      std::cout<<n_nodes_per_elem<<std::endl;
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
 	const int elem = elem_map_1d(ne);
 
 	//GPUBasisLHex * dummy = new (bh_view) GPUBasisLHex(LTP_quadrature_order);
 //  	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
-	
+
 #ifdef TUSAS3D	
+	if(n_nodes_per_elem != 8) exit(0);
 	GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
 #else
+	if(n_nodes_per_elem != 4) exit(0);
  	GPUBasisLQuad B[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
 #endif
 	
@@ -644,7 +647,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	      double val = jacwt*(h_rf[neq](BGPU,i,dt,dtold,t_theta,t_theta2,time,neq));
+	      double val = jacwt*(h_rf[neq](B,i,dt,dtold,t_theta,t_theta2,time,neq));
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
@@ -678,6 +681,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //in order to get this working with kokkos on openmp, gpu
       //with a kokkos function for the nbc function
       
+      //we also need to push the nbcfunc to gpus....
+
+
       
       
       //     if( (0==elem_type.compare("HEX8")) 
@@ -709,6 +715,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
       Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
 	uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
+
       GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
       GPUBasis * BGPU = &Bq;
       const int num_node_per_side = 4;
@@ -903,20 +910,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
 
-			     //an array of pointers to GPUBasis
-	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
-	
-	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS];
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS];
-	if(4 == n_nodes_per_elem)  {
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bq[neq];
-	}else{
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bh[neq];
-	}
-	
-	const int ngp = BGPU[0]->ngp;
+#ifdef TUSAS3D	
+	GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+#else
+ 	GPUBasisLQuad B[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+#endif
+	const int ngp = B[0]->ngp;
 
 	//const int elem = elem_map_k[ne];
 	const int elem = elem_map_1d(ne);
@@ -942,14 +941,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}//k
 
 	for( int neq = 0; neq < numeqs; neq++ ){
-	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
+	  B[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
 	}//neq
 
 	for(int gp=0; gp < ngp; gp++) {//gp
 	  for( int neq = 0; neq < numeqs; neq++ ){
-	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
+	    B[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
 	  }//neq
-	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
+	  const double jacwt = B[0]->jac*B[0]->wt;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 	    //const local_ordinal_type lrow = numeqs*meshc[elemrow+i];
 	    const local_ordinal_type lrow = numeqs*meshc_1d(elemrow+i);
@@ -959,9 +958,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      
 	      for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
-		scalar_type val[1] = {jacwt*d_pf[neq](*BGPU,i,j,dt,t_theta,neq)};
+		scalar_type val[1] = {jacwt*d_pf[neq](*B,i,j,dt,t_theta,neq)};
 #else
-		scalar_type val[1] = {jacwt*h_pf[neq](*BGPU,i,j,dt,t_theta,neq)};
+		scalar_type val[1] = {jacwt*h_pf[neq](*B,i,j,dt,t_theta,neq)};
 #endif
 		
 		//cn probably better to fill a view for val and lcol for each column

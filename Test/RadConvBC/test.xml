@@ -1,0 +1,26 @@
+<ParameterList>
+	
+<!-- simulation parameters -->
+
+<!--   <Parameter name="dt" type="double" value=".00625"/> -->
+  <Parameter name="dt" type="double" value="100."/>
+  <Parameter name="nt" type="int" value = "1"/>
+  <Parameter name="meshfile" type="string" value="./radconv_3d_200x100p001.e"/>
+  <Parameter name="method" type="string" value="tpetra"/>
+  <Parameter name="preconditioner" type="bool" value = "false"/>
+  <Parameter name="theta" type="double" value=".5"/>
+<!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+`<Parameter name="testcase" type="string" value="radconvbc"/>
+
+  <ParameterList name="Linear Solver"> 
+    <Parameter name="Linear Solver Type" type="string" value="Belos"/>
+  </ParameterList> 
+
+<!--    <Parameter name="errorestimator" type="string" value = "{0}"/> -->
+  <Parameter name="ltpquadord" type="int" value = "3"/>
+
+   <ParameterList name="ProblemParams">
+        <Parameter name="k_" type="double" value="3."/>
+   </ParameterList>
+
+</ParameterList>

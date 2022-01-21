@@ -261,7 +261,9 @@ private:
   typedef double (*NBCFUNC)(const GPUBasis *basis,
 			    const int &i, 
 			    const double &dt_, 
+			    const double &dtold_, 
 			    const double &t_theta_,
+			    const double &t_theta2_,
 			    const double &time);
 
   std::vector<std::map<int,NBCFUNC>> *neumannfunc_;

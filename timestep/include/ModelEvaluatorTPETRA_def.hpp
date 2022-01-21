@@ -558,17 +558,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	//elem_map_k[i] = elem_map[i]; 
 	elem_map_1d(i) = elem_map[i]; 
       }
-      //exit(0);
-      //auto elem_map_2d = Kokkos::subview(elem_map_1d, Kokkos::ALL (), Kokkos::ALL (), 0);
-      //std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
-      //for (int ne=0; ne < num_elem; ne++) { 
 
-	  //Kokkos::View<GPUBasisLHex *,Kokkos::DefaultExecutionSpace> bh_view("bh_view");
-      //GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
-      //GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-      //GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-
-      std::cout<<n_nodes_per_elem<<std::endl;
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
 	const int elem = elem_map_1d(ne);
@@ -647,7 +637,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	      double val = jacwt*(h_rf[neq](B,i,dt,dtold,t_theta,t_theta2,time,neq));
+	      double val = jacwt*(h_rf[neq]((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
@@ -915,7 +905,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #else
  	GPUBasisLQuad B[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
 #endif
-	const int ngp = B[0]->ngp;
+	const int ngp = B[0].ngp;
 
 	//const int elem = elem_map_k[ne];
 	const int elem = elem_map_1d(ne);
@@ -941,14 +931,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}//k
 
 	for( int neq = 0; neq < numeqs; neq++ ){
-	  B[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
+	  B[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
 	}//neq
 
 	for(int gp=0; gp < ngp; gp++) {//gp
 	  for( int neq = 0; neq < numeqs; neq++ ){
-	    B[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
+	    B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
 	  }//neq
-	  const double jacwt = B[0]->jac*B[0]->wt;
+	  const double jacwt = B[0].jac*B[0].wt;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 	    //const local_ordinal_type lrow = numeqs*meshc[elemrow+i];
 	    const local_ordinal_type lrow = numeqs*meshc_1d(elemrow+i);
@@ -960,7 +950,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #ifdef TUSAS_HAVE_CUDA
 		scalar_type val[1] = {jacwt*d_pf[neq](*B,i,j,dt,t_theta,neq)};
 #else
-		scalar_type val[1] = {jacwt*h_pf[neq](*B,i,j,dt,t_theta,neq)};
+		scalar_type val[1] = {jacwt*h_pf[neq](&B[0],i,j,dt,t_theta,neq)};
 #endif
 		
 		//cn probably better to fill a view for val and lcol for each column

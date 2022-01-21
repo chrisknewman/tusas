@@ -5569,16 +5569,16 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_heat_test_)
 {
 
-  const double ut = (basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*basis[eqn_id]->phi[i];
-  const double f[3] = {k_d*(basis[eqn_id]->dudx*basis[eqn_id]->dphidx[i]
-			    + basis[eqn_id]->dudy*basis[eqn_id]->dphidy[i]
-			    + basis[eqn_id]->dudz*basis[eqn_id]->dphidz[i]),
-		       k_d*(basis[eqn_id]->duolddx*basis[eqn_id]->dphidx[i]
-			    + basis[eqn_id]->duolddy*basis[eqn_id]->dphidy[i]
-			    + basis[eqn_id]->duolddz*basis[eqn_id]->dphidz[i]),
-		       k_d*(basis[eqn_id]->duoldolddx*basis[eqn_id]->dphidx[i]
-			    + basis[eqn_id]->duoldolddy*basis[eqn_id]->dphidy[i]
-			    + basis[eqn_id]->duoldolddz*basis[eqn_id]->dphidz[i])};
+  const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
+  const double f[3] = {k_d*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
+			    + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
+			    + basis[eqn_id].dudz*basis[eqn_id].dphidz[i]),
+		       k_d*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
+			    + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
+			    + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i]),
+		       k_d*(basis[eqn_id].duoldolddx*basis[eqn_id].dphidx[i]
+			    + basis[eqn_id].duoldolddy*basis[eqn_id].dphidy[i]
+			    + basis[eqn_id].duoldolddz*basis[eqn_id].dphidz[i])};
   return ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
@@ -6927,9 +6927,9 @@ RES_FUNC_TPETRA(residual_robin_test_)
   const double divgradu = c*c*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz);//(grad u,grad phi)
   //double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
  
-  const double f[3] = {c*c*(basis[0]->dudx*dtestdx + basis[0]->dudy*dtestdy + basis[0]->dudz*dtestdz),
-		       c*c*(basis[0]->duolddx*dtestdx + basis[0]->duolddy*dtestdy + basis[0]->duolddz*dtestdz),
-		       c*c*(basis[0]->duoldolddx*dtestdx + basis[0]->duoldolddy*dtestdy + basis[0]->duoldolddz*dtestdz)};
+  const double f[3] = {c*c*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy + basis[0].dudz*dtestdz),
+		       c*c*(basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz),
+		       c*c*(basis[0].duoldolddx*dtestdx + basis[0].duoldolddy*dtestdy + basis[0].duoldolddz*dtestdz)};
   return ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);

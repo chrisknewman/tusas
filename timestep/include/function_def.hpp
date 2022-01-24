@@ -5532,11 +5532,17 @@ PPR_FUNC(postproc_c_)
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
   //namespace heat{
 
-
+namespace heat{
 TUSAS_DEVICE
 double k_d = 2.;
+TUSAS_DEVICE
+double rho_d = 1.;
+TUSAS_DEVICE
+double cp_d = 1.;
 
 double k_h = 2.;
+double rho_h = 1.;
+double cp_h = 1.;
 
   //KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
@@ -5556,7 +5562,7 @@ INI_FUNC(init_heat_test_)
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_heat_test_)
 {
-  const double ut = (basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*basis[eqn_id]->phi[i];
+  const double ut = rho_d*cp_d*(basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*basis[eqn_id]->phi[i];
   const double f[3] = {k_d*(basis[eqn_id]->dudx*basis[eqn_id]->dphidx[i]
 			    + basis[eqn_id]->dudy*basis[eqn_id]->dphidy[i]
 			    + basis[eqn_id]->dudz*basis[eqn_id]->dphidz[i]),
@@ -5589,13 +5595,28 @@ PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
 PARAM_FUNC(param_)
 {
   double kk = plist->get<double>("k_",1.);
-
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(k_d,&kk,sizeof(double));
 #else
   k_d = kk;
 #endif
   k_h = kk;
+
+  double rho = plist->get<double>("rho_",1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(rho_d,&rho,sizeof(double));
+#else
+  rho_d = rho;
+#endif
+  rho_h = rho;
+
+  double cp = plist->get<double>("cp_",1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(cp_d,&cp,sizeof(double));
+#else
+  cp_d = cp;
+#endif
+  cp_h = cp;
 }
 //double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_)
@@ -5611,7 +5632,7 @@ PPR_FUNC(postproc_)
 
   return s-uu;
 }
-
+}//namespace heat
 
 // the above solution is also a solution to the nonlinear problem:
 // u_t - div ( u grad u) + 2 pi^2  (1-u) + u_x^2 + u_y^2
@@ -7110,6 +7131,10 @@ RES_FUNC_TPETRA(residual_test_)
 
 namespace radconvbc
 {
+  double h = 50.;
+  double ep = .7;
+  double sigma = 5.67037e-9;
+  double ti = 323.;
 
 DBC_FUNC(dbc_) 
 {
@@ -7120,10 +7145,6 @@ NBC_FUNC_TPETRA(nbc_)
 {
   //https://reference.wolfram.com/language/PDEModels/tutorial/HeatTransfer/HeatTransfer.html#2048120463
   //h(t-ti)+\ep\sigma(t^4-ti^4)
-  const double h = 50.;
-  const double ep = .7;
-  const double sigma = 5.67037e-9;
-  const double ti = 323.;
   const double test = basis[0].phi[i];
   const double u = basis[0].uu;
   const double uold = basis[0].uuold;
@@ -7143,16 +7164,71 @@ INI_FUNC(init_heat_)
 
 PARAM_FUNC(param_)
 {
-  double kk = plist->get<double>("k_",1.);
-
-#ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(k_d,&kk,sizeof(double));
-#else
-  tpetra::k_d = kk;
-#endif
-  tpetra::k_h = kk;
+  h = plist->get<double>("h_",50.);
+  ep = plist->get<double>("ep_",.7);
+  sigma = plist->get<double>("sigma_",5.67037e-9);
+  ti = plist->get<double>("ti_",323.);
 }
 }//namespace radconvbc
+
+namespace goldak{
+TUSAS_DEVICE
+const double pi_d = 3.141592653589793;
+
+double te = 0.;
+double tl = 1.;
+double Lf = 0.;
+TUSAS_DEVICE
+double dfldt_d = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
+
+TUSAS_DEVICE
+double eta_d = 0.;
+TUSAS_DEVICE
+double P_d = 0.;
+TUSAS_DEVICE
+double s_d = 1.;
+TUSAS_DEVICE
+double r_d = 1.;
+TUSAS_DEVICE
+double d_d = 1.;
+TUSAS_DEVICE
+double lambda_d = 1.;
+TUSAS_DEVICE
+double x0_d = 0.;
+TUSAS_DEVICE
+double y0_d = 0.;
+TUSAS_DEVICE
+double z0_d = 0.;
+
+KOKKOS_INLINE_FUNCTION 
+const double qdot(const double &x, const double &y, const double &z)
+{
+  return eta_d*P_d*s_d*s_d*pow(3.,3./s_d)
+    /r_d/r_d/d_d/lambda_d/6./pi_d
+    *exp(-3.*((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d-3.*(z-z0_d)/d_d/d_d);
+}
+
+RES_FUNC_TPETRA(residual_test_)
+{
+  //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
+
+  double val = tpetra::heat::residual_heat_test_dp_(basis,
+						    i,
+						    dt_,
+						    dtold_,
+						    t_theta_,
+						    t_theta2_,
+						    time,
+						    eqn_id);
+
+  const double rhs = (dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz))*basis[eqn_id]->phi[i];
+
+  return val + rhs;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
+}//namespace goldak
 }//namespace tpetra
 
 

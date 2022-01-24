@@ -261,7 +261,8 @@ private:
 
   typedef void (*PARAMFUNC)(Teuchos::ParameterList *plist);
 
-  PARAMFUNC paramfunc_;
+  std::vector<PARAMFUNC> paramfunc_;
+  //PARAMFUNC paramfunc_;
 
   Teuchos::RCP<Teuchos::Time> ts_time_import;
   Teuchos::RCP<Teuchos::Time> ts_time_resfill;

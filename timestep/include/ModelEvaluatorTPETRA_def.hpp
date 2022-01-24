@@ -1530,7 +1530,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 {
-  paramfunc_ = NULL;
+  paramfunc_.resize(0);
 
   if("heat" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
@@ -1538,16 +1538,16 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
     
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::init_heat_test_;
+    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
     
     
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
@@ -1560,12 +1560,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &dbc_zero_;
 
-    paramfunc_ = tpetra::param_;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::heat::param_;
 
     neumannfunc_ = NULL;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::postproc_;
+    post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
 
   }else if("radconvbc" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
@@ -1573,10 +1574,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -1595,7 +1596,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &tpetra::radconvbc::dbc_;
 
-    paramfunc_ = tpetra::radconvbc::param_;
+    paramfunc_.resize(2);
+    paramfunc_[0] = &tpetra::heat::param_;//heat
+    paramfunc_[1] = &tpetra::radconvbc::param_;
 
     // numeqs_ number of variables(equations) 
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
@@ -1617,13 +1620,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[0] = tpetra::residual_nlheatimr_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
+    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
     
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::init_heat_test_;
+    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
     
     
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
@@ -1636,12 +1639,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &dbc_zero_;
 
-    paramfunc_ = tpetra::param_;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::heat::param_;
 
     neumannfunc_ = NULL;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::postproc_;
+    post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
 
   }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
@@ -1658,7 +1662,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[0] = "u";
     
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::init_heat_test_;
+    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
     
     
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
@@ -1671,12 +1675,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &dbc_zero_;
 
-    paramfunc_ = tpetra::param_;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::heat::param_;
 
     neumannfunc_ = NULL;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::postproc_;
+    post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
 
 
   }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
@@ -1685,17 +1690,17 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
 
-    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
-    (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
+    (*residualfunc_)[1] = tpetra::heat::residual_heat_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::prec_heat_test_dp_;
-    (*preconfunc_)[1] = tpetra::prec_heat_test_dp_;
+    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
+    (*preconfunc_)[1] = tpetra::heat::prec_heat_test_dp_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
 
-    (*initfunc_)[0] = &tpetra::init_heat_test_;
-    (*initfunc_)[1] = &tpetra::init_heat_test_;
+    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
+    (*initfunc_)[1] = &tpetra::heat::init_heat_test_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -1725,8 +1730,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
 //     (*residualfunc_)[0] = &cummins::residual_heat_;
 //     (*residualfunc_)[1] = &cummins::residual_phase_;
-    (*residualfunc_)[0] = tpetra::residual_heat_test_dp_;
-    (*residualfunc_)[1] = tpetra::residual_heat_test_dp_;
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
+    (*residualfunc_)[1] = tpetra::heat::residual_heat_test_dp_;
 
 //     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
 //     (*preconfunc_)[0] = &cummins::prec_heat_;
@@ -1735,8 +1740,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &cummins::init_heat_;
     //(*initfunc_)[1] = &cummins::init_phase_;
-    (*initfunc_)[0] = &tpetra::init_heat_test_;
-    (*initfunc_)[1] = &tpetra::init_heat_test_;
+    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
+    (*initfunc_)[1] = &tpetra::heat::init_heat_test_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -1746,7 +1751,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    paramfunc_ = cummins::param_;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &cummins::param_;
 
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
@@ -1773,8 +1779,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    paramfunc_ = tpetra::farzadi3d::param_;
-    //paramfunc_ = farzadi::param_;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::farzadi3d::param_;
+    //paramfunc_ = &farzadi::param_;
 
     neumannfunc_ = NULL;
 
@@ -1803,8 +1810,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    paramfunc_ = tpetra::farzadi3d::param_;
-    //paramfunc_ = farzadi::param_;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::farzadi3d::param_;
+    //paramfunc_ = &farzadi::param_;
 
     neumannfunc_ = NULL;
 
@@ -1836,7 +1844,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
 
-    paramfunc_ = tpetra::farzadi3d::param_;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::farzadi3d::param_;
 
     neumannfunc_ = NULL;
 
@@ -1862,7 +1871,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    paramfunc_ = tpetra::pfhub3::param_;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::pfhub3::param_;
 
     neumannfunc_ = NULL;
 
@@ -1921,7 +1931,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    paramfunc_ = tpetra::pfhub2::param_;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::pfhub2::param_;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
@@ -1977,7 +1988,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[0] = &tpetra::timeonly::residual_test_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::prec_heat_test_;
+    (*preconfunc_)[0] = &tpetra::heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &timeonly::init_test_;
@@ -2001,10 +2012,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[3] = &tpetra::autocatalytic4::residual_c_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::prec_heat_test_;
-    (*preconfunc_)[1] = &tpetra::prec_heat_test_;
-    (*preconfunc_)[2] = &tpetra::prec_heat_test_;
-    (*preconfunc_)[3] = &tpetra::prec_heat_test_;
+    (*preconfunc_)[0] = &tpetra::heat::prec_heat_test_;
+    (*preconfunc_)[1] = &tpetra::heat::prec_heat_test_;
+    (*preconfunc_)[2] = &tpetra::heat::prec_heat_test_;
+    (*preconfunc_)[3] = &tpetra::heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &autocatalytic4::init_a_;
@@ -2022,6 +2033,50 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
 
     neumannfunc_ = NULL;
+
+  }else if("goldak" == paramList.get<std::string> (TusastestNameString)){
+    // numeqs_ number of variables(equations) 
+    numeqs_ = 1;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
+    (*residualfunc_)[0] = tpetra::goldak::residual_test_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
+    
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::radconvbc::init_heat_;
+    
+    
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &tpetra::radconvbc::dbc_;						 
+    //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::radconvbc::dbc_;
+
+    paramfunc_.resize(2);
+    paramfunc_[0] = &tpetra::heat::param_;
+    paramfunc_[1] = &tpetra::radconvbc::param_;
+
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    //neumannfunc_ = NULL;
+    //(*neumannfunc_)[0][0] = &tpetra::robin::nbc_robin_test_;								 
+    //(*neumannfunc_)[0][1] = &nbc_zero_;						 
+    (*neumannfunc_)[0][2] = &tpetra::radconvbc::nbc_;						 
+    //(*neumannfunc_)[0][3] = &nbc_zero_;
+
+    //post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &tpetra::postproc_;
+
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
@@ -2045,8 +2100,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   Teuchos::ParameterList *problemList;
   problemList = &paramList.sublist ( "ProblemParams", false );
   
-  if ( NULL != paramfunc_ ){    
-    paramfunc_(problemList);
+  for( int k = 0; k <  paramfunc_.size(); k++ ){
+    paramfunc_[k](problemList);
   }
   
 }

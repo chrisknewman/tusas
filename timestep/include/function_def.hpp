@@ -5583,7 +5583,7 @@ RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
-  return basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
+  return rho_d*cp_d*basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
     + t_theta_*k_d*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
@@ -7208,6 +7208,7 @@ const double qdot(const double &x, const double &y, const double &z)
     *exp(-3.*((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d-3.*(z-z0_d)/d_d/d_d);
 }
 
+KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_test_)
 {
   //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0

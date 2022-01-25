@@ -1463,7 +1463,7 @@ template<class scalar_type>
   void ModelEvaluatorTPETRA<scalar_type>::initialize()
 {
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
-  if( 0 == comm_->getRank()) std::cout<<std::endl<<"inititialize started"<<std::endl<<std::endl;
+  if( 0 == comm_->getRank()) std::cout<<std::endl<<"initialize started"<<std::endl<<std::endl;
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   if (!dorestart){ 
     init(u_old_); 
@@ -1564,6 +1564,9 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 {
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+  if( 0 == comm_->getRank()) std::cout<<std::endl<<"set_test_case started"<<std::endl<<std::endl;
+ 
   paramfunc_.resize(0);
 
   if("heat" == paramList.get<std::string> (TusastestNameString)){
@@ -2138,6 +2141,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[k](problemList);
   }
   
+  if( 0 == comm_->getRank()) std::cout<<std::endl<<"set_test_case finished"<<std::endl<<std::endl;
+ 
 }
 
 template<class scalar_type>

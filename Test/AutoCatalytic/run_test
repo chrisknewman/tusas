@@ -5,5 +5,5 @@ $1/tusas --input-file=tusas.xml
 ###if [[ $OSTYPE == "darwin15" ]]; then
 ###    $1/exodiff -file exofile Gold.e results.e
 ###else
-$1/exodiff -quiet Gold.e results.e
+$1/exodiff -quiet -file exofile Gold.e results.e
 ###fi

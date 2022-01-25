@@ -7222,7 +7222,9 @@ RES_FUNC_TPETRA(residual_test_)
 						    time,
 						    eqn_id);
 
-  const double rhs = (dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz))*basis[eqn_id]->phi[i];
+  const double ut = (basis[0]->uu-basis[0]->uuold)/dt_*basis[eqn_id]->phi[i];//might need better here
+
+  const double rhs = (ut*dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz))*basis[eqn_id]->phi[i];
 
   return val + rhs;
 }

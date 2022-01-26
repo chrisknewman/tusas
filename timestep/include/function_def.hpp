@@ -7192,7 +7192,7 @@ double r_d = 1.;
 TUSAS_DEVICE
 double d_d = 1.;
 TUSAS_DEVICE
-double lambda_d = 1.;
+double gamma_d = 1.;
 TUSAS_DEVICE
 double x0_d = 0.;
 TUSAS_DEVICE
@@ -7203,9 +7203,15 @@ double z0_d = 0.;
 KOKKOS_INLINE_FUNCTION 
 const double qdot(const double &x, const double &y, const double &z)
 {
+  //s_d = 2 below; we can simplify this expression
   return eta_d*P_d*s_d*s_d*pow(3.,3./s_d)
-    /r_d/r_d/d_d/lambda_d/6./pi_d
-    *exp(-3.*((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d-3.*(z-z0_d)/d_d/d_d);
+    /r_d/r_d/d_d/gamma_d/6./pi_d
+    *exp(
+	 -3.*(
+	      pow(((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d+(z-z0_d)/d_d/d_d
+		  ,s_d/2.)
+	      )
+	 );
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -7231,6 +7237,51 @@ RES_FUNC_TPETRA(residual_test_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
+
+PARAM_FUNC(param_)
+{
+  //we need to set h, ep, sigma, ti in radconv params as follows:
+  //h = 100 W/(m2*K)
+  //ep = .3
+  //sigma = 5.6704 x 10-5 g s^-3 K^-4
+  //ti = 300 K
+
+  //we need to set rho_*, k_* and cp_* in heat params 
+  //and also *maybe* figure out a way to distinguish between k_lig and k_sol
+  //when phasefield is coupled
+  //rho_* = 8.9 g/cm^3
+  //kliq = 90 W/(m*K)
+  //ksol = 90 W/(m*K)
+  //cpliq = 0.44 J/(g*K)
+  //cpsol = 0.44 J/(g*K)
+
+  //here we need the rest..
+  //and pull fro xml
+  //te = 1635.;// K
+  te = plist->get<double>("te_",0.);
+  //tl = 1706.;// K
+  tl = plist->get<double>("tl_",1.);
+  //Lf = 17.2;// kJ/mol
+  Lf = plist->get<double>("Lf_",0.);
+
+  dfldt_d = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
+
+  //eta_d = 0.3;//dimensionless
+  eta_d = plist->get<double>("eta_",0.);
+  //P_d = 50.;// W
+  P_d = plist->get<double>("P_",0.);
+  //s_d = 2.;//dimensionless
+  s_d = plist->get<double>("s_",1.);
+  //r_d = .005;// 50 um
+  r_d = plist->get<double>("r_",1.);
+  //d_d = .001;// 10 um
+  d_d = plist->get<double>("d_",1.);
+  //gamma_d = 1.; //not sure here
+  gamma_d = plist->get<double>("gamma_",1.);
+  x0_d = plist->get<double>("x0_",0.);
+  y0_d = plist->get<double>("y0_",0.);
+  z0_d = plist->get<double>("z0_",0.);
+}
 }//namespace goldak
 }//namespace tpetra
 

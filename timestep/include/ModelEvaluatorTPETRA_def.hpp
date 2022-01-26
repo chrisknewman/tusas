@@ -2099,9 +2099,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &tpetra::radconvbc::dbc_;
 
-    paramfunc_.resize(2);
+    paramfunc_.resize(3);
     paramfunc_[0] = &tpetra::heat::param_;
     paramfunc_[1] = &tpetra::radconvbc::param_;
+    paramfunc_[2] = &tpetra::goldak::param_;
 
     // numeqs_ number of variables(equations) 
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);

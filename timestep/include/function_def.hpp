@@ -7276,7 +7276,9 @@ PARAM_FUNC(param_)
   r_d = plist->get<double>("r_",1.);
   //d_d = .001;// 10 um
   d_d = plist->get<double>("d_",1.);
-  //gamma_d = 1.; //not sure here
+  //gamma_d = is gamma function
+  //gamma(3/s):
+  //gamma(3/2) = sqrt(pi)/2
   gamma_d = plist->get<double>("gamma_",1.);
   x0_d = plist->get<double>("x0_",0.);
   y0_d = plist->get<double>("y0_",0.);

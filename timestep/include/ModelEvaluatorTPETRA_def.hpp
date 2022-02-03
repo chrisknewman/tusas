@@ -41,7 +41,7 @@
 #include <MueLu_CreateTpetraPreconditioner.hpp>
 #include "Thyra_MueLuPreconditionerFactory.hpp"
 
-#include <Stratimikos_MueLuHelpers.hpp>
+//#include <Stratimikos_MueLuHelpers.hpp>
 
 #include "NOX_Thyra_MatrixFreeJacobianOperator.hpp"
 #include "NOX_MatrixFree_ModelEvaluatorDecorator.hpp"

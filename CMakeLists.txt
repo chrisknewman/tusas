@@ -1,4 +1,12 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.16)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.17.1)
+
+SET(Trilinos_DIR ${TRILINOS_DIR}lib/cmake/Trilinos)
+
+PROJECT( TUSAS NONE)
+
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_package(Trilinos REQUIRED)
 
 #---------------------------------------------------------------------------------
 # Define path variables
@@ -14,14 +22,12 @@ SET( DIR_9 "post_process/include" )
 SET( DIR_10 "elem_color/include" )
 SET( DIR_11 "periodic_bc/include" )
 SET( DIR_12 "projection/include" )
-SET( DIR_6 ${TRILINOS_DIR}lib )
+#SET( DIR_6 ${TRILINOS_DIR}lib )
 SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 
 #---------------------------------------------------------------------------------
 # Give access to TrilinosConfig.cmake in order to access its variables
 #---------------------------------------------------------------------------------
-
-INCLUDE( ${DIR_6}/cmake/Trilinos/TrilinosConfig.cmake )
 
 LIST( REMOVE_DUPLICATES Trilinos_LIBRARIES )
 LIST( REMOVE_DUPLICATES Trilinos_TPL_LIBRARIES )
@@ -39,9 +45,22 @@ INCLUDE_DIRECTORIES( ${Trilinos_TPL_INCLUDE_DIRS} ${DIR_1} ${DIR_2} ${DIR_3}
 # We access the compiler variables from TrilinosConfig.cmake
 #---------------------------------------------------------------------------------
 
-SET( CMAKE_C_COMPILER ${Trilinos_C_COMPILER} )
-SET( CMAKE_CXX_COMPILER ${Trilinos_CXX_COMPILER} )
+set(CMAKE_CXX_COMPILER ${Trilinos_CXX_COMPILER} )
+set(CMAKE_C_COMPILER ${Trilinos_C_COMPILER} )
+set(CMAKE_Fortran_COMPILER ${Trilinos_Fortran_COMPILER} )
 
+#---------------------------------------------------------------------------------
+# Change compiler flags. This must be done after  PROJECT() specification
+#---------------------------------------------------------------------------------
+
+set(CMAKE_CXX_FLAGS  "${Trilinos_CXX_COMPILER_FLAGS} ${CMAKE_CXX_FLAGS} ${TUSAS_CXX_FLAGS}")
+set(CMAKE_C_FLAGS  "${Trilinos_C_COMPILER_FLAGS} ${CMAKE_C_FLAGS}")
+set(CMAKE_Fortran_FLAGS  "${Trilinos_Fortran_COMPILER_FLAGS} ${CMAKE_Fortran_FLAGS}")
+enable_language(C)
+enable_language(CXX)
+if (CMAKE_Fortran_COMPILER)
+  enable_language(Fortran)
+endif()
 
 #---------------------------------------------------------------------------------
 # General information. Specify name and executable. 
@@ -72,9 +91,6 @@ ${DIR_7}/projection/interpfluxavg.cpp
 ${DIR_7}/projection/include/interpflux.h 
 ${DIR_7}/projection/interpflux.cpp 
 )
-
-
-PROJECT( TUSAS )
 
 ADD_EXECUTABLE( tusas ${SOURCES} )
 
@@ -111,13 +127,6 @@ TARGET_LINK_LIBRARIES( tusas ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} ${T
 #SET( CMAKE_C_FLAGS "${Trilinos_C_COMPILER_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
 #SET( CMAKE_CXX_FLAGS "${Trilinos_CXX_COMPILER_FLAGS} ${TUSAS_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
 #SET(GCC_COVERAGE_LINK_FLAGS    "${GCC_COVERAGE_LINK_FLAGS}")
-
-#---------------------------------------------------------------------------------
-# Change compiler flags. This must be done after  PROJECT() specification
-#---------------------------------------------------------------------------------
-
-SET( CMAKE_C_FLAGS ${Trilinos_C_COMPILER_FLAGS} )
-SET( CMAKE_CXX_FLAGS "${Trilinos_CXX_COMPILER_FLAGS} ${TUSAS_CXX_FLAGS}" )
 
 
 #---------------------------------------------------------------------------------

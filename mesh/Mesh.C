@@ -2182,4 +2182,26 @@ void Mesh::create_sorted_elemlist_yxz()
   //exit(0);
 }
 
+bool Mesh::side_set_found(int ss){
 
+  for (auto i : ss_ids){
+    //std::cout<<i<<std::endl;
+    if(ss == i){
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool Mesh::node_set_found(int ns){
+
+  for (auto i : ns_ids){
+    std::cout<<i<<std::endl;
+    if(ns == i){
+      return true;
+    }
+  }
+
+  return false;
+}

@@ -26,6 +26,7 @@
 #include <Tpetra_Map.hpp>
 #include <Tpetra_Map_decl.hpp>
 #include <Tpetra_Import.hpp>
+#include <Tpetra_replaceDiagonalCrsMatrix_decl.hpp>
 
 #include <Thyra_TpetraThyraWrappers.hpp>
 #include <Thyra_VectorBase.hpp>
@@ -2142,8 +2143,93 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[k](problemList);
   }
   
-  if( 0 == comm_->getRank()) std::cout<<std::endl<<"set_test_case finished"<<std::endl<<std::endl;
- 
+  if( 0 == comm_->getRank()){
+
+    if(0 <  numeqs_){
+      std::cout<<"  numeqs_ = "<<numeqs_<<std::endl;
+    }else{
+      std::cout<<"  numeqs < 0. Exiting."<<std::endl;
+      exit(0);
+    }
+
+    if(NULL != residualfunc_){
+      std::cout<<"  residualfunc_ with size "<<residualfunc_->size()<<" found."<<std::endl;
+    }else{
+      std::cout<<"  residualfunc_ not found. Exiting."<<std::endl;
+      exit(0);
+    }
+
+    if(NULL != preconfunc_){
+      std::cout<<"  preconfunc_ with size "<<preconfunc_->size()<<" found."<<std::endl;
+    }
+
+    if(NULL != initfunc_){
+      std::cout<<"  initfunc_ with size "<<initfunc_->size()<<" found."<<std::endl;
+    }else{
+      std::cout<<"  initfunc_ not found. Exiting."<<std::endl;
+      exit(0);
+    }
+
+    if(NULL != varnames_){
+      std::cout<<"  varnames_ with size "<<varnames_->size()<<" found."<<std::endl;
+    }else{
+      std::cout<<"  varnames_ not found. Exiting."<<std::endl;
+      exit(0);
+    }
+
+    if(NULL != dirichletfunc_){
+      //this may be confusing as it appears that sidesets start with 1
+      //and nodesets start with 0?
+
+      //so there is a shift of 1 for dbc ???   hence +1 below
+      //need to confirm this where dbc is applied in residual fill
+
+      //maybe fix for consistency everywhere
+      std::cout<<"  dirichletfunc_ with size "<<dirichletfunc_->size()<<" found."<<std::endl;
+
+      std::map<int,DBCFUNC>::iterator it;
+      
+      for( int k = 0; k < numeqs_; k++ ){
+	for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
+	  int ns_id = it->first;
+	  std::cout<<"    Equation: "<<k<<" nodeset: "<<ns_id<<std::endl;
+	  if(mesh_->node_set_found(ns_id+1)){
+	    std::cout<<"    Nodeset: "<<ns_id<<" found "<<std::endl;
+	  }else{
+	    std::cout<<"    Nodeset: "<<ns_id<<" NOT FOUND exiting... "<<std::endl;
+	    exit(0);
+	  }//if
+	}//it
+      }//k
+    }//if
+
+    if(NULL != neumannfunc_){
+      //this may be confusing as it appears that sidesets start with 1
+      //and nodesets start with 0?
+      std::cout<<"  neumannfunc_ with size "<<neumannfunc_->size()<<" found."<<std::endl;
+
+      std::map<int,NBCFUNC>::iterator it;
+      
+      for( int k = 0; k < numeqs_; k++ ){
+	for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
+	  const int ss_id = it->first;
+	  std::cout<<"    Equation: "<<k<<" sideset: "<<ss_id<<std::endl;
+	  if(mesh_->side_set_found(ss_id)){
+	    std::cout<<"    Sideset: "<<ss_id<<" found "<<std::endl;
+	  }else{
+	    std::cout<<"    Sideset: "<<ss_id<<" NOT FOUND exiting... "<<std::endl;
+	    exit(0);
+	  }//if
+	}//it
+      }//k
+    }//if
+    
+    if(post_proc.size() > 0 ){
+      std::cout<<"  post_proc with size "<<post_proc.size()<<" found."<<std::endl;
+    }
+
+    std::cout<<std::endl<<"set_test_case ended"<<std::endl<<std::endl;
+  }
 }
 
 template<class scalar_type>

@@ -196,8 +196,8 @@ class Mesh
   int get_num_nodes_per_ns(const int i){return num_nodes_per_ns[i];}
   std::vector<std::vector<int> > connect;
   int close_exodus(int ex_id);
-  bool side_set_found(int ss);
-  bool node_set_found(int ns);
+  bool side_set_found(const int ss) const;
+  bool node_set_found(const int ns) const;
 
  private:
 

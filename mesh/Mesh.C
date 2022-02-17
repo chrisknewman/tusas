@@ -2182,7 +2182,7 @@ void Mesh::create_sorted_elemlist_yxz()
   //exit(0);
 }
 
-bool Mesh::side_set_found(int ss){
+bool Mesh::side_set_found(const int ss) const {
   //it appears the ss_ids and ns_ids are indexed starting at 1
   for (auto i : ss_ids){
     //std::cout<<i<<std::endl;
@@ -2194,7 +2194,7 @@ bool Mesh::side_set_found(int ss){
   return false;
 }
 
-bool Mesh::node_set_found(int ns){
+bool Mesh::node_set_found(const int ns) const {
   //it appears the ss_ids and ns_ids are indexed starting at 1
   for (auto i : ns_ids){
     std::cout<<i<<std::endl;

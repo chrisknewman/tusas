@@ -306,18 +306,18 @@ int Mesh::read_exodus(const char * filename){
   	           <<"  num_sides_per_set[i] "<<num_sides_per_ss[i]<<std::endl
   	           <<"  num_df_per_sideset[i] "<<num_df_per_ss[i]<<std::endl<<std::endl;
 
-        ex_err = ex_get_side_set(ex_id, ss_ids[i], &ss_elem_list[i][0], &ss_side_list[i][0]);
+      ex_err = ex_get_side_set(ex_id, ss_ids[i], &ss_elem_list[i][0], &ss_side_list[i][0]);
   
-        ex_err = ex_get_side_set_node_list(ex_id, ss_ids[i], &ss_ctr_list[i][0], &ss_node_list[i][0]);
+      ex_err = ex_get_side_set_node_list(ex_id, ss_ids[i], &ss_ctr_list[i][0], &ss_node_list[i][0]);
 
-        for(a = ss_node_list[i].begin(); a != ss_node_list[i].end(); a++){  // fix FORTRAN indexing
+      for(a = ss_node_list[i].begin(); a != ss_node_list[i].end(); a++){  // fix FORTRAN indexing
 
-            (*a)--;
+	(*a)--;
 
-            side_set_node_map[*a] = ss_ids[i];
+	side_set_node_map[*a] = ss_ids[i];
 
-	}
-  
+      }
+      
     } // end loop over side sets
 
   
@@ -2183,10 +2183,10 @@ void Mesh::create_sorted_elemlist_yxz()
 }
 
 bool Mesh::side_set_found(int ss){
-
+  //it appears the ss_ids and ns_ids are indexed starting at 1
   for (auto i : ss_ids){
     //std::cout<<i<<std::endl;
-    if(ss == i){
+    if(ss == i-1){
       return true;
     }
   }
@@ -2195,10 +2195,10 @@ bool Mesh::side_set_found(int ss){
 }
 
 bool Mesh::node_set_found(int ns){
-
+  //it appears the ss_ids and ns_ids are indexed starting at 1
   for (auto i : ns_ids){
     std::cout<<i<<std::endl;
-    if(ns == i){
+    if(ns == i-1){
       return true;
     }
   }

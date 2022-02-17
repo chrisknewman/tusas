@@ -2178,13 +2178,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     }
 
     if(NULL != dirichletfunc_){
-      //this may be confusing as it appears that sidesets start with 1
-      //and nodesets start with 0?
-
-      //so there is a shift of 1 for dbc ???   hence +1 below
-      //need to confirm this where dbc is applied in residual fill
-
-      //maybe fix for consistency everywhere
       std::cout<<"  dirichletfunc_ with size "<<dirichletfunc_->size()<<" found."<<std::endl;
 
       std::map<int,DBCFUNC>::iterator it;
@@ -2193,7 +2186,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 	for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	  int ns_id = it->first;
 	  std::cout<<"    Equation: "<<k<<" nodeset: "<<ns_id<<std::endl;
-	  if(mesh_->node_set_found(ns_id+1)){
+	  if(mesh_->node_set_found(ns_id)){
 	    std::cout<<"    Nodeset: "<<ns_id<<" found "<<std::endl;
 	  }else{
 	    std::cout<<"    Nodeset: "<<ns_id<<" NOT FOUND exiting... "<<std::endl;
@@ -2204,8 +2197,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     }//if
 
     if(NULL != neumannfunc_){
-      //this may be confusing as it appears that sidesets start with 1
-      //and nodesets start with 0?
       std::cout<<"  neumannfunc_ with size "<<neumannfunc_->size()<<" found."<<std::endl;
 
       std::map<int,NBCFUNC>::iterator it;

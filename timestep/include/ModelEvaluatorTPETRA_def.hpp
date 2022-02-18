@@ -1787,6 +1787,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
+
     neumannfunc_ = NULL;
 
     paramfunc_.resize(1);

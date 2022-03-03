@@ -1611,7 +1611,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 1;
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
     (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
@@ -2082,7 +2081,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 1;
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
+    //(*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
     (*residualfunc_)[0] = tpetra::goldak::residual_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
@@ -2092,18 +2091,18 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[0] = "u";
     
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::radconvbc::init_heat_;
+    (*initfunc_)[0] = &tpetra::goldak::init_heat_;
     
     
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
     
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
-    //  [variable index][nodeset index]
-    //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &tpetra::radconvbc::dbc_;						 
-    //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &tpetra::radconvbc::dbc_;
+    //  [variable index][nodeset index]						 
+//     (*dirichletfunc_)[0][0] = &tpetra::goldak::dbc_;	
+//     (*dirichletfunc_)[0][1] = &tpetra::goldak::dbc_;
+//     (*dirichletfunc_)[0][2] = &tpetra::goldak::dbc_;					 
+//     (*dirichletfunc_)[0][3] = &tpetra::goldak::dbc_;
 
     paramfunc_.resize(3);
     paramfunc_[0] = &tpetra::heat::param_;
@@ -2113,14 +2112,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     // numeqs_ number of variables(equations) 
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
-    //(*neumannfunc_)[0][0] = &tpetra::robin::nbc_robin_test_;								 
-    //(*neumannfunc_)[0][1] = &nbc_zero_;						 
-    (*neumannfunc_)[0][2] = &tpetra::radconvbc::nbc_;						 
-    //(*neumannfunc_)[0][3] = &nbc_zero_;
+    (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;
 
-    //post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    //post_proc[0].postprocfunc_ = &tpetra::postproc_;
+//     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+//     post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_qdot_;
 
+//     post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
+//     post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_u_;
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

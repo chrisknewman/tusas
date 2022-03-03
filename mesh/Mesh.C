@@ -2197,7 +2197,7 @@ bool Mesh::side_set_found(const int ss) const {
 bool Mesh::node_set_found(const int ns) const {
   //it appears the ss_ids and ns_ids are indexed starting at 1
   for (auto i : ns_ids){
-    std::cout<<i<<std::endl;
+    //std::cout<<i<<std::endl;
     if(ns == i-1){
       return true;
     }

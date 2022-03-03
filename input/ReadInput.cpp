@@ -248,6 +248,9 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   if( !ATSList->isParameter(TusaspredrelresNameString) )
     ATSList->set(TusaspredrelresNameString,paramList.get<double>(TusasnoxrelresNameString));
 
+//   Teuchos::ParameterList *problemList;
+//   problemList = &paramList.sublist ( "ProblemParams", false );
+//   problemList->set("Echo ProblemParams",(bool)false);
   //exit(0);
 
 };

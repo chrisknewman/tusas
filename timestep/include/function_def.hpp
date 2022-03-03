@@ -7145,6 +7145,7 @@ NBC_FUNC_TPETRA(nbc_)
 {
   //https://reference.wolfram.com/language/PDEModels/tutorial/HeatTransfer/HeatTransfer.html#2048120463
   //h(t-ti)+\ep\sigma(t^4-ti^4)
+  //std::cout<<h<<" "<<ep<<" "<<sigma<<" "<<ti<<std::endl;
   const double test = basis[0].phi[i];
   const double u = basis[0].uu;
   const double uold = basis[0].uuold;
@@ -7168,6 +7169,11 @@ PARAM_FUNC(param_)
   ep = plist->get<double>("ep_",.7);
   sigma = plist->get<double>("sigma_",5.67037e-9);
   ti = plist->get<double>("ti_",323.);
+//   std::cout<<"tpetra::radconvbc::param_:"<<std::endl
+// 	   <<"  h     = "<<h<<std::endl
+// 	   <<"  ep    = "<<ep<<std::endl
+// 	   <<"  sigma = "<<sigma<<std::endl
+// 	   <<"  ti    = "<<ti<<std::endl<<std::endl;
 }
 }//namespace radconvbc
 
@@ -7199,19 +7205,28 @@ TUSAS_DEVICE
 double y0_d = 0.;
 TUSAS_DEVICE
 double z0_d = 0.;
+TUSAS_DEVICE
+double t_hold_d = 0.005;
+TUSAS_DEVICE
+double t_decay_d = 0.01;
 
 KOKKOS_INLINE_FUNCTION 
-const double qdot(const double &x, const double &y, const double &z)
+const double qdot(const double &x, const double &y, const double &z, const double &t)
 {
-  //s_d = 2 below; we can simplify this expression
-  return eta_d*P_d*s_d*s_d*pow(3.,3./s_d)
-    /r_d/r_d/d_d/gamma_d/6./pi_d
-    *exp(
-	 -3.*(
-	      pow(((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d+(z-z0_d)/d_d/d_d
-		  ,s_d/2.)
-	      )
-	 );
+//   const double P = P_d;
+//   const double P = (t<t_hold_) ? P_d : 0.;
+  const double P = (t < t_hold_d) ? P_d : 
+    ((t<t_hold_d+t_decay_d) ? P_d*(t-(t_hold_d+t_decay_d))/(-t_decay_d)
+     :0);
+  //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
+  const double coef = eta_d*P*5.19615/r_d/r_d/d_d/gamma_d/pi_d;
+
+  const double f = exp(
+		       -3.*(
+			    ((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d+(z-z0_d)*(z-z0_d)/d_d/d_d
+			    )
+		       );
+  return coef*f;
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -7230,13 +7245,49 @@ RES_FUNC_TPETRA(residual_test_)
 
   const double ut = (basis[0]->uu-basis[0]->uuold)/dt_*basis[eqn_id]->phi[i];//might need better here
 
-  const double rhs = (ut*dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz))*basis[eqn_id]->phi[i];
-
-  return val + rhs;
+  const double rhs = (ut*dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time))*basis[eqn_id]->phi[i];
+  //std::cout<<val<<" "<<qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz)<<std::endl;
+  //return val + rhs;
+  const double qd[3] = {-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time)*basis[eqn_id]->phi[i],
+			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_)*basis[eqn_id]->phi[i],
+			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_-dtold_)*basis[eqn_id]->phi[i]};
+  return val + (1.-t_theta2_)*t_theta_*qd[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*qd[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*qd[1]-dt_/dtold_*qd[2]);
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
+
+INI_FUNC(init_heat_)
+{
+  return 300.;
+}
+
+DBC_FUNC(dbc_) 
+{
+  return 300.;
+}
+
+PPR_FUNC(postproc_qdot_)
+{
+  //const double uu = u[0];
+  const double x = xyz[0];
+  const double y = xyz[1];
+  const double z = xyz[2];
+
+  return qdot(x,y,z,time);
+}
+
+PPR_FUNC(postproc_u_)
+{
+  //const double uu = u[0];
+  //const double x = xyz[0];
+  //const double y = xyz[1];
+  //const double z = xyz[2];
+
+  return u[0];
+}
 
 PARAM_FUNC(param_)
 {
@@ -7283,6 +7334,8 @@ PARAM_FUNC(param_)
   x0_d = plist->get<double>("x0_",0.);
   y0_d = plist->get<double>("y0_",0.);
   z0_d = plist->get<double>("z0_",0.);
+  t_hold_d = plist->get<double>("t_hold_",0.0005);
+  t_decay_d = plist->get<double>("t_decay_",0.01);
 }
 }//namespace goldak
 }//namespace tpetra

@@ -1275,8 +1275,11 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
       noxpred_group->computeF();
       atsList = &paramList.sublist (TusasatslistNameString, false );
 
+      double relrestolp = 1.e-6;
+      relrestolp = atsList->get<double>(TusaspredrelresNameString,1.e-6);
+
       Teuchos::RCP<NOX::StatusTest::NormF>relresid1 = 
-	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), atsList->get<double>(TusaspredrelresNameString)));//1.0e-6 for paper
+	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestolp));//1.0e-6 for paper
       //Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestol));//1.0e-6 for paper
       Teuchos::RCP<NOX::StatusTest::Combo> converged1 =
 	Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::AND));
@@ -2085,7 +2088,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[0] = tpetra::goldak::residual_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
+    (*preconfunc_)[0] = tpetra::goldak::prec_test_dp_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";

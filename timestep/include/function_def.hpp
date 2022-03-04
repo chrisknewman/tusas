@@ -7181,24 +7181,24 @@ namespace goldak{
 TUSAS_DEVICE
 const double pi_d = 3.141592653589793;
 
-double te = 0.;
-double tl = 1.;
-double Lf = 0.;
+double te = 1706.;
+double tl = 1641.;
+double Lf = 2.95e5;
 TUSAS_DEVICE
 double dfldt_d = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
 
 TUSAS_DEVICE
-double eta_d = 0.;
+double eta_d = 0.3;
 TUSAS_DEVICE
-double P_d = 0.;
+double P_d = 50.;
 TUSAS_DEVICE
-double s_d = 1.;
+double s_d = 2.;
 TUSAS_DEVICE
-double r_d = 1.;
+double r_d = .00005;
 TUSAS_DEVICE
-double d_d = 1.;
+double d_d = .00001;
 TUSAS_DEVICE
-double gamma_d = 1.;
+double gamma_d = 0.886227;
 TUSAS_DEVICE
 double x0_d = 0.;
 TUSAS_DEVICE
@@ -7243,21 +7243,44 @@ RES_FUNC_TPETRA(residual_test_)
 						    time,
 						    eqn_id);
 
-  const double ut = (basis[0]->uu-basis[0]->uuold)/dt_*basis[eqn_id]->phi[i];//might need better here
+  const double ut[3] = {dfldt_d*(basis[0]->uu-basis[0]->uuold)/dt_*basis[eqn_id]->phi[i],
+			dfldt_d*(basis[0]->uuold-basis[0]->uuoldold)/dtold_*basis[eqn_id]->phi[i],
+			dfldt_d*(basis[0]->uuold-basis[0]->uuoldold)/dtold_*basis[eqn_id]->phi[i]};
 
-  const double rhs = (ut*dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time))*basis[eqn_id]->phi[i];
+  //const double rhs = (ut*dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time))*basis[eqn_id]->phi[i];
   //std::cout<<val<<" "<<qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz)<<std::endl;
   //return val + rhs;
   const double qd[3] = {-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time)*basis[eqn_id]->phi[i],
 			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_)*basis[eqn_id]->phi[i],
 			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_-dtold_)*basis[eqn_id]->phi[i]};
-  return val + (1.-t_theta2_)*t_theta_*qd[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*qd[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*qd[1]-dt_/dtold_*qd[2]);
+  return (val + (1.-t_theta2_)*t_theta_*qd[0]
+	  + (1.-t_theta2_)*(1.-t_theta_)*qd[1]
+	  +.5*t_theta2_*((2.+dt_/dtold_)*qd[1]-dt_/dtold_*qd[2])
+	  + (1.-t_theta2_)*t_theta_*ut[0]
+	  + (1.-t_theta2_)*(1.-t_theta_)*ut[1]
+	  +.5*t_theta2_*((2.+dt_/dtold_)*ut[1]-dt_/dtold_*ut[2]));// /tpetra::heat::rho_d/tpetra::heat::cp_d;
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_test_)
+{
+  
+  const double val = tpetra::heat::prec_heat_test_dp_(basis,
+						      i,
+						      j,
+						      dt_,
+						      t_theta_,
+						      eqn_id);
+
+  return val;// /tpetra::heat::rho_d/tpetra::heat::cp_d;
+}
+
+TUSAS_DEVICE
+PRE_FUNC_TPETRA((*prec_test_dp_)) = prec_test_;
+
 
 INI_FUNC(init_heat_)
 {
@@ -7309,28 +7332,28 @@ PARAM_FUNC(param_)
   //here we need the rest..
   //and pull fro xml
   //te = 1635.;// K
-  te = plist->get<double>("te_",0.);
+  te = plist->get<double>("te_",1706.);
   //tl = 1706.;// K
-  tl = plist->get<double>("tl_",1.);
+  tl = plist->get<double>("tl_",1641.);
   //Lf = 17.2;// kJ/mol
-  Lf = plist->get<double>("Lf_",0.);
+  Lf = plist->get<double>("Lf_",2.95e5);
 
   dfldt_d = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
 
   //eta_d = 0.3;//dimensionless
-  eta_d = plist->get<double>("eta_",0.);
+  eta_d = plist->get<double>("eta_",0.3);
   //P_d = 50.;// W
-  P_d = plist->get<double>("P_",0.);
+  P_d = plist->get<double>("P_",50.);
   //s_d = 2.;//dimensionless
-  s_d = plist->get<double>("s_",1.);
+  s_d = plist->get<double>("s_",2.);
   //r_d = .005;// 50 um
-  r_d = plist->get<double>("r_",1.);
+  r_d = plist->get<double>("r_",.00005);
   //d_d = .001;// 10 um
-  d_d = plist->get<double>("d_",1.);
+  d_d = plist->get<double>("d_",.00001);
   //gamma_d = is gamma function
   //gamma(3/s):
   //gamma(3/2) = sqrt(pi)/2
-  gamma_d = plist->get<double>("gamma_",1.);
+  gamma_d = plist->get<double>("gamma_",0.886227);
   x0_d = plist->get<double>("x0_",0.);
   y0_d = plist->get<double>("y0_",0.);
   z0_d = plist->get<double>("z0_",0.);

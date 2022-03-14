@@ -160,6 +160,10 @@ std::string const TusasatstypeDocString = "type (string): predictor corrector (d
 std::string const TusaspredrelresNameString = "predrelres";
 /// Predictor relative residual tolerance.
 std::string const TusaspredrelresDocString = "predictor relative residual tolerance (double): default 1e-6";
+/// Nox maximum number of iterations.
+std::string const TusaspredmaxiterNameString = "predmaxiter";
+/// Nox maximum number of iterations.
+std::string const TusaspredmaxiterDocString = "pred max number iterations (int): default 20";
 
 
 //other parameters not in the input file

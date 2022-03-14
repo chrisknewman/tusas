@@ -1277,14 +1277,18 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 
       double relrestolp = 1.e-6;
       relrestolp = atsList->get<double>(TusaspredrelresNameString,1.e-6);
-
+      int predmaxit = 20;
+      predmaxit = paramList.get<int> (TusaspredmaxiterNameString,20);
+      Teuchos::RCP<NOX::StatusTest::MaxIters> maxiters1 =
+	Teuchos::rcp(new NOX::StatusTest::MaxIters(predmaxit));
       Teuchos::RCP<NOX::StatusTest::NormF>relresid1 = 
 	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestolp));//1.0e-6 for paper
       //Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestol));//1.0e-6 for paper
       Teuchos::RCP<NOX::StatusTest::Combo> converged1 =
-	Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::AND));
+	Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
       converged1->addStatusTest(relresid1);
-      //combo->addStatusTest(converged);
+      converged1->addStatusTest(maxiters1);
+      //combo->addStatusTest(converged1);
       
       Teuchos::RCP<Teuchos::ParameterList> nl_params1 =
 	Teuchos::rcp(new Teuchos::ParameterList);

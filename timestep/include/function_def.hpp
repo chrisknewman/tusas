@@ -7185,7 +7185,7 @@ double te = 1706.;
 double tl = 1641.;
 double Lf = 2.95e5;
 TUSAS_DEVICE
-double dfldt_d = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
+double dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);//fl=(t-te)/(tl-te);
 
 TUSAS_DEVICE
 double eta_d = 0.3;
@@ -7242,10 +7242,18 @@ RES_FUNC_TPETRA(residual_test_)
 						    t_theta2_,
 						    time,
 						    eqn_id);
-
-  const double ut[3] = {dfldt_d*(basis[0]->uu-basis[0]->uuold)/dt_*basis[eqn_id]->phi[i],
-			dfldt_d*(basis[0]->uuold-basis[0]->uuoldold)/dtold_*basis[eqn_id]->phi[i],
-			dfldt_d*(basis[0]->uuold-basis[0]->uuoldold)/dtold_*basis[eqn_id]->phi[i]};
+  //better 3pt derivatives, see difference.nb and inspiration at
+  //https://link.springer.com/content/pdf/10.1007/BF02510406.pdf
+  const double ut[3] = {dfldt_d*((1. + dt_/dtold_)*(basis[0]->uu-basis[0]->uuold)/dt_
+				 -dt_/dtold_*(basis[0]->uu-basis[0]->uuoldold)/(dt_+dtold_)
+				 )*basis[eqn_id]->phi[i],
+			dfldt_d*(dtold_/dt_/(dt_+dtold_)*(basis[0]->uu)
+				 -(dtold_-dt_)/dt_/dtold_*(basis[0]->uuold)
+				 -dt_/dtold_/(dt_+dtold_)*(basis[0]->uuoldold)
+				 )*basis[eqn_id]->phi[i],
+			dfldt_d*(-(1.+dtold_/dt_)*(basis[0]->uuoldold-basis[0]->uuold)/dtold_
+				 +dtold_/dt_*(basis[0]->uuoldold-basis[0]->uu)/(dtold_+dt_)
+				 )*basis[eqn_id]->phi[i]};
 
   //const double rhs = (ut*dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time))*basis[eqn_id]->phi[i];
   //std::cout<<val<<" "<<qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz)<<std::endl;
@@ -7359,6 +7367,8 @@ PARAM_FUNC(param_)
   z0_d = plist->get<double>("z0_",0.);
   t_hold_d = plist->get<double>("t_hold_",0.0005);
   t_decay_d = plist->get<double>("t_decay_",0.01);
+
+  dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);
 }
 }//namespace goldak
 }//namespace tpetra

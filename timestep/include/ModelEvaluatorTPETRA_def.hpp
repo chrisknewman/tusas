@@ -2101,7 +2101,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[0] = &tpetra::goldak::init_heat_;
     
     
-    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    dirichletfunc_ = NULL;
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
     
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]

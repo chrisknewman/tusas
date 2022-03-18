@@ -7181,8 +7181,8 @@ namespace goldak{
 TUSAS_DEVICE
 const double pi_d = 3.141592653589793;
 
-double te = 1706.;
-double tl = 1641.;
+double te = 1641.;
+double tl = 1706.;
 double Lf = 2.95e5;
 TUSAS_DEVICE
 double dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);//fl=(t-te)/(tl-te);
@@ -7340,9 +7340,9 @@ PARAM_FUNC(param_)
   //here we need the rest..
   //and pull fro xml
   //te = 1635.;// K
-  te = plist->get<double>("te_",1706.);
+  te = plist->get<double>("te_",1641.);
   //tl = 1706.;// K
-  tl = plist->get<double>("tl_",1641.);
+  tl = plist->get<double>("tl_",1706.);
   //Lf = 17.2;// kJ/mol
   Lf = plist->get<double>("Lf_",2.95e5);
 

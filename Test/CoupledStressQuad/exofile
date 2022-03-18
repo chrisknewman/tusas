@@ -1,4 +1,0 @@
-NODAL VARIABLES all relative 1.E-06 floor 1.e-17
-	pp2 floor 4.5e-13
-	xy_stress relative 1.1e-3
-ELEMENT VARIABLES all relative 1.E-06

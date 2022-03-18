@@ -23,8 +23,11 @@
 //teuchos support
 #include <Teuchos_RCP.hpp>
 
+#define TUSASMUELU
+#ifndef TUSASMUELU
 //#include <MueLu_HierarchyManager.hpp>
 #include <MueLu_TpetraOperator_fwd.hpp>
+#endif
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 
@@ -183,9 +186,11 @@ private:
   Teuchos::RCP<crs_graph_type>  W_overlap_graph_;
   Teuchos::RCP<matrix_type> P_;
   Teuchos::RCP<matrix_type> P;
+
+#ifndef TUSASMUELU
 //Teuchos::RCP<MueLu::HierarchyManager<scalar_type,local_ordinal_type, global_ordinal_type, node_type>> mueluFactory_;
   Teuchos::RCP<MueLu::TpetraOperator<scalar_type,local_ordinal_type, global_ordinal_type, node_type> > prec_;
-  
+#endif  
   int nnewt_;
   double dt_;
   double dtold_;
@@ -236,12 +241,21 @@ private:
   std::vector<RESFUNC> *residualfunc_;
 
 
-  typedef double (*PREFUNC)(const GPUBasis *basis, 
+#ifdef TUSAS3D
+  typedef double (*PREFUNC)(const GPUBasisLHex *basis, 
 			    const int &i,
 			    const int &j, 
 			    const double &dt_, 
 			    const double &t_theta_, 
 			    const int &eqn_id);
+#else
+  typedef double (*PREFUNC)(const GPUBasisLQuad *basis, 
+			    const int &i,
+			    const int &j, 
+			    const double &dt_, 
+			    const double &t_theta_, 
+			    const int &eqn_id);
+#endif
 
   std::vector<PREFUNC> *preconfunc_;
 

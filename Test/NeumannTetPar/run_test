@@ -1,5 +1,0 @@
-#!/bin/bash
-rm -rf results.e decomp
-#mpirun -np 4 ../../tusas --input-file=tusas.xml
-mpirun -np 1 $1/tusas --input-file=tusas.xml
-$1/exodiff -Floor 1e-14 Gold.e results.e

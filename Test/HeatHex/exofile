@@ -1,5 +1,0 @@
-NODAL VARIABLES all
-	grad0x floor 5.e-12
-	grad0y floor 5.e-12
-	grad0z floor 5.e-12
-	u

@@ -2135,7 +2135,7 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
 // 	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
 // 	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
 
-  dxidx = dydeta / jac;
+  double dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
   dxidz = 0.;
   detadx = -dydxi / jac;
@@ -2196,9 +2196,9 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
   double dphideta1[4][4];
   /// Access value of dphi / dzta  at the current Gauss point.
   double dphidzta[4];
-  
+private:
   /// Access value of dxi / dx  at the current Gauss point.
-  double dxidx;
+  //double dxidx;
   /// Access value of dxi / dy  at the current Gauss point.
   double dxidy;
   /// Access value of dxi / dz  at the current Gauss point.
@@ -2217,7 +2217,7 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
   double dztady;
   /// Access value of dzta / dz  at the current Gauss point.
   double dztadz;
-
+public:
   /// Access value of the Gauss weight  at the current Gauss point.
   double wt;
   /// Access value of the mapping Jacobian.
@@ -2325,6 +2325,7 @@ public:
   };
   TUSAS_CUDA_CALLABLE_MEMBER virtual ~GPUBasis(){//printf("~GPUBasis()\n");
   };
+#if 0
   TUSAS_CUDA_CALLABLE_MEMBER virtual void getBasis(const int gp,
 						   const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
@@ -2336,92 +2337,69 @@ public:
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM]) {};
 
-  
+#endif
     /// Access number of Gauss points.
-  int ngp;
+  TUSAS_CUDA_CALLABLE_MEMBER int ngp;
 
-  double phi[BASIS_NODES_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double phi[BASIS_NODES_PER_ELEM];
   //double dphidxi[BASIS_NODES_PER_ELEM];
   //double dphideta[BASIS_NODES_PER_ELEM];
 
   /// Access value of u at the current Gauss point.
-  double uu;
+  TUSAS_CUDA_CALLABLE_MEMBER double uu;
   /// Access value of u_old at the current Gauss point.
-  double uuold;
+  TUSAS_CUDA_CALLABLE_MEMBER double uuold;
   /// Access value of du / dx at the current Gauss point.
-  double dudx;
+  TUSAS_CUDA_CALLABLE_MEMBER double dudx;
   /// Access value of du / dy at the current Gauss point.
-  double dudy;
-  /// Access value of dxi / dx  at the current Gauss point.
-  double dxidx;
-  /// Access value of dxi / dy  at the current Gauss point.
-  double dxidy;
-  /// Access value of deta / dx  at the current Gauss point.
-  double detadx;
-  /// Access value of deta / dy  at the current Gauss point.
-  double detady;
+  TUSAS_CUDA_CALLABLE_MEMBER double dudy;
+  /// Access value of du / dz at the current Gauss point.
+  TUSAS_CUDA_CALLABLE_MEMBER double dudz;
   /// Access value of the derivative of the basis function wrt to x at the current Gauss point.
-  double dphidx[BASIS_NODES_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double dphidx[BASIS_NODES_PER_ELEM];
   /// Access value of the derivative of the basis function wrt to y at the current Gauss point.
-  double dphidy[BASIS_NODES_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double dphidy[BASIS_NODES_PER_ELEM];
+  /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
+  TUSAS_CUDA_CALLABLE_MEMBER double dphidz[BASIS_NODES_PER_ELEM];
 
   /// Access value of the Gauss weight  at the current Gauss point.
-  double wt;
+  TUSAS_CUDA_CALLABLE_MEMBER double wt;
   /// Access value of the mapping Jacobian.
-  double jac;
+  TUSAS_CUDA_CALLABLE_MEMBER double jac;
 
   // Variables that are calculated at the gauss point
-  /// Access number of Gauss points.
-  int sngp;
-  /// Access value of dphi / dzta  at the current Gauss point.
-  double dphidzta[BASIS_NODES_PER_ELEM];
-  
-  /// Access value of dxi / dz  at the current Gauss point.
-  double dxidz;
-
-  /// Access value of deta / dz  at the current Gauss point.
-  double detadz;
-
-  /// Access value of dzta / dx  at the current Gauss point.
-  double dztadx;
-  /// Access value of dzta / dy  at the current Gauss point.
-  double dztady;
-  /// Access value of dzta / dz  at the current Gauss point.
-  double dztadz;
-
-  /// Access value of du / dz at the current Gauss point.
-  double dudz;
 
   /// Access value of du_old / dx at the current Gauss point.
-  double duolddx;
+  TUSAS_CUDA_CALLABLE_MEMBER double duolddx;
   /// Access value of du_old / dy at the current Gauss point.
-  double duolddy;
+  TUSAS_CUDA_CALLABLE_MEMBER double duolddy;
   /// Access value of du_old / dz at the current Gauss point.
-  double duolddz;
+  TUSAS_CUDA_CALLABLE_MEMBER double duolddz;
 
   /// Access value of u_old_old at the current Gauss point.
-  double uuoldold;
+  TUSAS_CUDA_CALLABLE_MEMBER double uuoldold;
   /// Access value of du_old_old / dx at the current Gauss point.
-  double duoldolddx;
+  TUSAS_CUDA_CALLABLE_MEMBER double duoldolddx;
   /// Access value of du_old_old / dy at the current Gauss point.
-  double duoldolddy;
+  TUSAS_CUDA_CALLABLE_MEMBER double duoldolddy;
   /// Access value of du_old_old / dz at the current Gauss point.
-  double duoldolddz;
+  TUSAS_CUDA_CALLABLE_MEMBER double duoldolddz;
 
   /// Access value of x coordinate in real space at the current Gauss point.
-  double xx;
+  TUSAS_CUDA_CALLABLE_MEMBER double xx;
   /// Access value of y coordinate in real space at the current Gauss point.
-  double yy;
+  TUSAS_CUDA_CALLABLE_MEMBER double yy;
   /// Access value of z coordinate in real space at the current Gauss point.
-  double zz;
+  TUSAS_CUDA_CALLABLE_MEMBER double zz;
 
-  /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
-  double dphidz[BASIS_NODES_PER_ELEM];
-
-  double phinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidxinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidetanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+protected:
+  /// Access number of Gauss points.
+  TUSAS_CUDA_CALLABLE_MEMBER int sngp;
+  
+  TUSAS_CUDA_CALLABLE_MEMBER double phinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double dphidxinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double dphidetanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
 
   //we could also do phi[BASIS_NODES_PER_ELEM] and set each element explicity below...
   //double *phi;
@@ -2432,21 +2410,21 @@ public:
   //in general probably want abscissa[3] (or more) and xi[3*3*3], etc
 protected:
   /// Access a pointer to the coordinates of the Gauss points in canonical space.
-  double abscissa[BASIS_SNGP_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double abscissa[BASIS_SNGP_PER_ELEM];
   /// Access a pointer to the Gauss weights.
-  double weight[BASIS_SNGP_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double weight[BASIS_SNGP_PER_ELEM];
   /// Access a pointer to the xi coordinate at each Gauss point.
-  double xi[BASIS_NGP_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double xi[BASIS_NGP_PER_ELEM];
   //double *xi;
   /// Access a pointer to the eta coordinate at each Gauss point.
-  double eta[BASIS_NGP_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double eta[BASIS_NGP_PER_ELEM];
   /// Access a pointer to the zta coordinate at each Gauss point.
-  double zta[BASIS_NGP_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double zta[BASIS_NGP_PER_ELEM];
   /// Access the number of Gauss weights.
-  double nwt[BASIS_NGP_PER_ELEM];
+  TUSAS_CUDA_CALLABLE_MEMBER double nwt[BASIS_NGP_PER_ELEM];
 
   /// difference in nodal coordinates
-  double nodaldiff[36];//12 for lquad, 36 for lhex
+  TUSAS_CUDA_CALLABLE_MEMBER double nodaldiff[36];//12 for lquad, 36 for lhex
 
 
 };
@@ -2572,12 +2550,12 @@ public:
 //   double dzdxi  = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
 //   double dzdeta = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
 
-  double dxdxi  = .25*( (nodaldiff[0])*(1.-eta[gp])+(nodaldiff[6])*(1.+eta[gp]) );
-  double dxdeta = .25*( (nodaldiff[1])*(1.- xi[gp])+(nodaldiff[7])*(1.+ xi[gp]) );
-  double dydxi  = .25*( (nodaldiff[2])*(1.-eta[gp])+(nodaldiff[8])*(1.+eta[gp]) );
-  double dydeta = .25*( (nodaldiff[3])*(1.- xi[gp])+(nodaldiff[9])*(1.+ xi[gp]) );
-  double dzdxi  = .25*( (nodaldiff[4])*(1.-eta[gp])+(nodaldiff[10])*(1.+eta[gp]) );
-  double dzdeta = .25*( (nodaldiff[5])*(1.- xi[gp])+(nodaldiff[11])*(1.+ xi[gp]) );
+  const double dxdxi  = .25*( (nodaldiff[0])*(1.-eta[gp])+(nodaldiff[6])*(1.+eta[gp]) );
+  const double dxdeta = .25*( (nodaldiff[1])*(1.- xi[gp])+(nodaldiff[7])*(1.+ xi[gp]) );
+  const double dydxi  = .25*( (nodaldiff[2])*(1.-eta[gp])+(nodaldiff[8])*(1.+eta[gp]) );
+  const double dydeta = .25*( (nodaldiff[3])*(1.- xi[gp])+(nodaldiff[9])*(1.+ xi[gp]) );
+  const double dzdxi  = .25*( (nodaldiff[4])*(1.-eta[gp])+(nodaldiff[10])*(1.+eta[gp]) );
+  const double dzdeta = .25*( (nodaldiff[5])*(1.- xi[gp])+(nodaldiff[11])*(1.+ xi[gp]) );
 
 
 
@@ -2588,15 +2566,15 @@ public:
 	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
 	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
 
-  dxidx = dydeta / jac;
-  dxidy = -dxdeta / jac;
-  dxidz = 0.;
-  detadx = -dydxi / jac;
-  detady = dxdxi / jac;
-  detadz =0.;
-  dztadx =0.;
-  dztady =0.;
-  dztadz =0.;
+  const double dxidx = dydeta / jac;
+  const double dxidy = -dxdeta / jac;
+  const double dxidz = 0.;
+  const double detadx = -dydxi / jac;
+  const double detady = dxdxi / jac;
+  const double detadz =0.;
+  const double dztadx =0.;
+  const double dztady =0.;
+  const double dztadz =0.;
   // Caculate basis function and derivative at GP.
   xx=0.0;
   yy=0.0;
@@ -2613,7 +2591,6 @@ public:
   duoldolddx = 0.;
   duoldolddy = 0.;
   duoldolddz = 0.;
-  // x[i] is a vector of node coords, x(j, k) 
   for (int i=0; i < 4; i++) {
     xx += x[i] * phinew[gp][i];
     yy += y[i] * phinew[gp][i];
@@ -2621,7 +2598,6 @@ public:
     dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx;
     dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady;
     dphidz[i] = 0.0;
-    dphidzta[i]= 0.0;
     if( u ){
       uu += u[i] * phinew[gp][i];
       dudx += u[i] * dphidx[i];
@@ -2643,10 +2619,113 @@ public:
   }
 };
 
-class GPUBasisLHex:public GPUBasis{
+//class GPUBasisLHex:public GPUBasis{
+class GPUBasisLHex{
 public:
 
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLHex(const int n = 2){
+  KOKKOS_INLINE_FUNCTION
+  const int ngp() const {return ngpp;};
+  KOKKOS_INLINE_FUNCTION
+  const double uu() const {return uup;};
+  KOKKOS_INLINE_FUNCTION
+  const double uuold() const {return uuoldp;};
+  KOKKOS_INLINE_FUNCTION
+  const double uuoldold() const {return uuoldoldp;};
+  KOKKOS_INLINE_FUNCTION
+  const double dudx() const {return dudxp;};
+  KOKKOS_INLINE_FUNCTION
+  const double duolddx() const {return duolddxp;};
+  KOKKOS_INLINE_FUNCTION
+  const double duoldolddx() const {return duoldolddxp;};
+  KOKKOS_INLINE_FUNCTION
+  const double dudy() const {return dudyp;};
+  KOKKOS_INLINE_FUNCTION
+  const double duolddy() const {return duolddyp;};
+  KOKKOS_INLINE_FUNCTION
+  const double duoldolddy() const {return duoldolddyp;};
+  KOKKOS_INLINE_FUNCTION
+  const double dudz() const {return dudzp;};
+  KOKKOS_INLINE_FUNCTION
+  const double duolddz() const {return duolddzp;};
+  KOKKOS_INLINE_FUNCTION
+  const double duoldolddz() const {return duoldolddzp;};
+
+  KOKKOS_INLINE_FUNCTION
+  const double xx() const {return xxp;};
+  KOKKOS_INLINE_FUNCTION
+  const double yy() const {return yyp;};
+  KOKKOS_INLINE_FUNCTION
+  const double zz() const {return zzp;};
+
+  KOKKOS_INLINE_FUNCTION
+  const double phi(const int &i) const {return phip[i];};
+  KOKKOS_INLINE_FUNCTION
+  const double dphidx(const int &i) const {return dphidxp[i];};
+  KOKKOS_INLINE_FUNCTION
+  const double dphidy(const int &i) const {return dphidyp[i];};
+  KOKKOS_INLINE_FUNCTION
+  const double dphidz(const int &i) const {return dphidzp[i];};
+
+private:
+  /// Access number of Gauss points.
+  int sngp;  
+  /// Access value of the Gauss weight  at the current Gauss point.
+  double wt;
+  /// Access value of the mapping Jacobian.
+  double jac;
+  /// Access number of Gauss points.
+  int ngpp;
+  
+  double uup;
+  double uuoldp;
+  double uuoldoldp;
+  double dudxp;
+  double duolddxp;
+  double duoldolddxp;
+  double dudyp;
+  double duolddyp;
+  double duoldolddyp;
+  double dudzp;
+  double duolddzp;
+  double duoldolddzp;
+  double phip[BASIS_NODES_PER_ELEM];
+  double dphidxp[BASIS_NODES_PER_ELEM];
+  double dphidyp[BASIS_NODES_PER_ELEM];
+  double dphidzp[BASIS_NODES_PER_ELEM];
+  double xxp;
+  double yyp;
+  double zzp;
+
+  double phinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidxinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidetanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+
+  //also looks like abscissa, weight are only used in constructor...
+  /// Access a pointer to the coordinates of the Gauss points in canonical space.
+  double abscissa[BASIS_SNGP_PER_ELEM];
+  /// Access a pointer to the Gauss weights.
+  double weight[BASIS_SNGP_PER_ELEM];
+
+  /// Access a pointer to the xi coordinate at each Gauss point.
+  double xi[BASIS_NGP_PER_ELEM];
+  //double *xi;
+  /// Access a pointer to the eta coordinate at each Gauss point.
+  double eta[BASIS_NGP_PER_ELEM];
+  /// Access a pointer to the zta coordinate at each Gauss point.
+  double zta[BASIS_NGP_PER_ELEM];
+
+  /// Access the number of Gauss weights.
+  double nwt[BASIS_NGP_PER_ELEM];
+
+  /// difference in nodal coordinates
+  double nodaldiff[36];//12 for lquad, 36 for lhex
+
+public:
+  //TUSAS_CUDA_CALLABLE_MEMBER 
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisLHex(){
+    const int n = 2;
     sngp = n;
     if( 3 == n){
       abscissa[0] = -3.872983346207417/5.0;
@@ -2671,54 +2750,14 @@ public:
       weight[0] = 1.0;
       weight[1] = 1.0;
     }
-    ngp = sngp*sngp*sngp;
+    ngpp = sngp*sngp*sngp;
 
-#if 0
-    xi[0] = abscissa[0];  // 0, 0, 0
-    eta[0] = abscissa[0];
-    zta[0] = abscissa[0];
-    nwt[0] = weight[0] * weight[0] * weight[0];
-
-    xi[1] = abscissa[1]; // 1, 0, 0
-    eta[1] = abscissa[0];
-    zta[1] = abscissa[0];
-    nwt[1] = weight[0] * weight[1] * weight[0];
-
-    xi[2] = abscissa[1]; // 1, 1, 0
-    eta[2] = abscissa[1];
-    zta[2] = abscissa[0];
-    nwt[2] = weight[1] * weight[1] * weight[0];
-
-    xi[3] = abscissa[0];  //0, 1, 0
-    eta[3] = abscissa[1];
-    zta[3] = abscissa[0];
-    nwt[3] = weight[0] * weight[1] * weight[0];
-
-    xi[4] = abscissa[0];  // 0, 0, 1
-    eta[4] = abscissa[0];
-    zta[4] = abscissa[1];
-    nwt[4] = weight[0] * weight[0] * weight[1];
-
-    xi[5] = abscissa[1]; // 1, 0, 1
-    eta[5] = abscissa[0];
-    zta[5] = abscissa[1];
-    nwt[5] = weight[0] * weight[1] * weight[1];
-
-    xi[6] = abscissa[1]; // 1, 1, 1
-    eta[6] = abscissa[1];
-    zta[6] = abscissa[1];
-    nwt[6] = weight[1] * weight[1] * weight[1];
-
-    xi[7] = abscissa[0];  //0, 1, 1
-    eta[7] = abscissa[1];
-    zta[7] = abscissa[1];
-    nwt[7] = weight[0] * weight[1] * weight[1];
-#endif
     int c = 0;
     for( int i = 0; i < sngp; i++ ){
       for( int j = 0; j < sngp; j++ ){
 	for( int k = 0; k < sngp; k++ ){
 	  //std::cout<<i+j+k+c<<"   "<<i<<"   "<<j<<"   "<<k<<std::endl;
+	  //printf("%d\n",i+j+k+c);
 	  xi[i+j+k+c]  = abscissa[i];
 	  eta[i+j+k+c] = abscissa[j];
 	  zta[i+j+k+c] = abscissa[k];
@@ -2730,7 +2769,7 @@ public:
     }
     //exit(0);
 
-    for(int gp = 0; gp < ngp; gp++){
+    for(int gp = 0; gp < ngpp; gp++){
       phinew[gp][0]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
       phinew[gp][1]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
       phinew[gp][2]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
@@ -2770,10 +2809,12 @@ public:
     //printf("GPUBasisLHex()\n");
   }
   
-  TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLHex(){//printf("~GPUBasisLHex()\n");
+  //TUSAS_CUDA_CALLABLE_MEMBER 
+  KOKKOS_INLINE_FUNCTION ~GPUBasisLHex(){//printf("~GPUBasisLHex()\n");
   }
 
-  TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
+  //TUSAS_CUDA_CALLABLE_MEMBER
+  KOKKOS_INLINE_FUNCTION void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM]) {
     nodaldiff[0] = x[1]-x[0];
@@ -2819,7 +2860,8 @@ public:
 
 }
   
-  TUSAS_CUDA_CALLABLE_MEMBER virtual void getBasis(const int gp,
+  //TUSAS_CUDA_CALLABLE_MEMBER
+  KOKKOS_INLINE_FUNCTION double getBasis(const int gp,
 						   const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM],
@@ -2828,7 +2870,7 @@ public:
 						   const double uoldold[BASIS_NODES_PER_ELEM]) {
   
     for (int i=0; i < 8; i++) {
-      phi[i]=phinew[gp][i];
+      phip[i]=phinew[gp][i];
     }  
     // Caculate basis function and derivative at GP.
 //     double dxdxi  = 0.125*( (x[1]-x[0])*(1.-eta[gp])*(1.-zta[gp]) + (x[2]-x[3])*(1.+eta[gp])*(1.-zta[gp]) 
@@ -2852,89 +2894,93 @@ public:
 //     double dzdzta = 0.125*( (z[4]-z[0])*(1.- xi[gp])*(1.-eta[gp]) + (z[5]-z[1])*(1.+ xi[gp])*(1.-eta[gp])
 // 			    + (z[6]-z[2])*(1.+ xi[gp])*(1.+eta[gp]) + (z[7]-z[3])*(1.- xi[gp])*(1.+eta[gp]) );
 
-    double dxdxi  = 0.125*( (nodaldiff[0])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[9])*(1.+eta[gp])*(1.-zta[gp]) 
+    const double dxdxi  = 0.125*( (nodaldiff[0])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[9])*(1.+eta[gp])*(1.-zta[gp]) 
 			    + (nodaldiff[18])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[27])*(1.+eta[gp])*(1.+zta[gp]) );
-    double dxdeta = 0.125*( (nodaldiff[1])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[10])*(1.+ xi[gp])*(1.-zta[gp]) 
+    const double dxdeta = 0.125*( (nodaldiff[1])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[10])*(1.+ xi[gp])*(1.-zta[gp]) 
 			    + (nodaldiff[19])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[28])*(1.+ xi[gp])*(1.+zta[gp]) );
-    double dxdzta = 0.125*( (nodaldiff[2])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[11])*(1.+ xi[gp])*(1.-eta[gp])
+    const double dxdzta = 0.125*( (nodaldiff[2])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[11])*(1.+ xi[gp])*(1.-eta[gp])
 			    + (nodaldiff[20])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[29])*(1.- xi[gp])*(1.+eta[gp]) );
     
-    double dydxi  = 0.125*( (nodaldiff[3])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[12])*(1.+eta[gp])*(1.-zta[gp])
+    const double dydxi  = 0.125*( (nodaldiff[3])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[12])*(1.+eta[gp])*(1.-zta[gp])
 			    + (nodaldiff[21])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[30])*(1.+eta[gp])*(1.+zta[gp]) );
-    double dydeta = 0.125*( (nodaldiff[4])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[13])*(1.+ xi[gp])*(1.-zta[gp]) 
+    const double dydeta = 0.125*( (nodaldiff[4])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[13])*(1.+ xi[gp])*(1.-zta[gp]) 
 			    + (nodaldiff[22])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[31])*(1.+ xi[gp])*(1.+zta[gp]) );
-    double dydzta = 0.125*( (nodaldiff[5])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[14])*(1.+ xi[gp])*(1.-eta[gp])
+    const double dydzta = 0.125*( (nodaldiff[5])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[14])*(1.+ xi[gp])*(1.-eta[gp])
 			    + (nodaldiff[23])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[32])*(1.- xi[gp])*(1.+eta[gp]) );
     
-    double dzdxi  = 0.125*( (nodaldiff[6])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[15])*(1.+eta[gp])*(1.-zta[gp])
+    const double dzdxi  = 0.125*( (nodaldiff[6])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[15])*(1.+eta[gp])*(1.-zta[gp])
 			    + (nodaldiff[24])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[33])*(1.+eta[gp])*(1.+zta[gp]) );
-    double dzdeta = 0.125*( (nodaldiff[7])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[16])*(1.+ xi[gp])*(1.-zta[gp]) 
+    const double dzdeta = 0.125*( (nodaldiff[7])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[16])*(1.+ xi[gp])*(1.-zta[gp]) 
 			    + (nodaldiff[25])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[34])*(1.+ xi[gp])*(1.+zta[gp]) );
-    double dzdzta = 0.125*( (nodaldiff[8])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[17])*(1.+ xi[gp])*(1.-eta[gp])
+    const double dzdzta = 0.125*( (nodaldiff[8])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[17])*(1.+ xi[gp])*(1.-eta[gp])
 			    + (nodaldiff[26])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[35])*(1.- xi[gp])*(1.+eta[gp]) );
     
     wt = nwt[gp];
     
+//     const double jac1 = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
+//       + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
+//     jac = jac1;
     jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
       + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
+    const double jaci = 1./jac;
     
+    const double dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) * jaci;
+    const double dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) * jaci;
+    const double dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) * jaci;
     
-    dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
-    dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
-    dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;
+    const double detadx =  ( dydzta*dzdxi - dydxi*dzdzta) * jaci;
+    const double detady =  (-dxdzta*dzdxi + dxdxi*dzdzta) * jaci;
+    const double detadz =  ( dxdzta*dydxi - dxdxi*dydzta) * jaci;
     
-    detadx =  ( dydzta*dzdxi - dydxi*dzdzta) / jac;
-    detady =  (-dxdzta*dzdxi + dxdxi*dzdzta) / jac;
-    detadz =  ( dxdzta*dydxi - dxdxi*dydzta) / jac;
-    
-    dztadx =  ( dydxi*dzdeta - dydeta*dzdxi) / jac;
-    dztady =  (-dxdxi*dzdeta + dxdeta*dzdxi) / jac;
-    dztadz =  ( dxdxi*dydeta - dxdeta*dydxi) / jac;
+    const double dztadx =  ( dydxi*dzdeta - dydeta*dzdxi) * jaci;
+    const double dztady =  (-dxdxi*dzdeta + dxdeta*dzdxi) * jaci;
+    const double dztadz =  ( dxdxi*dydeta - dxdeta*dydxi) * jaci;
     // Caculate basis function and derivative at GP.
-    xx=0.0;
-    yy=0.0;
-    zz=0.0;
-    uu=0.0;
-    uuold=0.0;
-    uuoldold=0.0;
-    dudx=0.0;
-    dudy=0.0;
-    dudz=0.0;
-    duolddx = 0.;
-    duolddy = 0.;
-    duolddz = 0.;
-    duoldolddx = 0.;
-    duoldolddy = 0.;
-    duoldolddz = 0.;
+    xxp=0.0;
+    yyp=0.0;
+    zzp=0.0;
+    uup=0.0;
+    uuoldp=0.0;
+    uuoldoldp=0.0;
+    dudxp=0.0;
+    dudyp=0.0;
+    dudzp=0.0;
+    duolddxp = 0.;
+    duolddyp = 0.;
+    duolddzp = 0.;
+    duoldolddxp = 0.;
+    duoldolddyp = 0.;
+    duoldolddzp = 0.;
     // x[i] is a vector of node coords, x(j, k) 
     for (int i=0; i < 8; i++) {
-      xx += x[i] * phinew[gp][i];
-      yy += y[i] * phinew[gp][i];
-      zz += z[i] * phinew[gp][i];
-      dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx+dphidztanew[gp][i]*dztadx;
-      dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady+dphidztanew[gp][i]*dztady;
-      dphidz[i] = dphidxinew[gp][i]*dxidz+dphidetanew[gp][i]*detadz+dphidztanew[gp][i]*dztadz;
-      if( u ){
-	uu += u[i] * phinew[gp][i];
-	dudx += u[i] * dphidx[i];
-	dudy += u[i] * dphidy[i];
-	dudz += u[i] * dphidz[i];
-      }
-      if( uold ){
-	uuold += uold[i] * phinew[gp][i];
-	duolddx += uold[i] * dphidx[i];
-	duolddy += uold[i] * dphidy[i];
-	duolddz += uold[i] * dphidz[i];
+      xxp += x[i] * phinew[gp][i];
+      yyp += y[i] * phinew[gp][i];
+      zzp += z[i] * phinew[gp][i];
+      dphidxp[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx+dphidztanew[gp][i]*dztadx;
+      dphidyp[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady+dphidztanew[gp][i]*dztady;
+      dphidzp[i] = dphidxinew[gp][i]*dxidz+dphidetanew[gp][i]*detadz+dphidztanew[gp][i]*dztadz;
+	//if( u ){
+	uup += u[i] * phinew[gp][i];
+	dudxp += u[i] * dphidxp[i];
+	dudyp += u[i] * dphidyp[i];
+	dudzp += u[i] * dphidzp[i];
+	//}
+	//if( uold ){
+	uuoldp += uold[i] * phinew[gp][i];
+	duolddxp += uold[i] * dphidxp[i];
+	duolddyp += uold[i] * dphidyp[i];
+	duolddzp += uold[i] * dphidzp[i];
 	//exit(0);
-      }
-      if( uoldold ){
-	uuoldold += uoldold[i] * phinew[gp][i];
-	duoldolddx += uoldold[i] * dphidx[i];
-	duoldolddy += uoldold[i] * dphidy[i];
-	duoldolddz += uoldold[i] * dphidz[i];
-      }
+	//}
+	//if( uoldold ){
+	uuoldoldp += uoldold[i] * phinew[gp][i];
+	duoldolddxp += uoldold[i] * dphidxp[i];
+	duoldolddyp += uoldold[i] * dphidyp[i];
+	duoldolddzp += uoldold[i] * dphidzp[i];
+	//}
     }
-    return;
+
+    return jac*wt;
   }
 };
 

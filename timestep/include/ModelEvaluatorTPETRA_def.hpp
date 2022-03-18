@@ -620,7 +620,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 			     //new((RESFUNC*)rf) &tpetra::heat::residual_heat_test_dp_;
 			     RESFUNC rf;
-			     rf = tpetra::heat::residual_heat_test_;
+			     rf = tpetra::goldak::residual_test_;
+			     //rf = tpetra::heat::residual_heat_test_;
 			     // 			     RESFUNC1 fp = tpetra::heat::residual_heat_test_p;
 // 			     flist = fp;
 
@@ -2121,29 +2122,31 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[0] = "u";
     
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::radconvbc::init_heat_;
+    (*initfunc_)[0] = &tpetra::goldak::init_heat_;
     
     
-    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    dirichletfunc_ = NULL;
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
     
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]
     //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &tpetra::radconvbc::dbc_;						 
+    //(*dirichletfunc_)[0][1] = &tpetra::radconvbc::dbc_;						 
     //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &tpetra::radconvbc::dbc_;
+    //(*dirichletfunc_)[0][3] = &tpetra::radconvbc::dbc_;
 
     paramfunc_.resize(2);
     paramfunc_[0] = &tpetra::heat::param_;
     paramfunc_[1] = &tpetra::radconvbc::param_;
+    paramfunc_[2] = &tpetra::goldak::param_;
 
     // numeqs_ number of variables(equations) 
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
     //(*neumannfunc_)[0][0] = &tpetra::robin::nbc_robin_test_;								 
     //(*neumannfunc_)[0][1] = &nbc_zero_;						 
-    (*neumannfunc_)[0][2] = &tpetra::radconvbc::nbc_;						 
+    (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;						 
     //(*neumannfunc_)[0][3] = &nbc_zero_;
 
     //post_proc.push_back(new post_process(Comm,mesh_,(int)0));

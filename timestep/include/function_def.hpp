@@ -7217,7 +7217,7 @@ const double qdot(const double &x, const double &y, const double &z, const doubl
 //   const double P = (t<t_hold_) ? P_d : 0.;
   const double P = (t < t_hold_d) ? P_d : 
     ((t<t_hold_d+t_decay_d) ? P_d*(t-(t_hold_d+t_decay_d))/(-t_decay_d)
-     :0);
+     :0.);
   //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
   const double coef = eta_d*P*5.19615/r_d/r_d/d_d/gamma_d/pi_d;
 
@@ -7226,6 +7226,8 @@ const double qdot(const double &x, const double &y, const double &z, const doubl
 			    ((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d+(z-z0_d)*(z-z0_d)/d_d/d_d
 			    )
 		       );
+//   if((coef!=coef)||(f!=f))
+//     printf("%lf %lf\n",coef,f);
   return coef*f;
 }
 
@@ -7242,6 +7244,7 @@ RES_FUNC_TPETRA(residual_test_)
 						    t_theta2_,
 						    time,
 						    eqn_id);
+  //printf("%f \n",val);
   //better 3pt derivatives, see difference.nb and inspiration at
   //https://link.springer.com/content/pdf/10.1007/BF02510406.pdf
   const double ut[3] = {dfldt_d*((1. + dt_/dtold_)*(basis[0]->uu-basis[0]->uuold)/dt_
@@ -7261,12 +7264,15 @@ RES_FUNC_TPETRA(residual_test_)
   const double qd[3] = {-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time)*basis[eqn_id]->phi[i],
 			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_)*basis[eqn_id]->phi[i],
 			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_-dtold_)*basis[eqn_id]->phi[i]};
-  return (val + (1.-t_theta2_)*t_theta_*qd[0]
+  double rv = (val + (1.-t_theta2_)*t_theta_*qd[0]
 	  + (1.-t_theta2_)*(1.-t_theta_)*qd[1]
 	  +.5*t_theta2_*((2.+dt_/dtold_)*qd[1]-dt_/dtold_*qd[2])
 	  + (1.-t_theta2_)*t_theta_*ut[0]
 	  + (1.-t_theta2_)*(1.-t_theta_)*ut[1]
 	  +.5*t_theta2_*((2.+dt_/dtold_)*ut[1]-dt_/dtold_*ut[2]));// /tpetra::heat::rho_d/tpetra::heat::cp_d;
+  //printf("%f\n",rv);
+  printf("%f %f %f\n",ut[0],ut[1],ut[2]);
+  return rv;
 }
 
 TUSAS_DEVICE
@@ -7317,7 +7323,8 @@ PPR_FUNC(postproc_u_)
   //const double y = xyz[1];
   //const double z = xyz[2];
 
-  return u[0];
+  //return u[0];
+  return uold[0];
 }
 
 PARAM_FUNC(param_)

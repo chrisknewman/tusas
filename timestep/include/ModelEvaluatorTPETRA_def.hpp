@@ -1448,6 +1448,9 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 
   }//iter
 
+  dtold_ = dt_;
+  time_ += dt_;
+  postprocess();
   //*u_old_old_ = *u_old_;
   u_old_old_->update(1.,*u_old_,0.);
   //*u_old_ = *u_new_;
@@ -1460,9 +1463,6 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
   }
   ++numsteps_;   
 
-  dtold_ = dt_;
-  time_ += dt_;
-  postprocess();
   dt_ = dtpred;
   return dtold_;
 }
@@ -2122,8 +2122,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //neumannfunc_ = NULL;
     (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;
 
-//     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-//     post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_qdot_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_qdot_;
 
 //     post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
 //     post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_u_;
@@ -2549,18 +2549,20 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
   const int dim = 3;
 
   std::vector<double> uu(numeqs_);
-  //std::vector<double> uuold(numeqs_);
-  //std::vector<double> uuoldold(numeqs_);
+  std::vector<double> uuold(numeqs_);
+  std::vector<double> uuoldold(numeqs_);
   std::vector<double> ug(dim*numee);
 
-  auto uview = u_old_->get1dView();
+  auto uview = u_new_->get1dView();
+  auto uoldview = u_old_->get1dView();
+  auto uoldoldview = u_old_old_->get1dView();
 
   for (int nn=0; nn < num_owned_nodes_; nn++) {
 
     for( int k = 0; k < numeqs_; k++ ){
       uu[k] = uview[numeqs_*nn+k];
-      //uuold[k] = (*u_old_old_)[numeqs_*nn+k];
-      //uuoldold[k] = (*u_old_old_old_)[numeqs_*nn+k];
+      uuold[k] = uoldview[numeqs_*nn+k];
+      uuoldold[k] = uoldoldview[numeqs_*nn+k];
     }
 
     for( int k = 0; k < numee; k++ ){
@@ -2571,7 +2573,7 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
 
     boost::ptr_vector<post_process>::iterator itp;
     for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      itp->process(nn,&uu[0],NULL,NULL,&ug[0],time_,dt_,dt_);
+      itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
     }
 //     for(itp = temporal_est.begin();itp != temporal_est.end();++itp){
 //       itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);

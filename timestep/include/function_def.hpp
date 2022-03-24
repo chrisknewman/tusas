@@ -7185,7 +7185,7 @@ double te = 1641.;
 double tl = 1706.;
 double Lf = 2.95e5;
 TUSAS_DEVICE
-double dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);//fl=(t-te)/(tl-te);
+double dfldu_mushy_d = tpetra::heat::rho_d*Lf/(tl-te);//fl=(t-te)/(tl-te);
 
 TUSAS_DEVICE
 double eta_d = 0.3;
@@ -7242,20 +7242,37 @@ RES_FUNC_TPETRA(residual_test_)
 						    t_theta2_,
 						    time,
 						    eqn_id);
+  //the latent heat term is zero outside of the mushy region (ie outside Te < T < Tl)
+  const double dfldu_d[3] = {((basis[0]->uu > te) && (basis[0]->uu < tl)) ? dfldu_mushy_d : 0.0,
+                             ((basis[0]->uuold > te) && (basis[0]->uuold < tl)) ? dfldu_mushy_d : 0.0,
+                             ((basis[0]->uuoldold > te) && (basis[0]->uuoldold < tl)) ? dfldu_mushy_d : 0.0};  
+
   //better 3pt derivatives, see difference.nb and inspiration at
   //https://link.springer.com/content/pdf/10.1007/BF02510406.pdf
-  const double ut[3] = {dfldt_d*((1. + dt_/dtold_)*(basis[0]->uu-basis[0]->uuold)/dt_
+  //apply chain rule: dfldt = dfldu * dudt, and evaluate dfldu for the current value of u
+  const double ut[3] = {dfldu_d[0]*((1. + dt_/dtold_)*(basis[0]->uu-basis[0]->uuold)/dt_
 				 -dt_/dtold_*(basis[0]->uu-basis[0]->uuoldold)/(dt_+dtold_)
 				 )*basis[eqn_id]->phi[i],
-			dfldt_d*(dtold_/dt_/(dt_+dtold_)*(basis[0]->uu)
+			dfldu_d[0]*(dtold_/dt_/(dt_+dtold_)*(basis[0]->uu)
 				 -(dtold_-dt_)/dt_/dtold_*(basis[0]->uuold)
 				 -dt_/dtold_/(dt_+dtold_)*(basis[0]->uuoldold)
 				 )*basis[eqn_id]->phi[i],
-			dfldt_d*(-(1.+dtold_/dt_)*(basis[0]->uuoldold-basis[0]->uuold)/dtold_
+			dfldu_d[0]*(-(1.+dtold_/dt_)*(basis[0]->uuoldold-basis[0]->uuold)/dtold_
 				 +dtold_/dt_*(basis[0]->uuoldold-basis[0]->uu)/(dtold_+dt_)
 				 )*basis[eqn_id]->phi[i]};
-
-  //const double rhs = (ut*dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time))*basis[eqn_id]->phi[i];
+  /*
+  const double ut[3] = {((1. + dt_/dtold_)*(dfldu_d[0]*basis[0]->uu-dfldu_d[1]*basis[0]->uuold)/dt_
+                                 -dt_/dtold_*(dfldu_d[0]*basis[0]->uu-dfldu_d[2]*basis[0]->uuoldold)/(dt_+dtold_)
+                                 )*basis[eqn_id]->phi[i],
+                        (dtold_/dt_/(dt_+dtold_)*(dfldu_d[0]*basis[0]->uu)
+                                 -(dtold_-dt_)/dt_/dtold_*(dfldu_d[1]*basis[0]->uuold)
+                                 -dt_/dtold_/(dt_+dtold_)*(dfldu_d[2]*basis[0]->uuoldold)
+                                 )*basis[eqn_id]->phi[i],
+                        (-(1.+dtold_/dt_)*(dfldu_d[3]*basis[0]->uuoldold-dfldu_d[1]*basis[0]->uuold)/dtold_
+                                 +dtold_/dt_*(dfldu_d[2]*basis[0]->uuoldold-dfldu_d[0]*basis[0]->uu)/(dtold_+dt_)
+                                 )*basis[eqn_id]->phi[i]};
+  */
+  //const double rhs = (ut*dfldu_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time))*basis[eqn_id]->phi[i];
   //std::cout<<val<<" "<<qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz)<<std::endl;
   //return val + rhs;
   const double qd[3] = {-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time)*basis[eqn_id]->phi[i],
@@ -7346,8 +7363,6 @@ PARAM_FUNC(param_)
   //Lf = 17.2;// kJ/mol
   Lf = plist->get<double>("Lf_",2.95e5);
 
-  dfldt_d = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
-
   //eta_d = 0.3;//dimensionless
   eta_d = plist->get<double>("eta_",0.3);
   //P_d = 50.;// W
@@ -7368,7 +7383,7 @@ PARAM_FUNC(param_)
   t_hold_d = plist->get<double>("t_hold_",0.0005);
   t_decay_d = plist->get<double>("t_decay_",0.01);
 
-  dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);
+  dfldu_mushy_d = tpetra::heat::rho_d*Lf/(tl-te); //fl=(t-te)/(tl-te);
 }
 }//namespace goldak
 }//namespace tpetra

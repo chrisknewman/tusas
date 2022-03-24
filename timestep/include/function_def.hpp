@@ -7271,7 +7271,7 @@ RES_FUNC_TPETRA(residual_test_)
 	  + (1.-t_theta2_)*(1.-t_theta_)*ut[1]
 	  +.5*t_theta2_*((2.+dt_/dtold_)*ut[1]-dt_/dtold_*ut[2]));// /tpetra::heat::rho_d/tpetra::heat::cp_d;
   //printf("%f\n",rv);
-  printf("%f %f %f\n",ut[0],ut[1],ut[2]);
+  //printf("%f %f %f\n",ut[0],ut[1],ut[2]);
   return rv;
 }
 
@@ -7324,7 +7324,7 @@ PPR_FUNC(postproc_u_)
   //const double z = xyz[2];
 
   //return u[0];
-  return uold[0];
+  return uoldold[0];
 }
 
 PARAM_FUNC(param_)

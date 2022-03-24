@@ -1463,9 +1463,6 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
   }
   ++numsteps_;   
 
-  //dtold_ = dt_;
-  //time_ += dt_;
-  //postprocess();
   dt_ = dtpred;
   return dtold_;
 }
@@ -2575,7 +2572,7 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
 
     boost::ptr_vector<post_process>::iterator itp;
     for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dt_);
+      itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
     }
 
   }//nn

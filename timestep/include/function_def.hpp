@@ -7250,6 +7250,7 @@ RES_FUNC_TPETRA(residual_test_)
   //better 3pt derivatives, see difference.nb and inspiration at
   //https://link.springer.com/content/pdf/10.1007/BF02510406.pdf
   //apply chain rule: dfldt = dfldu * dudt, and evaluate dfldu for the current value of u
+  /*
   const double ut[3] = {dfldu_d[0]*((1. + dt_/dtold_)*(basis[0]->uu-basis[0]->uuold)/dt_
 				 -dt_/dtold_*(basis[0]->uu-basis[0]->uuoldold)/(dt_+dtold_)
 				 )*basis[eqn_id]->phi[i],
@@ -7260,7 +7261,7 @@ RES_FUNC_TPETRA(residual_test_)
 			dfldu_d[0]*(-(1.+dtold_/dt_)*(basis[0]->uuoldold-basis[0]->uuold)/dtold_
 				 +dtold_/dt_*(basis[0]->uuoldold-basis[0]->uu)/(dtold_+dt_)
 				 )*basis[eqn_id]->phi[i]};
-  /*
+  */
   const double ut[3] = {((1. + dt_/dtold_)*(dfldu_d[0]*basis[0]->uu-dfldu_d[1]*basis[0]->uuold)/dt_
                                  -dt_/dtold_*(dfldu_d[0]*basis[0]->uu-dfldu_d[2]*basis[0]->uuoldold)/(dt_+dtold_)
                                  )*basis[eqn_id]->phi[i],
@@ -7268,10 +7269,10 @@ RES_FUNC_TPETRA(residual_test_)
                                  -(dtold_-dt_)/dt_/dtold_*(dfldu_d[1]*basis[0]->uuold)
                                  -dt_/dtold_/(dt_+dtold_)*(dfldu_d[2]*basis[0]->uuoldold)
                                  )*basis[eqn_id]->phi[i],
-                        (-(1.+dtold_/dt_)*(dfldu_d[3]*basis[0]->uuoldold-dfldu_d[1]*basis[0]->uuold)/dtold_
+                        (-(1.+dtold_/dt_)*(dfldu_d[2]*basis[0]->uuoldold-dfldu_d[1]*basis[0]->uuold)/dtold_
                                  +dtold_/dt_*(dfldu_d[2]*basis[0]->uuoldold-dfldu_d[0]*basis[0]->uu)/(dtold_+dt_)
                                  )*basis[eqn_id]->phi[i]};
-  */
+  
   //const double rhs = (ut*dfldu_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time))*basis[eqn_id]->phi[i];
   //std::cout<<val<<" "<<qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz)<<std::endl;
   //return val + rhs;

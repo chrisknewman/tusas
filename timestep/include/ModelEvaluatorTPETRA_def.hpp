@@ -1383,6 +1383,8 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 	}//if
       }//if
 
+      if( 0 == mypid )
+	std::cout<<" Corrector step started"<<std::endl;
       NOX::Thyra::Vector thyraguess(*guess);
       solver_->reset(thyraguess);
       
@@ -1397,6 +1399,8 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 	  exit(0);
 	}
       }//if
+      if( 0 == mypid )
+	std::cout<<" Corrector step ended"<<std::endl;
       numit++;
     }//timer
     nnewt_ += solver_->getNumIterations();
@@ -2640,6 +2644,7 @@ void ModelEvaluatorTPETRA<Scalar>::init_P_()
 template<class Scalar>
 double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
 {
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
   double dtpred = 0.;
   //std::cout<<std::setprecision(std::numeric_limits<double>::digits10 + 1);
   Teuchos::ParameterList *atsList;
@@ -2670,7 +2675,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   std::vector<double> error(numeqs_);
   std::vector<double> norm(numeqs_,0.);
   
-  if( 0 == Comm->MyPID()){
+  if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Estimating timestep size:"<<std::endl;
     std::cout<<"     using "<<atsList->get<std::string> (TusasatstypeNameString)
 	     <<" and theta = "<<t_theta_<<std::endl;
@@ -2723,11 +2728,11 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   //dtpred = std::min(dt1,dt2);//not sure if we want the smallest max????? ie dt1??
   dtpred = dt1;
 
-  if( 0 == Comm->MyPID()){
+  if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	
   }
   dtpred = std::min(dtpred,dtmax);
-  if( 0 == Comm->MyPID()){
+  if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"           min(dtpred,dtmax) : "<<dtpred<<std::endl<<std::endl;	
   }  
   return dtpred;
@@ -2739,7 +2744,8 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
   //right now theta2=0 corresponds to FE, BE and TR
   //theta2=1 corresponds to AB
 
-  if( 0 == Comm->MyPID()){
+  auto comm_ = Teuchos::DefaultComm<int>::getComm();
+  if( 0 == comm_->getRank()){
     std::cout<<std::endl<<std::endl<<std::endl<<"     Predictor step started"<<std::endl;	
   }
 
@@ -2753,7 +2759,7 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
   t_theta_ = 0.;
 
   Teuchos::RCP< ::Thyra::VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
-  NOX::Thyra::Vector thyraguess(*guess);//by sending the dereferenced pointer, we instigate a copy rather than a view
+  NOX::Thyra::Vector thyraguess(*guess);
   predictor_->reset(thyraguess);
 
   {
@@ -2777,17 +2783,19 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
     }
   } 
 
-  if( 0 == Comm->MyPID()){
-    std::cout<<std::endl<<"     Predictor step ended"<<std::endl<<std::endl<<std::endl;
-  }
-
   t_theta_ = t_theta_temp;
   t_theta2_ = 0.;
+  //comm_->barrier();
+  if( 0 == comm_->getRank()){
+    std::cout<<std::endl<<"     Predictor step ended"<<std::endl<<std::endl<<std::endl;
+  }
+  //exit(0);
  }
 
 template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::initialsolve()
  {     
+   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
    //right now, for TR it doesn't really matter in turns of performance if we set theta to 1
    //here or leave it at .5
    const double t_theta_temp = t_theta_;
@@ -2795,7 +2803,7 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
    
    t_theta2_ = 0.;
    
-   if( 0 == Comm->MyPID()) 
+   if( 0 == comm_->getRank()) 
      std::cout<<std::endl<<"Performing initial NOX solve"<<std::endl<<std::endl;
    
    Teuchos::RCP< ::Thyra::VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
@@ -2809,7 +2817,7 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
      exit(0);
    }
     
-   if( 0 == Comm->MyPID()) 
+   if( 0 == comm_->getRank()) 
      std::cout<<std::endl<<"Initial NOX solve completed"<<std::endl<<std::endl;
    const Thyra::VectorBase<double> * sol = 
      &(dynamic_cast<const NOX::Thyra::Vector&>(

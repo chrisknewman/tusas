@@ -7324,7 +7324,7 @@ PPR_FUNC(postproc_u_)
   //const double z = xyz[2];
 
   //return u[0];
-  return uoldold[0];
+  return uold[0];
 }
 
 PARAM_FUNC(param_)

@@ -129,6 +129,10 @@ private:
   int eqn_id_;
   /// Variable and file base name
   std::string basename_;
+  /// restart boolean
+  bool restart_;
+  /// write files boolean
+  //bool write_files_;
 
 
 

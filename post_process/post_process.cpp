@@ -56,7 +56,12 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   if ( (0 == comm_->MyPID()) && (s_op_ != NONE) ){
     filename_ = ystring+".dat";
     std::ofstream outfile;
-    outfile.open(filename_);
+    restart_ = false;
+    if( restart_ ){
+      outfile.open(filename_, std::ios::app );
+    }else{
+      outfile.open(filename_);
+    }
     outfile.close();
   }
 

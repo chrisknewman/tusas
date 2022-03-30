@@ -1576,6 +1576,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 {
+  bool dorestart = paramList.get<bool> (TusasrestartNameString);
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
   if( 0 == comm_->getRank()) std::cout<<std::endl<<"set_test_case started"<<std::endl<<std::endl;
  
@@ -2126,9 +2127,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //neumannfunc_ = NULL;
     (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE,dorestart));
     post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_qdot_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE,dorestart));
     post_proc[1].postprocfunc_ = &tpetra::goldak::postproc_u_;
 
   } else {
@@ -2850,6 +2851,7 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
 template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
   {
+    bool dorestart = paramList.get<bool> (TusasrestartNameString);
       //cn this is not going to work with multiple k
       //what do we do with temporal_est[0].pos....
       //is index_ correct here??
@@ -2859,7 +2861,8 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 	temporal_est.push_back(new post_process(Comm,
 						mesh_,
 						k, 
-						post_process::NORMRMS, 
+						post_process::NORMRMS,
+						dorestart, 
 						k, 
 						"temperror",
 						16));
@@ -2887,6 +2890,7 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 						 mesh_,
 						 k, 
 						 post_process::NORMRMS, 
+						 dorestart,
 						 k, 
 						 "tempnorm",
 						 16));

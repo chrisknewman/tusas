@@ -2364,6 +2364,7 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 {
+  bool dorestart = paramList.get<bool> (TusasrestartNameString);
   numeqs_ = 2;
   random_number_ =((double)rand()/(RAND_MAX)*2.-1.);
   random_number_old_ = 0.;
@@ -2582,6 +2583,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 mesh_,
 					 (int)0,
 					 post_process::NORMRMS,
+					 dorestart,
 					 0,
 					 "pp",
 					 16));
@@ -2591,6 +2593,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 mesh_,
 					 (int)1,
 					 post_process::MAXVALUE,
+					 dorestart,
 					 0,
 					 "pp",
 					 16));
@@ -2600,6 +2603,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 mesh_,
 					 (int)2,
 					 post_process::MAXVALUE,
+					 dorestart,
 					 0,
 					 "pp",
 					 16));
@@ -2631,6 +2635,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 mesh_,
 					 (int)0,
 					 post_process::MAXVALUE,
+					 dorestart,
 					 0,
 					 "pp",
 					 16));
@@ -3280,9 +3285,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 
     //cn this needs to be better...
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0,post_process::SCALAR_OP::NORM1));
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0,post_process::SCALAR_OP::NORM1,dorestart));
     post_proc[0].postprocfunc_ = &coupledstress::postproc_stress_x_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1,post_process::SCALAR_OP::MEANVALUE,(int)5));
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1,post_process::SCALAR_OP::MEANVALUE,dorestart,(int)5));
     post_proc[1].postprocfunc_ = &coupledstress::postproc_stress_y_;
     post_proc.push_back(new post_process(comm_,mesh_,(int)2));
     post_proc[2].postprocfunc_ = &coupledstress::postproc_stress_xy_;
@@ -3794,7 +3799,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     post_proc.push_back(new post_process(comm_,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &allencahn::postproc_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1,post_process::SCALAR_OP::NORM2));
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1,post_process::SCALAR_OP::NORM2,dorestart));
     post_proc[1].postprocfunc_ = &allencahn::postproc_error;
 
     //paramfunc_ = farzadi::param_;
@@ -4760,6 +4765,7 @@ void ModelEvaluatorNEMESIS<Scalar>::initialsolve()
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::setadaptivetimestep()
   {
+    bool dorestart = paramList.get<bool> (TusasrestartNameString);
       //cn this is not going to work with multiple k
       //what do we do with temporal_est[0].pos....
       //is index_ correct here??
@@ -4770,6 +4776,7 @@ void ModelEvaluatorNEMESIS<Scalar>::setadaptivetimestep()
 						mesh_,
 						k, 
 						post_process::NORMRMS, 
+						dorestart,
 						k, 
 						"temperror",
 						16));
@@ -4797,6 +4804,7 @@ void ModelEvaluatorNEMESIS<Scalar>::setadaptivetimestep()
 						 mesh_,
 						 k, 
 						 post_process::NORMRMS, 
+						 dorestart,
 						 k, 
 						 "tempnorm",
 						 16));

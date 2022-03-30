@@ -61,6 +61,7 @@ public:
 	       Mesh *mesh, ///< mesh object
 	       const int index, ///< index of this post process variable
 	       SCALAR_OP s_op = NONE, ///< scalar operation to perform
+	       bool restart = false, ///< restart bool
 	       const int eqn_id = 0, ///< associate this post process variable with an equation
 	       const std::string basename = "pp", ///< basename this post process variable
 	       const double precision = 6 ///< precision for output file

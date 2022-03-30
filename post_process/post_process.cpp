@@ -18,6 +18,7 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
 			   Mesh *mesh, 
 			   const int index,
 			   SCALAR_OP s_op,
+			   bool restart,
 			   const int eqn_id,
 			   const std::string basename,
 			   double precision):  
@@ -25,6 +26,7 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   mesh_(mesh),
   index_(index),
   s_op_(s_op),
+  restart_(restart),
   eqn_id_(eqn_id),
   basename_(basename),
   precision_(precision)
@@ -56,7 +58,6 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   if ( (0 == comm_->MyPID()) && (s_op_ != NONE) ){
     filename_ = ystring+".dat";
     std::ofstream outfile;
-    restart_ = false;
     if( restart_ ){
       outfile.open(filename_, std::ios::app );
     }else{

@@ -432,6 +432,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   ) const
 {  
 
+//   Teuchos::ParameterList plist(paramList);
+//   Teuchos::ParameterList *problemList = &plist.sublist ("ProblemParams", false);
+  
+//   for( int k = 0; k <  paramfunc_.size(); k++ ){
+//     paramfunc_[k](problemList);
+//   }
 
   //cn the easiest way probably to do the sum into off proc nodes is to load a 
   //vector(overlap_map) the export with summation to the f_vec(owned_map)
@@ -590,6 +596,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //RESFUNC * rf = (RESFUNC*)Kokkos::kokkos_malloc<Kokkos::CudaUVMSpace>(sizeof(RESFUNC));
 
     for(int c = 0; c < num_color; c++){
+
       //std::vector<int> elem_map = colors[c];
       const std::vector<int> elem_map = Elem_col->get_color(c);//local
 
@@ -1160,7 +1167,7 @@ template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 {
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
-  int mypid = comm_->getRank() ;
+  int mypid = comm_->getRank();
   if( 0 == mypid )
     std::cout<<std::endl<<"init_nox() started."<<std::endl<<std::endl;
 
@@ -1309,12 +1316,18 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
       noxpred_group->computeF();
       atsList = &paramList.sublist (TusasatslistNameString, false );
 
+      double relrestolp = 1.e-6;
+      relrestolp = atsList->get<double>(TusaspredrelresNameString,1.e-6);
+      int predmaxit = 20;
+      predmaxit = paramList.get<int> (TusaspredmaxiterNameString,20);
+      Teuchos::RCP<NOX::StatusTest::MaxIters> maxiters1 =
+	Teuchos::rcp(new NOX::StatusTest::MaxIters(predmaxit));
       Teuchos::RCP<NOX::StatusTest::NormF>relresid1 = 
-	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), atsList->get<double>(TusaspredrelresNameString)));//1.0e-6 for paper
-      //Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestol));//1.0e-6 for paper
+	Teuchos::rcp(new NOX::StatusTest::NormF(*noxpred_group.get(), relrestolp));//1.0e-6 for paper
       Teuchos::RCP<NOX::StatusTest::Combo> converged1 =
-	Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::AND));
+	Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
       converged1->addStatusTest(relresid1);
+      converged1->addStatusTest(maxiters1);
       //combo->addStatusTest(converged);
       
       Teuchos::RCP<Teuchos::ParameterList> nl_params1 =
@@ -1479,6 +1492,9 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 
   }//iter
 
+  dtold_ = dt_;
+  time_ += dt_;
+  postprocess();
   //*u_old_old_ = *u_old_;
   u_old_old_->update(1.,*u_old_,0.);
   //*u_old_ = *u_new_;
@@ -1491,9 +1507,6 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
   }
   ++numsteps_;   
 
-  dtold_ = dt_;
-  time_ += dt_;
-  postprocess();
   dt_ = dtpred;
   return dtold_;
 }
@@ -2136,21 +2149,21 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
     //(*dirichletfunc_)[0][3] = &tpetra::radconvbc::dbc_;
 
-    paramfunc_.resize(2);
+    paramfunc_.resize(3);//maybe push_back() is better here?
     paramfunc_[0] = &tpetra::heat::param_;
     paramfunc_[1] = &tpetra::radconvbc::param_;
     paramfunc_[2] = &tpetra::goldak::param_;
 
     // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
-    //neumannfunc_ = NULL;
-    //(*neumannfunc_)[0][0] = &tpetra::robin::nbc_robin_test_;								 
-    //(*neumannfunc_)[0][1] = &nbc_zero_;						 
-    (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;						 
-    //(*neumannfunc_)[0][3] = &nbc_zero_;
+//     neumannfunc_ = NULL;
+    
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);	 
+    (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;
 
-    //post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    //post_proc[0].postprocfunc_ = &tpetra::postproc_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
+    post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_qdot_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
+    post_proc[1].postprocfunc_ = &tpetra::goldak::postproc_u_;
 
 
   } else {
@@ -2176,6 +2189,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   problemList = &paramList.sublist ( "ProblemParams", false );
   
   for( int k = 0; k <  paramfunc_.size(); k++ ){
+    auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+    if( 0 == comm_->getRank() ){
+      std::cout<<"Initial paranfunc evaluated for k = "<<k<<std::endl;
+    }
     paramfunc_[k](problemList);
   }
   
@@ -2496,18 +2513,20 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
   const int dim = 3;
 
   std::vector<double> uu(numeqs_);
-  //std::vector<double> uuold(numeqs_);
-  //std::vector<double> uuoldold(numeqs_);
+  std::vector<double> uuold(numeqs_);
+  std::vector<double> uuoldold(numeqs_);
   std::vector<double> ug(dim*numee);
 
-  auto uview = u_old_->get1dView();
+  auto uview = u_new_->get1dView();
+  auto uoldview = u_old_->get1dView();
+  auto uoldoldview = u_old_old_->get1dView();
 
   for (int nn=0; nn < num_owned_nodes_; nn++) {
 
     for( int k = 0; k < numeqs_; k++ ){
       uu[k] = uview[numeqs_*nn+k];
-      //uuold[k] = (*u_old_old_)[numeqs_*nn+k];
-      //uuoldold[k] = (*u_old_old_old_)[numeqs_*nn+k];
+      uuold[k] = uoldview[numeqs_*nn+k];
+      uuoldold[k] = uoldoldview[numeqs_*nn+k];
     }
 
     for( int k = 0; k < numee; k++ ){
@@ -2518,12 +2537,8 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
 
     boost::ptr_vector<post_process>::iterator itp;
     for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      itp->process(nn,&uu[0],NULL,NULL,&ug[0],time_,dt_,dt_);
+      itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dt_);
     }
-//     for(itp = temporal_est.begin();itp != temporal_est.end();++itp){
-//       itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
-//       //std::cout<<nn<<" "<<mesh_->get_local_id((x_owned_map_->GID(nn))/numeqs_)<<" "<<xyz[0]<<std::endl;
-//     }
 
   }//nn
 }
@@ -2590,6 +2605,7 @@ void ModelEvaluatorTPETRA<Scalar>::init_P_()
 template<class Scalar>
 double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
 {
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
   double dtpred = 0.;
   //std::cout<<std::setprecision(std::numeric_limits<double>::digits10 + 1);
   Teuchos::ParameterList *atsList;
@@ -2620,7 +2636,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   std::vector<double> error(numeqs_);
   std::vector<double> norm(numeqs_,0.);
   
-  if( 0 == Comm->MyPID()){
+  if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Estimating timestep size:"<<std::endl;
     std::cout<<"     using "<<atsList->get<std::string> (TusasatstypeNameString)
 	     <<" and theta = "<<t_theta_<<std::endl;
@@ -2656,7 +2672,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
     const double factor = sf*dt_*rr;
     maxdt[k] = std::max(factor,dt_*rmin);
     mindt[k] = std::min(factor,dt_*rmax);
-    if( 0 == Comm->MyPID()){
+    if( 0 == comm_->getRank()){
       std::cout<<std::endl<<"     Variable: "<<(*varnames_)[k]<<std::endl;
       //std::cout<<"                              tol = "<<tol<<std::endl;
       std::cout<<"                            error = "<<error[k]<<std::endl;
@@ -2673,11 +2689,11 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   //dtpred = std::min(dt1,dt2);//not sure if we want the smallest max????? ie dt1??
   dtpred = dt1;
 
-  if( 0 == Comm->MyPID()){
+  if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	
   }
   dtpred = std::min(dtpred,dtmax);
-  if( 0 == Comm->MyPID()){
+  if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"           min(dtpred,dtmax) : "<<dtpred<<std::endl<<std::endl;	
   }  
   return dtpred;
@@ -2689,7 +2705,8 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
   //right now theta2=0 corresponds to FE, BE and TR
   //theta2=1 corresponds to AB
 
-  if( 0 == Comm->MyPID()){
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+  if( 0 == comm_->getRank()){
     std::cout<<std::endl<<std::endl<<std::endl<<"     Predictor step started"<<std::endl;	
   }
 
@@ -2727,7 +2744,7 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
     }
   } 
 
-  if( 0 == Comm->MyPID()){
+  if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Predictor step ended"<<std::endl<<std::endl<<std::endl;
   }
 
@@ -2738,6 +2755,7 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
 template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::initialsolve()
  {     
+   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
    //right now, for TR it doesn't really matter in turns of performance if we set theta to 1
    //here or leave it at .5
    const double t_theta_temp = t_theta_;
@@ -2745,7 +2763,7 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
    
    t_theta2_ = 0.;
    
-   if( 0 == Comm->MyPID()) 
+   if( 0 == comm_->getRank()) 
      std::cout<<std::endl<<"Performing initial NOX solve"<<std::endl<<std::endl;
    
    Teuchos::RCP< ::Thyra::VectorBase< double > > guess = Thyra::createVector(u_old_,x_space_);
@@ -2758,9 +2776,7 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
      std::cout<<" NOX solver failed to converge. Status = "<<solvStatus<<std::endl<<std::endl;
      exit(0);
    }
-    
-   if( 0 == Comm->MyPID()) 
-     std::cout<<std::endl<<"Initial NOX solve completed"<<std::endl<<std::endl;
+
    const Thyra::VectorBase<double> * sol = 
      &(dynamic_cast<const NOX::Thyra::Vector&>(
 					       solver_->getSolutionGroup().getX()
@@ -2787,12 +2803,15 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
    }
    
    t_theta_ = t_theta_temp;
+    
+   if( 0 == comm_->getRank()) 
+     std::cout<<std::endl<<"Initial NOX solve completed"<<std::endl<<std::endl;
  }
 
 template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
   {
-      //cn this is not going to work with multiple k
+      //cn this is not gong to work with multiple k
       //what do we do with temporal_est[0].pos....
       //is index_ correct here??
       Teuchos::ParameterList *atsList;

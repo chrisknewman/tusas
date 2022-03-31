@@ -2123,8 +2123,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[2] = &tpetra::goldak::param_;
 
     // numeqs_ number of variables(equations) 
+//     neumannfunc_ = NULL;
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
-    //neumannfunc_ = NULL;
     (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE,dorestart));

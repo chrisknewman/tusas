@@ -7244,7 +7244,8 @@ RES_FUNC_TPETRA(residual_test_)
 						    t_theta2_,
 						    time,
 						    eqn_id);
-  //printf("%f \n",val);
+//   printf("%f \n",dfldt_d);
+//   exit(0);
   //better 3pt derivatives, see difference.nb and inspiration at
   //https://link.springer.com/content/pdf/10.1007/BF02510406.pdf
   const double ut[3] = {dfldt_d*((1. + dt_/dtold_)*(basis[0]->uu-basis[0]->uuold)/dt_
@@ -7257,13 +7258,13 @@ RES_FUNC_TPETRA(residual_test_)
 			dfldt_d*(-(1.+dtold_/dt_)*(basis[0]->uuoldold-basis[0]->uuold)/dtold_
 				 +dtold_/dt_*(basis[0]->uuoldold-basis[0]->uu)/(dtold_+dt_)
 				 )*basis[eqn_id]->phi[i]};
+//   const double ut[3] = {0.,0.,0.};
 
-  //const double rhs = (ut*dfldt_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time))*basis[eqn_id]->phi[i];
-  //std::cout<<val<<" "<<qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz)<<std::endl;
-  //return val + rhs;
   const double qd[3] = {-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time)*basis[eqn_id]->phi[i],
 			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_)*basis[eqn_id]->phi[i],
 			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_-dtold_)*basis[eqn_id]->phi[i]};
+//   const double qd[3] = {0.,0.,0.};
+
   double rv = (val + (1.-t_theta2_)*t_theta_*qd[0]
 	  + (1.-t_theta2_)*(1.-t_theta_)*qd[1]
 	  +.5*t_theta2_*((2.+dt_/dtold_)*qd[1]-dt_/dtold_*qd[2])
@@ -7353,8 +7354,6 @@ PARAM_FUNC(param_)
   //Lf = 17.2;// kJ/mol
   Lf = plist->get<double>("Lf_",2.95e5);
 
-  dfldt_d = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
-
   //eta_d = 0.3;//dimensionless
   eta_d = plist->get<double>("eta_",0.3);
   //P_d = 50.;// W
@@ -7372,7 +7371,7 @@ PARAM_FUNC(param_)
   x0_d = plist->get<double>("x0_",0.);
   y0_d = plist->get<double>("y0_",0.);
   z0_d = plist->get<double>("z0_",0.);
-  t_hold_d = plist->get<double>("t_hold_",0.0005);
+  t_hold_d = plist->get<double>("t_hold_",0.005);
   t_decay_d = plist->get<double>("t_decay_",0.01);
 
   dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);

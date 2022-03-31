@@ -52,7 +52,7 @@
 
 #include <algorithm>
 
-//#include <string>
+#include <string>
 
 #include "function_def.hpp"
 #include "ParamNames.h"
@@ -510,7 +510,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       exit(0);
   }
 
-  std::string testname = paramList.get<std::string> (TusastestNameString);
+  const std::string testname = paramList.get<std::string> (TusastestNameString);
   
   if (nonnull(outArgs.get_f())){
 
@@ -544,35 +544,45 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     h_rf = (RESFUNC*)malloc(numeqs_*sizeof(RESFUNC));
 
 #ifdef TUSAS_HAVE_CUDA
-    RESFUNC * d_rf;
-    cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
+    //RESFUNC * d_rf;
+    //cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
 
+    int testcase = -99;
+
+    //better to use testname.compare("heat") > 0
     if("heat" == testname){
       //cn this will need to be done for each equation
-      gpuErrchk(cudaMemcpyFromSymbol( &h_rf[0], tpetra::heat::residual_heat_test_dp_, sizeof(RESFUNC)));
+      //gpuErrchk(cudaMemcpyFromSymbol( &h_rf[0], tpetra::heat::residual_heat_test_dp_, sizeof(RESFUNC)));
+      testcase = 0;
     }else if("NLheatIMR" == testname){
-      //cn this will need to be done for each equation
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatimr_test_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatimr_test_dp_, sizeof(RESFUNC));
+      testcase = 1;
     }else if("NLheatCN" == testname){
-      //cn this will need to be done for each equation
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatcn_test_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatcn_test_dp_, sizeof(RESFUNC));
+      testcase = 2;
     }else if("heat2" == testname){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::heat::residual_heat_test_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::heat::residual_heat_test_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::heat::residual_heat_test_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::heat::residual_heat_test_dp_, sizeof(RESFUNC));
+      testcase = 3;
     }else if("farzadi" == testname){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+      testcase = 4;
     }else if("farzadi_test" == testname){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
+      testcase = 5;
     }else if("pfhub3" == testname){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub3::residual_heat_pfhub3_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub3::residual_phase_pfhub3_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub3::residual_heat_pfhub3_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub3::residual_phase_pfhub3_dp_, sizeof(RESFUNC));
+      testcase = 6;
     }else if("pfhub2kks" == testname){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub2::residual_c_kks_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub2::residual_eta_kks_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub2::residual_c_kks_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub2::residual_eta_kks_dp_, sizeof(RESFUNC));
+      testcase = 7;
     }else if("goldak" == testname){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::goldak::residual_test_dp_, sizeof(RESFUNC));
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::goldak::residual_test_dp_, sizeof(RESFUNC));
+      testcase = 8;
 
     } else {
       if( 0 == comm_->getRank() ){
@@ -582,18 +592,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       exit(0);
     }
 
-    gpuErrchk(cudaMemcpy(d_rf,h_rf,numeqs_*sizeof(RESFUNC),cudaMemcpyHostToDevice));
-
-//     Kokkos::View<RESFUNC*, Kokkos::DefaultExecutionSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
-//       rf_view (tpetra::heat::residual_heat_test_dp_, numeqs_);
-//     Kokkos::View<RESFUNC*> *a_ptr = (Kokkos::View<RESFUNC*>*) malloc(numeqs_*sizeof(View<RESFUNC*>));
+    //gpuErrchk(cudaMemcpy(d_rf,h_rf,numeqs_*sizeof(RESFUNC),cudaMemcpyHostToDevice));
 
 #else
     //it seems that evaluating the function via pointer ie h_rf[0] is way faster that evaluation via (*residualfunc_)[0]
     h_rf = &(*residualfunc_)[0];
 #endif
-
-    //RESFUNC * rf = (RESFUNC*)Kokkos::kokkos_malloc<Kokkos::CudaUVMSpace>(sizeof(RESFUNC));
 
     for(int c = 0; c < num_color; c++){
 
@@ -615,22 +619,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
 
-//  			     printf("here\n");
-			  
-//       printf("%p %p %p %p %p %p\n",
-// 	     d_rf[0],
-// 	     &d_rf[0],
-// 	     tpetra::heat::residual_heat_test_dp_,
-// 	     &tpetra::heat::residual_heat_test_dp_,
-// 	     tpetra::heat::residual_heat_test_,
-// 	     &tpetra::heat::residual_heat_test_);
 
-			     //new((RESFUNC*)rf) &tpetra::heat::residual_heat_test_dp_;
-			     RESFUNC rf;
-			     rf = tpetra::goldak::residual_test_;
-			     //rf = tpetra::heat::residual_heat_test_;
-			     // 			     RESFUNC1 fp = tpetra::heat::residual_heat_test_p;
-// 			     flist = fp;
+        //new((RESFUNC*)rf) &tpetra::heat::residual_heat_test_dp_;
+	RESFUNC rf[TUSAS_MAX_NUMEQS];
+	if (testcase == 0){
+	  rf[0] = tpetra::heat::residual_heat_test_;
+	}else if (testcase == 8){
+	  rf[0] = tpetra::goldak::residual_test_;
+	  //rf[1] = tpetra::goldak::residual_test_;
+	}else{
+	  exit(0);
+	}
 
 	const int elem = elem_map_1d(ne);
 #ifdef TUSAS3D	
@@ -700,9 +699,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #ifdef TUSAS_HAVE_CUDA
 	      //printf("%le\n",B[0].phi[0]);
 	      //const double val = jacwt*((d_rf[neq])((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
-	      //const double val = jacwt*((tpetra::heat::residual_heat_test_)(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq));
-	      const double val = jacwt*(rf)(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);
-	      //const double val = jacwt*(fp)(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);
+	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tpetra::heat::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
@@ -721,7 +718,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }//c 
 
 #ifdef TUSAS_HAVE_CUDA
-  cudaFree(d_rf);
+    //cudaFree(d_rf);
   free(h_rf);
 #endif
   //exit(0);

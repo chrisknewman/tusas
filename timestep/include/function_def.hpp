@@ -5504,6 +5504,243 @@ PPR_FUNC(postproc_c_)
 
 }//namespace pfhub2
 
+namespace cerium{
+  //https://iopscience.iop.org/article/10.1088/2053-1591/ac1c32
+  //units are in J, mm, s
+  //note that 10^6 kJ/m^3 in figure 2 is J/mm^3
+  //free energy density f_m = f_p(c) = = 4 (c - .5)^2 - 1
+  //f_m'(c) = 8 (c - 1/2)
+  //        = 2 am (c - bm)
+  //f_h(c) = 30 (c - 2/3)^2 - 8
+  //f_h'(c) = 60 (c - 2/3)
+  //        = 2 ah (c - bh)
+  //assume ordering is p, h, m; c; displacement
+  const double am = 4.;// J/mm^3
+  const double bm = .5;// mole fraction H
+  const double cm = 1.;
+  const double ah = 30.;// J/mm^3
+  const double bh = 2./3.;// mole fraction H
+  const double ch = 8.;
+  const double m = 4.6e-3;// mm^3/J/s
+//   const double M[3][3] = {
+//     {0.,m,m},
+//     {m,0.,m},
+//     {m,m,0.}
+//   };
+  const double es = 3.9e-5;// J/mm
+//   const double e2[3][3] = {
+//     {0.,es,es},
+//     {es,0.,es},
+//     {es,es,0}
+//   };
+  const double h = 1.85e2;// J/mm^3
+//   const double H[3][3] = {
+//     {0.,h,h},
+//     {h,0.,h},
+//     {h,h,0.}
+//   };
+  const double D[3] = {1.e-5,3.5e-5,3.5e-5};// mm^2/s
+  const double e0 = .2;
+  const double E = 3.4e3;// J/mm^3
+  const double nu = .24;
+  double dG[3][3] = {
+    {0.,0.,0.},
+    {0.,0.,0.},
+    {0.,0.,0.}
+  };
+
+  //solve eqn 5
+  void solve_kks(const double cc, //c
+		 const double pp, //phi_p
+		 const double ph, //phi_h 
+		 const double pm, //phi_m
+		 double &cp, 
+		 double &ch, 
+		 double &cm)
+  {
+    const double d = am*ph + ah*pm + ah*pp;
+    cp = -(-ah*cc + ah*bh*ph - am*bm*ph)/d;
+    ch = -(-am*cc - ah*bh*pm + am*bm*pm - ah*bh*pp + am*bm*pp)/d;
+    cm = -(-ah*cc + ah*bh*ph - am*bm*ph)/d;
+  }
+
+  const double fm(const int c)
+  {
+    return am*(c-bm)*(c-bm)-cm;
+  }
+
+  const double fp(const int c)
+  {
+    return fm(c);
+  }
+
+  const double fh(const int c)
+  {
+    return ah*(c-bh)*(c-bh)-ch;
+  }
+
+  const double dfm(const int c)
+  {
+    return 2.*am*(c-bm);
+  }
+
+  const double dfp(const int c)
+  {
+    return dfm(c);
+  }
+
+  const double dfh(const int c)
+  {
+    return 2.*ah*(c-bh);
+  }
+  //g10 = ghp = -gph
+  const double g10(const double ch,const double cp)
+  {
+    return fh(ch) - fp(cp) - .5*(dfh(ch) + dfp(cp))*(ch - cp);
+  }
+  //g20 = gmp = - gpm
+  const double g20(const double cm, const double cp)
+  {
+    return fm(cm) - fp(cp) - .5*(dfm(cm) + dfp(cp))*(cm - cp);
+  }
+  //g21 = gmh = -ghm
+  const double g21(const double cm, const double ch)
+  {
+    return fm(cm) - fh(ch) - .5*(dfm(cm) + dfh(ch))*(cm - ch);
+  }
+
+  //note that there is a difference in the lapace terms by a factor of 2 
+  //depending on summation; see cerium.nb
+RES_FUNC(residual_p_)
+{
+  const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
+  const double p[3] = {basis[0].uu, basis[1].uu, basis[2].uu};
+  const double lp[3] = {-(basis[0].dudx*basis[eqn_id].dphidx[i]
+			    + basis[0].dudy*basis[eqn_id].dphidy[i]
+			    + basis[0].dudz*basis[eqn_id].dphidz[i]),
+			-(basis[1].dudx*basis[eqn_id].dphidx[i]
+			    + basis[1].dudy*basis[eqn_id].dphidy[i]
+			    + basis[1].dudz*basis[eqn_id].dphidz[i]),
+			-(basis[2].dudx*basis[eqn_id].dphidx[i]
+			    + basis[2].dudy*basis[eqn_id].dphidy[i]
+			    + basis[2].dudz*basis[eqn_id].dphidz[i])};
+  double c[3] = {0.,0.,0.};
+
+  solve_kks(basis[3].uu, //c
+	    p[0], //phi_p
+	    p[1], //phi_h 
+	    p[2], //phi_m
+	    c[0], 
+	    c[1], 
+	    c[2]);
+  dG[1][0] = g10(c[1],c[0]);
+  dG[2][0] = g20(c[2],c[0]);
+
+  const double rhs = (2.*es*m*lp[0])/3. - (es*m*lp[1])/3. - (es*m*lp[2])/3. 
+    - 6.*m*dG[1][0]*p[0]*p[1]*basis[eqn_id].phi[i]
+    + h*m*pow(p[0],2)*p[1]*basis[eqn_id].phi[i] 
+    - h*m*p[0]*pow(p[1],2)*basis[eqn_id].phi[i]
+    - 6.*m*dG[2][0]*p[0]*p[2]*basis[eqn_id].phi[i] 
+    + h*m*pow(p[0],2)*p[2]*basis[eqn_id].phi[i] 
+    - h*m*p[0]*pow(p[2],2)*basis[eqn_id].phi[i];
+
+  return ut-rhs;
+}
+
+RES_FUNC(residual_h_)
+{
+  const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
+  const double p[3] = {basis[0].uu, basis[1].uu, basis[2].uu};
+  const double lp[3] = {-(basis[0].dudx*basis[eqn_id].dphidx[i]
+			    + basis[0].dudy*basis[eqn_id].dphidy[i]
+			    + basis[0].dudz*basis[eqn_id].dphidz[i]),
+			-(basis[1].dudx*basis[eqn_id].dphidx[i]
+			    + basis[1].dudy*basis[eqn_id].dphidy[i]
+			    + basis[1].dudz*basis[eqn_id].dphidz[i]),
+			-(basis[2].dudx*basis[eqn_id].dphidx[i]
+			    + basis[2].dudy*basis[eqn_id].dphidy[i]
+			    + basis[2].dudz*basis[eqn_id].dphidz[i])};
+  double c[3] = {0.,0.,0.};
+
+  solve_kks(basis[3].uu, //c
+	    p[0], //phi_p
+	    p[1], //phi_h 
+	    p[2], //phi_m
+	    c[0], 
+	    c[1], 
+	    c[2]);
+  dG[0][1] = -g10(c[1],c[0]);
+  dG[2][1] = g21(c[2],c[1]);
+
+  const double rhs = -(es*m*lp[0])/3. + (2.*es*m*lp[1])/3. - (es*m*lp[2])/3. 
+    - 6.*m*dG[0][1]*p[0]*p[1]*basis[eqn_id].phi[i]
+    - h*m*pow(p[0],2)*p[1]*basis[eqn_id].phi[i]
+    + h*m*p[0]*pow(p[1],2)*basis[eqn_id].phi[i]
+    - 6.*m*dG[2][1]*p[1]*p[2]*basis[eqn_id].phi[i]
+    + h*m*pow(p[1],2)*p[2]*basis[eqn_id].phi[i]
+    - h*m*p[1]*pow(p[2],2)*basis[eqn_id].phi[i];
+
+  return ut-rhs;
+}
+
+RES_FUNC(residual_m_)
+{
+  const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
+  const double p[3] = {basis[0].uu, basis[1].uu, basis[2].uu};
+  const double lp[3] = {-(basis[0].dudx*basis[eqn_id].dphidx[i]
+			    + basis[0].dudy*basis[eqn_id].dphidy[i]
+			    + basis[0].dudz*basis[eqn_id].dphidz[i]),
+			-(basis[1].dudx*basis[eqn_id].dphidx[i]
+			    + basis[1].dudy*basis[eqn_id].dphidy[i]
+			    + basis[1].dudz*basis[eqn_id].dphidz[i]),
+			-(basis[2].dudx*basis[eqn_id].dphidx[i]
+			    + basis[2].dudy*basis[eqn_id].dphidy[i]
+			    + basis[2].dudz*basis[eqn_id].dphidz[i])};
+  double c[3] = {0.,0.,0.};
+
+  solve_kks(basis[3].uu, //c
+	    p[0], //phi_p
+	    p[1], //phi_h 
+	    p[2], //phi_m
+	    c[0], 
+	    c[1], 
+	    c[2]);
+  dG[0][2] = g20(c[2],c[0]);
+  dG[1][2] = -g21(c[2],c[1]);
+
+  const double rhs = -(es*m*lp[0])/3. - (es*m*lp[1])/3. + (2.*es*m*lp[2])/3. 
+    - 6.*m*dG[0][2]*p[0]*p[2]*basis[eqn_id].phi[i]
+    - h*m*pow(p[0],2)*p[2]*basis[eqn_id].phi[i]
+    - 6.*m*dG[1][2]*p[1]*p[2]*basis[eqn_id].phi[i]
+    - h*m*pow(p[1],2)*p[2]*basis[eqn_id].phi[i]
+    + h*m*p[0]*pow(p[2],2)*basis[eqn_id].phi[i]
+    + h*m*p[1]*pow(p[2],2)*basis[eqn_id].phi[i];
+
+  return ut-rhs;
+}
+
+RES_FUNC(residual_c_)
+{
+  const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
+  const double p[3] = {basis[0].uu, basis[1].uu, basis[2].uu};
+  double c[3] = {0.,0.,0.};
+
+  solve_kks(basis[3].uu, //c
+	    p[0], //phi_p
+	    p[1], //phi_h 
+	    p[2], //phi_m
+	    c[0], 
+	    c[1], 
+	    c[2]);
+  //the trouble is how to get gradient of c[0],c[1],c[2]
+  //the kks paper has a solution
+
+  const double rhs =0.;
+
+  return ut-rhs;
+}
+}//namespace cerium
+
 // #define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis * const * basis, 
 #define RES_FUNC_TPETRA(NAME)  double NAME(GPUBasis * basis[],	\
                                     const int &i,\

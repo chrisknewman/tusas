@@ -33,7 +33,7 @@ std::string const TusastestDocString = "test case (string): cummins (default); p
 /// Preconditioner
 std::string const TusaspreconNameString = "preconditioner";
 /// Preconditioner
-std::string const TusaspreconDocString = "preconditioner (bool): true (default); false";
+std::string const TusaspreconDocString = "preconditioner (bool): false (default); true";
 /// Theta for timestep method.
 std::string const TusasthetaNameString = "theta";
 /// Theta for timestep method.

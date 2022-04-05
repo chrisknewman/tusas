@@ -23,11 +23,10 @@
 //teuchos support
 #include <Teuchos_RCP.hpp>
 
-#define TUSASMUELU
-#ifndef TUSASMUELU
-//#include <MueLu_HierarchyManager.hpp>
+//#define TUSASMUELU
+//#ifndef TUSASMUELU
 #include <MueLu_TpetraOperator_fwd.hpp>
-#endif
+//#endif
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 
@@ -187,10 +186,10 @@ private:
   Teuchos::RCP<matrix_type> P_;
   Teuchos::RCP<matrix_type> P;
 
-#ifndef TUSASMUELU
+  //#ifndef TUSASMUELU
 //Teuchos::RCP<MueLu::HierarchyManager<scalar_type,local_ordinal_type, global_ordinal_type, node_type>> mueluFactory_;
   Teuchos::RCP<MueLu::TpetraOperator<scalar_type,local_ordinal_type, global_ordinal_type, node_type> > prec_;
-#endif  
+  //#endif  
   int nnewt_;
   double dt_;
   double dtold_;

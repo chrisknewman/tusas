@@ -1,4 +1,4 @@
-#!/bin/bash
+#####!/bin/bash
 rm -rf results.e
 rm -rf decomp
 rm -rf decompscript
@@ -7,8 +7,4 @@ mpirun -np 4 $1/tusas --input-file=tusas.xml --writedecomp
 bash decompscript
 mpirun -np 4 $1/tusas --kokkos-threads=1 --input-file=tusas.xml --skipdecomp
 bash epuscript
-###if [[ $OSTYPE == "darwin15" ]]; then
 $1/exodiff -file=exofile Gold.e results.e
-###else
-###    ../exodiff Gold.e results.e
-###fi

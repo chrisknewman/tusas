@@ -1,4 +1,4 @@
-#!/bin/bash
+####!/bin/bash
 rm -rf results.e
 rm -rf decomp
 rm -rf decompscript

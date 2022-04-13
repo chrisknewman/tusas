@@ -993,6 +993,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	PREFUNC pf[TUSAS_MAX_NUMEQS];
 	if (testcase == 0){
 	  pf[0] = tpetra::heat::prec_heat_test_;
+	}else if (testcase == 4){
+	  pf[0] = tpetra::farzadi3d::prec_conc_farzadi_;
+	  pf[1] = tpetra::farzadi3d::prec_phase_farzadi_;
 	}else if (testcase == 8){
 	  pf[0] = tpetra::goldak::prec_test_;
 	}else{

@@ -2432,6 +2432,7 @@ protected:
 //note that quadrature is exact for polynomials of degree 2*sngp - 1
 
 class GPUBasisLQuad:public GPUBasis{
+  //class GPUBasisLQuad{
 public:
 
   TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuad(const int n = 2){

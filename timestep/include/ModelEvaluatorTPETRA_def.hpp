@@ -625,6 +625,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	RESFUNC rf[TUSAS_MAX_NUMEQS];
 	if (testcase == 0){
 	  rf[0] = tpetra::heat::residual_heat_test_;
+	}else if (testcase == 4){
+	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
+	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
 	}else if (testcase == 8){
 	  rf[0] = tpetra::goldak::residual_test_;
 	  //rf[1] = tpetra::goldak::residual_test_;
@@ -634,8 +637,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	const int elem = elem_map_1d(ne);
 #ifdef TUSAS3D	
-	//GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-	GPUBasisLHex B[TUSAS_MAX_NUMEQS];// = {GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex()};
+	GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	//GPUBasisLHex B[TUSAS_MAX_NUMEQS];// = {GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex()};
 #else
  	GPUBasisLQuad B[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
 #endif
@@ -991,14 +994,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	if (testcase == 0){
 	  pf[0] = tpetra::heat::prec_heat_test_;
 	}else if (testcase == 8){
-	  pf[0] = tpetra::heat::prec_heat_test_;
-	  //rf[1] = tpetra::goldak::residual_test_;
+	  pf[0] = tpetra::goldak::prec_test_;
 	}else{
 	  exit(0);
 	}
 #ifdef TUSAS3D	
 			     //GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-        GPUBasisLHex B[TUSAS_MAX_NUMEQS];// = {GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex()};
+        GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex()};
 #else
  	GPUBasisLQuad B[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
 #endif
@@ -1016,7 +1018,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	const int elemrow = elem*n_nodes_per_elem;
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
-	  //const int nodeid = meshc[elemrow+k];
 	  const int nodeid = meshc_1d(elemrow+k);
 	  
 	  xx[k] = x_1dra(nodeid);
@@ -1038,21 +1039,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    //jacwt = B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
 	    jacwt = B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu[neq*n_nodes_per_elem],&uu[neq*n_nodes_per_elem]);//we can add uu_old, uu_oldold
-	  }//neq = B[0].jac*B[0].wt;
-	  //printf("jacwt %le\n",jacwt);
+	  }
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
-	    //const local_ordinal_type lrow = numeqs*meshc[elemrow+i];
 	    const local_ordinal_type lrow = numeqs*meshc_1d(elemrow+i);
 	    for(int j=0;j < n_nodes_per_elem; j++) {
-	      //local_ordinal_type lcol[1] = {numeqs*meshc[elemrow+j]};
 	      local_ordinal_type lcol[1] = {numeqs*meshc_1d(elemrow+j)};
 	      
 	      for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
 		scalar_type val[1] = {jacwt*(pf[neq])(&B[0],i,j,dt,t_theta,neq)};
-// 		double val[1];
-// 		val[0] = jacwt*(pf[neq])(&B[0],i,j,dt,t_theta,neq);
-		//printf("%le\n",val[0]);
 #else
 		scalar_type val[1] = {jacwt*h_pf[neq](&B[0],i,j,dt,t_theta,neq)};
 #endif

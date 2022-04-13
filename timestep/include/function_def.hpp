@@ -7358,8 +7358,8 @@ RES_FUNC_TPETRA(residual_test_)
 		     + (1.-t_theta2_)*t_theta_*ut[0]
 		     + (1.-t_theta2_)*(1.-t_theta_)*ut[1]
 		     +.5*t_theta2_*((2.+dt_/dtold_)*ut[1]-dt_/dtold_*ut[2]));
-
-  return rv;
+  //const double d =tpetra::heat::rho_d*tpetra::heat::cp_d;
+  return rv;///d;
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -7370,23 +7370,22 @@ RES_FUNC_TPETRA(residual_qdot_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
-#if 0
+
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_test_)
 {
   
-  const double val = tpetra::heat::prec_heat_test_dp_(basis,
+  const double val = tpetra::heat::prec_heat_test_(basis,
 						      i,
 						      j,
 						      dt_,
 						      t_theta_,
 						      eqn_id);
 
-  return val;
+  //const double d =tpetra::heat::rho_d*tpetra::heat::cp_d;
+  return val;///d;
 }
-//TUSAS_DEVICE
-//PRE_FUNC_TPETRA((*prec_test_dp_)) = prec_test_;
-#endif
+
 INI_FUNC(init_heat_)
 {
   return 300.;

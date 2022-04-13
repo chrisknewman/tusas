@@ -2724,8 +2724,8 @@ private:
 public:
   //TUSAS_CUDA_CALLABLE_MEMBER 
   KOKKOS_INLINE_FUNCTION
-  GPUBasisLHex(){
-    const int n = 2;
+  GPUBasisLHex(int n = 2){
+    //const int n = 2;
     sngp = n;
     if( 3 == n){
       abscissa[0] = -3.872983346207417/5.0;

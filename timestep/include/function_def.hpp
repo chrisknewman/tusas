@@ -6238,7 +6238,7 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   const double phit = (phi[0]-phi[1])/dt_;
   const double j_coef[3] = {(1.+(1.-k)*u[0])/sqrt(8.)*normd[0]*phit,
 			    (1.+(1.-k)*u[1])/sqrt(8.)*normd[1]*phit,
-			    (1.+(1.-k)*u[1])/sqrt(8.)*normd[2]*phit};
+			    (1.+(1.-k)*u[2])/sqrt(8.)*normd[2]*phit};
   const double divj[3] = {j_coef[0]*(dphidx[0]*dtestdx + dphidy[0]*dtestdy + dphidz[0]*dtestdz),
 			  j_coef[1]*(dphidx[1]*dtestdx + dphidy[1]*dtestdy + dphidz[1]*dtestdz),
 			  j_coef[2]*(dphidx[2]*dtestdx + dphidy[2]*dtestdy + dphidz[2]*dtestdz)};
@@ -6261,7 +6261,6 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_conc_farzadi_dp_)) = residual_conc_farzadi_;
-
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_)
@@ -6312,10 +6311,8 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
 
   const double x = basis[eqn_id]->xx;
   
-  
   // frozen temperature approximation: linear pulling of the temperature field
   const double xx = x*w0;
-
 
   //cn this should probablly be: (time+dt_)*tau
   const double tt[3] = {(time+dt_)*tau0,time*tau0,(time-dtold_)*tau0};

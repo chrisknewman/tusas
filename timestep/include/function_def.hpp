@@ -3627,6 +3627,129 @@ PARAM_FUNC(param_)
 
 }//namespace cahnhilliard
 
+namespace quaternion
+{
+
+  //see
+  //[1] LLNL-JRNL-409478 A Numerical Algorithm for the Solution of a Phase-Field Model of Polycrystalline Materials
+  //M. R. Dorr, J.-L. Fattebert, M. E. Wickett, J. F. Belak, P. E. A. Turchi (2008)
+  //[2] LLNL-JRNL-636233 Phase-field modeling of coring during solidification of Au-Ni alloy using quaternions and CALPHAD input
+  //J. L. Fattebert, M. E. Wickett, P. E. A. Turchi May 7, 2013
+
+  const double M = 10.;
+  const double H = 1.;
+  const double T = 1.;
+  const double D = 2.*H*T;
+  const double eps = .02;
+
+  const int N = 4;
+
+  void PI(const double *q, double *v){
+    double norm2 = 0.;
+    double dot = 0.;
+    for(int k = 0; k < N; k++){
+      norm2 = norm2 + q[k]*q[k];
+      dot = dot +q[k]*v[k];
+    }
+    for(int k = 0; k < N; k++){
+      v[k] = q[k]*dot/norm2;
+    }
+  }
+  void PIT(const double *q, double *v){
+    double norm2 = 0.;
+    double dot = 0.;
+    for(int k = 0; k < N; k++){
+      norm2 = norm2 + q[k]*q[k];
+      dot = dot +q[k]*v[k];
+    }
+    for(int k = 0; k < N; k++){
+      v[k] = v[k]-q[k]*dot/norm2;
+    }
+  }
+
+  //double pi = 3.141592653589793;
+
+
+PARAM_FUNC(param_)
+{
+}
+
+INI_FUNC(init_)
+{
+  //return .001*r(x,eqn_id)*r(x,N-eqn_id)*(y,eqn_id)*r(y,N-eqn_id);
+//   srand((int)(1000*x));
+//   return ((rand() % 100)/50.-1.)*.001;
+  const double r = .1;
+  const double x0 = .5;
+  const double y0 = .5;
+  const double q1[4] = {0.460849109679818,
+		       0.025097870693789,
+		       0.596761014095944,
+		       0.656402686655941};   
+  const double q2[4] = {0.514408948531741,
+			0.574286304520035,
+			0.563215252388157,
+			0.297266300795322};
+  const double c = (x-x0)*(x-x0) + (y-y0)*(y-y0);
+  double val = q2[eqn_id];
+  if(c<r*r) val = q1[eqn_id];
+  return val;
+
+}
+RES_FUNC(residual_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  const double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  const double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+  const double test = basis[0].phi[i];
+
+  const double u = basis[eqn_id].uu;
+  const double uold = basis[eqn_id].uuold;
+
+  double norm2 = 0.;
+  double normgrad = 0.;
+  double sumk = 0.;
+  for(int k = 0; k < N; k++){
+    norm2 = norm2 + basis[k].uu*basis[k].uu;
+    normgrad = normgrad + basis[k].dudx*basis[k].dudx + basis[k].dudy*basis[k].dudy + basis[k].dudz*basis[k].dudz;
+    sumk = sumk + basis[k].uu*(basis[k].dudx*dtestdx + basis[k].dudy*dtestdy + basis[k].dudz*dtestdz);
+  }
+  normgrad = sqrt(normgrad);
+  const double c = ((normgrad > .0001) ? eps+D/normgrad : eps);
+
+  sumk = -sumk*basis[eqn_id].uu*c/norm2;
+
+  const double divgradu = c*(basis[eqn_id].dudx*dtestdx + basis[eqn_id].dudy*dtestdy + basis[eqn_id].dudz*dtestdz);
+
+  return (u-uold)/dt_*test + M*(divgradu + sumk); 
+
+}
+PRE_FUNC(prec_)
+{
+  return 1;
+}
+PPR_FUNC(postproc_)
+{
+  //u is u0,u1,...
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+
+  double s =0.;
+  for(int j = 0; j < N; j++){
+    s = s + u[j]*u[j];
+  }
+
+  return s;
+}
+}//namespace quaternion
+
 namespace grain
 {
 
@@ -5966,6 +6089,66 @@ PRE_FUNC_TPETRA((*prec_nlheatcn_test_dp_)) = prec_nlheatcn_test_;
 
 
 //}//namespace heat
+
+namespace localprojection
+{
+RES_FUNC_TPETRA(residual_u1_)
+{
+  const double test = basis[eqn_id]->phi[i];
+
+  const double u2[3] = {basis[1]->uu, basis[1]->uuold, basis[1]->uuoldold};
+  const double f[3] = {u2[0]*test,
+		       u2[1]*test,
+		       u2[2]*test};
+  const double ut = (basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*test;
+
+  return ut + (1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+RES_FUNC_TPETRA(residual_u2_)
+{
+  const double test = basis[eqn_id]->phi[i];
+
+  const double u1[3] = {basis[0]->uu, basis[0]->uuold, basis[0]->uuoldold};
+
+  const double f[3] = {-u1[0]*test,
+		       -u1[1]*test,
+		       -u1[2]*test};
+
+  const double ut = (basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*test;
+  return ut + (1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+INI_FUNC(init_u1_)
+{
+  return 1.;
+}
+
+INI_FUNC(init_u2_)
+{
+  return 0.;
+}
+
+PPR_FUNC(postproc_u1_)
+{
+  return cos(time);
+}
+
+PPR_FUNC(postproc_u2_)
+{
+  return sin(time);
+}
+
+PPR_FUNC(postproc_norm_)
+{
+  return sqrt(u[0]*u[0]+u[1]*u[1]);
+}
+
+}//namespace localprojection
 
 
 namespace farzadi3d

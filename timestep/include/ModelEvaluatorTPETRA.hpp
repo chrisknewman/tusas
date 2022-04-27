@@ -298,6 +298,8 @@ private:
   void init_P_();
   std::string outfilename;
 
+  std::vector<int> localprojectionindices_;
+
 };
 
 //==================================================================

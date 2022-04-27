@@ -1412,15 +1412,33 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 	);
     Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
     
-    Teuchos::ArrayRCP<scalar_type> unewv = u_new_->get1dViewNonConst();
+    //Teuchos::ArrayRCP<scalar_type> unewv = u_new_->get1dViewNonConst();
     const size_t localLength = num_owned_nodes_;
     
     for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
       for( int k = 0; k < numeqs_; k++ ){
-	//uoldoldv[numeqs_*nn+k]=uoldv[numeqs_*nn+k];
-	unewv[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
+	//unewv[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
+	u_new_->replaceLocalValue(numeqs_*nn+k,x_vec[numeqs_*nn+k]);
       }
     }
+
+    if(localprojectionindices_.size() > 0 ){
+
+      auto un_view = u_new_->getLocalView<Kokkos::DefaultHostExecutionSpace>();
+      auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
+      for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
+	double norm = 0.;
+	//std::cout<<nn<<std::endl;
+	for( auto k : localprojectionindices_ ){
+	  norm = norm + un_1d[numeqs_*nn+k]*un_1d[numeqs_*nn+k];
+	  //std::cout<<"   "<<k<<" "<<numeqs_*nn+k<<" "<<un_1d[numeqs_*nn+k]<<" ";
+	} 
+	//std::cout<<"norm = "<<norm<<std::endl;
+	for( auto k : localprojectionindices_ ){
+	  un_1d[numeqs_*nn+k] = un_1d[numeqs_*nn+k]/sqrt(norm);
+	}
+      }
+    }//if
 
     if((paramList.get<bool> (TusasestimateTimestepNameString))
        && !timeadapt){ 
@@ -2087,6 +2105,42 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
 
     neumannfunc_ = NULL;
+
+  }else if("localprojection" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::localprojection::residual_u1_;
+    (*residualfunc_)[1] = &tpetra::localprojection::residual_u2_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::heat::prec_heat_test_;
+    (*preconfunc_)[1] = &tpetra::heat::prec_heat_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::localprojection::init_u1_;
+    (*initfunc_)[1] = &tpetra::localprojection::init_u2_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u1";
+    (*varnames_)[1] = "u2";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE,dorestart));
+    post_proc[0].postprocfunc_ = &tpetra::localprojection::postproc_u1_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE,dorestart));
+    post_proc[1].postprocfunc_ = &tpetra::localprojection::postproc_u2_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::MAXVALUE,dorestart));
+    post_proc[2].postprocfunc_ = &tpetra::localprojection::postproc_norm_;
+
+    localprojectionindices_.push_back(0);
+    localprojectionindices_.push_back(1);
+
 
   }else if("goldak" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 

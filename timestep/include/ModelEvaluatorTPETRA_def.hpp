@@ -196,12 +196,14 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   Teuchos::ArrayRCP<scalar_type> yv = y_->get1dViewNonConst();
   Teuchos::ArrayRCP<scalar_type> zv = z_->get1dViewNonConst();
   const size_t localLength = node_overlap_map_->getNodeNumElements();
-  for (size_t nn=0; nn < localLength; nn++) {
+  //for (size_t nn=0; nn < localLength; nn++) {
+  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
     xv[nn] = mesh_->get_x(nn);
     yv[nn] = mesh_->get_y(nn);
     zv[nn] = mesh_->get_z(nn);
   }
- 
+		       );
+
   x_space_ = Thyra::createVectorSpace<scalar_type>(x_owned_map_);
   f_space_ = x_space_;
   //x0_ = Thyra::createMember(x_space_);
@@ -1413,20 +1415,24 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 						).getThyraVector()
 	);
     Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
-    
-    //Teuchos::ArrayRCP<scalar_type> unewv = u_new_->get1dViewNonConst();
+
+    Teuchos::ArrayRCP<const scalar_type> vals = x_vec.values();
+
     const size_t localLength = num_owned_nodes_;
 
-    //we need x_vec as a kokkos view for the parallel_for to work    
+    //we need x_vec as a kokkos view for the parallel_for to work on gpu   
 
-    for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
-      //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
+    auto un_view = u_new_->getLocalView<Kokkos::DefaultHostExecutionSpace>();
+    auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
+    //for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
       for( int k = 0; k < numeqs_; k++ ){
-	//unewv[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
-	u_new_->replaceLocalValue(numeqs_*nn+k,x_vec[numeqs_*nn+k]);
+	//u_new_->replaceLocalValue(numeqs_*nn+k,x_vec[numeqs_*nn+k]);
+	//u_new_->replaceLocalValue(numeqs_*nn+k,vals[numeqs_*nn+k]);
+	un_1d[numeqs_*nn+k] = vals[numeqs_*nn+k];
       }
     }
-    //);
+			 );//parallel_for
 
     if(localprojectionindices_.size() > 0 ){
 
@@ -2628,6 +2634,7 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
   auto uoldoldview = u_old_old_->get1dView();
 
   for (int nn=0; nn < num_owned_nodes_; nn++) {
+  //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_owned_nodes_),[=](const int& nn){
 
     for( int k = 0; k < numeqs_; k++ ){
       uu[k] = uview[numeqs_*nn+k];
@@ -2647,6 +2654,7 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
     }
 
   }//nn
+  //);
 }
 
 template<class Scalar>
@@ -2662,6 +2670,7 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
   const int dim = 3;
   const int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
 
+  //lambda does not capture std::vector, we could use Kokkos::vector
   std::vector<double> uu(numeqs);
   std::vector<double> uuold(numeqs);
   std::vector<double> uuoldold(numeqs);
@@ -2670,10 +2679,14 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
   //right now for cuda, do this on cpu since the function pointer is buried in another class
   //and it takes very little percentage of time
   //another approach would be to use tpetra vectors here
+
+  //we could openmp this easily, these can be extended to 1d kokkos views for gpu
+  //ArrayRCP works on openmp
   Teuchos::ArrayRCP<const scalar_type> unewview = u_new_->get1dView();
   Teuchos::ArrayRCP<const scalar_type> uoldview = u_old_->get1dView();
   Teuchos::ArrayRCP<const scalar_type> predtempview = pred_temp_->get1dView();
   for (int nn=0; nn < num_owned_nodes_; nn++) {
+  //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_owned_nodes_),[=](const int& nn){
     for( int k = 0; k < numeqs; k++ ){
       uu[k] = unewview[numeqs*nn+k];
       uuold[k] = uoldview[numeqs*nn+k];
@@ -2682,12 +2695,14 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
       ug[k] = predtempview[numeqs*nn+k];
     }
 
+    //parallel_for / lambda does not like boost::ptr_vector
     boost::ptr_vector<post_process>::iterator itp;
     for(itp = pp.begin();itp != pp.end();++itp){
       itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
       //std::cout<<nn<<" "<<mesh_->get_local_id((x_owned_map_->GID(nn))/numeqs_)<<" "<<xyz[0]<<std::endl;
     }
   }//nn
+  //);
 }
 
 template<class Scalar>
@@ -2839,16 +2854,20 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
 					      ).getThyraVector()
       );    
   Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+  Teuchos::ArrayRCP<const scalar_type> vals = x_vec.values();
 
   Teuchos::ArrayRCP<scalar_type> predtempview = pred_temp_->get1dViewNonConst();
 
   const int localLength = num_owned_nodes_;
 
-  for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
+  //for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
+  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
     for( int k = 0; k < numeqs_; k++ ){
-      predtempview[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
+      //predtempview[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
+      predtempview[numeqs_*nn+k]=vals[numeqs_*nn+k];
     }
-  } 
+  }
+		       );//parallel_for 
 
   t_theta_ = t_theta_temp;
   t_theta2_ = 0.;
@@ -2892,6 +2911,7 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
 					       ).getThyraVector());
    
    Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+    Teuchos::ArrayRCP<const scalar_type> vals = x_vec.values();
    
    //now,
    //dudt(t=0) = (x_vec-u_old_)/dt_
@@ -2903,13 +2923,15 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
   Teuchos::ArrayRCP<const scalar_type> uoldview = u_old_->get1dView();
   Teuchos::ArrayRCP<scalar_type> uoldoldview = u_old_old_->get1dViewNonConst();
 
-   for (int nn=0; nn <  num_owned_nodes_; nn++) {//cn figure out a better way here...
+  //for (int nn=0; nn <  num_owned_nodes_; nn++) {//cn figure out a better way here...
+  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_owned_nodes_),[=](const int& nn){
      for( int k = 0; k < numeqs_; k++ ){
        
-       uoldoldview[numeqs_*nn+k] = 2.*uoldview[numeqs_*nn+k] - x_vec[numeqs_*nn+k];
+       uoldoldview[numeqs_*nn+k] = 2.*uoldview[numeqs_*nn+k] - vals[numeqs_*nn+k];
    
      }
    }
+		       );
    
    t_theta_ = t_theta_temp;
  }

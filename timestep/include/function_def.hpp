@@ -6669,6 +6669,15 @@ PPR_FUNC(postproc_t_)
 }
 }//namespace farzadi3d
 
+namespace noise
+{
+KOKKOS_INLINE_FUNCTION 
+double noise_()
+{
+  return 0.;
+}
+}//namespace noise
+
 namespace pfhub3
 {
   const double R_ = 8.;// 8.;
@@ -6836,7 +6845,28 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
- 
+
+RES_FUNC_TPETRA(residual_phase_pfhub3_noise_)
+{
+  double val = residual_phase_pfhub3_(basis,
+					 i,
+					 dt_,
+					 dtold_,
+					 t_theta_,
+					 t_theta2_,
+					 time,
+					 eqn_id
+					 );
+
+  double noise[3] = {tpetra::noise::noise_()*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i]};
+
+  double rv = (val + (1.-t_theta2_)*t_theta_*noise[0]
+	  + (1.-t_theta2_)*(1.-t_theta_)*noise[1]
+	       +.5*t_theta2_*((2.+dt_/dtold_)*noise[1]-dt_/dtold_*noise[2]));
+
+  return rv;
+}
+
 RES_FUNC(residual_heat_pfhub3_n_)
 {
   const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
@@ -6961,6 +6991,9 @@ RES_FUNC(residual_phase_pfhub3_n_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_phase_pfhub3_dp_)) = residual_phase_pfhub3_;
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_phase_pfhub3_noise_dp_)) = residual_phase_pfhub3_noise_;
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_pfhub3_)

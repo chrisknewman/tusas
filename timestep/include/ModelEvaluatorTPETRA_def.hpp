@@ -1964,6 +1964,34 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
+
+  }else if("pfhub3noise" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::pfhub3::init_heat_pfhub3_;
+    (*initfunc_)[1] = &tpetra::pfhub3::init_phase_pfhub3_;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::pfhub3::residual_heat_pfhub3_dp_;
+    (*residualfunc_)[1] = tpetra::pfhub3::residual_phase_pfhub3_noise_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::pfhub3::prec_heat_pfhub3_dp_;
+    (*preconfunc_)[1] = tpetra::pfhub3::prec_phase_pfhub3_dp_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::pfhub3::param_;
+
+    neumannfunc_ = NULL;
+
   }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

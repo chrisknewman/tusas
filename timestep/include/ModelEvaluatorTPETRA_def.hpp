@@ -58,6 +58,7 @@
 #include "function_def.hpp"
 #include "ParamNames.h"
 
+#ifdef TUSAS_HAVE_CUDA
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
 {
@@ -67,6 +68,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
       if (abort) exit(code);
    }
 }
+#endif
 #if 0  
 typedef double (*RESFUNC)(GPUBasisLHex * basis, 
 			  const int &i, 
@@ -544,11 +546,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     RESFUNC * h_rf;
     h_rf = (RESFUNC*)malloc(numeqs_*sizeof(RESFUNC));
 
+    int testcase = -99;
+
 #ifdef TUSAS_HAVE_CUDA
     //RESFUNC * d_rf;
     //cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
 
-    int testcase = -99;
 
     //better to use testname.compare("heat") > 0
     if("heat" == testname){
@@ -918,11 +921,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     PREFUNC * h_pf;
     h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
 
+    int testcase = -99;
 #ifdef TUSAS_HAVE_CUDA
     //PREFUNC * d_pf;
     //cudaMalloc((double**)&d_pf,numeqs_*sizeof(PREFUNC));
-
-    int testcase = -99;
 
 
     if("heat" == paramList.get<std::string> (TusastestNameString)){
@@ -2659,6 +2661,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   
   std::vector<double> maxdt(numeqs_);
   std::vector<double> mindt(numeqs_);
+  std::vector<double> newdt(numeqs_);
   std::vector<double> error(numeqs_);
   std::vector<double> norm(numeqs_,0.);
   
@@ -2695,9 +2698,9 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
       rr = std::cbrt(tol/abserr);
       //rr = std::pow(tol/abserr, 1./3.);
     }
-    const double factor = sf*dt_*rr;
-    maxdt[k] = std::max(factor,dt_*rmin);
-    mindt[k] = std::min(factor,dt_*rmax);
+    const double h1 = sf*dt_*rr;
+    maxdt[k] = std::max(h1,dt_*rmin);
+    mindt[k] = std::min(h1,dt_*rmax);
     if( 0 == comm_->getRank()){
       std::cout<<std::endl<<"     Variable: "<<(*varnames_)[k]<<std::endl;
       //std::cout<<"                              tol = "<<tol<<std::endl;
@@ -2705,15 +2708,18 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
       std::cout<<"                           max dt = "<<dtmax<<std::endl;
       std::cout<<"                   max(error,eps) = "<<abserr<<std::endl;
       std::cout<<"                    (tol/err)^1/p = "<<rr<<std::endl;
-      std::cout<<"          h = sf*dt*(tol/err)^1/p = "<<factor<<std::endl;
+      std::cout<<"          h = sf*dt*(tol/err)^1/p = "<<h1<<std::endl;
       std::cout<<"                   max(h,dt*rmin) = "<<maxdt[k]<<std::endl;
       std::cout<<"                   min(h,dt*rmax) = "<<mindt[k]<<std::endl<<std::endl;
     }
+    if( h1 < dt_ ){
+      newdt[k] = maxdt[k];
+    }else{
+      newdt[k] = mindt[k];
+    }
   }//k
-  const double dt1 = *min_element(maxdt.begin(), maxdt.end());
-  const double dt2 = *max_element(mindt.begin(), mindt.end());
-  //dtpred = std::min(dt1,dt2);//not sure if we want the smallest max????? ie dt1??
-  dtpred = dt1;
+
+  dtpred = *min_element(newdt.begin(), newdt.end());
 
   if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	

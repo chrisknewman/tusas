@@ -5558,7 +5558,6 @@ typedef double (*RESFUNC1)(const GPUBasisLHex *basis,
 				    const double &time,
 				    const int &eqn_id);
 
-__device__ RESFUNC1 flist;
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
   //namespace heat{

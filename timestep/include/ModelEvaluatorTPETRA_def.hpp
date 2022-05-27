@@ -449,7 +449,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
 
 
-  Kokkos::View<int**,Kokkos::DefaultExecutionSpace> meshc_2d("meshc_2d",n_nodes_per_elem,(*mesh_->get_elem_num_map()).size());
+  //Kokkos::View<int**,Kokkos::DefaultExecutionSpace> meshc_2d("meshc_2d",n_nodes_per_elem,(*mesh_->get_elem_num_map()).size());
 
   //std::cout<<n_nodes_per_elem*(*mesh_->get_elem_num_map()).size()<<"  "<<((mesh_->connect)[0]).size()<<std::endl;
 
@@ -2782,6 +2782,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   
   std::vector<double> maxdt(numeqs_);
   std::vector<double> mindt(numeqs_);
+  std::vector<double> newdt(numeqs_);
   std::vector<double> error(numeqs_);
   std::vector<double> norm(numeqs_,0.);
   
@@ -2818,9 +2819,9 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
       rr = std::cbrt(tol/abserr);
       //rr = std::pow(tol/abserr, 1./3.);
     }
-    const double factor = sf*dt_*rr;
-    maxdt[k] = std::max(factor,dt_*rmin);
-    mindt[k] = std::min(factor,dt_*rmax);
+    const double h1 = sf*dt_*rr;
+    maxdt[k] = std::max(h1,dt_*rmin);
+    mindt[k] = std::min(h1,dt_*rmax);
     if( 0 == Comm->MyPID()){
       std::cout<<std::endl<<"     Variable: "<<(*varnames_)[k]<<std::endl;
       //std::cout<<"                              tol = "<<tol<<std::endl;
@@ -2828,15 +2829,19 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
       std::cout<<"                           max dt = "<<dtmax<<std::endl;
       std::cout<<"                   max(error,eps) = "<<abserr<<std::endl;
       std::cout<<"                    (tol/err)^1/p = "<<rr<<std::endl;
-      std::cout<<"          h = sf*dt*(tol/err)^1/p = "<<factor<<std::endl;
+      std::cout<<"          h = sf*dt*(tol/err)^1/p = "<<h1<<std::endl;
       std::cout<<"                   max(h,dt*rmin) = "<<maxdt[k]<<std::endl;
-      std::cout<<"                   min(h,dt*rmax) = "<<mindt[k]<<std::endl<<std::endl;
+      std::cout<<"                   min(h,dt*rmax) = "<<mindt[k]<<std::endl;
+      std::cout<<std::endl;
+    }
+    if( h1 < dt_ ){
+      newdt[k] = maxdt[k];
+    }else{
+      newdt[k] = mindt[k];
     }
   }//k
-  const double dt1 = *min_element(maxdt.begin(), maxdt.end());
-  const double dt2 = *max_element(mindt.begin(), mindt.end());
-  //dtpred = std::min(dt1,dt2);//not sure if we want the smallest max????? ie dt1??
-  dtpred = dt1;
+
+  dtpred = *min_element(newdt.begin(), newdt.end());
 
   if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Estimated timestep size : "<<dtpred<<std::endl;	

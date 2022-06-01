@@ -3682,6 +3682,7 @@ INI_FUNC(init_)
   const double r = .1;
   const double x0 = .5;
   const double y0 = .5;
+  const double w = .025;
   const double q1[4] = {0.460849109679818,
 		       0.025097870693789,
 		       0.596761014095944,
@@ -3692,7 +3693,10 @@ INI_FUNC(init_)
 			0.297266300795322};
   const double c = (x-x0)*(x-x0) + (y-y0)*(y-y0);
   double val = q2[eqn_id];
-  if(c<r*r) val = q1[eqn_id];
+  //if(c<r*r) val = q1[eqn_id];
+  const double scale = (q2[eqn_id]-q1[eqn_id])/2.;
+  const double shift = (q2[eqn_id]+q1[eqn_id])/2.;
+  val = shift + scale*tanh((r-sqrt(c))/sqrt(2.)/.1);
   return val;
 
 }
@@ -7417,8 +7421,6 @@ RES_FUNC_TPETRA(residual_robin_test_)
   //double a =10.;
 
   const double ut = (u-uold)/dt_*test;
-  const double divgradu = c*c*(basis[0]->dudx*dtestdx + basis[0]->dudy*dtestdy + basis[0]->dudz*dtestdz);//(grad u,grad phi)
-  //double divgradu_old = (basis[0].duolddx*dtestdx + basis[0].duolddy*dtestdy + basis[0].duolddz*dtestdz);//(grad u,grad phi)
  
   const double f[3] = {c*c*(basis[0]->dudx*dtestdx + basis[0]->dudy*dtestdy + basis[0]->dudz*dtestdz),
 		       c*c*(basis[0]->duolddx*dtestdx + basis[0]->duolddy*dtestdy + basis[0]->duolddz*dtestdz),
@@ -7862,6 +7864,117 @@ PARAM_FUNC(param_)
   dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);
 }
 }//namespace goldak
+
+namespace quaternion
+{
+  //see
+  //[1] LLNL-JRNL-409478 A Numerical Algorithm for the Solution of a Phase-Field Model of Polycrystalline Materials
+  //M. R. Dorr, J.-L. Fattebert, M. E. Wickett, J. F. Belak, P. E. A. Turchi (2008)
+  //[2] LLNL-JRNL-636233 Phase-field modeling of coring during solidification of Au-Ni alloy using quaternions and CALPHAD input
+  //J. L. Fattebert, M. E. Wickett, P. E. A. Turchi May 7, 2013
+
+  const double M = .64;//1/sec/pJ
+  const double ep = .3125;//(pJ/um)^1/2
+  const int N = 4;
+  const double pi = 3.141592653589793;
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[0]->dphidx[i];
+  const double dtestdy = basis[0]->dphidy[i];
+  const double dtestdz = basis[0]->dphidz[i];
+  //test function
+  const double test = basis[0]->phi[i];
+  //u, phi
+  const double u = basis[eqn_id]->uu;
+  //const double uold = basis[0]->uuold;
+  const double uold = basis[eqn_id]->uuold;
+
+  double Dq = 0.;
+  Dq = ((basis[0]->uu > 0.461) ? ep*100. : 0.);//artificially move the small grain
+
+  const double divgradu[3] = {M*(ep+Dq)*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
+			      M*(ep+Dq)*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
+			      M*(ep+Dq)*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
+  double suml[3] = {0.,0.,0.};
+//   for(int k = 0; k < N; k++){
+//     suml[0] = suml[0] + (basis[k]->uu)*(basis[k]->uu);
+//     suml[1] = suml[1] + (basis[k]->uuold)*(basis[k]->uuold);
+//     suml[2] = suml[2] + (basis[k]->uuoldold)*(basis[k]->uuoldold);
+//   }
+
+  suml[0]=1.;suml[1]=1.;suml[2]=1.;
+
+  double sumk[3] = {0.,0.,0.};
+  for(int k = 0; k < N; k++){
+    sumk[0] = sumk[0] + (basis[eqn_id]->uu)/suml[0]*M*(ep+Dq)*(basis[k]->uu)*(basis[k]->dudx*dtestdx + basis[k]->dudy*dtestdy + basis[k]->dudz*dtestdz);
+    sumk[1] = sumk[1] + (basis[eqn_id]->uuold)/suml[1]*M*(ep+Dq)*(basis[k]->uuold)*(basis[k]->duolddx*dtestdx + basis[k]->duolddy*dtestdy + basis[k]->duolddz*dtestdz);
+    sumk[2] = sumk[2] + (basis[eqn_id]->uuoldold)/suml[2]*M*(ep+Dq)*(basis[k]->uuoldold)*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
+  }
+  const double f[3] = {divgradu[0] -  sumk[0], divgradu[1] -  sumk[1], divgradu[2] -  sumk[2]};
+  const double ut = (u-basis[eqn_id]->uuold)/dt_*test;
+
+  return ut + (1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+INI_FUNC(init_)
+{
+  return 300.;
+}
+
+  //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+
+//atan2 returns [-pi,pi]
+//asin returns [-pi/2,pi/2]
+//paraview expects [0,1] for an rgb value
+//https://discourse.paraview.org/t/coloring-surface-by-predefined-rgb-values/6011/6
+//so should we shift and scale each of these here?
+PPR_FUNC(postproc0_)
+{
+  //u is u0,u1,...
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+  double sinr_cosp = 2. * (u[0] * u[1] + u[2] * u[3]);
+  double cosr_cosp = 1. - 2. * (u[1] * u[1] + u[2] * u[2]);
+  double s = std::atan2(sinr_cosp, cosr_cosp);
+  return (s+pi)/2./pi;
+  //return s;
+}
+
+PPR_FUNC(postproc1_)
+{
+  //u is u0,u1,...
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+  double sinp = 2 * (u[0] * u[2] - u[3] * u[1]);
+  double s = 0.;
+  if (std::abs(sinp) >= 1.){
+    s = std::copysign(pi / 2., sinp); // use 90 degrees if out of range
+  }else{
+    s = std::asin(sinp);
+  }
+  return (s+pi/2.)/pi;
+  //return s;
+}
+
+PPR_FUNC(postproc2_)
+{
+  //u is u0,u1,...
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+  double siny_cosp = 2. * (u[0] * u[3] + u[1] * u[2]);
+  double cosy_cosp = 1. - 2. * (u[2] * u[2] + u[3] * u[3]);
+  double s = std::atan2(siny_cosp, cosy_cosp);
+  return (s+pi)/2./pi;
+  //return s;
+}
+
+
+}//namespace quaternion
 }//namespace tpetra
 
 

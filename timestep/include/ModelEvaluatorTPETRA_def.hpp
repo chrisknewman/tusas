@@ -1436,6 +1436,8 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 
     if(localprojectionindices_.size() > 0 ){
 
+      if( 0 == mypid)std::cout<<" Performing local projection "<<std::endl;
+      
       auto un_view = u_new_->getLocalView<Kokkos::DefaultHostExecutionSpace>();
       auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
       //for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
@@ -2229,6 +2231,51 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_qdot_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE,dorestart));
     post_proc[1].postprocfunc_ = &tpetra::goldak::postproc_u_;
+
+  }else if("quaternion" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 4;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::quaternion::residual_;
+    (*residualfunc_)[1] = &tpetra::quaternion::residual_;
+    (*residualfunc_)[2] = &tpetra::quaternion::residual_;
+    (*residualfunc_)[3] = &tpetra::quaternion::residual_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::heat::prec_heat_test_;
+    (*preconfunc_)[1] = &tpetra::heat::prec_heat_test_;
+    (*preconfunc_)[2] = &tpetra::heat::prec_heat_test_;
+    (*preconfunc_)[3] = &tpetra::heat::prec_heat_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &quaternion::init_;
+    (*initfunc_)[1] = &quaternion::init_;
+    (*initfunc_)[2] = &quaternion::init_;
+    (*initfunc_)[3] = &quaternion::init_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "q0";
+    (*varnames_)[1] = "q1";
+    (*varnames_)[2] = "q2";
+    (*varnames_)[3] = "q3";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::quaternion::postproc0_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc1_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)2));
+    post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc2_;
+
+    localprojectionindices_.push_back(0);
+    localprojectionindices_.push_back(1);
+    localprojectionindices_.push_back(2);
+    localprojectionindices_.push_back(3);
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

@@ -2249,10 +2249,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*preconfunc_)[3] = &tpetra::heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &quaternion::init_;
-    (*initfunc_)[1] = &quaternion::init_;
-    (*initfunc_)[2] = &quaternion::init_;
-    (*initfunc_)[3] = &quaternion::init_;
+    (*initfunc_)[0] = &tpetra::quaternion::init_;
+    (*initfunc_)[1] = &tpetra::quaternion::init_;
+    (*initfunc_)[2] = &tpetra::quaternion::init_;
+    (*initfunc_)[3] = &tpetra::quaternion::init_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "q0";
@@ -2271,6 +2271,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc1_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)2));
     post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc2_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)3));
+    post_proc[3].postprocfunc_ = &tpetra::quaternion::phi_;
+
 
     localprojectionindices_.push_back(0);
     localprojectionindices_.push_back(1);

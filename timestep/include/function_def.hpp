@@ -3674,6 +3674,14 @@ PARAM_FUNC(param_)
 {
 }
 
+  double dist(const double &x, const double &y, const double &z,
+	   const double &x0, const double &y0, const double &z0,
+	   const double &r)
+  {
+    const double c = (x-x0)*(x-x0) + (y-y0)*(y-y0) + (z-z0)*(z-z0);
+    return r-sqrt(c);
+  }
+
 INI_FUNC(init_)
 {
   //return .001*r(x,eqn_id)*r(x,N-eqn_id)*(y,eqn_id)*r(y,N-eqn_id);
@@ -3682,24 +3690,33 @@ INI_FUNC(init_)
   const double r = .1;
   const double x0 = .5;
   const double y0 = .5;
-  const double w = .025;
-  const double q1[4] = {0.460849109679818,
+  const double w = .1;//.025;
+  //g1 is the background grain
+  //g0 is black??
+  const double g0[4] = {-0.707106781186547,
+			-0.000000000000000,
+			0.707106781186548,
+			-0.000000000000000};
+  const double g1[4] = {0.460849109679818,
 		       0.025097870693789,
 		       0.596761014095944,
 		       0.656402686655941};   
-  const double q2[4] = {0.514408948531741,
+  const double g2[4] = {0.514408948531741,
 			0.574286304520035,
 			0.563215252388157,
 			0.297266300795322};
-  const double c = (x-x0)*(x-x0) + (y-y0)*(y-y0);
-  double val = q2[eqn_id];
-  //if(c<r*r) val = q1[eqn_id];
-  const double scale = (q2[eqn_id]-q1[eqn_id])/2.;
-  const double shift = (q2[eqn_id]+q1[eqn_id])/2.;
-  val = shift + scale*tanh((r-sqrt(c))/sqrt(2.)/.1);
-  return val;
+  const double g3[4] = {0.389320954032683,
+			0.445278323410822,
+			0.064316533986652,
+			0.803753564786790};
 
+  const double scale = (g3[eqn_id]-g1[eqn_id])/2.;
+  const double shift = (g3[eqn_id]+g1[eqn_id])/2.;
+  double d = dist(x,y,z,x0,y0,0,r);
+  double val = shift + scale*tanh(d/sqrt(2.)/w);
+  return val;
 }
+
 RES_FUNC(residual_)
 {
   //derivatives of the test function
@@ -7873,10 +7890,33 @@ namespace quaternion
   //[2] LLNL-JRNL-636233 Phase-field modeling of coring during solidification of Au-Ni alloy using quaternions and CALPHAD input
   //J. L. Fattebert, M. E. Wickett, P. E. A. Turchi May 7, 2013
 
-  const double M = .64;//1/sec/pJ
+  const double Mmax = .64;//1/sec/pJ
+  const double Mmin= 1.e-6;
+  const double Dmax = 1000.;
+  const double Dmin = 1.e-6;
   const double ep = .3125;//(pJ/um)^1/2
   const int N = 4;
   const double pi = 3.141592653589793;
+
+  const double dist(const double &x, const double &y, const double &z,
+	   const double &x0, const double &y0, const double &z0,
+	   const double &r)
+  {
+    const double c = (x-x0)*(x-x0) + (y-y0)*(y-y0) + (z-z0)*(z-z0);
+    return r-sqrt(c);
+  }
+
+  const double getphi(const double &x, const double &y, const double &z,
+	   const double &x0, const double &y0, const double &z0,
+		      const double &r, const double &t)
+  {
+    double rnew = r + t*.003125*1.e7;
+    double d = dist(x,y,z,x0,y0,0,rnew);
+    const double scale = (1-0)/2.;
+    const double shift = (1+0)/2.;
+    double val = shift + scale*tanh(d/sqrt(2.)/.01);
+    return val;
+  }
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_)
@@ -7892,20 +7932,29 @@ RES_FUNC_TPETRA(residual_)
   //const double uold = basis[0]->uuold;
   const double uold = basis[eqn_id]->uuold;
 
-  double Dq = 0.;
-  Dq = ((basis[0]->uu > 0.461) ? ep*100. : 0.);//artificially move the small grain
+  double phi = getphi(basis[eqn_id]->xx,basis[eqn_id]->yy,0.,
+		      .5,.5,0.,
+		      .2, time);
+
+  double Dq = phi*phi*Dmax;
+  double m = 1.-phi*phi*phi*(10.-15.*phi+6.*phi*phi);
+  double M = Mmin+m*(Mmax-Mmin);
+
+  //we need norm grad q here
 
   const double divgradu[3] = {M*(ep+Dq)*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      M*(ep+Dq)*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      M*(ep+Dq)*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
   double suml[3] = {0.,0.,0.};
-//   for(int k = 0; k < N; k++){
-//     suml[0] = suml[0] + (basis[k]->uu)*(basis[k]->uu);
-//     suml[1] = suml[1] + (basis[k]->uuold)*(basis[k]->uuold);
-//     suml[2] = suml[2] + (basis[k]->uuoldold)*(basis[k]->uuoldold);
-//   }
+  for(int k = 0; k < N; k++){
+    //suml[0] = suml[0] + (basis[k]->uu)*(basis[k]->uu);
+    //suml[1] = suml[1] + (basis[k]->uuold)*(basis[k]->uuold);
+    //suml[2] = suml[2] + (basis[k]->uuoldold)*(basis[k]->uuoldold);
+  }
 
-  suml[0]=1.;suml[1]=1.;suml[2]=1.;
+  suml[0]=1.;
+  suml[1]=1.;
+  suml[2]=1.;
 
   double sumk[3] = {0.,0.,0.};
   for(int k = 0; k < N; k++){
@@ -7923,7 +7972,34 @@ RES_FUNC_TPETRA(residual_)
 
 INI_FUNC(init_)
 {
-  return 300.;
+  const double r = .2;
+  const double x0 = .5;
+  const double y0 = .5;
+  const double w = .01;//.025;
+  //g1 is the background grain
+  //g0 is black??
+  const double g0[4] = {-0.707106781186547,
+			-0.000000000000000,
+			0.707106781186548,
+			-0.000000000000000};
+  const double g1[4] = {0.460849109679818,
+		       0.025097870693789,
+		       0.596761014095944,
+		       0.656402686655941};   
+  const double g2[4] = {0.659622270251558,
+			0.314355942642574,
+			0.581479198986258,
+			-0.357716008950928};
+  const double g3[4] = {0.610985843880283,
+			-0.625504969359875,
+			-0.474932634235629,
+			-0.099392277476709};
+
+  double scale = (g2[eqn_id]-g1[eqn_id])/2.;
+  double shift = (g2[eqn_id]+g1[eqn_id])/2.;
+  double d = dist(x,y,z,x0,y0,0,r);
+  double val = shift + scale*tanh(d/sqrt(2.)/w);
+  return val;
 }
 
   //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
@@ -7973,6 +8049,12 @@ PPR_FUNC(postproc2_)
   //return s;
 }
 
+PPR_FUNC(phi_)
+{
+  return getphi(xyz[0],xyz[1],0.,
+		      .5,.5,0.,
+		      .2, time);
+}
 
 }//namespace quaternion
 }//namespace tpetra

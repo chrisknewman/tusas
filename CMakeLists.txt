@@ -14,7 +14,7 @@ SET( DIR_9 "post_process/include" )
 SET( DIR_10 "elem_color/include" )
 SET( DIR_11 "periodic_bc/include" )
 SET( DIR_12 "projection/include" )
-SET( DIR_6 ${TRILINOS_DIR}lib )
+SET( DIR_6 ${TRILINOS_DIR}/lib )
 SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 
 #---------------------------------------------------------------------------------

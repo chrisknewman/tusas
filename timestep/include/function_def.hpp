@@ -5920,10 +5920,24 @@ TUSAS_DEVICE
 double rho_d = 1.;
 TUSAS_DEVICE
 double cp_d = 1.;
+TUSAS_DEVICE
+double tau0_d = 1.;
+TUSAS_DEVICE
+double W0_d = 1.;
+TUSAS_DEVICE
+double deltau_d = 1.;
+TUSAS_DEVICE
+double uref_d = 0.;
 
 double k_h = 2.;
 double rho_h = 1.;
 double cp_h = 1.;
+
+double tau0_h = 1.;
+double W0_h = 1.;
+
+double deltau_h = 1.;
+double uref_h = 0.;
 
   //KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
@@ -5943,14 +5957,17 @@ INI_FUNC(init_heat_test_)
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_heat_test_)
 {
-  const double ut = rho_d*cp_d*(basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*basis[eqn_id]->phi[i];
-  const double f[3] = {k_d*(basis[eqn_id]->dudx*basis[eqn_id]->dphidx[i]
+  //right now, it is probably best to handle nondimensionalization of temperature via:
+  // theta = (T-T_s)/(T_l-T_s) external to this module by multiplication of (T_l-T_s)=delta T
+
+  const double ut = rho_d*cp_d/tau0_d*deltau_d*(basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_*basis[eqn_id]->phi[i];
+  const double f[3] = {k_d/W0_d/W0_d*deltau_d*(basis[eqn_id]->dudx*basis[eqn_id]->dphidx[i]
 			    + basis[eqn_id]->dudy*basis[eqn_id]->dphidy[i]
 			    + basis[eqn_id]->dudz*basis[eqn_id]->dphidz[i]),
-		       k_d*(basis[eqn_id]->duolddx*basis[eqn_id]->dphidx[i]
+		       k_d/W0_d/W0_d*deltau_d*(basis[eqn_id]->duolddx*basis[eqn_id]->dphidx[i]
 			    + basis[eqn_id]->duolddy*basis[eqn_id]->dphidy[i]
 			    + basis[eqn_id]->duolddz*basis[eqn_id]->dphidz[i]),
-		       k_d*(basis[eqn_id]->duoldolddx*basis[eqn_id]->dphidx[i]
+		       k_d/W0_d/W0_d*deltau_d*(basis[eqn_id]->duoldolddx*basis[eqn_id]->dphidx[i]
 			    + basis[eqn_id]->duoldolddy*basis[eqn_id]->dphidy[i]
 			    + basis[eqn_id]->duoldolddz*basis[eqn_id]->dphidz[i])};
   return ut + (1.-t_theta2_)*t_theta_*f[0]
@@ -5998,6 +6015,38 @@ PARAM_FUNC(param_)
   cp_d = cp;
 #endif
   cp_h = cp;
+
+  double tau0 = plist->get<double>("tau0_",1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(tau0_d,&tau0,sizeof(double));
+#else
+  tau0_d = tau0;
+#endif
+  tau0_h = tau0;
+
+  double W0 = plist->get<double>("W0_",1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(W0_d,&W0,sizeof(double));
+#else
+  W0_d = W0;
+#endif
+  W0_h = W0;
+
+  double deltau = plist->get<double>("deltau_",1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(deltau_d,&deltau,sizeof(double));
+#else
+  deltau_d = deltau;
+#endif
+  deltau_h = deltau;
+
+  double uref = plist->get<double>("uref_",0.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(uref_d,&uref,sizeof(double));
+#else
+  uref_d = uref;
+#endif
+  uref_h = uref;
 }
 //double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_)
@@ -7640,6 +7689,12 @@ namespace radconvbc
   double sigma = 5.67037e-9;
   double ti = 323.;
 
+  double tau0_h = 1.;
+  double W0_h = 1.;
+  
+  double deltau_h = 1.;
+  double uref_h = 0.;
+
 DBC_FUNC(dbc_) 
 {
   return 1173.;
@@ -7673,6 +7728,8 @@ PARAM_FUNC(param_)
   ep = plist->get<double>("ep_",.7);
   sigma = plist->get<double>("sigma_",5.67037e-9);
   ti = plist->get<double>("ti_",323.);
+  deltau_h = plist->get<double>("deltau_",1.);
+  uref_h = plist->get<double>("uref_",0.);
 //   std::cout<<"tpetra::radconvbc::param_:"<<std::endl
 // 	   <<"  h     = "<<h<<std::endl
 // 	   <<"  ep    = "<<ep<<std::endl
@@ -7688,8 +7745,8 @@ const double pi_d = 3.141592653589793;
 double te = 1641.;
 double tl = 1706.;
 double Lf = 2.95e5;
-TUSAS_DEVICE
-double dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);//fl=(t-te)/(tl-te);
+  //TUSAS_DEVICE
+  //double dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);//fl=(t-te)/(tl-te);
 
 TUSAS_DEVICE
 double eta_d = 0.3;
@@ -7713,25 +7770,49 @@ TUSAS_DEVICE
 double t_hold_d = 0.005;
 TUSAS_DEVICE
 double t_decay_d = 0.01;
+TUSAS_DEVICE
+double tau0_d = 1.;
+TUSAS_DEVICE
+double W0_d = 1.;
+
+KOKKOS_INLINE_FUNCTION 
+const double dfldt()
+{
+  return tpetra::heat::rho_d*Lf/(tl-te)/tau0_d;//fl=(t-te)/(tl-te);
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double P(const double t)
+{
+  const double t_hold = t_hold_d/tau0_d;
+  const double t_decay = t_decay_d/tau0_d;
+  const double tt = t/tau0_d;
+  return (tt < t_hold) ? P_d : 
+    ((tt<t_hold+t_decay) ? P_d*(tt-(t_hold+t_decay))/(-t_decay)
+     :0.);
+}
 
 KOKKOS_INLINE_FUNCTION 
 const double qdot(const double &x, const double &y, const double &z, const double &t)
 {
-//   const double P = P_d;
-//   const double P = (t<t_hold_) ? P_d : 0.;
-  const double P = (t < t_hold_d) ? P_d : 
-    ((t<t_hold_d+t_decay_d) ? P_d*(t-(t_hold_d+t_decay_d))/(-t_decay_d)
-     :0.);
+
+  const double p = P(t);
   //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
-  const double coef = eta_d*P*5.19615/r_d/r_d/d_d/gamma_d/pi_d;
+  const double r = r_d;// /W0_d;
+  const double d = d_d;// /W0_d;
+
+  const double coef = eta_d*p*5.19615/r/r/d/gamma_d/pi_d;
+
+  //const double exparg = ((x-x0_d/W0_d)*(x-x0_d/W0_d)+(y-y0_d/W0_d)*(y-y0_d/W0_d))/r/r+(z-z0_d/W0_d)*(z-z0_d/W0_d)/d/d;
+  const double exparg = ((W0_d*x-x0_d)*(W0_d*x-x0_d)+(W0_d*y-y0_d)*(W0_d*y-y0_d))/r/r+(W0_d*z-z0_d)*(W0_d*z-z0_d)/d/d;
 
   const double f = exp(
 		       -3.*(
-			    ((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d+(z-z0_d)*(z-z0_d)/d_d/d_d
+			    exparg
 			    )
 		       );
-//   if((coef!=coef)||(f!=f))
-//     printf("%lf %lf\n",coef,f);
+  //std::cout<<W0_d*x<<std::endl;
+  //if(f > 0.) std::cout<<f<<" "<<coef<<" "<<coef*f<<std::endl;
   return coef*f;
 }
 
@@ -7752,14 +7833,14 @@ RES_FUNC_TPETRA(residual_test_)
 //   exit(0);
   //better 3pt derivatives, see difference.nb and inspiration at
   //https://link.springer.com/content/pdf/10.1007/BF02510406.pdf
-  const double ut[3] = {dfldt_d*((1. + dt_/dtold_)*(basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_
+  const double ut[3] = {dfldt()*((1. + dt_/dtold_)*(basis[eqn_id]->uu-basis[eqn_id]->uuold)/dt_
 				 -dt_/dtold_*(basis[eqn_id]->uu-basis[eqn_id]->uuoldold)/(dt_+dtold_)
 				 )*basis[eqn_id]->phi[i],
-			dfldt_d*(dtold_/dt_/(dt_+dtold_)*(basis[eqn_id]->uu)
+			dfldt()*(dtold_/dt_/(dt_+dtold_)*(basis[eqn_id]->uu)
 				 -(dtold_-dt_)/dt_/dtold_*(basis[eqn_id]->uuold)
 				 -dt_/dtold_/(dt_+dtold_)*(basis[eqn_id]->uuoldold)
 				 )*basis[eqn_id]->phi[i],
-			dfldt_d*(-(1.+dtold_/dt_)*(basis[eqn_id]->uuoldold-basis[eqn_id]->uuold)/dtold_
+			dfldt()*(-(1.+dtold_/dt_)*(basis[eqn_id]->uuoldold-basis[eqn_id]->uuold)/dtold_
 				 +dtold_/dt_*(basis[eqn_id]->uuoldold-basis[eqn_id]->uu)/(dtold_+dt_)
 				 )*basis[eqn_id]->phi[i]};
 //   const double ut[3] = {0.,0.,0.};
@@ -7777,7 +7858,7 @@ RES_FUNC_TPETRA(residual_test_)
 	  +.5*t_theta2_*((2.+dt_/dtold_)*ut[1]-dt_/dtold_*ut[2]));// /tpetra::heat::rho_d/tpetra::heat::cp_d;
   //printf("%f\n",rv);
   //printf("%f %f %f\n",ut[0],ut[1],ut[2]);
-  return rv;
+  return rv*tau0_d/tpetra::heat::deltau_h;
 }
 
 TUSAS_DEVICE
@@ -7803,12 +7884,14 @@ PRE_FUNC_TPETRA((*prec_test_dp_)) = prec_test_;
 
 INI_FUNC(init_heat_)
 {
-  return 300.;
+  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  return val;
 }
 
 DBC_FUNC(dbc_) 
 {
-  return 300.;
+  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  return val;
 }
 
 PPR_FUNC(postproc_qdot_)
@@ -7823,13 +7906,7 @@ PPR_FUNC(postproc_qdot_)
 
 PPR_FUNC(postproc_u_)
 {
-  //const double uu = u[0];
-  //const double x = xyz[0];
-  //const double y = xyz[1];
-  //const double z = xyz[2];
-
-  //return u[0];
-  return u[0];
+  return u[0]*tpetra::heat::deltau_h + tpetra::heat::uref_h;
 }
 
 PARAM_FUNC(param_)
@@ -7877,8 +7954,10 @@ PARAM_FUNC(param_)
   z0_d = plist->get<double>("z0_",0.);
   t_hold_d = plist->get<double>("t_hold_",0.005);
   t_decay_d = plist->get<double>("t_decay_",0.01);
+  tau0_d = plist->get<double>("tau0_",1.);
+  W0_d = plist->get<double>("W0_",1.);
 
-  dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);
+  //dfldt_d = tpetra::heat::rho_d*Lf/(tl-te);
 }
 }//namespace goldak
 
@@ -7893,7 +7972,7 @@ namespace quaternion
   const double Mmax = .64;//1/sec/pJ
   const double Mmin= 1.e-6;
   const double Dmax = 1000.;
-  const double Dmin = 1.e-6;
+  //const double Dmin = 1.e-6;
   const double ep = .3125;//(pJ/um)^1/2
   const int N = 4;
   const double pi = 3.141592653589793;
@@ -7910,7 +7989,7 @@ namespace quaternion
 	   const double &x0, const double &y0, const double &z0,
 		      const double &r, const double &t)
   {
-    double rnew = r + t*.003125*1.e7;
+    double rnew = r + t*.003125*1.e5;
     double d = dist(x,y,z,x0,y0,0,rnew);
     const double scale = (1-0)/2.;
     const double shift = (1+0)/2.;
@@ -7947,12 +8026,13 @@ RES_FUNC_TPETRA(residual_)
 			      M*(ep+Dq)*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
   double suml[3] = {0.,0.,0.};
   for(int k = 0; k < N; k++){
-    //suml[0] = suml[0] + (basis[k]->uu)*(basis[k]->uu);
+    suml[0] = suml[0] + (basis[k]->uu)*(basis[k]->uu);
     //suml[1] = suml[1] + (basis[k]->uuold)*(basis[k]->uuold);
     //suml[2] = suml[2] + (basis[k]->uuoldold)*(basis[k]->uuoldold);
   }
 
-  suml[0]=1.;
+  //suml[0]=1.;
+  std::cout<<suml[0]<<std::endl;
   suml[1]=1.;
   suml[2]=1.;
 

@@ -2438,6 +2438,9 @@ public:
   double dphidetanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
   double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
 
+  /// Access volume of current element.  
+  KOKKOS_INLINE_FUNCTION const double vol(){return volp;};
+
   //we could also do phi[BASIS_NODES_PER_ELEM] and set each element explicity below...
   //double *phi;
   
@@ -2463,6 +2466,8 @@ protected:
   /// difference in nodal coordinates
   double nodaldiff[36];//12 for lquad, 36 for lhex
 
+  double volp;
+  double canonical_vol;
 
 };
 
@@ -2472,6 +2477,7 @@ class GPUBasisLQuad:public GPUBasis{
 public:
 
   TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuad(const int n = 2){
+    canonical_vol = 4.;
     sngp = n;
     if( 3 == n){
       abscissa[0] = -3.872983346207417/5.0;
@@ -2602,7 +2608,7 @@ public:
   jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
 	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
 	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
-
+  volp = jac*canonical_vol;
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
   dxidz = 0.;
@@ -2662,6 +2668,7 @@ class GPUBasisLHex:public GPUBasis{
 public:
 
   TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLHex(const int n = 2){
+    canonical_vol = 8.;
     sngp = n;
     if( 3 == n){
       abscissa[0] = -3.872983346207417/5.0;
@@ -2893,7 +2900,7 @@ public:
     jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
       + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
     
-    
+    volp = jac*canonical_vol;
     dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
     dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
     dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;

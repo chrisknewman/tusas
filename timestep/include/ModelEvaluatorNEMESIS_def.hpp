@@ -453,7 +453,6 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
 	std::string * elem_type_p = &elem_type;
 		
-	//#ifdef TUSAS_COLOR_CPU
 #ifdef TUSAS_COLOR_CPU
 	int num_color = Elem_col->get_num_color();
 	//std::vector< std::vector< int > > colors = Elem_col->get_colors();
@@ -531,13 +530,15 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    // 	}
 	    //cn should be cube root in 3d
 	    //dx = sqrt(dx);	
-	    
+	     
 	    for(int gp=0; gp < basis[0].ngp; gp++) {// Loop Over Gauss Points 
 	      
+	      //double jacwt = 0.;
 	      // Calculate the basis function at the gauss point
 	      for( int neq = 0; neq < numeqs_; neq++ ){
 		basis[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
-	      }	      	  
+		//jacwt = basis[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq][0], &uu_old[neq][0], &uu_old_old[neq][0]);
+	      }	     	  
     
 	      //srand(123);
 	      

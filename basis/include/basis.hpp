@@ -217,6 +217,9 @@ class Basis {
   double * dphidy;
   /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
   double * dphidz;
+
+  /// Access volume of current element.
+  const double vol(){return volp;};
 protected:
   /// Access a pointer to the coordinates of the Gauss points in canonical space.
   double *abscissa;
@@ -232,6 +235,9 @@ protected:
   double *nwt;
 
   std::string stype;
+
+  double volp;
+  double canonical_vol;
 };
 
 /// Implementation of 2-D bilinear triangle element.
@@ -243,6 +249,7 @@ class BasisLTri : public Basis {
   /// Constructor
   /** Number of Gauss points = sngp, defaults to 1. */
   BasisLTri(int n = 1){
+  canonical_vol = .5;
   ngp = n;
   phi = new double[3];
   dphidxi = new double[3];
@@ -358,7 +365,7 @@ class BasisLTri : public Basis {
   jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
 	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
 	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
-
+  volp = jac*canonical_vol;
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
   dxidz = 0.;
@@ -427,6 +434,7 @@ class BasisLQuad : public Basis {
   /// Constructor
   /** Number of Gauss points = sngp, defaults to 4 (sngp refers to 1 dimension of a tensor product, ie sngp = 2 is really 4 Gauss points). */
   BasisLQuad(int n = 2) :sngp(n){
+  canonical_vol = 4.;
   ngp = sngp*sngp;
   phi = new double[4];//number of nodes
   dphidxi = new double[4];
@@ -536,6 +544,8 @@ class BasisLQuad : public Basis {
   jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
 	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
 	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
+
+  volp = jac*canonical_vol;
 
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
@@ -708,7 +718,7 @@ class BasisQTri : public Basis {
 
   /// Constructor
   BasisQTri(int n = 3){
-
+  canonical_vol = .5;
   ngp = n;
   phi = new double[6];
   dphidxi = new double[6];
@@ -823,7 +833,7 @@ class BasisQTri : public Basis {
   }
 
   jac = dxdxi * dydeta - dxdeta * dydxi;
-
+  volp = jac*canonical_vol;
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
   dxidz = 0.;
@@ -891,6 +901,7 @@ class BasisQQuad : public Basis {
 
   /// Constructor
   BasisQQuad(int n = 3) :sngp(n){
+  canonical_vol = 4.;
   ngp = sngp*sngp; // number of Gauss points
   phi = new double[9];
   dphidxi = new double[9];
@@ -1091,6 +1102,8 @@ class BasisQQuad : public Basis {
  // printf("_deta : %f %f %f\n",dphi1deta,dphi2deta,dphi3deta);
 //printf("_xi : %f %f %f\n\n",dphi1dxi,dphi2dxi,dphi3dxi);
 
+  volp = jac*canonical_vol;
+
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
   dxidz = 0.;
@@ -1161,6 +1174,7 @@ class BasisLHex : public Basis {
   /// Constructor
   /** Number of Gauss points = sngp (sngp refers to 1 dimension of a tensor product, ie sngp = 2 is really 8 Gauss points). */
   BasisLHex(int n = 2): sngp(n){
+  canonical_vol = 8.;
   ngp = sngp*sngp*sngp;
   phi = new double[ngp];
   dphidxi = new double[8];
@@ -1323,7 +1337,7 @@ class BasisLHex : public Basis {
   jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
 	                                      + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
 
-
+  volp = jac*canonical_vol;
   dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
   dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
   dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;
@@ -1545,6 +1559,7 @@ class BasisLTet : public Basis {
   /// Constructor
   BasisLTet(){
   //cn we can have 1 or 4 guass points; 4 will be default
+  canonical_vol = 1./6.;
 #if 0
   sngp = 1;
   ngp = 1;
@@ -1690,7 +1705,7 @@ class BasisLTet : public Basis {
 
   jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
 	                                      + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
-
+  volp = jac*canonical_vol;
 
   dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
   dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;

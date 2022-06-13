@@ -611,7 +611,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    BGPU[neq] = &Bh[neq];
 	}
 	
-	const int ngp = BGPU[0]->ngp;
+	const int ngp = BGPU[0]->ngp();
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];
@@ -649,12 +649,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  //Bh[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
 	}//neq
 	for(int gp=0; gp < ngp; gp++) {//gp
-
+	  double jacwt = 0.;
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    //we need a basis object that stores all equations here..
-	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
+	    jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	  }//neq
-	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
+	  //const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const int lrow = numeqs*meshc[elemrow+i];
@@ -739,7 +739,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       GPUBasis * BGPU = &Bq;
       const int num_node_per_side = 4;
       
-      const int ngp = BGPU->ngp;
+      const int ngp = BGPU->ngp();
       
       std::map<int,NBCFUNC>::iterator it;
       
@@ -768,8 +768,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    
 	    BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
 	    for ( int gp = 0; gp < ngp; gp++){
-	      BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0], &uu_oldold[0]);//we can add uu_old, uu_oldold
-	      const double jacwt = BGPU->jac*BGPU->wt;
+	      const double jacwt = BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0], &uu_oldold[0]);//we can add uu_old, uu_oldold
 	      for( int i = 0; i < num_node_per_side; i++ ){  
 		
 		const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
@@ -944,7 +943,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    BGPU[neq] = &Bh[neq];
 	}
 	
-	const int ngp = BGPU[0]->ngp;
+	const int ngp = BGPU[0]->ngp();
 
 	//const int elem = elem_map_k[ne];
 	const int elem = elem_map_1d(ne);
@@ -974,10 +973,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}//neq
 
 	for(int gp=0; gp < ngp; gp++) {//gp
+	  double jacwt = 0.;
 	  for( int neq = 0; neq < numeqs; neq++ ){
-	    BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
+	   jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
 	  }//neq
-	  const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 	    //const local_ordinal_type lrow = numeqs*meshc[elemrow+i];
 	    const local_ordinal_type lrow = numeqs*meshc_1d(elemrow+i);

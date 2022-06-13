@@ -2340,7 +2340,7 @@ public:
   };
   TUSAS_CUDA_CALLABLE_MEMBER virtual ~GPUBasis(){//printf("~GPUBasis()\n");
   };
-  TUSAS_CUDA_CALLABLE_MEMBER virtual void getBasis(const int gp,
+  TUSAS_CUDA_CALLABLE_MEMBER virtual double getBasis(const int gp,
 						   const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM],
@@ -2353,11 +2353,10 @@ public:
 
   
     /// Access number of Gauss points.
-  int ngp;
+  KOKKOS_INLINE_FUNCTION
+  const int ngp() const {return ngpp;};
 
   double phi[BASIS_NODES_PER_ELEM];
-  //double dphidxi[BASIS_NODES_PER_ELEM];
-  //double dphideta[BASIS_NODES_PER_ELEM];
 
   /// Access value of u at the current Gauss point.
   double uu;
@@ -2367,43 +2366,15 @@ public:
   double dudx;
   /// Access value of du / dy at the current Gauss point.
   double dudy;
-  /// Access value of dxi / dx  at the current Gauss point.
-  double dxidx;
-  /// Access value of dxi / dy  at the current Gauss point.
-  double dxidy;
-  /// Access value of deta / dx  at the current Gauss point.
-  double detadx;
-  /// Access value of deta / dy  at the current Gauss point.
-  double detady;
   /// Access value of the derivative of the basis function wrt to x at the current Gauss point.
   double dphidx[BASIS_NODES_PER_ELEM];
   /// Access value of the derivative of the basis function wrt to y at the current Gauss point.
   double dphidy[BASIS_NODES_PER_ELEM];
 
-  /// Access value of the Gauss weight  at the current Gauss point.
-  double wt;
-  /// Access value of the mapping Jacobian.
-  double jac;
-
   // Variables that are calculated at the gauss point
-  /// Access number of Gauss points.
-  int sngp;
   /// Access value of dphi / dzta  at the current Gauss point.
   double dphidzta[BASIS_NODES_PER_ELEM];
   
-  /// Access value of dxi / dz  at the current Gauss point.
-  double dxidz;
-
-  /// Access value of deta / dz  at the current Gauss point.
-  double detadz;
-
-  /// Access value of dzta / dx  at the current Gauss point.
-  double dztadx;
-  /// Access value of dzta / dy  at the current Gauss point.
-  double dztady;
-  /// Access value of dzta / dz  at the current Gauss point.
-  double dztadz;
-
   /// Access value of du / dz at the current Gauss point.
   double dudz;
 
@@ -2455,7 +2426,6 @@ protected:
   double weight[BASIS_SNGP_PER_ELEM];
   /// Access a pointer to the xi coordinate at each Gauss point.
   double xi[BASIS_NGP_PER_ELEM];
-  //double *xi;
   /// Access a pointer to the eta coordinate at each Gauss point.
   double eta[BASIS_NGP_PER_ELEM];
   /// Access a pointer to the zta coordinate at each Gauss point.
@@ -2468,6 +2438,33 @@ protected:
 
   double volp;
   double canonical_vol;
+
+  /// Access value of the Gauss weight  at the current Gauss point.
+  double wt;
+  /// Access value of the mapping Jacobian.
+  double jac;
+  
+  /// Access number of Gauss points.
+  int sngp;
+  int ngpp;
+  /// Access value of dxi / dx  at the current Gauss point.
+  double dxidx;
+  /// Access value of dxi / dy  at the current Gauss point.
+  double dxidy;
+  /// Access value of dxi / dz  at the current Gauss point.
+  double dxidz;
+  /// Access value of deta / dx  at the current Gauss point.
+  double detadx;
+  /// Access value of deta / dy  at the current Gauss point.
+  double detady;
+  /// Access value of deta / dz  at the current Gauss point.
+  double detadz;
+  /// Access value of dzta / dx  at the current Gauss point.
+  double dztadx;
+  /// Access value of dzta / dy  at the current Gauss point.
+  double dztady;
+  /// Access value of dzta / dz  at the current Gauss point.
+  double dztadz;
 
 };
 
@@ -2502,7 +2499,7 @@ public:
       weight[0] = 1.0;
       weight[1] = 1.0;
     }
-    ngp = sngp*sngp;
+    ngpp = sngp*sngp;
     
     int c = 0;
     for( int i = 0; i < sngp; i++ ){
@@ -2514,7 +2511,7 @@ public:
       }
       c = c + sngp - 1;
     }
-    for(int gp = 0; gp < ngp; gp++){
+    for(int gp = 0; gp < ngpp; gp++){
       phinew[gp][0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
       phinew[gp][1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
       phinew[gp][2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
@@ -2555,7 +2552,7 @@ public:
 
 }
 
-  TUSAS_CUDA_CALLABLE_MEMBER void getBasis(const int gp,
+  TUSAS_CUDA_CALLABLE_MEMBER double getBasis(const int gp,
 					   const double x[BASIS_NODES_PER_ELEM], 
 					   const double y[BASIS_NODES_PER_ELEM],  
 					   const double z[BASIS_NODES_PER_ELEM],
@@ -2660,7 +2657,7 @@ public:
     }
   }
   
-  return;
+  return jac*wt;
   }
 };
 
@@ -2693,7 +2690,7 @@ public:
       weight[0] = 1.0;
       weight[1] = 1.0;
     }
-    ngp = sngp*sngp*sngp;
+    ngpp = sngp*sngp*sngp;
 
 #if 0
     xi[0] = abscissa[0];  // 0, 0, 0
@@ -2752,7 +2749,7 @@ public:
     }
     //exit(0);
 
-    for(int gp = 0; gp < ngp; gp++){
+    for(int gp = 0; gp < ngpp; gp++){
       phinew[gp][0]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
       phinew[gp][1]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
       phinew[gp][2]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
@@ -2841,7 +2838,7 @@ public:
 
 }
   
-  TUSAS_CUDA_CALLABLE_MEMBER virtual void getBasis(const int gp,
+  TUSAS_CUDA_CALLABLE_MEMBER virtual double getBasis(const int gp,
 						   const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM],
@@ -2956,7 +2953,7 @@ public:
 	duoldolddz += uoldold[i] * dphidz[i];
       }
     }
-    return;
+    return jac*wt;
   }
 };
 

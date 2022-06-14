@@ -7706,9 +7706,9 @@ NBC_FUNC_TPETRA(nbc_)
   //h(t-ti)+\ep\sigma(t^4-ti^4)
   //std::cout<<h<<" "<<ep<<" "<<sigma<<" "<<ti<<std::endl;
   const double test = basis[0].phi[i];
-  const double u = basis[0].uu;
-  const double uold = basis[0].uuold;
-  const double uoldold = basis[0].uuoldold;
+  const double u = deltau_h*basis[0].uu+uref_h;
+  const double uold = deltau_h*basis[0].uuold+uref_h;
+  const double uoldold = deltau_h*basis[0].uuoldold+uref_h;
   const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
 		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
 		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};

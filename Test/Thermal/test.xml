@@ -1,0 +1,91 @@
+<ParameterList>
+	
+<!-- simulation parameters -->
+
+<!--   <Parameter name="dt" type="double" value=".00625"/> -->
+  <Parameter name="dt" type="double" value="1.e-7"/>
+  <Parameter name="nt" type="int" value = "5"/>
+<!--   <Parameter name="nt" type="int" value = "200000"/> -->
+  <Parameter name="meshfile" type="string" value="./thermal.e"/>
+  <Parameter name="method" type="string" value="tpetra"/>
+  <Parameter name="preconditioner" type="bool" value = "false"/>
+  <Parameter name="theta" type="double" value=".5"/>
+  <Parameter name="noxrelres" type="double" value="1.e-6"/>
+  <Parameter name="predrelres" type="double" value="1.e-6"/>
+<!--   <Parameter name="predmaxiter" type="int" value="3"/> -->
+  <Parameter name="testcase" type="string" value="goldak"/>
+  <Parameter name="outputfreq" type="int" value = "1"/>
+<!--    <Parameter name="errorestimator" type="string" value = "{0}"/> -->
+  <Parameter name="ltpquadord" type="int" value = "2"/>
+
+  <ParameterList name="Linear Solver"> 
+    <Parameter name="Linear Solver Type" type="string" value="Belos"/>
+    <ParameterList name="Linear Solver Types">
+      <ParameterList name="Belos"> 
+        <Parameter name="Solver Type" type="string" value="Pseudo Block GMRES"/>
+        <ParameterList name="Solver Types">
+          <ParameterList name="Pseudo Block GMRES">
+<!--        <Parameter name="Orthogonalization" type="string" value="DGKS"/> -->
+            <Parameter name="Orthogonalization" type="string" value="ICGS"/>
+            <Parameter name="Maximum Iterations" type="int" value="20"/>
+            <Parameter name="Output Frequency" type="int" value="1"/>
+<!--        <Parameter name="Show Maximum Residual Norm Only"  type="bool" value = "true"/> -->
+            <Parameter name="Verbosity" type="int" value="33"/>
+            <Parameter name="Output Style" type="int" value="1"/>
+          </ParameterList>
+        </ParameterList>
+<!--    <ParameterList name="VerboseObject"> -->
+<!--      <Parameter name="Verbosity Level" type="string" value="extreme"/> -->
+<!--      <Parameter name="Output File" type="string" value="belos.dat"/> -->
+<!--    </ParameterList> -->
+      </ParameterList> 
+    </ParameterList>
+  </ParameterList> 
+
+  <Parameter name="initialsolve" type="bool" value = "true"/>
+  <Parameter name="adaptivetimestep" type="bool" value = "true"/>
+  <ParameterList name="Adaptive Timestep Parameters">
+    <Parameter name="maxiter" type="int" value = "2"/>
+    <Parameter name="atol" type="double" value = "1.e-4"/>
+    <Parameter name="rtol" type="double" value = "0."/>
+    <Parameter name="safety factor" type="double" value = ".95"/>
+    <Parameter name="rmin" type="double" value = ".5"/>
+    <Parameter name="rmax" type="double" value = "2."/>
+    <Parameter name="max dt" type="double" value = "1.e-4"/>
+  </ParameterList>
+
+   <ParameterList name="ProblemParams">
+<!--     <Parameter name="Echo ProblemParams" type="bool" value = "true"/> -->
+
+    <Parameter name="h_" type="double" value="100."/>
+    <Parameter name="ep_" type="double" value=".3"/>
+    <Parameter name="sigma_" type="double" value="5.6704e-8"/>
+    <Parameter name="ti_" type="double" value="300"/>
+
+    <Parameter name="k_" type="double" value="90."/>
+    <Parameter name="rho_" type="double" value="8900."/>
+    <Parameter name="cp_" type="double" value="440."/>
+
+    <Parameter name="te_" type="double" value="1641."/>
+    <Parameter name="tl_" type="double" value="1706."/>
+<!--     <Parameter name="Lf_" type="double" value="2.95e5"/> -->
+<!--     <Parameter name="Lf_" type="double" value="0."/> -->
+
+    <Parameter name="eta_" type="double" value="0.3"/>
+    <Parameter name="P_" type="double" value="50."/>
+    <Parameter name="s_" type="double" value="2."/>
+    <Parameter name="r_" type="double" value="5.e-5"/>
+    <Parameter name="d_" type="double" value="1.e-5"/>
+    <Parameter name="gamma_" type="double" value="0.886227"/>
+    <Parameter name="x0_" type="double" value="0."/>
+    <Parameter name="y0_" type="double" value="0."/>
+    <Parameter name="z0_" type="double" value="0.0005"/>
+
+    <Parameter name="t_hold_" type="double" value="0.005"/>
+    <Parameter name="t_decay_" type="double" value="0.01"/>
+
+    <Parameter name="tau0_" type="double" value="1."/>
+    <Parameter name="W0_" type="double" value="1."/>
+   </ParameterList>
+
+</ParameterList>

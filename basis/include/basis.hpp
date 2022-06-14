@@ -2347,6 +2347,7 @@ public:
 						   const double u[BASIS_NODES_PER_ELEM],
 						   const double uold[BASIS_NODES_PER_ELEM],
 						   const double uoldold[BASIS_NODES_PER_ELEM]) {};
+  //we could compute and return jac here
   TUSAS_CUDA_CALLABLE_MEMBER virtual void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM]) {};
@@ -2590,6 +2591,7 @@ public:
 //   double dzdxi  = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
 //   double dzdeta = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
 
+//we could make these protected, ove this jac and volp to computeElemData as an optimization
   double dxdxi  = .25*( (nodaldiff[0])*(1.-eta[gp])+(nodaldiff[6])*(1.+eta[gp]) );
   double dxdeta = .25*( (nodaldiff[1])*(1.- xi[gp])+(nodaldiff[7])*(1.+ xi[gp]) );
   double dydxi  = .25*( (nodaldiff[2])*(1.-eta[gp])+(nodaldiff[8])*(1.+eta[gp]) );

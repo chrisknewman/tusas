@@ -24,7 +24,7 @@
 #include <Teuchos_RCP.hpp>
 
 //#include <MueLu_HierarchyManager.hpp>
-#include <MueLu_TpetraOperator_fwd.hpp>
+#include <MueLu_TpetraOperator.hpp>
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 

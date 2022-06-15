@@ -6,7 +6,7 @@
 //
 /////////////////////////////////////////////////////////////////////////////
 
-//this is crusher branch
+
 #ifndef NOX_THYRA_MODEL_EVALUATOR_TPETRA_DEF_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_TPETRA_DEF_HPP
 
@@ -58,6 +58,10 @@
 #include "function_def.hpp"
 #include "ParamNames.h"
 
+#define TUSAS_CRUSHER
+
+#ifdef TUSAS_CRUSHER
+#else
 #ifdef TUSAS_HAVE_CUDA
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -69,18 +73,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    }
 }
 #endif
-#if 0  
-typedef double (*RESFUNC)(GPUBasisLHex * basis, 
-			  const int &i, 
-			  const double &dt_, 
-			  const double &dtold_, 
-			  const double &t_theta_, 
-			  const double &t_theta2_, 
-			  const double &time,
-			  const int &eqn_id);
-//TUSAS_DEVICE
-__device__
-RESFUNC *flist;
 #endif
 
 #define TUSAS_RUN_ON_CPU
@@ -489,7 +481,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
 
 
-  Kokkos::View<int**,Kokkos::DefaultExecutionSpace> meshc_2d("meshc_2d",n_nodes_per_elem,(*mesh_->get_elem_num_map()).size());
+  //Kokkos::View<int**,Kokkos::DefaultExecutionSpace> meshc_2d("meshc_2d",n_nodes_per_elem,(*mesh_->get_elem_num_map()).size());
 
   //std::cout<<n_nodes_per_elem*(*mesh_->get_elem_num_map()).size()<<"  "<<((mesh_->connect)[0]).size()<<std::endl;
 
@@ -548,6 +540,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     int testcase = -99;
 
+#ifdef TUSAS_CRUSHER
+#else
 #ifdef TUSAS_HAVE_CUDA
     //RESFUNC * d_rf;
     //cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
@@ -602,6 +596,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //it seems that evaluating the function via pointer ie h_rf[0] is way faster that evaluation via (*residualfunc_)[0]
     h_rf = &(*residualfunc_)[0];
 #endif
+#endif
 
     for(int c = 0; c < num_color; c++){
 
@@ -616,14 +611,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	//elem_map_k[i] = elem_map[i]; 
 	elem_map_1d(i) = elem_map[i]; 
       }
-//       Kokkos::parallel_for(numeqs,KOKKOS_LAMBDA(const int& neq){
-// 			     flist = tpetra::heat::residual_heat_test_;
-// 			   });
 
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
 
 
+#ifdef TUSAS_CRUSHER
+#else
         //new((RESFUNC*)rf) &tpetra::heat::residual_heat_test_dp_;
 	RESFUNC rf[TUSAS_MAX_NUMEQS];
 	if (testcase == 0){
@@ -637,6 +631,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}else{
 	  exit(0);
 	}
+#endif
 
 	const int elem = elem_map_1d(ne);
 #ifdef TUSAS3D	
@@ -703,14 +698,19 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    const int lrow = numeqs*meshc_1dra(elemrow+i);
 
 	    for( int neq = 0; neq < numeqs; neq++ ){
+
+#ifdef TUSAS_CRUSHER
+	      const double val = jacwt*(tpetra::heat::residual_heat_test_((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
+#else
 #ifdef TUSAS_HAVE_CUDA
 	      //printf("%le\n",B[0].phi[0]);
 	      //const double val = jacwt*((d_rf[neq])((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
-	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);
+	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);tpetra::heat::residual_heat_test_
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tpetra::heat::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
 	      double val = jacwt*(h_rf[neq]((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
+#endif
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
@@ -922,6 +922,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
 
     int testcase = -99;
+#ifdef TUSAS_CRUSHER
+#else
 #ifdef TUSAS_HAVE_CUDA
     //PREFUNC * d_pf;
     //cudaMalloc((double**)&d_pf,numeqs_*sizeof(PREFUNC));
@@ -970,6 +972,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #else
     h_pf = &(*preconfunc_)[0];
 #endif
+#endif
 
 
     for(int c = 0; c < num_color; c++){
@@ -991,7 +994,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //printf("%d\n",c);
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
 
-			     //printf("%d\n",ne);
+
+#ifdef TUSAS_CRUSHER
+#else
 	PREFUNC pf[TUSAS_MAX_NUMEQS];
 	if (testcase == 0){
 	  pf[0] = tpetra::heat::prec_heat_test_;
@@ -1003,6 +1008,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}else{
 	  exit(0);
 	}
+#endif
 #ifdef TUSAS3D	
 			     //GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
         GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex()};
@@ -1051,12 +1057,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      local_ordinal_type lcol[1] = {numeqs*meshc_1d(elemrow+j)};
 	      
 	      for( int neq = 0; neq < numeqs; neq++ ){
+#ifdef TUSAS_CRUSHER
+		scalar_type val[1] = {jacwt*(tpetra::heat::prec_heat_test_)(&B[0],i,j,dt,t_theta,neq)};
+#else
 #ifdef TUSAS_HAVE_CUDA
 		scalar_type val[1] = {jacwt*(pf[neq])(&B[0],i,j,dt,t_theta,neq)};
 #else
 		scalar_type val[1] = {jacwt*h_pf[neq](&B[0],i,j,dt,t_theta,neq)};
 #endif
-		
+#endif	
 		//cn probably better to fill a view for val and lcol for each column
 		const local_ordinal_type row = lrow +neq; 
 		local_ordinal_type col[1] = {lcol[0] + neq};
@@ -1629,11 +1638,8 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
       const double x = mesh_->get_x(lid_overlap);
       const double y = mesh_->get_y(lid_overlap);
       const double z = mesh_->get_z(lid_overlap);
-#ifdef TUSAS_RUN_ON_CPU
+
       u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
-#else
-      u_1d[numeqs_*nn+k] = tusastpetra::init_heat_test_(x,y,z,k);
-#endif
     }
 
 
@@ -1645,7 +1651,9 @@ template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 {
   paramfunc_.resize(0);
-
+#ifdef TUSAS_CRUSHER
+  if("heat" != paramList.get<std::string> (TusastestNameString)) exit(0);
+#endif
   if("heat" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
     numeqs_ = 1;

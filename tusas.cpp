@@ -207,11 +207,12 @@ int main(int argc, char *argv[])
     delete model;
     delete in_mesh;
   }
+
   write_timers();
+//   mpiSession.barrier();
+//   std::cout<<mpiSession.mpiIsFinalized ()<<std::endl;
   Kokkos::finalize();
-#ifdef TUSAS_HAVE_SUMMIT_MPI
-  MPI_Finalize();  //enable this to force an abort on summit (summit ibm-mpi hangs here...)
-#endif
+
   return 0;
 }
 

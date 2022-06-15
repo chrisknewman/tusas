@@ -25,7 +25,7 @@
 
 //#define TUSASMUELU
 //#ifndef TUSASMUELU
-#include <MueLu_TpetraOperator_fwd.hpp>
+#include <MueLu_TpetraOperator.hpp>
 //#endif
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
@@ -301,11 +301,7 @@ private:
 
   //hacked stuff for elem_color
   Teuchos::RCP<elem_color> Elem_col;
-  Teuchos::RCP<const Epetra_Comm>  Comm;
-  //Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra;
-  //Kokkos::View<const double*> x_1dra; 
-  
-  //TUSAS_CUDA_CALLABLE_MEMBER void set_basis( GPUBasis &basis, const std::string elem_type) const;
+  Teuchos::RCP<const Epetra_Comm>  Comm; 
 
   boost::ptr_vector<error_estimator> Error_est;
   boost::ptr_vector<post_process> post_proc;

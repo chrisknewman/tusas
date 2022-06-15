@@ -25,7 +25,7 @@
 
 //#define TUSASMUELU
 //#ifndef TUSASMUELU
-#include <MueLu_TpetraOperator_fwd.hpp>
+#include <MueLu_TpetraOperator.hpp>
 //#endif
 
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"

@@ -36,7 +36,9 @@
 #include "timestep.hpp"
 #include "post_process.h"
 
-#include <boost/ptr_container/ptr_vector.hpp>
+#include "function_def.hpp"
+#include "ParamNames.h"
+
 
 #if 0
 template <typename LocalOrdinal,typename GlobalOrdinal>
@@ -303,17 +305,17 @@ private:
   Teuchos::RCP<elem_color> Elem_col;
   Teuchos::RCP<const Epetra_Comm>  Comm; 
 
-  boost::ptr_vector<error_estimator> Error_est;
-  boost::ptr_vector<post_process> post_proc;
+  std::vector<error_estimator*> Error_est;
+  std::vector<post_process*> post_proc;
   void postprocess();
 
   void predictor();
   void initialsolve();
 
   double estimatetimestep();
-  void temporalpostprocess(boost::ptr_vector<post_process>pp);
-  boost::ptr_vector<post_process> temporal_est;
-  boost::ptr_vector<post_process> temporal_norm;
+  void temporalpostprocess(std::vector<post_process*>pp);
+  std::vector<post_process*> temporal_est;
+  std::vector<post_process*> temporal_norm;
   void setadaptivetimestep();
 
   void init_P_();

@@ -38,7 +38,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "ModelEvaluatorNEMESIS.hpp"
+//#include "ModelEvaluatorNEMESIS.hpp"
 #include "ModelEvaluatorTPETRA.hpp"
 
 #include "Mesh.h"
@@ -150,12 +150,12 @@ int main(int argc, char *argv[])
     if( paramList.get<std::string> (TusasmethodNameString)  == "tpetra") {
       model = new ModelEvaluatorTPETRA<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
     }
-#ifdef TUSAS_HAVE_CUDA
-#else
-    else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
-      model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
-    }
-#endif
+// #ifdef TUSAS_HAVE_CUDA
+// #else
+//     else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
+//       model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
+//     }
+// #endif
     else {
       std::cout<<"Invalid method."<<"\n"<<"\n";
       return EXIT_FAILURE;

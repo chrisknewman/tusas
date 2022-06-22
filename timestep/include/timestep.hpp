@@ -11,6 +11,8 @@
 #ifndef TIMESTEP_HPP
 #define TIMESTEP_HPP 
 
+#define TUSAS_CRUSHER
+
 /// Base class for timestepping methods.
 template<class Scalar>
 class timestep 

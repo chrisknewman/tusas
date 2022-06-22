@@ -10,8 +10,10 @@
 
 #ifndef FUNCTION_DEF_HPP
 #define FUNCTION_DEF_HPP
-
+#if 0
 #include <boost/ptr_container/ptr_vector.hpp>
+#endif
+
 #include "basis.hpp"
 	
 #include "Teuchos_ParameterList.hpp"
@@ -19,14 +21,13 @@
 
 
 
-#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
+//#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
+#if 1
 #define TUSAS_DEVICE __device__
 #define TUSAS_HAVE_CUDA
 #else
 #define TUSAS_DEVICE /**/ 
 #endif
-
-
 
 /** Definition for residual function. Each residual function is called at each Gauss point for each equation with this signature:
 - NAME:     name of function to call
@@ -37,10 +38,9 @@
 - const double &time: the current simulation time
 - const int &eqn_id: the index of the current equation
 
-
 */
 
-
+#if 0
 #define RES_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
                                     const int &i,\
                                     const double &dt_,\
@@ -49,7 +49,7 @@
 			            const double &t_theta2_,\
                                     const double &time,\
 				    const int &eqn_id)
-
+#endif
 /** Definition for precondition function. Each precondition function is called at each Gauss point for each equation with this signature:
 - NAME:     name of function to call
 - const boost::ptr_vector<Basis> &basis:     an array of basis function objects indexed by equation
@@ -62,14 +62,14 @@
 
 
 */
-
+#if 0
 #define PRE_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
                                     const int &i,\
 				    const int &j,\
 				    const double &dt_,\
 				    const double &t_theta_,\
 				    const int &eqn_id)
-
+#endif
 /** Definition for initialization function. Each initialization function is called at each node for each equation at the beginning of the simualtaion with this signature:
 - NAME:     name of function to call
 - const double &x: the x-ccordinate of the node
@@ -144,12 +144,9 @@
 
 #define PARAM_FUNC(NAME) void NAME(Teuchos::ParameterList *plist) 
 
-
+#if 0
 namespace heat
 {
-// double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 
 /** Residual function for heat equation test problem. */
 RES_FUNC(residual_heat_test_)
@@ -523,7 +520,7 @@ INI_FUNC(init_c_)
 
 }//namespace chem
 
-
+#endif
 namespace timeadapt
 {
 PPR_FUNC(d2udt2_)
@@ -602,7 +599,7 @@ PPR_FUNC(normu_)
   return uu;
 }
 }//namespace timeadapt
-
+#if 0
 double rand_phi_zero_(const double &phi, const double &random_number)
 {
   return 0.;
@@ -1131,11 +1128,13 @@ NBC_FUNC(nbc_zero_)
 //	const double &y,
 //	const double &z,
 //	const double &t)
+#endif
 KOKKOS_INLINE_FUNCTION
 DBC_FUNC(dbc_zero_)
 {  
   return 0.;
 }
+#if 0
 //double nbc_one_(const Basis *basis,
 //	const int &i, 
 //	const double &dt_, 
@@ -5504,6 +5503,8 @@ PPR_FUNC(postproc_c_)
 
 }//namespace pfhub2
 
+
+#endif
 // #define RES_FUNC_TPETRA(NAME)  double NAME(const GPUBasis * const * basis, 
 
 #ifdef TUSAS3D
@@ -6448,7 +6449,7 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
- 
+#if 0
 RES_FUNC(residual_heat_pfhub3_n_)
 {
   const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
@@ -6570,7 +6571,7 @@ RES_FUNC(residual_phase_pfhub3_n_)
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
-
+#endif
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_phase_pfhub3_dp_)) = residual_phase_pfhub3_;
 
@@ -6583,7 +6584,7 @@ PRE_FUNC_TPETRA(prec_heat_pfhub3_)
 			      + basis[eqn_id].dphidz(j)*basis[eqn_id].dphidz(i));
   return ut + t_theta_*divgradu;
 }
-
+#if 0
 PRE_FUNC(prec_heat_pfhub3_n_)
 {
   const double ut = basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
@@ -6592,7 +6593,7 @@ PRE_FUNC(prec_heat_pfhub3_n_)
 			      + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
   return ut + t_theta_*divgradu;
 }
-
+#endif
 
 TUSAS_DEVICE
 PRE_FUNC_TPETRA((*prec_heat_pfhub3_dp_)) = prec_heat_pfhub3_;
@@ -6621,7 +6622,7 @@ PRE_FUNC_TPETRA(prec_phase_pfhub3_)
   return phit
     + t_theta_*divgradphi/tau;
 }
-
+#if 0
 PRE_FUNC(prec_phase_pfhub3_n_)
 {
   const double test = basis[eqn_id].phi[i];
@@ -6647,7 +6648,7 @@ PRE_FUNC(prec_phase_pfhub3_n_)
   return phit
     + t_theta_*divgradphi/tau;
 }
-
+#endif
 TUSAS_DEVICE
 PRE_FUNC_TPETRA((*prec_phase_pfhub3_dp_)) = prec_phase_pfhub3_;
 

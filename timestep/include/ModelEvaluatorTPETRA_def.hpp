@@ -58,7 +58,7 @@
 #include "function_def.hpp"
 #include "ParamNames.h"
 
-#define TUSAS_CRUSHER
+//#define TUSAS_CRUSHER
 
 #ifdef TUSAS_CRUSHER
 #else
@@ -1537,10 +1537,10 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
   //*u_old_ = *u_new_;
   u_old_->update(1.,*u_new_,0.);
 
-  for(boost::ptr_vector<error_estimator>::iterator it = Error_est.begin();it != Error_est.end();++it){
+  for(std::vector<error_estimator*>::iterator it = Error_est.begin();it != Error_est.end();++it){
     //it->test_lapack();
-    it->estimate_gradient(u_old_);
-    it->estimate_error(u_old_);
+    (*it)->estimate_gradient(u_old_);
+    (*it)->estimate_error(u_old_);
   }
   ++numsteps_;   
 
@@ -1688,7 +1688,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
+    post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
 
   }else if("radconvbc" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
@@ -1767,7 +1767,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
+    post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
 
   }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
@@ -1803,7 +1803,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
+    post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
 
 
   }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
@@ -1846,7 +1846,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
   }else if("cummins" == paramList.get<std::string> (TusastestNameString)){
-    
+
+#ifdef TUSAS_CRUSHER
+#else    
     numeqs_ = 2;
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
@@ -1875,6 +1877,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(1);
     paramfunc_[0] = &cummins::param_;
+#endif
 
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
@@ -1962,9 +1965,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
+    post_proc[0]->postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
+    post_proc[1]->postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
@@ -2000,6 +2003,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
   }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
 
+#ifdef TUSAS_CRUSHER
+#else
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
 
@@ -2061,6 +2066,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
+#endif
 
   }else if("robin" == paramList.get<std::string> (TusastestNameString)){
 
@@ -2100,10 +2106,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //(*neumannfunc_)[0][3] = &nbc_zero_;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::robin::postproc_robin_;
+    post_proc[0]->postprocfunc_ = &tpetra::robin::postproc_robin_;
 
   }else if("timeonly" == paramList.get<std::string> (TusastestNameString)){
 
+#ifdef TUSAS_CRUSHER
+#else
     numeqs_ = 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
@@ -2122,9 +2130,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
 
     neumannfunc_ = NULL;
+#endif
 
   }else if("autocatalytic4" == paramList.get<std::string> (TusastestNameString)){
 
+#ifdef TUSAS_CRUSHER
+#else
     numeqs_ = 4;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
@@ -2155,6 +2166,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
 
     neumannfunc_ = NULL;
+#endif
 
   }else if("goldak" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
@@ -2197,9 +2209,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
-    post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_qdot_;
+    post_proc[0]->postprocfunc_ = &tpetra::goldak::postproc_qdot_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
-    post_proc[1].postprocfunc_ = &tpetra::goldak::postproc_u_;
+    post_proc[1]->postprocfunc_ = &tpetra::goldak::postproc_u_;
 
 
   } else {
@@ -2290,28 +2302,28 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     mesh_->update_nodal_data((*varnames_)[k], &output[k][0]);
   }
 
-  boost::ptr_vector<error_estimator>::iterator it;
+  std::vector<error_estimator*>::iterator it;
   for(it = Error_est.begin();it != Error_est.end();++it){
-    it->update_mesh_data();
+    (*it)->update_mesh_data();
   }
 
-  boost::ptr_vector<post_process>::iterator itp;
+  std::vector<post_process*>::iterator itp;
   for(itp = post_proc.begin();itp != post_proc.end();++itp){
-    itp->scalar_reduction();
-    itp->update_mesh_data();
-    itp->update_scalar_data(time_);
+    (*itp)->scalar_reduction();
+    (*itp)->update_mesh_data();
+    (*itp)->update_scalar_data(time_);
   }
 
   for(itp = temporal_est.begin();itp != temporal_est.end();++itp){
-    itp->scalar_reduction();
-    itp->update_mesh_data();
-    itp->update_scalar_data(time_);
+    (*itp)->scalar_reduction();
+    (*itp)->update_mesh_data();
+    (*itp)->update_scalar_data(time_);
   }
 
   for(itp = temporal_norm.begin();itp != temporal_norm.end();++itp){
-    itp->scalar_reduction();
-    itp->update_mesh_data();
-    itp->update_scalar_data(time_);
+    (*itp)->scalar_reduction();
+    (*itp)->update_mesh_data();
+    (*itp)->update_scalar_data(time_);
   }
 
   Elem_col->update_mesh_data();
@@ -2566,21 +2578,21 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
     }
 
     for( int k = 0; k < numee; k++ ){
-      ug[k*dim] = (*(Error_est[k].gradx_))[nn];
-      ug[k*dim+1] = (*(Error_est[k].grady_))[nn];
-      ug[k*dim+2] = (*(Error_est[k].gradz_))[nn];
+      ug[k*dim] = (*(Error_est[k]->gradx_))[nn];
+      ug[k*dim+1] = (*(Error_est[k]->grady_))[nn];
+      ug[k*dim+2] = (*(Error_est[k]->gradz_))[nn];
     }
 
-    boost::ptr_vector<post_process>::iterator itp;
+    std::vector<post_process*>::iterator itp;
     for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dt_);
+      (*itp)->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dt_);
     }
 
   }//nn
 }
 
 template<class Scalar>
-void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_process> pp)
+void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(std::vector<post_process*> pp)
 {
   if(0 == pp.size() ) return;
 
@@ -2612,9 +2624,9 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
       ug[k] = predtempview[numeqs*nn+k];
     }
 
-    boost::ptr_vector<post_process>::iterator itp;
+    std::vector<post_process*>::iterator itp;
     for(itp = pp.begin();itp != pp.end();++itp){
-      itp->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
+      (*itp)->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dtold_);
       //std::cout<<nn<<" "<<mesh_->get_local_id((x_owned_map_->GID(nn))/numeqs_)<<" "<<xyz[0]<<std::endl;
     }
   }//nn
@@ -2656,15 +2668,15 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   const double dtmax = atsList->get<double>(TusasatsmaxdtNameString);
 
   temporalpostprocess(temporal_est); 
-  boost::ptr_vector<post_process>::iterator itp;
+  std::vector<post_process*>::iterator itp;
   for(itp = temporal_est.begin();itp != temporal_est.end();++itp){
-    itp->scalar_reduction();
+    (*itp)->scalar_reduction();
   }
 
   //norm for rtol
   temporalpostprocess(temporal_norm); 
   for(itp = temporal_norm.begin();itp != temporal_norm.end();++itp){
-    itp->scalar_reduction();
+    (*itp)->scalar_reduction();
   }
   
   std::vector<double> maxdt(numeqs_);
@@ -2694,8 +2706,8 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
     }
 
   for( int k = 0; k < numeqs_; k++ ){
-    error[k] = err_coef*(temporal_est[k].get_scalar_val());
-    norm[k] = temporal_norm[k].get_scalar_val();
+    error[k] = err_coef*(temporal_est[k]->get_scalar_val());
+    norm[k] = temporal_norm[k]->get_scalar_val();
     const double abserr = std::max(error[k],eps);
     const double tol = atol + rtol*norm[k];
     double rr;
@@ -2866,10 +2878,10 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 						16));
 	//be with an error estimate based on second derivative
 	if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
-	   temporal_est[k].postprocfunc_ = &timeadapt::d2udt2_;
+	   temporal_est[k]->postprocfunc_ = &timeadapt::d2udt2_;
 	//be with error estimate based on fe predictor: fe-be
 	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
-	  temporal_est[k].postprocfunc_ = &timeadapt::predictor_fe_;
+	  temporal_est[k]->postprocfunc_ = &timeadapt::predictor_fe_;
 
 	//we will have tr with adams-bashforth predictor: ab-tr
 	//would require a small first step to get ab going
@@ -2891,7 +2903,7 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 						 k, 
 						 "tempnorm",
 						 16));
- 	temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
+ 	temporal_norm[k]->postprocfunc_ = &timeadapt::normu_;
 
       }
   }

@@ -10,13 +10,16 @@
 #ifndef NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DECL_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DECL_HPP
 
+#include "timestep.hpp"
+
+#if 0
+
 #include "function_def.hpp"
 #ifdef TUSAS_HAVE_CUDA
 #else
 
 #include "Mesh.h"
 #include "preconditioner.hpp"
-#include "timestep.hpp"
 #include "error_estimator.h"
 #include "elem_color.h"
 #include "post_process.h"
@@ -364,4 +367,5 @@ Epetra_Map Create_OneToOne_Map64(const Epetra_Map& usermap,
 
 
 #endif //TUSAS_HAVE_CUDA
+#endif //TUSAS_CRUSHER
 #endif

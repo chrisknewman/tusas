@@ -24,7 +24,7 @@
 //#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
 #if 1
 #define TUSAS_DEVICE __device__
-#define TUSAS_HAVE_CUDA
+//#define TUSAS_HAVE_CUDA
 #else
 #define TUSAS_DEVICE /**/ 
 #endif
@@ -5565,13 +5565,13 @@ namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ late
 
 namespace heat{
 TUSAS_DEVICE
-double k_d = 2.;
+double k_d = 1.;
 TUSAS_DEVICE
 double rho_d = 1.;
 TUSAS_DEVICE
 double cp_d = 1.;
 
-double k_h = 2.;
+double k_h = 1.;
 double rho_h = 1.;
 double cp_h = 1.;
 
@@ -7419,7 +7419,6 @@ PPR_FUNC(postproc_u_)
 
 PARAM_FUNC(param_)
 {
-
   //std::cout<<"tpetra::goldak::param_"<<std::endl;
   //we need to set h, ep, sigma, ti in radconv params as follows:
   //h = 100 W/(m2*K)
@@ -7532,7 +7531,6 @@ PARAM_FUNC(param_)
   t_decay_d = t_decay_p;
 #endif
   t_decay_h = t_decay_p;
-
 }
 }//namespace goldak
 }//namespace tpetra

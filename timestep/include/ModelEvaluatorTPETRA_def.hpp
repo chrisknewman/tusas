@@ -58,8 +58,6 @@
 #include "function_def.hpp"
 #include "ParamNames.h"
 
-//#define TUSAS_CRUSHER
-
 #ifdef TUSAS_CRUSHER
 #else
 #ifdef TUSAS_HAVE_CUDA

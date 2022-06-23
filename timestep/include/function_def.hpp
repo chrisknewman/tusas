@@ -147,9 +147,6 @@
 
 namespace heat
 {
-// double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 
 /** Residual function for heat equation test problem. */
 RES_FUNC(residual_heat_test_)
@@ -176,8 +173,7 @@ RES_FUNC(residual_heat_test_)
  
   return ut + t_theta_*divgradu + (1.-t_theta_)*divgradu_old;
 }
-//double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
-//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_heat_test_)
 {
   //cn probably want to move each of these operations inside of getbasis
@@ -748,12 +744,7 @@ namespace cummins
   {
     return 1.;
   }
-// double residual_heat_(const boost::ptr_vector<Basis> &basis, 
-// 		      const int &i, 
-// 		      const double &dt_, 
-// 		      const double &t_theta_, 
-// 		      const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_heat_)
 {
   //derivatives of the test function
@@ -873,9 +864,7 @@ double gpp1_cummins_(const double &phi)
 {
   return 1. - 6.* phi + 6.* phi*phi;
 }
-// double residual_phase_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_phase_)
 {
   //derivatives of the test function
@@ -957,9 +946,7 @@ RES_FUNC(residual_phase_)
   return phit + t_theta_*rhs + (1.-t_theta_)*rhs_old;
 
 }
-// double prec_heat_(const boost::ptr_vector<Basis> &basis, 
-//		 const int &i
-//	  , const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_heat_)
 {
   //cn probably want to move each of these operations inside of getbasis
@@ -989,8 +976,7 @@ PRE_FUNC(prec_heat_)
   double u_t =test * basis[0].phi[j]/dt_;
   return u_t + t_theta_*divgrad;
 }
-//double prec_phase_(const boost::ptr_vector<Basis> &basis, 
-//		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_phase_)
 {
   //derivatives of the test function
@@ -1068,9 +1054,7 @@ INI_FUNC(init_heat_)
   }
   return val;
 }
-//double init_heat_const_(const double &x,
-//		 const double &y,
-//		 const double &z)
+
 INI_FUNC(init_heat_const_)
 {
 
@@ -1078,9 +1062,7 @@ INI_FUNC(init_heat_const_)
 
   return T_inf_;
 }
-//double init_phase_(const double &x,
-//		 const double &y,
-//		 const double &z)
+
 INI_FUNC(init_phase_)
 {
   double theta_0_ = 0.;
@@ -1106,19 +1088,12 @@ PARAM_FUNC(param_)
 }
 }//cummins
 
-//double init_zero_(const double &x,
-//		 const double &y,
-//		 const double &z)
 INI_FUNC(init_zero_)
 {
 
   return 0.;
 }
-//double nbc_zero_(const Basis *basis,
-//	 const int &i, 
-//	 const double &dt_, 
-//	 const double &t_theta_,
-//	 const double &time)
+
 NBC_FUNC(nbc_zero_)
 {
   
@@ -1127,20 +1102,12 @@ NBC_FUNC(nbc_zero_)
   return 0.*phi;
 }
 
-//double dbc_zero_(const double &x,
-//	const double &y,
-//	const double &z,
-//	const double &t)
 KOKKOS_INLINE_FUNCTION
 DBC_FUNC(dbc_zero_)
 {  
   return 0.;
 }
-//double nbc_one_(const Basis *basis,
-//	const int &i, 
-//	const double &dt_, 
-//	const double &t_theta_,
-//	const double &time)
+
 NBC_FUNC(nbc_one_)
 {
   
@@ -1148,18 +1115,12 @@ NBC_FUNC(nbc_one_)
   
   return 1.*phi;
 }
-//double dbc_one_(const double &x,
-//       const double &y,
-//       const double &z,
-//       const double &t)
+
 DBC_FUNC(dbc_one_)
 { 
   return 1.;
 }
-//double dbc_ten_(const double &x,
-//       const double &y,
-//       const double &z,
-//       const double &t)
+
 DBC_FUNC(dbc_ten_)
 {
   
@@ -1169,11 +1130,7 @@ DBC_FUNC(dbc_ten_)
 	       z,
 	       t);
 }
-//double nbc_mone_(const Basis *basis,
-//	 const int &i, 
-//	 const double &dt_, 
-//	 const double &t_theta_,
-//	 const double &time)
+
 NBC_FUNC(nbc_mone_)
 {
 
@@ -1181,18 +1138,12 @@ NBC_FUNC(nbc_mone_)
 
   return -1.*phi;
 }
-//double dbc_mone_(const double &x,
-//	const double &y,
-//	const double &z,
-//	const double &t)
+
 DBC_FUNC(dbc_mone_)
 {
   return -1.;
 }
 
-//double init_neumann_test_(const double &x,
-//		 const double &y,
-//		 const double &z)
 INI_FUNC(init_neumann_test_)
 {
 
@@ -1313,9 +1264,6 @@ double tscale_(const double &x, const double &time)
   return (t-ts)/dt0;
 }
 
-// double residual_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 RES_FUNC(residual_phase_farzadi_)
 {
   //derivatives of the test function
@@ -1396,9 +1344,6 @@ RES_FUNC(residual_phase_farzadi_)
 
 }
 
-// double residual_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 RES_FUNC(residual_conc_farzadi_)
 {
   //derivatives of the test function
@@ -1466,8 +1411,7 @@ RES_FUNC(residual_conc_farzadi_)
 
   return ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
 }
-  //double prec_phase_farzadi_(const boost::ptr_vector<Basis> &basis, 
-  //			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_phase_farzadi_)
 {
   //derivatives of the test function
@@ -1519,8 +1463,7 @@ PRE_FUNC(prec_phase_farzadi_)
   //return phit + t_theta_*(divgrad + 0.*curlgrad + 0.*t1 + 0.*t2);
   return phit + t_theta_*(divgrad);
 }
-  //double prec_conc_farzadi_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_conc_farzadi_)
 {
   //cn probably want to move each of these operations inside of getbasis
@@ -1570,7 +1513,7 @@ PRE_FUNC(prec_conc_farzadi_)
   //return u_t + t_theta_*(divgrad + 0.*divj + 0.*phitu);
   return u_t + t_theta_*(divgrad);
 }
-//double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_c_)
 {
 
@@ -1579,7 +1522,7 @@ PPR_FUNC(postproc_c_)
 
   return -c_inf*(1.+k_-phi+k_*phi)*(-1.-uu+k_*uu)/2./k_;
 }
-//double postproc_t_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_t_)
 {
   // x is in nondimensional space, tscale_ takes in nondimensional and converts to um
@@ -1589,9 +1532,6 @@ PPR_FUNC(postproc_t_)
 }
 }//namespace farzadi
 
-// double residual_robin_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 namespace robin_steadystate
 {
 RES_FUNC(residual_robin_test_)
@@ -1629,8 +1569,6 @@ RES_FUNC(residual_robin_test_)
   return divgradu + au;
 }
 
-//double prec_robin_test_(const boost::ptr_vector<Basis> &basis, 
-//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
 PRE_FUNC(prec_robin_test_)
 {
   //cn probably want to move each of these operations inside of getbasis
@@ -1661,11 +1599,6 @@ PRE_FUNC(prec_robin_test_)
   return u_t + t_theta_*divgrad;
 }
 
-//double nbc_robin_test_(const Basis *basis,
-//	 const int &i, 
-//	 const double &dt_, 
-//	 const double &t_theta_,
-//	 const double &time)
 NBC_FUNC(nbc_robin_test_)
 {
 
@@ -1723,8 +1656,6 @@ RES_FUNC(residual_robin_test_)
   return ut + divgradu;
 }
 
-//double prec_robin_test_(const boost::ptr_vector<Basis> &basis, 
-//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
 PRE_FUNC(prec_robin_test_)
 {
   //cn probably want to move each of these operations inside of getbasis
@@ -1755,11 +1686,6 @@ PRE_FUNC(prec_robin_test_)
   return u_t + t_theta_*divgrad;
 }
 
-//double nbc_robin_test_(const Basis *basis,
-//	 const int &i, 
-//	 const double &dt_, 
-//	 const double &t_theta_,
-//	 const double &time)
 NBC_FUNC(nbc_robin_test_)
 {
 
@@ -1781,9 +1707,7 @@ INI_FUNC(init_robin_test_)
 }//namespace robin
 namespace liniso
 {
-// double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_liniso_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -1841,9 +1765,7 @@ RES_FUNC(residual_liniso_x_test_)
  
   return divgradu;
 }
-// double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_liniso_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -1901,9 +1823,7 @@ RES_FUNC(residual_liniso_y_test_)
  
   return divgradu;
 }
-// double residual_liniso_z_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_liniso_z_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -1962,10 +1882,6 @@ RES_FUNC(residual_liniso_z_test_)
   return divgradu;
 }
 
-
-
-  //double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
 PRE_FUNC(prec_liniso_x_test_)
 {
 
@@ -2040,8 +1956,7 @@ PRE_FUNC(prec_liniso_x_test_)
  
   return divgradu;
 }
-  //double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_liniso_y_test_)
 {
 
@@ -2114,8 +2029,7 @@ PRE_FUNC(prec_liniso_y_test_)
 
   return divgradu;
 }
-  //double prec_liniso_z_test_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_liniso_z_test_)
 {
 
@@ -2189,9 +2103,7 @@ PRE_FUNC(prec_liniso_z_test_)
 
   return divgradu;
 }
-// double residual_linisobodyforce_y_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_linisobodyforce_y_test_)
 {
   //this is taken from a test that had E=2e11; nu=.3 and body force -1e10 in the y direction;
@@ -2207,9 +2119,6 @@ RES_FUNC(residual_linisobodyforce_y_test_)
   return divgradu;
 }
 
-// double residual_linisoheat_x_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 RES_FUNC(residual_linisoheat_x_test_)
 {
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -2225,10 +2134,6 @@ RES_FUNC(residual_linisoheat_x_test_)
   return divgradu;
 }
 
-
-// double residual_linisoheat_y_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 RES_FUNC(residual_linisoheat_y_test_)
 {
   //test function
@@ -2247,11 +2152,6 @@ RES_FUNC(residual_linisoheat_y_test_)
   return divgradu;
 }
 
-
-
-// double residual_linisoheat_z_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 RES_FUNC(residual_linisoheat_z_test_)
 {
   double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
@@ -2267,11 +2167,6 @@ RES_FUNC(residual_linisoheat_z_test_)
   return divgradu;
 }
 
-
-
-// double residual_divgrad_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 RES_FUNC(residual_divgrad_test_)
 {
   //derivatives of the test function
@@ -2341,9 +2236,6 @@ INI_FUNC(init_heat_)
   return val;
 }
 
-  //double init_phase_(const double &x,
-  //	   const double &y,
-  //	   const double &z)
 INI_FUNC(init_phase_)
 {
 
@@ -2367,9 +2259,7 @@ INI_FUNC(init_phase_)
 
   return val;
 }
-  //double init_phase_c_(const double &x,
-  //	   const double &y,
-  //	   const double &z)
+
 INI_FUNC(init_phase_c_)
 {
 
@@ -2394,9 +2284,7 @@ INI_FUNC(init_phase_c_)
 
   return val;
 }
-  //double init_heat_seed_(const double &x,
-  //	   const double &y,
-  //	   const double &z)
+
 INI_FUNC(init_heat_seed_)
 {
 
@@ -2420,9 +2308,7 @@ INI_FUNC(init_heat_seed_)
 
   return val;
 }
-  //double init_heat_seed_c_(const double &x,
-  //	   const double &y,
-  //	   const double &z)
+
 INI_FUNC(init_heat_seed_c_)
 {
 
@@ -2448,10 +2334,7 @@ INI_FUNC(init_heat_seed_c_)
 
   return val;
 }
-  //double dbc_(const double &x,
-  //       const double &y,
-  //       const double &z,
-  //       const double &t)
+
 DBC_FUNC(dbc_)
 {  
   return 300.;
@@ -2470,11 +2353,7 @@ double conv_bc_(const Basis *basis,
   
   return h*(uw-u)*test/rho/c;
 }
-  //double nbc_stress_(const Basis *basis,
-  //	 const int &i, 
-  //	 const double &dt_, 
-  //	 const double &t_theta_,
-  //	 const double &time)
+
 NBC_FUNC(nbc_stress_)
 {
 
@@ -2482,9 +2361,7 @@ NBC_FUNC(nbc_stress_)
   
   return -alpha*300.*test;
 }
-// double residual_phase_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_phase_)
 {
   //derivatives of the test function
@@ -2526,10 +2403,6 @@ RES_FUNC(residual_phase_)
 
 }
 
-
-// double residual_stress_x_dt_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
 RES_FUNC(residual_stress_x_dt_)
 {
   double strain[3];//x,y,yx
@@ -2541,9 +2414,7 @@ RES_FUNC(residual_stress_x_dt_)
 
   return stress;
 }
-// double residual_stress_y_dt_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_stress_y_dt_)
 {
   double strain[3];//x,y,z,yx,zy,zx
@@ -2555,12 +2426,7 @@ RES_FUNC(residual_stress_y_dt_)
 
   return stress;
 }
-// double residual_heat_(const boost::ptr_vector<Basis> &basis, 
-// 		      const int &i, 
-// 		      const double &dt_, 
-// 		      const double &t_theta_, 
-// 		      const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_heat_)
 {
   //derivatives of the test function
@@ -2606,9 +2472,7 @@ RES_FUNC(residual_heat_)
   return (ut + rhs)/rho/c;
 
 }
-// double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_liniso_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -2658,9 +2522,7 @@ RES_FUNC(residual_liniso_x_test_)
  
   return divgradu;
 }
-// double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_liniso_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -2712,9 +2574,7 @@ RES_FUNC(residual_liniso_y_test_)
 
   return divgradu;
 }
-// double residual_stress_x_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_stress_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -2742,9 +2602,7 @@ RES_FUNC(residual_stress_x_test_)
 
   return (stress - sx)*test*dt_/E;
 }
-// double residual_stress_y_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_stress_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -2770,9 +2628,7 @@ RES_FUNC(residual_stress_y_test_)
 
   return (stress - sy)*test*dt_/E;//(grad u,grad phi)
 }
-// double residual_stress_xy_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_stress_xy_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -2794,8 +2650,7 @@ RES_FUNC(residual_stress_xy_test_)
 
   return (stress - sxy)*test*dt_/E;//(grad u,grad phi)
 }
-  //double prec_phase_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_phase_)
 {
   //derivatives of the test function
@@ -2826,8 +2681,7 @@ PRE_FUNC(prec_phase_)
 
   return (phit + t_theta_*divgrad)/m;
 }
-  //double prec_heat_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_heat_)
 {
   //cn probably want to move each of these operations inside of getbasis
@@ -2864,8 +2718,7 @@ PRE_FUNC(prec_heat_)
  
   return (u_t + t_theta_*divgrad + stress)/rho/c;
 }
-  //double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_liniso_x_test_)
 {
 
@@ -2900,8 +2753,7 @@ PRE_FUNC(prec_liniso_x_test_)
   
   return divgradu;
 }
-  //double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_liniso_y_test_)
 {
 
@@ -2938,15 +2790,14 @@ PRE_FUNC(prec_liniso_y_test_)
   //std::cout<<divgradu<<std::endl;
   return divgradu;
 }
-  //double prec_stress_test_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_stress_test_)
 {
   double test = basis[0].phi[i];
 
   return test * basis[0].phi[j]/dt_*dt_/E;
 }
-//double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_stress_x_)
 {
   //u is u0,u1,...
@@ -2965,7 +2816,7 @@ PPR_FUNC(postproc_stress_x_)
 
   return c1*strain[0] + c2*strain[1];
 }
-//double postproc_stress_xd_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_stress_xd_)
 {
   //u is u0,u1,...
@@ -2984,7 +2835,7 @@ PPR_FUNC(postproc_stress_xd_)
 
   return c1*strain[0] + c2*strain[1];
 }
-//double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_stress_y_)
 {
   //u is u0,u1,...
@@ -3003,7 +2854,7 @@ PPR_FUNC(postproc_stress_y_)
 
   return c2*strain[0] + c1*strain[1];
 }
-//double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_stress_xy_)
 {
   //u is u0,u1,...
@@ -3019,7 +2870,7 @@ PPR_FUNC(postproc_stress_xy_)
 
   return c3*strain;
 }
-//double postproc_stress_eq_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_stress_eq_)
 {
   //u is u0,u1,...
@@ -3049,7 +2900,7 @@ PPR_FUNC(postproc_stress_eq_)
 	       + 3.*stress[2]*stress[2]
 	       );
 }
-//double postproc_stress_eqd_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_stress_eqd_)
 {
   //u is u0,u1,...
@@ -3082,7 +2933,7 @@ PPR_FUNC(postproc_stress_eqd_)
 //   return (stress[0]+stress[1])/2.
 //     +sqrt((stress[0]-stress[1])*(stress[0]-stress[1])/4.+stress[3]*stress[3]);
 }
-//double postproc_phi_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_phi_)
 {
   //u is u0,u1,...
@@ -3094,7 +2945,7 @@ PPR_FUNC(postproc_phi_)
   if(phi > 1.) phi = 1.;
   return phi;
 }
-//double postproc_strain_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_strain_)
 {
   //u is u0,u1,...
@@ -3113,9 +2964,7 @@ PPR_FUNC(postproc_strain_)
 
 namespace uehara2
 {
-  //double init_phase_c_(const double &x,
-  //	   const double &y,
-  //	   const double &z)
+
 INI_FUNC(init_phase_c_)
 {
   double phi_sol_ = 1.;
@@ -3142,21 +2991,13 @@ INI_FUNC(init_phase_c_)
   return val;
 }
 
-  //double init_heat_(const double &x,
-  //	   const double &y,
-  //	   const double &z)
 INI_FUNC(init_heat_)
 {
   double val = 300.;  
 
   return val;
 }
-// double residual_heat_(const boost::ptr_vector<Basis> &basis, 
-// 		      const int &i, 
-// 		      const double &dt_, 
-// 		      const double &t_theta_, 
-// 		      const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_heat_)
 {
   //derivatives of the test function
@@ -3227,9 +3068,7 @@ namespace coupledstress
   double c2 = c*nu;
   double c3 = c*(1.-2.*nu)/2.;
 
-// double residual_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_liniso_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -3265,9 +3104,7 @@ RES_FUNC(residual_liniso_x_test_)
  
   return divgradu;
 }
-// double residual_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_liniso_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -3302,9 +3139,7 @@ RES_FUNC(residual_liniso_y_test_)
 
   return divgradu;
 }
-// double residual_stress_x_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_stress_x_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -3328,9 +3163,7 @@ RES_FUNC(residual_stress_x_test_)
 
   return (sx - stress[0])*test;
 }
-// double residual_stress_y_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_stress_y_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -3353,9 +3186,7 @@ RES_FUNC(residual_stress_y_test_)
 
   return (sy - stress[1])*test;//(grad u,grad phi)
 }
-// double residual_stress_xy_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_stress_xy_test_)
 {
   //3-D isotropic x-displacement based solid mech, steady state
@@ -3378,8 +3209,7 @@ RES_FUNC(residual_stress_xy_test_)
 
   return (sxy - stress[2])*test;//(grad u,grad phi)
 }
-  //double prec_liniso_x_test_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_liniso_x_test_)
 {
 
@@ -3413,8 +3243,7 @@ PRE_FUNC(prec_liniso_x_test_)
  
   return divgradu;
 }
-  //double prec_liniso_y_test_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_liniso_y_test_)
 {
 
@@ -3449,15 +3278,14 @@ PRE_FUNC(prec_liniso_y_test_)
 
   return divgradu;
 }
-  //double prec_stress_test_(const boost::ptr_vector<Basis> &basis, 
-  //		 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_stress_test_)
 {
   double test = basis[0].phi[i];
 
   return test * basis[0].phi[j];
 }
-//double postproc_stress_x_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_stress_x_)
 {
   //u is u0,u1,...
@@ -3471,7 +3299,7 @@ PPR_FUNC(postproc_stress_x_)
 
   return c1*strain[0] + c2*strain[1];
 }
-//double postproc_stress_y_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_stress_y_)
 {
   //u is u0,u1,...
@@ -3483,7 +3311,7 @@ PPR_FUNC(postproc_stress_y_)
 
   return c2*strain[0] + c1*strain[1];
 }
-//double postproc_stress_xy_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_stress_xy_)
 {
   //u is u0,u1,...
@@ -3499,9 +3327,7 @@ PPR_FUNC(postproc_stress_xy_)
 
 namespace laplace
 {
-// double residual_heat_test_(const boost::ptr_vector<Basis> &basis, 
-// 			 const int &i, const double &dt_, const double &t_theta_, const double &delta, 
-// 		      const double &time)
+
 RES_FUNC(residual_heat_test_)
 {
 
@@ -4435,8 +4261,7 @@ RES_FUNC(residual_heat_)
  
   return (ut + t_theta_*divgradu);// /rho_/cp_;// + (1.-t_theta_)*divgradu_old;
 }
-//double prec_heat_test_(const boost::ptr_vector<Basis> &basis, 
-//			 const int &i, const int &j, const double &dt_, const double &t_theta_, const double &delta)
+
 PRE_FUNC(prec_heat_)
 {
   //cn probably want to move each of these operations inside of getbasis
@@ -6048,7 +5873,7 @@ PARAM_FUNC(param_)
 #endif
   uref_h = uref;
 }
-//double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
+
 PPR_FUNC(postproc_)
 {
   //exact solution is: u[x,y,t]=exp(-2 pi^2 k t)sin(pi x)sin(pi y)
@@ -6562,31 +6387,20 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
 			 -(phi[1] - phi[1]*phi[1]*phi[1])*test,
 			 -(phi[2] - phi[2]*phi[2]*phi[2])*test};
 
-  const double x = basis[eqn_id]->xx;
-  
-  // frozen temperature approximation: linear pulling of the temperature field
-  const double xx = x*w0;
+  //note in paper eq 39 has g3 different
+  //here (as implemented) our g3 = lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])
+  //matches farzadi eq 10
 
-  //cn this should probablly be: (time+dt_)*tau
-  const double tt[3] = {(time+dt_)*tau0,time*tau0,(time-dtold_)*tau0};
-  //const double tt = time*tau0;
-  //double t_scale = (xx-R*tt)/l_T0;
-  const double t_scale[3] = {((dT < 0.001) ? (xx-R*tt[0])/l_T0 : dT),
-			     ((dT < 0.001) ? (xx-R*tt[1])/l_T0 : dT),
-			     ((dT < 0.001) ? (xx-R*tt[2])/l_T0 : dT)};
+  const double hp1u[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(u[0])*test,
+			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(u[1])*test,
+			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(u[2])*test};
   
-  const double hp1[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(u[0]+t_scale[0])*test,
-			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(u[1]+t_scale[1])*test,
-			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(u[2]+t_scale[2])*test};
-  
-  //double val = phit + t_theta_*rhs;
-  //printf("%lf\n",val);
+  const double f[3] = {(divgradphi[0] + curlgrad[0] + gp1[0] + hp1u[0])/mob[0],
+		       (divgradphi[1] + curlgrad[1] + gp1[1] + hp1u[1])/mob[1],
+		       (divgradphi[2] + curlgrad[2] + gp1[2] + hp1u[2])/mob[2]};
 
-  const double f[3] = {(divgradphi[0] + curlgrad[0] + gp1[0] + hp1[0])/mob[0],
-		       (divgradphi[1] + curlgrad[1] + gp1[1] + hp1[1])/mob[1],
-		       (divgradphi[2] + curlgrad[2] + gp1[2] + hp1[2])/mob[2]};
-
-  const double val = phit + (1.-t_theta2_)*t_theta_*f[0]
+  const double val = phit 
+    + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 
@@ -6595,6 +6409,118 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_phase_farzadi_dp_)) = residual_phase_farzadi_;
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
+{
+  //test function
+  const double test = basis[eqn_id]->phi[i];
+  //u, phi
+  const int u_id = eqn_id-1;
+  const double u[3] = {basis[u_id]->uu,basis[u_id]->uuold,basis[u_id]->uuoldold};
+  const double phi[3] = {basis[eqn_id]->uu,basis[eqn_id]->uuold,basis[eqn_id]->uuoldold};
+
+  const double dphidx[3] = {basis[eqn_id]->dudx,basis[eqn_id]->duolddx,basis[eqn_id]->duoldolddx};
+  const double dphidy[3] = {basis[eqn_id]->dudy,basis[eqn_id]->duolddy,basis[eqn_id]->duoldolddy};
+  const double dphidz[3] = {basis[eqn_id]->dudz,basis[eqn_id]->duolddz,basis[eqn_id]->duoldolddz};
+
+  const double as[3] = {a(phi[0],dphidx[0],dphidy[0],dphidz[0],eps),
+			a(phi[1],dphidx[1],dphidy[1],dphidz[1],eps),
+			a(phi[2],dphidx[2],dphidy[2],dphidz[2],eps)};
+
+  const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
+
+  const double x = basis[eqn_id]->xx;
+  
+  // frozen temperature approximation: linear pulling of the temperature field
+  const double xx = x*w0;
+
+  //cn this should probablly be: (time+dt_)*tau
+  const double tt[3] = {(time+dt_)*tau0,time*tau0,(time-dtold_)*tau0};
+
+  const double g4[3] = {((dT < 0.001) ? G*(xx-R*tt[0])/delta_T0 : dT),
+			     ((dT < 0.001) ? G*(xx-R*tt[1])/delta_T0 : dT),
+			     ((dT < 0.001) ? G*(xx-R*tt[2])/delta_T0 : dT)};
+  
+  const double hp1g4[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(g4[0])*test,
+			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(g4[1])*test,
+			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(g4[2])*test};
+
+  const double val = tpetra::farzadi3d::residual_phase_farzadi_dp_(basis,
+						    i,
+						    dt_,
+						    dtold_,
+						    t_theta_,
+						    t_theta2_,
+						    time,
+						    eqn_id);
+
+  const double rv = val/mob[0]
+    + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]/mob[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]/mob[1]-dt_/dtold_*hp1g4[2]/mob[2]);
+
+  return mob[0]*rv;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_phase_farzadi_uncoupled_dp_)) = residual_phase_farzadi_uncoupled_;
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
+{
+  //test function
+  const double test = basis[eqn_id]->phi[i];
+  //u, phi
+  const int u_id = eqn_id-1;
+  const double u[3] = {basis[u_id]->uu,basis[u_id]->uuold,basis[u_id]->uuoldold};
+  const double phi[3] = {basis[eqn_id]->uu,basis[eqn_id]->uuold,basis[eqn_id]->uuoldold};
+
+  const double dphidx[3] = {basis[eqn_id]->dudx,basis[eqn_id]->duolddx,basis[eqn_id]->duoldolddx};
+  const double dphidy[3] = {basis[eqn_id]->dudy,basis[eqn_id]->duolddy,basis[eqn_id]->duoldolddy};
+  const double dphidz[3] = {basis[eqn_id]->dudz,basis[eqn_id]->duolddz,basis[eqn_id]->duoldolddz};
+
+  const double as[3] = {a(phi[0],dphidx[0],dphidy[0],dphidz[0],eps),
+			a(phi[1],dphidx[1],dphidy[1],dphidz[1],eps),
+			a(phi[2],dphidx[2],dphidy[2],dphidz[2],eps)};
+
+  const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
+
+  const double x = basis[eqn_id]->xx;
+  
+  // frozen temperature approximation: linear pulling of the temperature field
+  const double xx = x*w0;
+
+  //cn this should probablly be: (time+dt_)*tau
+  const double tt[3] = {(time+dt_)*tau0,time*tau0,(time-dtold_)*tau0};
+
+  const double g4[3] = {((dT < 0.001) ? G*(xx-R*tt[0])/delta_T0 : dT),
+			     ((dT < 0.001) ? G*(xx-R*tt[1])/delta_T0 : dT),
+			     ((dT < 0.001) ? G*(xx-R*tt[2])/delta_T0 : dT)};
+  
+  const double hp1g4[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(g4[0])*test,
+			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(g4[1])*test,
+			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(g4[2])*test};
+
+  const double val = tpetra::farzadi3d::residual_phase_farzadi_dp_(basis,
+						    i,
+						    dt_,
+						    dtold_,
+						    t_theta_,
+						    t_theta2_,
+						    time,
+						    eqn_id);
+
+  const double rv = val/mob[0]
+    + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]/mob[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]/mob[1]-dt_/dtold_*hp1g4[2]/mob[2]);
+
+  return mob[0]*rv;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_phase_farzadi_coupled_dp_)) = residual_phase_farzadi_coupled_;
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_conc_farzadi_)
@@ -6735,7 +6661,8 @@ PPR_FUNC(postproc_t_)
 
   double xx = x*w0;
   double tt = time*tau0;
-  return ((dT < 0.001) ? 877.3 + (xx-R*tt)/l_T0*delta_T0 : 877.3);
+  //return ((dT < 0.001) ? 877.3 + (xx-R*tt)/l_T0*delta_T0 : 877.3);
+  return ((dT < 0.001) ? 877.3 + G*(xx-R*tt) : 877.3);
 }
 }//namespace farzadi3d
 
@@ -7777,9 +7704,42 @@ TUSAS_DEVICE
 double W0_d = 1.;
 
 KOKKOS_INLINE_FUNCTION 
-const double dfldt()
+void dfldt_uncoupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
 {
-  return tpetra::heat::rho_d*Lf/(tl-te)/tau0_d;//fl=(t-te)/(tl-te);
+  //the latent heat term is zero outside of the mushy region (ie outside Te < T < Tl)
+  const double dfldu_d[3] = {((basis[0]->uu > te) && (basis[index]->uu < tl)) ? dfldu_mushy_d : 0.0,
+			     ((basis[0]->uuold > te) && (basis[index]->uuold < tl)) ? dfldu_mushy_d : 0.0,
+			     ((basis[0]->uuoldold > te) && (basis[index]->uuoldold < tl)) ? dfldu_mushy_d : 0.0};
+
+  a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index]->uu-dfldu_d[1]*basis[index]->uuold)/dt_
+                                 -dt_/dtold_*(dfldu_d[0]*basis[index]->uu-dfldu_d[2]*basis[index]->uuoldold)/(dt_+dtold_)
+                                 );
+  a[1] = (dtold_/dt_/(dt_+dtold_)*(dfldu_d[0]*basis[index]->uu)
+                                 -(dtold_-dt_)/dt_/dtold_*(dfldu_d[1]*basis[index]->uuold)
+                                 -dt_/dtold_/(dt_+dtold_)*(dfldu_d[2]*basis[index]->uuoldold)
+                                 );
+  a[2] = (-(1.+dtold_/dt_)*(dfldu_d[2]*basis[index]->uuoldold-dfldu_d[1]*basis[index]->uuold)/dtold_
+                                 +dtold_/dt_*(dfldu_d[2]*basis[index]->uuoldold-dfldu_d[0]*basis[index]->uu)/(dtold_+dt_)
+                                 );
+  return;
+}
+
+KOKKOS_INLINE_FUNCTION 
+void dfldt_coupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
+{
+  const double dfldu_d[3] = {-.5,-.5,-.5};
+
+  a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index]->uu-dfldu_d[1]*basis[index]->uuold)/dt_
+                                 -dt_/dtold_*(dfldu_d[0]*basis[index]->uu-dfldu_d[2]*basis[index]->uuoldold)/(dt_+dtold_)
+                                 );
+  a[1] = (dtold_/dt_/(dt_+dtold_)*(dfldu_d[0]*basis[index]->uu)
+                                 -(dtold_-dt_)/dt_/dtold_*(dfldu_d[1]*basis[index]->uuold)
+                                 -dt_/dtold_/(dt_+dtold_)*(dfldu_d[2]*basis[index]->uuoldold)
+                                 );
+  a[2] = (-(1.+dtold_/dt_)*(dfldu_d[2]*basis[index]->uuoldold-dfldu_d[1]*basis[index]->uuold)/dtold_
+                                 +dtold_/dt_*(dfldu_d[2]*basis[index]->uuoldold-dfldu_d[0]*basis[index]->uu)/(dtold_+dt_)
+                                 );
+  return;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -7807,11 +7767,7 @@ const double qdot(const double &x, const double &y, const double &z, const doubl
   //const double exparg = ((x-x0_d/W0_d)*(x-x0_d/W0_d)+(y-y0_d/W0_d)*(y-y0_d/W0_d))/r/r+(z-z0_d/W0_d)*(z-z0_d/W0_d)/d/d;
   const double exparg = ((W0_d*x-x0_d)*(W0_d*x-x0_d)+(W0_d*y-y0_d)*(W0_d*y-y0_d))/r/r+(W0_d*z-z0_d)*(W0_d*z-z0_d)/d/d;
 
-  const double f = exp(
-		       -3.*(
-			    exparg
-			    )
-		       );
+  const double f = exp( -3.* exparg );
   //std::cout<<W0_d*x<<std::endl;
   //if(f > 0.) std::cout<<f<<" "<<coef<<" "<<coef*f<<std::endl;
   return coef*f;
@@ -7820,7 +7776,7 @@ const double qdot(const double &x, const double &y, const double &z, const doubl
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_test_)
 {
-  //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
+  //u_t,v + grad u,grad v - qdot,v = 0
 
   double val = tpetra::heat::residual_heat_test_dp_(basis,
 						    i,
@@ -7831,56 +7787,87 @@ RES_FUNC_TPETRA(residual_test_)
 						    time,
 						    eqn_id);
 
-  //the latent heat term is zero outside of the mushy region (ie outside Te < T < Tl)
-  const double dfldu_d[3] = {((basis[0]->uu > te) && (basis[0]->uu < tl)) ? dfldu_mushy_d : 0.0,
-                             ((basis[0]->uuold > te) && (basis[0]->uuold < tl)) ? dfldu_mushy_d : 0.0,
-                             ((basis[0]->uuoldold > te) && (basis[0]->uuoldold < tl)) ? dfldu_mushy_d : 0.0};  
+  const double qd[3] = {-qdot(basis[eqn_id]->xx,basis[eqn_id]->yy,basis[eqn_id]->zz,time)*basis[eqn_id]->phi[i],
+			-qdot(basis[eqn_id]->xx,basis[eqn_id]->yy,basis[eqn_id]->zz,time-dt_)*basis[eqn_id]->phi[i],
+			-qdot(basis[eqn_id]->xx,basis[eqn_id]->yy,basis[eqn_id]->zz,time-dt_-dtold_)*basis[eqn_id]->phi[i]};
 
-  //better 3pt derivatives, see difference.nb and inspiration at
-  //https://link.springer.com/content/pdf/10.1007/BF02510406.pdf
-  //apply chain rule: dfldt = dfldu * dudt, and evaluate dfldu for the current value of u
-  /*
-  const double ut[3] = {dfldu_d[0]*((1. + dt_/dtold_)*(basis[0]->uu-basis[0]->uuold)/dt_
-				 -dt_/dtold_*(basis[0]->uu-basis[0]->uuoldold)/(dt_+dtold_)
-				 )*basis[eqn_id]->phi[i],
-			dfldu_d[0]*(dtold_/dt_/(dt_+dtold_)*(basis[0]->uu)
-				 -(dtold_-dt_)/dt_/dtold_*(basis[0]->uuold)
-				 -dt_/dtold_/(dt_+dtold_)*(basis[0]->uuoldold)
-				 )*basis[eqn_id]->phi[i],
-			dfldu_d[0]*(-(1.+dtold_/dt_)*(basis[0]->uuoldold-basis[0]->uuold)/dtold_
-				 +dtold_/dt_*(basis[0]->uuoldold-basis[0]->uu)/(dtold_+dt_)
-				 )*basis[eqn_id]->phi[i]};
-  */
-  const double ut[3] = {((1. + dt_/dtold_)*(dfldu_d[0]*basis[0]->uu-dfldu_d[1]*basis[0]->uuold)/dt_
-                                 -dt_/dtold_*(dfldu_d[0]*basis[0]->uu-dfldu_d[2]*basis[0]->uuoldold)/(dt_+dtold_)
-                                 )*basis[eqn_id]->phi[i],
-                        (dtold_/dt_/(dt_+dtold_)*(dfldu_d[0]*basis[0]->uu)
-                                 -(dtold_-dt_)/dt_/dtold_*(dfldu_d[1]*basis[0]->uuold)
-                                 -dt_/dtold_/(dt_+dtold_)*(dfldu_d[2]*basis[0]->uuoldold)
-                                 )*basis[eqn_id]->phi[i],
-                        (-(1.+dtold_/dt_)*(dfldu_d[2]*basis[0]->uuoldold-dfldu_d[1]*basis[0]->uuold)/dtold_
-                                 +dtold_/dt_*(dfldu_d[2]*basis[0]->uuoldold-dfldu_d[0]*basis[0]->uu)/(dtold_+dt_)
-                                 )*basis[eqn_id]->phi[i]};
-  
-  //const double rhs = (ut*dfldu_d - qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time))*basis[eqn_id]->phi[i];
-  //std::cout<<val<<" "<<qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz)<<std::endl;
-  //return val + rhs;
-  const double qd[3] = {-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time)*basis[eqn_id]->phi[i],
-			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_)*basis[eqn_id]->phi[i],
-			-qdot(basis[0]->xx,basis[0]->yy,basis[0]->zz,time-dt_-dtold_)*basis[eqn_id]->phi[i]};
-  const double rv = (val + (1.-t_theta2_)*t_theta_*qd[0]
-	  + (1.-t_theta2_)*(1.-t_theta_)*qd[1]
-	  +.5*t_theta2_*((2.+dt_/dtold_)*qd[1]-dt_/dtold_*qd[2])
-	  + (1.-t_theta2_)*t_theta_*ut[0]
-	  + (1.-t_theta2_)*(1.-t_theta_)*ut[1]
-	  +.5*t_theta2_*((2.+dt_/dtold_)*ut[1]-dt_/dtold_*ut[2]));// /tpetra::heat::rho_d/tpetra::heat::cp_d;
-  //printf("%f\n",rv);
-  //printf("%f %f %f\n",ut[0],ut[1],ut[2]);
-  return rv*tau0_d/tpetra::heat::deltau_h;
+  const double rv = (val 
+		     + (1.-t_theta2_)*t_theta_*qd[0]
+		     + (1.-t_theta2_)*(1.-t_theta_)*qd[1]
+		     +.5*t_theta2_*((2.+dt_/dtold_)*qd[1]-dt_/dtold_*qd[2]));
+
+  return rv;
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_uncoupled_test_)
+{
+  //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
+
+  double val = tpetra::goldak::residual_test_dp_(basis,
+						    i,
+						    dt_,
+						    dtold_,
+						    t_theta_,
+						    t_theta2_,
+						    time,
+						    eqn_id);
+
+  double dfldu_d[3];
+  dfldt_uncoupled(basis,eqn_id,dt_,dtold_,dfldu_d);
+
+  const double dfldt[3] = {dfldu_d[0]*basis[eqn_id]->phi[i],
+			   dfldu_d[1]*basis[eqn_id]->phi[i],
+			   dfldu_d[2]*basis[eqn_id]->phi[i]};
+  
+  const double rv = (val 
+		     + (1.-t_theta2_)*t_theta_*dfldt[0]
+		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
+		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
+  
+  //return rv*tau0_d/tpetra::heat::deltau_h;
+  return rv;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_uncoupled_test_dp_)) = residual_uncoupled_test_;
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_coupled_test_)
+{
+  //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
+
+  double val = tpetra::goldak::residual_test_dp_(basis,
+						    i,
+						    dt_,
+						    dtold_,
+						    t_theta_,
+						    t_theta2_,
+						    time,
+						    eqn_id);
+
+  int phi_index = 1;
+  double dfldu_d[3];
+  dfldt_coupled(basis,phi_index,dt_,dtold_,dfldu_d);
+
+  const double dfldt[3] = {dfldu_d[0]*basis[eqn_id]->phi[i],
+			   dfldu_d[1]*basis[eqn_id]->phi[i],
+			   dfldu_d[2]*basis[eqn_id]->phi[i]};
+  
+  const double rv = (val 
+		     + (1.-t_theta2_)*t_theta_*dfldt[0]
+		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
+		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
+  
+  //return rv*tau0_d/tpetra::heat::deltau_h;
+  return rv;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_coupled_test_dp_)) = residual_uncoupled_test_;
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_test_)
@@ -7898,7 +7885,6 @@ PRE_FUNC_TPETRA(prec_test_)
 
 TUSAS_DEVICE
 PRE_FUNC_TPETRA((*prec_test_dp_)) = prec_test_;
-
 
 INI_FUNC(init_heat_)
 {
@@ -7978,6 +7964,41 @@ PARAM_FUNC(param_)
   dfldu_mushy_d = tpetra::heat::rho_d*Lf/(tl-te); //fl=(t-te)/(tl-te);
 }
 }//namespace goldak
+
+namespace fullycoupled
+{
+
+INI_FUNC(init_conc_farzadi_)
+{
+  return -1.;
+}
+
+INI_FUNC(init_phase_farzadi_)
+{
+
+  double h = tpetra::farzadi3d::base_height + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
+  
+  double c = (x-tpetra::farzadi3d::x0)*(x-tpetra::farzadi3d::x0) + (y-tpetra::farzadi3d::y0)*(y-tpetra::farzadi3d::y0) + (z-tpetra::farzadi3d::z0)*(z-tpetra::farzadi3d::z0);
+  
+  return ((tpetra::farzadi3d::C == 0) ? (tanh((h-x)/sqrt(2.))) : (c < tpetra::farzadi3d::r*tpetra::farzadi3d::r) ? 1. : -1.);	
+}
+
+INI_FUNC(init_heat_)
+{
+  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  return val;
+}
+
+DBC_FUNC(dbc_) 
+{
+  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  return val;
+}
+
+PARAM_FUNC(param_)
+{
+}
+}//namespace fullycoupled
 
 namespace quaternion
 {

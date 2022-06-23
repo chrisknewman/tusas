@@ -5740,7 +5740,7 @@ namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ late
 
 namespace heat{
 TUSAS_DEVICE
-double k_d = 2.;
+double k_d = 1.;
 TUSAS_DEVICE
 double rho_d = 1.;
 TUSAS_DEVICE
@@ -5754,7 +5754,7 @@ double deltau_d = 1.;
 TUSAS_DEVICE
 double uref_d = 0.;
 
-double k_h = 2.;
+double k_h = 1.;
 double rho_h = 1.;
 double cp_h = 1.;
 

@@ -7,13 +7,15 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
-
 #include "random_distribution.h"
+
+#include <random>
 
 random_distribution::random_distribution(const Teuchos::RCP<const Epetra_Comm>& comm,
 					 Mesh *mesh,
 					 const int ltpquadorder
-					 )
+					 ):  
+  comm_(comm)
 {
   const int blk = 0;
   std::string elem_type = mesh->get_blk_elem_type(blk);
@@ -35,7 +37,7 @@ random_distribution::random_distribution(const Teuchos::RCP<const Epetra_Comm>& 
     ngp = ltpquadorder*ltpquadorder*ltpquadorder;;
   }
   else{
-    if( 0 == comm->MyPID() )std::cout<<"random distribution only supports bilinear and quadratic quad and hex element types at this time."<<std::endl
+    if( 0 == comm_->MyPID() )std::cout<<"random distribution only supports bilinear and quadratic quad and hex element types at this time."<<std::endl
 	     <<elem_type<<" not supported."<<std::endl;
     exit(0);
   }
@@ -46,13 +48,43 @@ random_distribution::random_distribution(const Teuchos::RCP<const Epetra_Comm>& 
 				      elem_num_map.size(),
 				      &elem_num_map[0],
 				      0,
-				      *comm));
+				      *comm_));
   const int num_elem = elem_map_->NumMyElements();
-  gauss_val.resize(num_elem, std::vector<int>(ngp));
-
+  gauss_val.resize(num_elem, std::vector<double>(ngp));
 }
 
 random_distribution::~random_distribution()
 {
 }
 
+void random_distribution::compute_random(const int nt)
+{
+  const int mypid = comm_->MyPID();
+  int initial_seed = 12345*(nt+1)*(mypid+1);
+  std::mt19937 gen(initial_seed); 
+  std::uniform_int_distribution<> udist(1,10000); 
+  const int num_elem = elem_map_->NumMyElements();
+
+  for( int i=0; i<num_elem; i++){
+    int elem_seed = udist(gen);
+    std::mt19937 mt(elem_seed);
+    std::normal_distribution<> normal_dist(0,1);
+    for(int ig=0;ig<ngp;ig++){
+      gauss_val[i][ig]=normal_dist(mt);
+    }
+  }
+}
+
+void random_distribution::print()
+{
+  const int mypid = comm_->MyPID();
+  comm_->Barrier();
+
+  const int num_elem = elem_map_->NumMyElements();
+  for( int i=0; i<num_elem; i++){
+    for(int ig=0;ig<ngp;ig++){
+      std::cout<<mypid<<" "<<" "<<i<<" "<<ig<<" "<<gauss_val[i][ig]<<std::endl;
+    }
+  }
+  comm_->Barrier();
+}

@@ -27,13 +27,23 @@ public:
 
   ~random_distribution();
 
-private:
-  int ngp;
+  void compute_random(const int nt);
 
+  std::vector<std::vector<double> > get_gauss_val(){return gauss_val;}
+
+  void compute_correlation(){};
+
+  void print();
+
+private:
+  /// number of Gauss points in element
+  int ngp;
   /// Element map object.
   Teuchos::RCP<const Epetra_Map>   elem_map_;
-
-  std::vector<std::vector<int> > gauss_val;
+  /// random values at Gauss points
+  std::vector<std::vector<double> > gauss_val;
+  /// MPI comm object.
+  const Teuchos::RCP<const Epetra_Comm>  comm_;
 
 };
 

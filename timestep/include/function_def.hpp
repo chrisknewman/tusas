@@ -5738,7 +5738,6 @@ RES_FUNC(residual_c_)
 				    const double &time)
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
-  //namespace heat{
 
 namespace heat{
 TUSAS_DEVICE
@@ -6477,6 +6476,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
   const double test = basis[eqn_id]->phi[i];
   //u, phi
   const int u_id = eqn_id-1;
+  const int theta_id = eqn_id+1;
   const double u[3] = {basis[u_id]->uu,basis[u_id]->uuold,basis[u_id]->uuoldold};
   const double phi[3] = {basis[eqn_id]->uu,basis[eqn_id]->uuold,basis[eqn_id]->uuoldold};
 
@@ -6490,17 +6490,9 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
 
   const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
 
-  const double x = basis[eqn_id]->xx;
+  const double theta[3] = {basis[theta_id]->uu,basis[theta_id]->uuold,basis[theta_id]->uuoldold};
   
-  // frozen temperature approximation: linear pulling of the temperature field
-  const double xx = x*w0;
-
-  //cn this should probablly be: (time+dt_)*tau
-  const double tt[3] = {(time+dt_)*tau0,time*tau0,(time-dtold_)*tau0};
-
-  const double g4[3] = {((dT < 0.001) ? G*(xx-R*tt[0])/delta_T0 : dT),
-			     ((dT < 0.001) ? G*(xx-R*tt[1])/delta_T0 : dT),
-			     ((dT < 0.001) ? G*(xx-R*tt[2])/delta_T0 : dT)};
+  const double g4[3] = {theta[0],theta[1],theta[2]};
   
   const double hp1g4[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(g4[0])*test,
 			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(g4[1])*test,

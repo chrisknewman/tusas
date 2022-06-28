@@ -7880,7 +7880,7 @@ RES_FUNC_TPETRA(residual_coupled_test_)
 }
 
 TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_coupled_test_dp_)) = residual_uncoupled_test_;
+RES_FUNC_TPETRA((*residual_coupled_test_dp_)) = residual_coupled_test_;
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_test_)

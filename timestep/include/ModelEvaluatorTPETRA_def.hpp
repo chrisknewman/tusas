@@ -651,9 +651,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 	for(int k = 0; k < n_nodes_per_elem; k++){
 	  
-	  //meshc is a kokkos::vector, not sure how efficient this is
-	  //maybe a view is better?
-	  //const int nodeid = meshc[elemrow+k];//cn this is the local id
 	  const int nodeid = meshc_1dra(elemrow+k);//cn this is the local id
 	  
 	  xx[k] = x_1dra(nodeid);
@@ -680,7 +677,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    //we need a basis object that stores all equations here..
 	    jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	  }//neq
-	  const double vol = BGPU[0]->vol();
+	  const double vol = BGPU[0]->vol();//this can probably be computed in computeElemData, with some of the mapping terms moved there
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const int lrow = numeqs*meshc[elemrow+i];
@@ -1923,7 +1920,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
     (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_dp_;
-    (*residualfunc_)[2] = tpetra::goldak::residual_uncoupled_test_dp_;
+    (*residualfunc_)[2] = tpetra::goldak::residual_coupled_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;

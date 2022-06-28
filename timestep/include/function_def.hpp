@@ -6667,9 +6667,9 @@ PPR_FUNC(postproc_t_)
 namespace noise
 {
 KOKKOS_INLINE_FUNCTION 
-double noise_()
+double noise_(const double rand)
 {
-  return 0.;
+  return rand;
 }
 }//namespace noise
 
@@ -6854,7 +6854,7 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_noise_)
 				      vol,
 				      rand);
 
-  double noise[3] = {tpetra::noise::noise_()*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i]};
+  double noise[3] = {tpetra::noise::noise_(rand)*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i]};
 
   double rv = (val + (1.-t_theta2_)*t_theta_*noise[0]
 	  + (1.-t_theta2_)*(1.-t_theta_)*noise[1]

@@ -5718,7 +5718,9 @@ RES_FUNC(residual_c_)
 			            const double &t_theta_,\
 			            const double &t_theta2_,\
                                     const double &time,\
-				    const int &eqn_id)
+				    const int &eqn_id,	\
+                                    const double &vol,	\
+                                    const double &rand)
 
 #define PRE_FUNC_TPETRA(NAME)  double NAME(const GPUBasis *basis, \
                                     const int &i,\
@@ -6447,13 +6449,15 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
 			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(g4[2])*test};
 
   const double val = tpetra::farzadi3d::residual_phase_farzadi_dp_(basis,
-						    i,
-						    dt_,
-						    dtold_,
-						    t_theta_,
-						    t_theta2_,
-						    time,
-						    eqn_id);
+								   i,
+								   dt_,
+								   dtold_,
+								   t_theta_,
+								   t_theta2_,
+								   time,
+								   eqn_id,
+								   vol,
+								   rand);
 
   const double rv = val/mob[0]
     + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
@@ -6503,13 +6507,15 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
 			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(g4[2])*test};
 
   const double val = tpetra::farzadi3d::residual_phase_farzadi_dp_(basis,
-						    i,
-						    dt_,
-						    dtold_,
-						    t_theta_,
-						    t_theta2_,
-						    time,
-						    eqn_id);
+								   i,
+								   dt_,
+								   dtold_,
+								   t_theta_,
+								   t_theta2_,
+								   time,
+								   eqn_id,
+								   vol,
+								   rand);
 
   const double rv = val/mob[0]
     + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
@@ -6846,14 +6852,15 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_)
 RES_FUNC_TPETRA(residual_phase_pfhub3_noise_)
 {
   double val = residual_phase_pfhub3_(basis,
-					 i,
-					 dt_,
-					 dtold_,
-					 t_theta_,
-					 t_theta2_,
-					 time,
-					 eqn_id
-					 );
+				      i,
+				      dt_,
+				      dtold_,
+				      t_theta_,
+				      t_theta2_,
+				      time,
+				      eqn_id,
+				      vol,
+				      rand);
 
   double noise[3] = {tpetra::noise::noise_()*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i]};
 
@@ -7785,7 +7792,9 @@ RES_FUNC_TPETRA(residual_test_)
 						    t_theta_,
 						    t_theta2_,
 						    time,
-						    eqn_id);
+						    eqn_id,
+						    vol,
+						    rand);
 
   const double qd[3] = {-qdot(basis[eqn_id]->xx,basis[eqn_id]->yy,basis[eqn_id]->zz,time)*basis[eqn_id]->phi[i],
 			-qdot(basis[eqn_id]->xx,basis[eqn_id]->yy,basis[eqn_id]->zz,time-dt_)*basis[eqn_id]->phi[i],
@@ -7808,13 +7817,15 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
   //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
 
   double val = tpetra::goldak::residual_test_dp_(basis,
-						    i,
-						    dt_,
-						    dtold_,
-						    t_theta_,
-						    t_theta2_,
-						    time,
-						    eqn_id);
+						 i,
+						 dt_,
+						 dtold_,
+						 t_theta_,
+						 t_theta2_,
+						 time,
+						 eqn_id,
+						 vol,
+						 rand);
 
   double dfldu_d[3];
   dfldt_uncoupled(basis,eqn_id,dt_,dtold_,dfldu_d);
@@ -7841,13 +7852,15 @@ RES_FUNC_TPETRA(residual_coupled_test_)
   //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
 
   double val = tpetra::goldak::residual_test_dp_(basis,
-						    i,
-						    dt_,
-						    dtold_,
-						    t_theta_,
-						    t_theta2_,
-						    time,
-						    eqn_id);
+						 i,
+						 dt_,
+						 dtold_,
+						 t_theta_,
+						 t_theta2_,
+						 time,
+						 eqn_id,
+						 vol,
+						 rand);
 
   int phi_index = 1;
   double dfldu_d[3];

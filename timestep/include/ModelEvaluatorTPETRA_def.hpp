@@ -273,6 +273,11 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   Elem_col = Teuchos::rcp(new elem_color(Comm,mesh,dorestart));
 
+  if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+    const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+    randomdistribution = Teuchos::rcp(new random_distribution(Comm, mesh_, LTP_quadrature_order));
+  }
+
   init_nox();
 
   std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,
@@ -283,8 +288,6 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     int error_index = *it;
     Error_est.push_back(new error_estimator(Comm,mesh_,numeqs_,error_index));
   }
-
-
 }
 
 template<class Scalar>
@@ -448,11 +451,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
 
-
   //Kokkos::View<int**,Kokkos::DefaultExecutionSpace> meshc_2d("meshc_2d",n_nodes_per_elem,(*mesh_->get_elem_num_map()).size());
-
   //std::cout<<n_nodes_per_elem*(*mesh_->get_elem_num_map()).size()<<"  "<<((mesh_->connect)[0]).size()<<std::endl;
-
   //Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
   for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
     meshc_1d(i)=(mesh_->connect)[0][i];
@@ -472,7 +472,33 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }
       exit(0);
   }
-  
+
+  const int num_elem = (*mesh_->get_elem_num_map()).size();
+  int ngp = 0;
+  //LTP_quadrature_order;
+  if(4 == n_nodes_per_elem)  {
+    ngp = LTP_quadrature_order*LTP_quadrature_order;
+  }else{
+    ngp = LTP_quadrature_order*LTP_quadrature_order*LTP_quadrature_order;
+  }
+  Kokkos::View<double**,Kokkos::DefaultExecutionSpace> randomdistribution_2d("randomdistribution_2d", num_elem, ngp);
+  if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+    //std::vector<std::vector<double> > vals(randomdistribution->get_gauss_vals());
+    for( int i=0; i<num_elem; i++){
+      for(int ig=0;ig<ngp;ig++){
+	//randomdistribution_2d(i,ig) = vals[i][ig];
+	randomdistribution_2d(i,ig) = randomdistribution->get_gauss_val(i,ig);
+	//randomdistribution_2d(i,ig) = 0.;
+      }
+    }
+  }else{
+    for( int i=0; i<num_elem; i++){
+      for(int ig=0;ig<ngp;ig++){
+	randomdistribution_2d(i,ig) = 0.;
+      }
+    }
+  }//if
+
   if (nonnull(outArgs.get_f())){
 
     const Teuchos::RCP<vector_type> f_vec =
@@ -654,20 +680,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    //we need a basis object that stores all equations here..
 	    jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	  }//neq
-	  //const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
+	  const double vol = BGPU[0]->vol();
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const int lrow = numeqs*meshc[elemrow+i];
 	    const int lrow = numeqs*meshc_1dra(elemrow+i);
 
+	    const double rand = randomdistribution_2d(elem, gp);
+
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
 	      //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,neq));
-	      const double val = jacwt*((d_rf[neq])(BGPU,i,dt,dtold,t_theta,t_theta2,time,neq));
+	      const double val = jacwt*((d_rf[neq])(BGPU,i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand));
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	      double val = jacwt*(h_rf[neq](BGPU,i,dt,dtold,t_theta,t_theta2,time,neq));
+	      double val = jacwt*(h_rf[neq](BGPU,i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand));
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
@@ -1368,6 +1396,12 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
   if( timeadapt ) maxiter = atsList->get<int>(TusasatsmaxiterNameString);
 //   std::cout<<maxiter<<std::endl;
 //   exit(0);
+
+  if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+    randomdistribution->compute_random(numsteps_);
+    //randomdistribution->print();
+    //exit(0);
+  }
 
   double dtpred = dt_;
   int numit = 0;

@@ -50,7 +50,9 @@ random_distribution::random_distribution(const Teuchos::RCP<const Epetra_Comm>& 
 				      0,
 				      *comm_));
   const int num_elem = elem_map_->NumMyElements();
-  gauss_val.resize(num_elem, std::vector<double>(ngp));
+  gauss_val.resize(num_elem, std::vector<double>(ngp,0));
+  compute_random(0);
+  //print();
 }
 
 random_distribution::~random_distribution()
@@ -72,10 +74,11 @@ void random_distribution::compute_random(const int nt)
     for(int ig=0;ig<ngp;ig++){
       gauss_val[i][ig]=normal_dist(mt);
     }
-  }
+  }   
+  return;
 }
 
-void random_distribution::print()
+void random_distribution::print() const
 {
   const int mypid = comm_->MyPID();
   comm_->Barrier();
@@ -86,5 +89,36 @@ void random_distribution::print()
       std::cout<<mypid<<" "<<" "<<i<<" "<<ig<<" "<<gauss_val[i][ig]<<std::endl;
     }
   }
-  comm_->Barrier();
+  comm_->Barrier();   
+  return;
+}
+
+void random_distribution::compute_correlation() const 
+{
+   // verify suite of numbers in each element are uncorrelated
+  const int num_elem = elem_map_->NumMyElements();
+  double max_dot=0.;
+  for(int i=0;i<num_elem;i++)
+    {
+      for(int j=0;j<i;j++)
+        {
+	  double dot=0.;
+	  for(int ig=0;ig<ngp;ig++)
+            {
+	      dot+=gauss_val[i][ig]*gauss_val[j][ig];
+            }
+	  dot/=(double)ngp;
+	  std::cout<<"Element "<<i<<","<<j<<": dot="<<dot<<std::endl;
+	  max_dot = dot>max_dot ? dot : max_dot;
+        }
+    }    
+  std::cout<<"Max. dot product: "<<max_dot<<std::endl;    // compute self-correlation for comparison
+  double ref_dot=0.;
+  for(int ig=0;ig<ngp;ig++)
+    {
+      ref_dot+=gauss_val[0][ig]*gauss_val[0][ig];
+    }
+  ref_dot/=(double)ngp;
+  std::cout<<"Reference dot="<<ref_dot<<std::endl;    
+  return;
 }

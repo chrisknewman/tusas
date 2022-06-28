@@ -219,7 +219,7 @@ class Basis {
   double * dphidz;
 
   /// Access volume of current element.
-  const double vol(){return volp;};
+  const double vol() const {return volp;};
 protected:
   /// Access a pointer to the coordinates of the Gauss points in canonical space.
   double *abscissa;
@@ -2411,7 +2411,7 @@ public:
   double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
 
   /// Access volume of current element.  
-  KOKKOS_INLINE_FUNCTION const double vol(){return volp;};
+  KOKKOS_INLINE_FUNCTION const double vol() const {return volp;};
 
   //we could also do phi[BASIS_NODES_PER_ELEM] and set each element explicity below...
   //double *phi;

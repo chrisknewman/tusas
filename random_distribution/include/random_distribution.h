@@ -29,11 +29,17 @@ public:
 
   void compute_random(const int nt);
 
-  std::vector<std::vector<double> > get_gauss_val(){return gauss_val;}
+  std::vector<std::vector<double> > get_gauss_vals() const {return gauss_val;}
 
-  void compute_correlation(){};
+  const double get_gauss_val(const int i, const int ig) const {return gauss_val[i][ig];}
 
-  void print();
+  void compute_correlation() const;
+
+  void print() const;
+
+  //int nelem() {return elem_map_->NumMyElements();}
+
+  //void print(const int elemlid, const int gp) const{};
 
 private:
   /// number of Gauss points in element

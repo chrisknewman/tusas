@@ -80,6 +80,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasadaptiveTimestepNameString,(bool)false,TusasadaptiveTimestepDocString);
 
+  paramList.set(TusasrandomDistributionNameString,(bool)false,TusasrandomDistributionDocString);
+
   Teuchos::ParameterList *ATSList;
   ATSList = &paramList.sublist(TusasatslistNameString,(bool)false);
   ATSList->set(TusasatsmaxiterNameString,1);

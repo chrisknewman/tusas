@@ -1687,7 +1687,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
-
+#if 0
   }else if("radconvbc" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
     numeqs_ = 1;
@@ -2211,7 +2211,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
     post_proc[1]->postprocfunc_ = &tpetra::goldak::postproc_u_;
 
-
+#endif //0
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){

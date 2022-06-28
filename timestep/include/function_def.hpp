@@ -5561,7 +5561,6 @@ typedef double (*RESFUNC1)(const GPUBasisLHex *basis,
 
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
-  //namespace heat{
 
 namespace heat{
 TUSAS_DEVICE
@@ -5703,7 +5702,7 @@ PPR_FUNC(postproc_)
 // u_t - div ( u grad u) + 2 pi^2  (1-u) + u_x^2 + u_y^2
 // we replace u_x^2 + u_y^2 with a forcing term f2(x,y,t)
 
-
+#if 0
 KOKKOS_INLINE_FUNCTION 
 double f1(const double &u)
 {
@@ -7533,6 +7532,7 @@ PARAM_FUNC(param_)
   t_decay_h = t_decay_p;
 }
 }//namespace goldak
+#endif
 }//namespace tpetra
 
 

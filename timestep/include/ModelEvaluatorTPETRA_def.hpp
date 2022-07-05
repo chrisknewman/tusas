@@ -278,8 +278,6 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     randomdistribution = Teuchos::rcp(new random_distribution(Comm, mesh_, LTP_quadrature_order));
   }
 
-  init_nox();
-
   std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,
 								       TusaserrorestimatorNameString)).toVector();
   std::vector<int>::iterator it;
@@ -288,6 +286,22 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     int error_index = *it;
     Error_est.push_back(new error_estimator(Comm,mesh_,numeqs_,error_index));
   }
+  //initialize();
+  init_nox();  
+//     Teuchos::ParameterList *atsList;
+//     atsList = &paramList.sublist (TusasatslistNameString, false );
+
+//     //initial solve need by second derivative error estimate
+//     //and for lagged coupled time derivatives
+//     //ie get a solution at u_{-1}
+//     if(((atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
+// 	&&paramList.get<bool> (TusasestimateTimestepNameString))
+//        ||((atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
+// 	&&paramList.get<bool> (TusasestimateTimestepNameString)&&t_theta_ < 1.)
+//        ||paramList.get<bool> (TusasinitialSolveNameString)){
+
+//       initialsolve();
+//     }//if
 }
 
 template<class Scalar>
@@ -1546,7 +1560,7 @@ template<class scalar_type>
 
     //*u_old_old_ = *u_old_;
     u_old_old_->scale(1.,*u_old_);
-  
+
     Teuchos::ParameterList *atsList;
     atsList = &paramList.sublist (TusasatslistNameString, false );
 

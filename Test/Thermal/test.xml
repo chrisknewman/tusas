@@ -42,7 +42,7 @@
     </ParameterList>
   </ParameterList> 
 
-  <Parameter name="initialsolve" type="bool" value = "true"/>
+<!--   <Parameter name="initialsolve" type="bool" value = "true"/> -->
   <Parameter name="adaptivetimestep" type="bool" value = "true"/>
   <ParameterList name="Adaptive Timestep Parameters">
     <Parameter name="maxiter" type="int" value = "2"/>

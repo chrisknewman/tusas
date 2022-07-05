@@ -232,8 +232,6 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   Elem_col = rcp(new elem_color(comm_,mesh_));
 #endif
 
-  init_nox();
-
   std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,
 								       TusaserrorestimatorNameString)).toVector();
   std::vector<int>::iterator it;
@@ -243,6 +241,8 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
     Error_est.push_back(new error_estimator(comm_,mesh_,numeqs_,error_index));
   }
 
+  //initialize();
+  init_nox();
   //exit(0);
 
 }

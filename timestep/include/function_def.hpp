@@ -549,7 +549,7 @@ PPR_FUNC(predictor_fe_)
   //const double uuoldold = uoldold[eqn_id];
   const double uupred = gradu[eqn_id];//hack for now
   //std::cout<<eqn_id<<" "<<uold[eqn_id]<<std::endl;
-  //std::cout<<eqn_id<<" "<<uu<<"  "<<uupred<<"  "<<uu - uupred<<std::endl;
+  std::cout<<eqn_id<<" "<<uu<<"  "<<uupred<<"  "<<uu - uupred<<std::endl;
   return (uu - uupred);
 }
 PPR_FUNC(postproc1_)
@@ -6669,7 +6669,7 @@ namespace noise
 KOKKOS_INLINE_FUNCTION 
 double noise_(const double rand)
 {
-  return rand;
+  return 20.*rand;
 }
 }//namespace noise
 
@@ -6853,8 +6853,9 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_noise_)
 				      eqn_id,
 				      vol,
 				      rand);
-
-  double noise[3] = {tpetra::noise::noise_(rand)*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i]};
+  const double phi[1] ={ basis[eqn_id]->uu};
+  const double g = (1.-phi[0]*phi[0])*(1.-phi[0]*phi[0]);
+  double noise[3] = {g*tpetra::noise::noise_(rand)*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i]};
 
   double rv = (val + (1.-t_theta2_)*t_theta_*noise[0]
 	  + (1.-t_theta2_)*(1.-t_theta_)*noise[1]
@@ -7726,7 +7727,8 @@ void dfldt_uncoupled(GPUBasis * basis[], const int index, const double dt_, cons
 KOKKOS_INLINE_FUNCTION 
 void dfldt_coupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
 {
-  const double dfldu_d[3] = {-.5,-.5,-.5};
+  const double coef = Lf/(tl-te)/tpetra::heat::cp_d;
+  const double dfldu_d[3] = {-.5*coef,-.5*coef,-.5*coef};
 
   a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index]->uu-dfldu_d[1]*basis[index]->uuold)/dt_
                                  -dt_/dtold_*(dfldu_d[0]*basis[index]->uu-dfldu_d[2]*basis[index]->uuoldold)/(dt_+dtold_)

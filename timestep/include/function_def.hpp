@@ -549,7 +549,7 @@ PPR_FUNC(predictor_fe_)
   //const double uuoldold = uoldold[eqn_id];
   const double uupred = gradu[eqn_id];//hack for now
   //std::cout<<eqn_id<<" "<<uold[eqn_id]<<std::endl;
-  std::cout<<eqn_id<<" "<<uu<<"  "<<uupred<<"  "<<uu - uupred<<std::endl;
+  //std::cout<<eqn_id<<" "<<uu<<"  "<<uupred<<"  "<<uu - uupred<<std::endl;
   return (uu - uupred);
 }
 PPR_FUNC(postproc1_)

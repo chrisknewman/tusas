@@ -114,6 +114,10 @@ std::string const TusasestimateTimestepDocString = "estimatetimestep (bool): tru
 std::string const TusasinitialSolveNameString = "initialsolve";
 /// Perform initial nonlinear solve
 std::string const TusasinitialSolveDocString = "initialsolve (bool): true; false (default)";
+/// Preconditioner
+std::string const TusasleftScalingNameString = "leftscaling";
+/// Preconditioner
+std::string const TusasleftScalingDocString = "left (row) scaling (bool): true; false (default)";
 
 /// Perform adaptive timestepping
 std::string const TusasadaptiveTimestepNameString = "adaptivetimestep";

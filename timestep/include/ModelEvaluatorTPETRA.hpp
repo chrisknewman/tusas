@@ -199,6 +199,7 @@ private:
   Teuchos::RCP<vector_type > x0_;
   Thyra::ModelEvaluatorBase::InArgs<Scalar> prototypeInArgs_;
   Thyra::ModelEvaluatorBase::OutArgs<Scalar> prototypeOutArgs_;
+  Teuchos::RCP<::Thyra::VectorBase< double > > scaling_;
 
   /// Initialize and create the NOX and linear solvers.
   void init_nox();

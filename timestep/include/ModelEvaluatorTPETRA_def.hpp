@@ -732,6 +732,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
+      //f_vec->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     }
   }//get_f
 
@@ -1040,7 +1041,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		PV.sumIntoValues (row, col,(local_ordinal_type)1,val);
 		
 	      }//neq
-		
+       	
 	    }//j
 	    
 	  }//i
@@ -1203,6 +1204,14 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   Teuchos::RCP< ::Thyra::VectorBase<double> >
     initial_guess = this->getNominalValues().get_x()->clone_v();
 
+  bool do_scaling = paramList.get<bool> (TusasleftScalingNameString);
+  if(do_scaling){
+    scaling_ = Thyra::createMember(this->get_x_space());
+    Thyra::put_scalar(10.0,scaling_.ptr());
+  }else{
+    scaling_ = Teuchos::null;
+  }
+
   Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
 
   // Create the JFNK operator
@@ -1232,11 +1241,11 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   if(precon){
     Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp = thyraModel->create_W_prec();
     nox_group =
-      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null, Teuchos::null, Teuchos::null));
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null, scaling_, Teuchos::null));
   }
   else {
     nox_group =
-      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null, Teuchos::null, Teuchos::null));
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null, scaling_, Teuchos::null));
   }
 
   nox_group->computeF();

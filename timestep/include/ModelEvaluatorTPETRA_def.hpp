@@ -62,6 +62,28 @@
 std::string getmypidstring(const int mypid, const int numproc);
 
 template<class Scalar>
+class tusasjfnkOp
+  :virtual public NOX::Thyra::MatrixFreeJacobianOperator<Scalar>, public Thyra::ScaledLinearOpBase<Scalar>//, Thyra::TpetraLinearOp<Scalar>
+{
+public:
+  tusasjfnkOp(Teuchos::ParameterList &printParams):NOX::Thyra::MatrixFreeJacobianOperator<Scalar>(printParams),
+						   Thyra::ScaledLinearOpBase<Scalar>(){};
+  ~tusasjfnkOp(){};
+
+  bool supportsScaleLeftImpl() const {return false;};
+  bool supportsScaleRightImpl() const {return false;};
+  void scaleLeftImpl (const VectorBase< Scalar > &row_scaling){};
+  void scaleRightImpl (const VectorBase< Scalar > &col_scaling){};
+  RCP< const VectorSpaceBase< Scalar > > range() const {return NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::range();};
+  //virtual RCP< const VectorSpaceBase< Scalar > > range() const {return static_cast<NOX::Thyra::MatrixFreeJacobianOperator<Scalar>*>(this)->range();};
+
+  RCP< const VectorSpaceBase< Scalar > > domain() const {return NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::domain();};
+  bool opSupportedImpl(EOpTransp M_trans) const {return false;};
+  void applyImpl(const EOpTransp M_trans, const MultiVectorBase< Scalar > &X, const Ptr< MultiVectorBase< Scalar > > &Y, const Scalar alpha, const Scalar beta) const
+  {NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::applyImpl(M_trans, X, Y, alpha, beta);};
+};
+
+template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
 modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 			Mesh *mesh,
@@ -1216,8 +1238,10 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 
   // Create the JFNK operator
   Teuchos::ParameterList printParams;//cn this is empty??? for now
+//   Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
+//     Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
   Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
-    Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
+    Teuchos::rcp(new tusasjfnkOp<double>(printParams));
 
   Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
   jfnkOp->setParameterList(jfnkParams);

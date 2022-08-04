@@ -5807,8 +5807,8 @@ RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
-  return rho_d*cp_d*basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
-    + t_theta_*k_d*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+  return rho_d*cp_d/tau0_d*deltau_d*basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
+    + t_theta_*k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 }
@@ -7741,7 +7741,8 @@ void dfldt_uncoupled(GPUBasis * basis[], const int index, const double dt_, cons
 KOKKOS_INLINE_FUNCTION 
 void dfldt_coupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
 {
-  const double coef = Lf/(tl-te)/tpetra::heat::cp_d;
+  //const double coef = Lf/(tl-te)/tpetra::heat::cp_d;
+  double coef = tpetra::heat::rho_d*tpetra::goldak::Lf/tau0_d;
   const double dfldu_d[3] = {-.5*coef,-.5*coef,-.5*coef};
 
   a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index]->uu-dfldu_d[1]*basis[index]->uuold)/dt_

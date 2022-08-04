@@ -7621,6 +7621,8 @@ namespace radconvbc
   
   double deltau_h = 1.;
   double uref_h = 0.;
+  
+  double scaling_constant_h = 1.;
 
 DBC_FUNC(dbc_) 
 {
@@ -7639,9 +7641,12 @@ NBC_FUNC_TPETRA(nbc_)
   const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
 		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
 		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};
-  return (1.-t_theta2_)*t_theta_*f[0]
+  
+  const double rv = (1.-t_theta2_)*t_theta_*f[0]
     +(1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+  
+  return rv * scaling_constant_h;
 }
 
 INI_FUNC(init_heat_)
@@ -7657,6 +7662,9 @@ PARAM_FUNC(param_)
   ti = plist->get<double>("ti_",323.);
   deltau_h = plist->get<double>("deltau_",1.);
   uref_h = plist->get<double>("uref_",0.);
+  
+  scaling_constant_h = plist->get<double>("scaling_constant_",1.);
+
 //   std::cout<<"tpetra::radconvbc::param_:"<<std::endl
 // 	   <<"  h     = "<<h<<std::endl
 // 	   <<"  ep    = "<<ep<<std::endl
@@ -7704,7 +7712,10 @@ TUSAS_DEVICE
 double W0_d = 1.;
 
 TUSAS_DEVICE
-double t0_d = 300.0;
+double t0_d = 300.;
+
+TUSAS_DEVICE
+double scaling_constant_d = 1.;
 
 KOKKOS_INLINE_FUNCTION 
 void dfldt_uncoupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
@@ -7837,7 +7848,7 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
   
   //return rv*tau0_d/tpetra::heat::deltau_h;
-  return rv;
+  return rv * scaling_constant_d;
 }
 
 TUSAS_DEVICE
@@ -7873,7 +7884,7 @@ RES_FUNC_TPETRA(residual_coupled_test_)
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
   
   //return rv*tau0_d/tpetra::heat::deltau_h;
-  return rv;
+  return rv * scaling_constant_d;
 }
 
 TUSAS_DEVICE
@@ -7890,7 +7901,7 @@ PRE_FUNC_TPETRA(prec_test_)
 						      t_theta_,
 						      eqn_id);
 
-  return val;// /tpetra::heat::rho_d/tpetra::heat::cp_d;
+  return val * scaling_constant_d;// /tpetra::heat::rho_d/tpetra::heat::cp_d;
 }
 
 TUSAS_DEVICE
@@ -7976,6 +7987,9 @@ PARAM_FUNC(param_)
   t0_d = plist->get<double>("t0_",300.);
 
   dfldu_mushy_d = tpetra::heat::rho_d*Lf/(tl-te); //fl=(t-te)/(tl-te);
+  
+  scaling_constant_d = plist->get<double>("scaling_constant_",1.);
+
 }
 }//namespace goldak
 

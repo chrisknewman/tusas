@@ -7703,6 +7703,9 @@ double tau0_d = 1.;
 TUSAS_DEVICE
 double W0_d = 1.;
 
+TUSAS_DEVICE
+double t0_d = 300.0;
+
 KOKKOS_INLINE_FUNCTION 
 void dfldt_uncoupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
 {
@@ -7895,13 +7898,15 @@ PRE_FUNC_TPETRA((*prec_test_dp_)) = prec_test_;
 
 INI_FUNC(init_heat_)
 {
-  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  const double t_preheat = tpetra::goldak::t0_d;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
 DBC_FUNC(dbc_) 
 {
-  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  const double t_preheat = tpetra::goldak::t0_d;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
@@ -7967,6 +7972,8 @@ PARAM_FUNC(param_)
   t_decay_d = plist->get<double>("t_decay_",0.01);
   tau0_d = plist->get<double>("tau0_",1.);
   W0_d = plist->get<double>("W0_",1.);
+  
+  t0_d = plist->get<double>("t0_",300.);
 
   dfldu_mushy_d = tpetra::heat::rho_d*Lf/(tl-te); //fl=(t-te)/(tl-te);
 }
@@ -7982,23 +7989,25 @@ INI_FUNC(init_conc_farzadi_)
 
 INI_FUNC(init_phase_farzadi_)
 {
-
   double h = tpetra::farzadi3d::base_height + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
   
-  double c = (x-tpetra::farzadi3d::x0)*(x-tpetra::farzadi3d::x0) + (y-tpetra::farzadi3d::y0)*(y-tpetra::farzadi3d::y0) + (z-tpetra::farzadi3d::z0)*(z-tpetra::farzadi3d::z0);
+  return std::tanh((h-z)/std::sqrt(2.));
   
-  return ((tpetra::farzadi3d::C == 0) ? (tanh((h-x)/sqrt(2.))) : (c < tpetra::farzadi3d::r*tpetra::farzadi3d::r) ? 1. : -1.);	
+  double c = (x-tpetra::farzadi3d::x0)*(x-tpetra::farzadi3d::x0) + (y-tpetra::farzadi3d::y0)*(y-tpetra::farzadi3d::y0) + (z-tpetra::farzadi3d::z0)*(z-tpetra::farzadi3d::z0);
+  return ((tpetra::farzadi3d::C == 0) ? (tanh((h-z)/sqrt(2.))) : (c < tpetra::farzadi3d::r*tpetra::farzadi3d::r) ? 1. : -1.);	
 }
 
 INI_FUNC(init_heat_)
 {
-  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  const double t_preheat = tpetra::goldak::t0_d;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
 DBC_FUNC(dbc_) 
 {
-  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  const double t_preheat = tpetra::goldak::t0_d;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 

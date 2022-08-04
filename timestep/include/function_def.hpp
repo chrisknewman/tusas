@@ -7621,7 +7621,11 @@ namespace radconvbc
   
   double deltau_h = 1.;
   double uref_h = 0.;
-
+  
+  double k_h = 1.0;
+  
+  double scaling_constant = 1.0;
+  
 DBC_FUNC(dbc_) 
 {
   return 1173.;
@@ -7639,9 +7643,14 @@ NBC_FUNC_TPETRA(nbc_)
   const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
 		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
 		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};
-  return (1.-t_theta2_)*t_theta_*f[0]
+  
+  const double coef = k_h * deltau_h / W0_h;
+  
+  const double rv = (1.-t_theta2_)*t_theta_*f[0]
     +(1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+  
+  return rv * coef * scaling_constant;
 }
 
 INI_FUNC(init_heat_)
@@ -7657,6 +7666,12 @@ PARAM_FUNC(param_)
   ti = plist->get<double>("ti_",323.);
   deltau_h = plist->get<double>("deltau_",1.);
   uref_h = plist->get<double>("uref_",0.);
+  
+  W0_h = plist->get<double>("W0_",1.);
+  k_h = plist->get<double>("k_",1.);
+ 
+  scaling_constant = plist->get<double>("scaling_constant_",1.);
+
 //   std::cout<<"tpetra::radconvbc::param_:"<<std::endl
 // 	   <<"  h     = "<<h<<std::endl
 // 	   <<"  ep    = "<<ep<<std::endl

@@ -7644,7 +7644,7 @@ NBC_FUNC_TPETRA(nbc_)
 		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
 		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};
   
-  const double coef = k_h * deltau_h / W0_h;
+  const double coef = deltau_h / W0_h;
   
   const double rv = (1.-t_theta2_)*t_theta_*f[0]
     +(1.-t_theta2_)*(1.-t_theta_)*f[1]

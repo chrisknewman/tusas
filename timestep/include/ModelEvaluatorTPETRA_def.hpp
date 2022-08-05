@@ -1993,13 +1993,14 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
+    post_proc[1].postprocfunc_ = &tpetra::fullycoupled::postproc_t_;
 
-    paramfunc_.resize(4);
+    paramfunc_.resize(5);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
     paramfunc_[1] = &tpetra::heat::param_;
     paramfunc_[2] = &tpetra::radconvbc::param_;
     paramfunc_[3] = &tpetra::goldak::param_;
+	paramfunc_[4] = &tpetra::fullycoupled::param_;
     //paramfunc_ = &farzadi::param_;
 
     //neumannfunc_ = NULL;

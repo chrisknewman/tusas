@@ -6118,6 +6118,8 @@ namespace farzadi3d
   
   int C = 0;
   
+  double t_activate_farzadi = 0.0;
+  
 PARAM_FUNC(param_)
 {
   double k_p = plist->get<double>("k", 0.14);
@@ -6260,6 +6262,9 @@ z0 = z0_p;
 #else
   D_liquid_ = D_liquid__p;
 #endif
+
+
+  t_activate_farzadi = plist->get<double>("t_activate_farzadi", 0.0);
   //std::cout<<l_T0<<"   "<<G<<"  "<<Vp0<<"  "<<tau0<<"   "<<w0<<std::endl;
 }
   
@@ -6291,51 +6296,57 @@ double ap(const double &p,const double &px,const double &py,const double &pz,con
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_conc_farzadi_)
 {
-  //right now, if explicit, we will have some problems with time derivates below
-  const double dtestdx = basis[eqn_id]->dphidx[i];
-  const double dtestdy = basis[eqn_id]->dphidy[i];
-  const double dtestdz = basis[eqn_id]->dphidz[i];
-  const double test = basis[eqn_id]->phi[i];
-  const double u[3] = {basis[eqn_id]->uu,basis[eqn_id]->uuold,basis[eqn_id]->uuoldold};
+    if (time > t_activate_farzadi/tau0){
+	  //right now, if explicit, we will have some problems with time derivates below
+	  const double dtestdx = basis[eqn_id]->dphidx[i];
+	  const double dtestdy = basis[eqn_id]->dphidy[i];
+	  const double dtestdz = basis[eqn_id]->dphidz[i];
+	  const double test = basis[eqn_id]->phi[i];
+	  const double u[3] = {basis[eqn_id]->uu,basis[eqn_id]->uuold,basis[eqn_id]->uuoldold};
 
-  const int phi_id = eqn_id+1;
-  const double phi[3] = {basis[phi_id]->uu,basis[phi_id]->uuold,basis[phi_id]->uuoldold};
-  const double dphidx[3] = {basis[phi_id]->dudx,basis[phi_id]->duolddx,basis[phi_id]->duoldolddx};
-  const double dphidy[3] = {basis[phi_id]->dudy,basis[phi_id]->duolddy,basis[phi_id]->duoldolddy};
-  const double dphidz[3] = {basis[phi_id]->dudz,basis[phi_id]->duolddz,basis[phi_id]->duoldolddz};
+	  const int phi_id = eqn_id+1;
+	  const double phi[3] = {basis[phi_id]->uu,basis[phi_id]->uuold,basis[phi_id]->uuoldold};
+	  const double dphidx[3] = {basis[phi_id]->dudx,basis[phi_id]->duolddx,basis[phi_id]->duoldolddx};
+	  const double dphidy[3] = {basis[phi_id]->dudy,basis[phi_id]->duolddy,basis[phi_id]->duoldolddy};
+	  const double dphidz[3] = {basis[phi_id]->dudz,basis[phi_id]->duolddz,basis[phi_id]->duoldolddz};
 
-  const double ut = (1.+k)/2.*(u[0]-u[1])/dt_*test;
-  const double divgradu[3] = {D_liquid_*(1.-phi[0])/2.*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
-			      D_liquid_*(1.-phi[1])/2.*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
-			      D_liquid_*(1.-phi[2])/2.*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};//(grad u,grad phi)
+	  const double ut = (1.+k)/2.*(u[0]-u[1])/dt_*test;
+	  const double divgradu[3] = {D_liquid_*(1.-phi[0])/2.*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
+				      D_liquid_*(1.-phi[1])/2.*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
+				      D_liquid_*(1.-phi[2])/2.*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};//(grad u,grad phi)
 
-  const double normd[3] = {(phi[0]*phi[0] < absphi)&&(phi[0]*phi[0] > 0.) ? 1./sqrt(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0]) : 0.,
-			   (phi[1]*phi[1] < absphi)&&(phi[1]*phi[1] > 0.) ? 1./sqrt(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1]) : 0.,
-			   (phi[2]*phi[2] < absphi)&&(phi[2]*phi[2] > 0.) ? 1./sqrt(dphidx[2]*dphidx[2] + dphidy[2]*dphidy[2] + dphidz[2]*dphidz[2]) : 0.}; //cn lim grad phi/|grad phi| may -> 1 here?
+	  const double normd[3] = {(phi[0]*phi[0] < absphi)&&(phi[0]*phi[0] > 0.) ? 1./sqrt(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0]) : 0.,
+				   (phi[1]*phi[1] < absphi)&&(phi[1]*phi[1] > 0.) ? 1./sqrt(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1]) : 0.,
+				   (phi[2]*phi[2] < absphi)&&(phi[2]*phi[2] > 0.) ? 1./sqrt(dphidx[2]*dphidx[2] + dphidy[2]*dphidy[2] + dphidz[2]*dphidz[2]) : 0.}; //cn lim grad phi/|grad phi| may -> 1 here?
 
-  //we need to double check these terms with temporal derivatives....
-  const double phit = (phi[0]-phi[1])/dt_;
-  const double j_coef[3] = {(1.+(1.-k)*u[0])/sqrt(8.)*normd[0]*phit,
-			    (1.+(1.-k)*u[1])/sqrt(8.)*normd[1]*phit,
-			    (1.+(1.-k)*u[2])/sqrt(8.)*normd[2]*phit};
-  const double divj[3] = {j_coef[0]*(dphidx[0]*dtestdx + dphidy[0]*dtestdy + dphidz[0]*dtestdz),
-			  j_coef[1]*(dphidx[1]*dtestdx + dphidy[1]*dtestdy + dphidz[1]*dtestdz),
-			  j_coef[2]*(dphidx[2]*dtestdx + dphidy[2]*dtestdy + dphidz[2]*dtestdz)};
+	  //we need to double check these terms with temporal derivatives....
+	  const double phit = (phi[0]-phi[1])/dt_;
+	  const double j_coef[3] = {(1.+(1.-k)*u[0])/sqrt(8.)*normd[0]*phit,
+				    (1.+(1.-k)*u[1])/sqrt(8.)*normd[1]*phit,
+				    (1.+(1.-k)*u[2])/sqrt(8.)*normd[2]*phit};
+	  const double divj[3] = {j_coef[0]*(dphidx[0]*dtestdx + dphidy[0]*dtestdy + dphidz[0]*dtestdz),
+				  j_coef[1]*(dphidx[1]*dtestdx + dphidy[1]*dtestdy + dphidz[1]*dtestdz),
+				  j_coef[2]*(dphidx[2]*dtestdx + dphidy[2]*dtestdy + dphidz[2]*dtestdz)};
 
-  double phitu[3] = {-.5*phit*(1.+(1.-k)*u[0])*test,
-		     -.5*phit*(1.+(1.-k)*u[1])*test,
-		     -.5*phit*(1.+(1.-k)*u[2])*test}; 
-  
-  //double val = ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
-  //printf("%lf\n",val);
+	  double phitu[3] = {-.5*phit*(1.+(1.-k)*u[0])*test,
+			     -.5*phit*(1.+(1.-k)*u[1])*test,
+			     -.5*phit*(1.+(1.-k)*u[2])*test}; 
+	  
+	  //double val = ut + t_theta_*divgradu  + t_theta_*divj + t_theta_*phitu;
+	  //printf("%lf\n",val);
 
-  const double f[3] = {divgradu[0] + divj[0] + phitu[0],
-		       divgradu[1] + divj[1] + phitu[1],
-		       divgradu[2] + divj[2] + phitu[2]};
+	  const double f[3] = {divgradu[0] + divj[0] + phitu[0],
+			       divgradu[1] + divj[1] + phitu[1],
+			       divgradu[2] + divj[2] + phitu[2]};
 
-  return ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+	  return ut + (1.-t_theta2_)*t_theta_*f[0]
+	    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+	    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+	}
+	else {
+		return 0.0;
+	}
+
 }
 
 TUSAS_DEVICE
@@ -6472,49 +6483,54 @@ RES_FUNC_TPETRA((*residual_phase_farzadi_uncoupled_dp_)) = residual_phase_farzad
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
 {
-  //test function
-  const double test = basis[eqn_id]->phi[i];
-  //u, phi
-  const int u_id = eqn_id-1;
-  const int theta_id = eqn_id+1;
-  const double u[3] = {basis[u_id]->uu,basis[u_id]->uuold,basis[u_id]->uuoldold};
-  const double phi[3] = {basis[eqn_id]->uu,basis[eqn_id]->uuold,basis[eqn_id]->uuoldold};
+  if (time > t_activate_farzadi/tau0){
+	  //test function
+	  const double test = basis[eqn_id]->phi[i];
+	  //u, phi
+	  const int u_id = eqn_id-1;
+	  const int theta_id = eqn_id+1;
+	  const double u[3] = {basis[u_id]->uu,basis[u_id]->uuold,basis[u_id]->uuoldold};
+	  const double phi[3] = {basis[eqn_id]->uu,basis[eqn_id]->uuold,basis[eqn_id]->uuoldold};
 
-  const double dphidx[3] = {basis[eqn_id]->dudx,basis[eqn_id]->duolddx,basis[eqn_id]->duoldolddx};
-  const double dphidy[3] = {basis[eqn_id]->dudy,basis[eqn_id]->duolddy,basis[eqn_id]->duoldolddy};
-  const double dphidz[3] = {basis[eqn_id]->dudz,basis[eqn_id]->duolddz,basis[eqn_id]->duoldolddz};
+	  const double dphidx[3] = {basis[eqn_id]->dudx,basis[eqn_id]->duolddx,basis[eqn_id]->duoldolddx};
+	  const double dphidy[3] = {basis[eqn_id]->dudy,basis[eqn_id]->duolddy,basis[eqn_id]->duoldolddy};
+	  const double dphidz[3] = {basis[eqn_id]->dudz,basis[eqn_id]->duolddz,basis[eqn_id]->duoldolddz};
 
-  const double as[3] = {a(phi[0],dphidx[0],dphidy[0],dphidz[0],eps),
-			a(phi[1],dphidx[1],dphidy[1],dphidz[1],eps),
-			a(phi[2],dphidx[2],dphidy[2],dphidz[2],eps)};
+	  const double as[3] = {a(phi[0],dphidx[0],dphidy[0],dphidz[0],eps),
+				a(phi[1],dphidx[1],dphidy[1],dphidz[1],eps),
+				a(phi[2],dphidx[2],dphidy[2],dphidz[2],eps)};
 
-  const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
+	  const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
 
-  const double theta[3] = {basis[theta_id]->uu,basis[theta_id]->uuold,basis[theta_id]->uuoldold};
-  
-  const double g4[3] = {theta[0],theta[1],theta[2]};
-  
-  const double hp1g4[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(g4[0])*test,
-			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(g4[1])*test,
-			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(g4[2])*test};
+	  const double theta[3] = {basis[theta_id]->uu,basis[theta_id]->uuold,basis[theta_id]->uuoldold};
+	  
+	  const double g4[3] = {theta[0],theta[1],theta[2]};
+	  
+	  const double hp1g4[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(g4[0])*test,
+				 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(g4[1])*test,
+				 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(g4[2])*test};
 
-  const double val = tpetra::farzadi3d::residual_phase_farzadi_dp_(basis,
-								   i,
-								   dt_,
-								   dtold_,
-								   t_theta_,
-								   t_theta2_,
-								   time,
-								   eqn_id,
-								   vol,
-								   rand);
+	  const double val = tpetra::farzadi3d::residual_phase_farzadi_dp_(basis,
+									   i,
+									   dt_,
+									   dtold_,
+									   t_theta_,
+									   t_theta2_,
+									   time,
+									   eqn_id,
+									   vol,
+									   rand);
 
-  const double rv = val/mob[0]
-    + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]/mob[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]/mob[1]-dt_/dtold_*hp1g4[2]/mob[2]);
+	  const double rv = val/mob[0]
+	    + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
+	    + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]/mob[1]
+	    +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]/mob[1]-dt_/dtold_*hp1g4[2]/mob[2]);
 
-  return mob[0]*rv;
+	  return mob[0]*rv;
+	}
+	else {
+		return 0;
+	}
 }
 
 TUSAS_DEVICE
@@ -7621,9 +7637,7 @@ namespace radconvbc
   
   double deltau_h = 1.;
   double uref_h = 0.;
-  
-  double k_h = 1.0;
-  
+    
   double scaling_constant_h = 1.0;
   
 DBC_FUNC(dbc_) 
@@ -7668,7 +7682,6 @@ PARAM_FUNC(param_)
   uref_h = plist->get<double>("uref_",0.);
   
   W0_h = plist->get<double>("W0_",1.);
-  k_h = plist->get<double>("k_",1.);
  
   scaling_constant_h = plist->get<double>("scaling_constant_",1.);
 
@@ -7767,9 +7780,12 @@ void dfldt_coupled(GPUBasis * basis[], const int index, const double dt_, const 
 KOKKOS_INLINE_FUNCTION 
 const double P(const double t)
 {
-  const double t_hold = t_hold_d/tau0_d;
-  const double t_decay = t_decay_d/tau0_d;
-  const double tt = t/tau0_d;
+  // t is nondimensional
+  // t_hold, t_decay, and tt are dimensional
+  
+  const double t_hold = t_hold_d;
+  const double t_decay = t_decay_d;
+  const double tt = t*tau0_d;
   return (tt < t_hold) ? P_d : 
     ((tt<t_hold+t_decay) ? P_d*(tt-(t_hold+t_decay))/(-t_decay)
      :0.);
@@ -7778,17 +7794,17 @@ const double P(const double t)
 KOKKOS_INLINE_FUNCTION 
 const double qdot(const double &x, const double &y, const double &z, const double &t)
 {
+  // x, y, z, and t are nondimensional values
+  // r, d, and p and dimensional
+  // Qdot as a whole has dimensions, but that's ok since it's written in terms of non-dimensional (x,y,z,t)
 
   const double p = P(t);
+  const double r = r_d;
+  const double d = d_d;
+  
   //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
-  const double r = r_d;// /W0_d;
-  const double d = d_d;// /W0_d;
-
   const double coef = eta_d*p*5.19615/r/r/d/gamma_d/pi_d;
-
-  //const double exparg = ((x-x0_d/W0_d)*(x-x0_d/W0_d)+(y-y0_d/W0_d)*(y-y0_d/W0_d))/r/r+(z-z0_d/W0_d)*(z-z0_d/W0_d)/d/d;
   const double exparg = ((W0_d*x-x0_d)*(W0_d*x-x0_d)+(W0_d*y-y0_d)*(W0_d*y-y0_d))/r/r+(W0_d*z-z0_d)*(W0_d*z-z0_d)/d/d;
-
   const double f = exp( -3.* exparg );
   //std::cout<<W0_d*x<<std::endl;
   //if(f > 0.) std::cout<<f<<" "<<coef<<" "<<coef*f<<std::endl;
@@ -8002,6 +8018,11 @@ PARAM_FUNC(param_)
 
 namespace fullycoupled
 {
+  double hemisphere_IC_rad = 1.0;
+  double hemispherical_IC_x0 = 0.0;
+  double hemispherical_IC_y0 = 0.0;
+  double hemispherical_IC_z0 = 0.0;
+  bool hemispherical_IC = false;	
 
 INI_FUNC(init_conc_farzadi_)
 {
@@ -8010,12 +8031,23 @@ INI_FUNC(init_conc_farzadi_)
 
 INI_FUNC(init_phase_farzadi_)
 {
-  double h = tpetra::farzadi3d::base_height + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
-  
-  return std::tanh((h-z)/std::sqrt(2.));
-  
-  double c = (x-tpetra::farzadi3d::x0)*(x-tpetra::farzadi3d::x0) + (y-tpetra::farzadi3d::y0)*(y-tpetra::farzadi3d::y0) + (z-tpetra::farzadi3d::z0)*(z-tpetra::farzadi3d::z0);
-  return ((tpetra::farzadi3d::C == 0) ? (tanh((h-z)/sqrt(2.))) : (c < tpetra::farzadi3d::r*tpetra::farzadi3d::r) ? 1. : -1.);	
+  if (hemispherical_IC){
+	  const double w0 = tpetra::farzadi3d::w0;
+	  
+	  const double dist = std::sqrt( (x-hemispherical_IC_x0/w0)*(x-hemispherical_IC_x0/w0) 
+	  	+ (y-hemispherical_IC_y0/w0)*(y-hemispherical_IC_y0/w0) 
+	  	+ (z-hemispherical_IC_z0/w0)*(z-hemispherical_IC_z0/w0));
+	  const double r = hemisphere_IC_rad/w0 + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
+	  return std::tanh( (dist-r)/std::sqrt(2.));
+  }
+  else {
+	  double h = tpetra::farzadi3d::base_height + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
+	  
+	  return std::tanh((h-z)/std::sqrt(2.));
+	  
+	  double c = (x-tpetra::farzadi3d::x0)*(x-tpetra::farzadi3d::x0) + (y-tpetra::farzadi3d::y0)*(y-tpetra::farzadi3d::y0) + (z-tpetra::farzadi3d::z0)*(z-tpetra::farzadi3d::z0);
+	  return ((tpetra::farzadi3d::C == 0) ? (tanh((h-z)/sqrt(2.))) : (c < tpetra::farzadi3d::r*tpetra::farzadi3d::r) ? 1. : -1.);	
+  }
 }
 
 INI_FUNC(init_heat_)
@@ -8032,8 +8064,21 @@ DBC_FUNC(dbc_)
   return val;
 }
 
+PPR_FUNC(postproc_t_)
+{
+  // return the physical temperature in K here
+  const double theta = u[2];
+  return theta * tpetra::heat::deltau_h + tpetra::heat::uref_h;
+}
+
 PARAM_FUNC(param_)
 {
+	hemispherical_IC = plist->get<bool>("hemispherical_IC", false);
+	hemisphere_IC_rad = plist->get<double>("hemisphere_IC_rad", 1.0);
+	hemispherical_IC_x0 = plist->get<double>("hemispherical_IC_x0", 0.0);
+	hemispherical_IC_y0 = plist->get<double>("hemispherical_IC_y0", 0.0);
+	hemispherical_IC_z0 = plist->get<double>("hemispherical_IC_z0", 0.0);
+
 }
 }//namespace fullycoupled
 

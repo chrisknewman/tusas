@@ -66,8 +66,8 @@
     <Parameter name="rho_" type="double" value="8900."/>
     <Parameter name="cp_" type="double" value="440."/>
 
-    <Parameter name="te_" type="double" value="1641."/>
-    <Parameter name="tl_" type="double" value="1706."/>
+<!--     <Parameter name="te_" type="double" value="1641."/> -->
+<!--     <Parameter name="tl_" type="double" value="1706."/> -->
 <!--     <Parameter name="Lf_" type="double" value="2.95e5"/> -->
 <!--     <Parameter name="Lf_" type="double" value="0."/> -->
 

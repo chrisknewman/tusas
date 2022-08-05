@@ -5807,8 +5807,8 @@ RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
-  return rho_d*cp_d*basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
-    + t_theta_*k_d*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+  return rho_d*cp_d/tau0_d*deltau_d*basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
+    + t_theta_*k_d/tau0_d*deltau_d*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 }
@@ -7622,6 +7622,8 @@ namespace radconvbc
   double deltau_h = 1.;
   double uref_h = 0.;
 
+  double scaling_constant = 1.0;
+
 DBC_FUNC(dbc_) 
 {
   return 1173.;
@@ -7633,15 +7635,17 @@ NBC_FUNC_TPETRA(nbc_)
   //h(t-ti)+\ep\sigma(t^4-ti^4)
   //std::cout<<h<<" "<<ep<<" "<<sigma<<" "<<ti<<std::endl;
   const double test = basis[0].phi[i];
-  const double u = deltau_h*basis[0].uu+uref_h;
+  const double u = deltau_h*basis[0].uu+uref_h;//T=deltau_h*theta+uref_h
   const double uold = deltau_h*basis[0].uuold+uref_h;
   const double uoldold = deltau_h*basis[0].uuoldold+uref_h;
-  const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
-		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
-		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};
-  return (1.-t_theta2_)*t_theta_*f[0]
+  const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test/deltau_h,
+		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test/deltau_h,
+		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test/deltau_h};
+  const double coef = deltau_h / W0_h;
+  const double rv = (1.-t_theta2_)*t_theta_*f[0]
     +(1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+  return rv * coef * scaling_constant;
 }
 
 INI_FUNC(init_heat_)
@@ -7656,7 +7660,11 @@ PARAM_FUNC(param_)
   sigma = plist->get<double>("sigma_",5.67037e-9);
   ti = plist->get<double>("ti_",323.);
   deltau_h = plist->get<double>("deltau_",1.);
-  uref_h = plist->get<double>("uref_",0.);
+  uref_h = plist->get<double>("uref_",0.); 
+
+  W0_h = plist->get<double>("W0_",1.);
+
+  scaling_constant = plist->get<double>("scaling_constant_",1.);
 //   std::cout<<"tpetra::radconvbc::param_:"<<std::endl
 // 	   <<"  h     = "<<h<<std::endl
 // 	   <<"  ep    = "<<ep<<std::endl
@@ -7707,9 +7715,16 @@ KOKKOS_INLINE_FUNCTION
 void dfldt_uncoupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
 {
   //the latent heat term is zero outside of the mushy region (ie outside Te < T < Tl)
-  const double dfldu_d[3] = {((basis[0]->uu > te) && (basis[index]->uu < tl)) ? dfldu_mushy_d : 0.0,
-			     ((basis[0]->uuold > te) && (basis[index]->uuold < tl)) ? dfldu_mushy_d : 0.0,
-			     ((basis[0]->uuoldold > te) && (basis[index]->uuoldold < tl)) ? dfldu_mushy_d : 0.0};
+
+  //we need device versions of deltau_h,uref_h
+  const double coef = 1./tau0_d;
+
+  const double tt[3] = {tpetra::heat::deltau_h*basis[index]->uu+tpetra::heat::uref_h,
+			tpetra::heat::deltau_h*basis[index]->uuold+tpetra::heat::uref_h,
+			tpetra::heat::deltau_h*basis[index]->uuoldold+tpetra::heat::uref_h};
+  const double dfldu_d[3] = {((tt[0] > te) && (tt[0] < tl)) ? coef*dfldu_mushy_d : 0.0,
+			     ((tt[1] > te) && (tt[1] < tl)) ? coef*dfldu_mushy_d : 0.0,
+			     ((tt[2] > te) && (tt[2] < tl)) ? coef*dfldu_mushy_d : 0.0};
 
   a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index]->uu-dfldu_d[1]*basis[index]->uuold)/dt_
                                  -dt_/dtold_*(dfldu_d[0]*basis[index]->uu-dfldu_d[2]*basis[index]->uuoldold)/(dt_+dtold_)
@@ -7727,7 +7742,7 @@ void dfldt_uncoupled(GPUBasis * basis[], const int index, const double dt_, cons
 KOKKOS_INLINE_FUNCTION 
 void dfldt_coupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
 {
-  const double coef = Lf/(tl-te)/tpetra::heat::cp_d;
+  const double coef = tpetra::heat::rho_d*tpetra::goldak::Lf/tau0_d;
   const double dfldu_d[3] = {-.5*coef,-.5*coef,-.5*coef};
 
   a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index]->uu-dfldu_d[1]*basis[index]->uuold)/dt_
@@ -7746,12 +7761,15 @@ void dfldt_coupled(GPUBasis * basis[], const int index, const double dt_, const 
 KOKKOS_INLINE_FUNCTION 
 const double P(const double t)
 {
-  const double t_hold = t_hold_d/tau0_d;
-  const double t_decay = t_decay_d/tau0_d;
-  const double tt = t/tau0_d;
-  return (tt < t_hold) ? P_d : 
-    ((tt<t_hold+t_decay) ? P_d*(tt-(t_hold+t_decay))/(-t_decay)
-     :0.);
+//   const double t_hold = t_hold_d/tau0_d;
+//   const double t_decay = t_decay_d/tau0_d;
+//   const double tt = t/tau0_d;
+  const double t_hold = t_hold_d;
+  const double t_decay = t_decay_d;
+  const double tt = t*tau0_d;
+  return (tt < t_hold)    ? P_d :
+    (tt < t_hold+t_decay) ? P_d*(t_hold+t_decay-tt)/t_decay :
+    0.;
 }
 
 KOKKOS_INLINE_FUNCTION 

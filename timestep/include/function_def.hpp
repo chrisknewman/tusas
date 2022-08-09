@@ -6345,7 +6345,7 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
 
   return (ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2])) * sigmoid_coeff;
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2])) * sigmoid_coeff + (1.0-sigmoid_coeff)*(u[0]-u[1]);
 
 }
 
@@ -6529,7 +6529,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
   const double delta = 1.0e12; 			   
   const double sigmoid_var = delta * (time-t_activate_farzadi/tau0);
   const double sigmoid_coeff = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var)));
-  return mob[0]*rv * sigmoid_coeff;
+  return mob[0]*rv * sigmoid_coeff + (1.0-sigmoid_coeff)*(phi[0]-phi[1]);;
 }
 
 TUSAS_DEVICE

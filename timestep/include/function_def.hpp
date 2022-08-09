@@ -6263,8 +6263,9 @@ z0 = z0_p;
   D_liquid_ = D_liquid__p;
 #endif
 
+t_activate_farzadi = plist->get<double>("t_activate_farzadi", 0.0);
 
-  t_activate_farzadi = plist->get<double>("t_activate_farzadi", 0.0);
+
   //std::cout<<l_T0<<"   "<<G<<"  "<<Vp0<<"  "<<tau0<<"   "<<w0<<std::endl;
 }
   
@@ -6337,15 +6338,10 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   const double f[3] = {divgradu[0] + divj[0] + phitu[0],
 		       divgradu[1] + divj[1] + phitu[1],
 		       divgradu[2] + divj[2] + phitu[2]};
-			   
-  // Coefficient to turn Farzadi evolution off until a specified time
-  const double delta = 100.0; 			   
-  const double sigmoid_var = delta * (time-t_activate_farzadi/tau0);
-  const double sigmoid_coeff = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var))); 			   
 
   return (ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2])) * sigmoid_coeff + (1.0-sigmoid_coeff)*(u[0]-u[1]);
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
 
 }
 
@@ -6525,15 +6521,63 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
     + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]/mob[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]/mob[1]-dt_/dtold_*hp1g4[2]/mob[2]);
 	
-  // Coefficient to turn Farzadi evolution off until a specified time
-  const double delta = 1.0e12; 			   
-  const double sigmoid_var = delta * (time-t_activate_farzadi/tau0);
-  const double sigmoid_coeff = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var)));
-  return mob[0]*rv * sigmoid_coeff + (1.0-sigmoid_coeff)*(phi[0]-phi[1]);;
+  return mob[0]*rv;
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_phase_farzadi_coupled_dp_)) = residual_phase_farzadi_coupled_;
+
+RES_FUNC_TPETRA(residual_conc_farzadi_activated_)
+{
+	const double val = tpetra::farzadi3d::residual_conc_farzadi_dp_(basis,
+  						 i,
+  						 dt_,
+  						 dtold_,
+  						 t_theta_,
+  						 t_theta2_,
+  						 time,
+  						 eqn_id,
+  						 vol,
+  						 rand);
+	
+	const double u[2] = {basis[eqn_id]->uu,basis[eqn_id]->uuold};
+	
+	// Coefficient to turn Farzadi evolution off until a specified time
+	const double delta = 1.0e12; 			   
+	const double sigmoid_var = delta * (time-t_activate_farzadi/tau0);
+	const double sigmoid = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var))); 			   
+
+	return val * sigmoid + (u[1]-u[0]) * (1.0 - sigmoid);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_conc_farzadi_activated_dp_)) = residual_conc_farzadi_activated_;
+
+RES_FUNC_TPETRA(residual_phase_farzadi_coupled_activated_)
+{
+	const double val = tpetra::farzadi3d::residual_phase_farzadi_coupled_dp_(basis,
+  						 i,
+  						 dt_,
+  						 dtold_,
+  						 t_theta_,
+  						 t_theta2_,
+  						 time,
+  						 eqn_id,
+  						 vol,
+  						 rand);
+	
+	const double phi[2] = {basis[eqn_id]->uu,basis[eqn_id]->uuold};
+	
+	// Coefficient to turn Farzadi evolution off until a specified time
+	const double delta = 1.0e12; 			   
+	const double sigmoid_var = delta * (time-t_activate_farzadi/tau0);
+	const double sigmoid = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var))); 			   
+
+	return val * sigmoid + (phi[1]-phi[0]) * (1.0 - sigmoid);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_phase_farzadi_coupled_activated_dp_)) = residual_phase_farzadi_coupled_activated_;
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_conc_farzadi_)
@@ -8022,7 +8066,7 @@ namespace fullycoupled
   double hemispherical_IC_y0 = 0.0;
   double hemispherical_IC_z0 = 0.0;
   bool hemispherical_IC = false;	
-
+  
 INI_FUNC(init_conc_farzadi_)
 {
   return -1.;
@@ -8077,7 +8121,6 @@ PARAM_FUNC(param_)
 	hemispherical_IC_x0 = plist->get<double>("hemispherical_IC_x0", 0.0);
 	hemispherical_IC_y0 = plist->get<double>("hemispherical_IC_y0", 0.0);
 	hemispherical_IC_z0 = plist->get<double>("hemispherical_IC_z0", 0.0);
-
 }
 }//namespace fullycoupled
 

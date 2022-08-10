@@ -2962,7 +2962,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   std::vector<double> maxdt(numeqs_);
   std::vector<double> mindt(numeqs_);
   std::vector<double> newdt(numeqs_);
-  std::vector<double> error(numeqs_);
+  std::vector<double> error(numeqs_,1.);
   std::vector<double> norm(numeqs_,0.);
   
   if( 0 == comm_->getRank()){

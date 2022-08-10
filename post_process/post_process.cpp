@@ -145,7 +145,7 @@ void post_process::scalar_reduction(){
 
   case NORMRMS:{
     Epetra_Vector *temp = new Epetra_Vector(*ppvar_);
-    temp->PutScalar(1.);
+    temp->PutScalar((double)1.);
     ppvar_->NormWeighted(*temp,&scalar_val_);
     break;
   }

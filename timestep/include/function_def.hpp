@@ -7661,7 +7661,7 @@ RES_FUNC_TPETRA(residual_test_)
   const double ut = (u[0]-u[1])/dt_*test;
 
   const double f[3] = {ff(u[0])*test,ff(u[1])*test,ff(u[2])*test};
-  //std::cout<<u[1]<<"  "<<u[2]<<std::endl;
+ 
   return ut - (1.-t_theta2_)*t_theta_*f[0]
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
@@ -7694,7 +7694,7 @@ NBC_FUNC_TPETRA(nbc_)
   //h(t-ti)+\ep\sigma(t^4-ti^4)
   //std::cout<<h<<" "<<ep<<" "<<sigma<<" "<<ti<<std::endl;
   const double test = basis[0].phi[i];
-  const double u = deltau_h*basis[0].uu+uref_h;//T=deltau_h*theta+uref_h
+  const double u = deltau_h*basis[0].uu+uref_h; // T=deltau_h*theta+uref_h
   const double uold = deltau_h*basis[0].uuold+uref_h;
   const double uoldold = deltau_h*basis[0].uuoldold+uref_h;
   const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
@@ -7855,8 +7855,7 @@ const double qdot(const double &x, const double &y, const double &z, const doubl
   const double coef = eta_d*p*5.19615/r/r/d/gamma_d/pi_d;
   const double exparg = ((W0_d*x-x0_d)*(W0_d*x-x0_d)+(W0_d*y-y0_d)*(W0_d*y-y0_d))/r/r+(W0_d*z-z0_d)*(W0_d*z-z0_d)/d/d;
   const double f = exp( -3.* exparg );
-  //std::cout<<W0_d*x<<std::endl;
-  //if(f > 0.) std::cout<<f<<" "<<coef<<" "<<coef*f<<std::endl;
+
   return coef*f;
 }
 
@@ -7919,7 +7918,6 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
   
-  //return rv*tau0_d/tpetra::heat::deltau_h;
   return rv * scaling_constant_d;
 }
 
@@ -7955,7 +7953,6 @@ RES_FUNC_TPETRA(residual_coupled_test_)
 		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
   
-  //return rv*tau0_d/tpetra::heat::deltau_h;
   return rv * scaling_constant_d;
 }
 
@@ -7973,7 +7970,7 @@ PRE_FUNC_TPETRA(prec_test_)
 						      t_theta_,
 						      eqn_id);
 
-  return val * scaling_constant_d;// /tpetra::heat::rho_d/tpetra::heat::cp_d;
+  return val * scaling_constant_d;
 }
 
 TUSAS_DEVICE
@@ -7981,21 +7978,22 @@ PRE_FUNC_TPETRA((*prec_test_dp_)) = prec_test_;
 
 INI_FUNC(init_heat_)
 {
-  const double t_preheat = tpetra::goldak::t0_d;
+  const double t_preheat = t0_d;
   const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
 DBC_FUNC(dbc_) 
 {
-  const double t_preheat = tpetra::goldak::t0_d;
+  // The assumption here is that the desired Dirichlet BC is the initial temperature,
+  // that may not be true in the future.
+  const double t_preheat = t0_d;
   const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
 PPR_FUNC(postproc_qdot_)
 {
-  //const double uu = u[0];
   const double x = xyz[0];
   const double y = xyz[1];
   const double z = xyz[2];
@@ -8108,6 +8106,8 @@ INI_FUNC(init_heat_)
 
 DBC_FUNC(dbc_) 
 {
+  // The assumption here is that the desired Dirichlet BC is the initial temperature,
+  // that may not be true in the future.
   const double t_preheat = tpetra::goldak::t0_d;
   const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;

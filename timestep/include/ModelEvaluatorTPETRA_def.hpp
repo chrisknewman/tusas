@@ -1957,7 +1957,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
-    //paramfunc_ = &farzadi::param_;
 
     neumannfunc_ = NULL;
 
@@ -2000,10 +1999,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &tpetra::heat::param_;
     paramfunc_[2] = &tpetra::radconvbc::param_;
     paramfunc_[3] = &tpetra::goldak::param_;
-	paramfunc_[4] = &tpetra::fullycoupled::param_;
-    //paramfunc_ = &farzadi::param_;
+    paramfunc_[4] = &tpetra::fullycoupled::param_;
 
-    //neumannfunc_ = NULL;
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     (*neumannfunc_)[2][4] = &tpetra::radconvbc::nbc_;
 

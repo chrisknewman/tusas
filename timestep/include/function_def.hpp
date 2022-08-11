@@ -5879,6 +5879,7 @@ namespace farzadi3d
 
   TUSAS_DEVICE
   double tau0 = 6.68455e-6;
+  double tau0_h = 6.68455e-6;
   
 //   TUSAS_DEVICE
 //   double Vp0 = .354508;
@@ -6019,6 +6020,7 @@ z0 = z0_p;
 #else
   tau0 = tau0_p;
 #endif
+  tau0_h = tau0_p;
 
 //   double V_p = R_p;
 // #ifdef TUSAS_HAVE_CUDA
@@ -6503,7 +6505,7 @@ PPR_FUNC(postproc_t_)
   double x = xyz[0];
 
   double xx = x*w0;
-  double tt = time*tau0;
+  double tt = time*tau0_h;
   return ((dT < 0.001) ? 877.3 + (xx-R*tt)/l_T0*delta_T0 : 877.3);
 }
 }//namespace farzadi3d

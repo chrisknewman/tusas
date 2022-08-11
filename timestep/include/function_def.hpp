@@ -7525,6 +7525,71 @@ RES_FUNC_TPETRA(residual_qdot_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
 
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_uncoupled_test_)
+{
+  //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
+
+  double val = tpetra::goldak::residual_test_dp_(basis,
+						 i,
+						 dt_,
+						 dtold_,
+						 t_theta_,
+						 t_theta2_,
+						 time,
+						 eqn_id);
+
+  double dfldu_d[3];
+  dfldt_uncoupled(basis,eqn_id,dt_,dtold_,dfldu_d);
+
+  const double dfldt[3] = {dfldu_d[0]*basis[eqn_id].phi(i),
+			   dfldu_d[1]*basis[eqn_id].phi(i),
+			   dfldu_d[2]*basis[eqn_id].phi(i)};
+  
+  const double rv = (val 
+		     + (1.-t_theta2_)*t_theta_*dfldt[0]
+		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
+		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
+  
+  return rv * scaling_constant_d;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_uncoupled_test_dp_)) = residual_uncoupled_test_;
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_coupled_test_)
+{
+  //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
+
+  double val = tpetra::goldak::residual_test_dp_(basis,
+						 i,
+						 dt_,
+						 dtold_,
+						 t_theta_,
+						 t_theta2_,
+						 time,
+						 eqn_id);
+
+  int phi_index = 1;
+  double dfldu_d[3];
+  dfldt_coupled(basis,phi_index,dt_,dtold_,dfldu_d);
+
+  const double dfldt[3] = {dfldu_d[0]*basis[eqn_id].phi(i),
+			   dfldu_d[1]*basis[eqn_id].phi(i),
+			   dfldu_d[2]*basis[eqn_id].phi(i)};
+  
+  const double rv = (val 
+		     + (1.-t_theta2_)*t_theta_*dfldt[0]
+		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
+		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
+  
+  return rv * scaling_constant_d;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_coupled_test_dp_)) = residual_coupled_test_;
+
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_test_)
 {
@@ -7536,8 +7601,7 @@ PRE_FUNC_TPETRA(prec_test_)
 						      t_theta_,
 						      eqn_id);
 
-  //const double d =tpetra::heat::rho_d*tpetra::heat::cp_d;
-  return val;///d;
+  return val * scaling_constant_d;
 }
 
 INI_FUNC(init_heat_)

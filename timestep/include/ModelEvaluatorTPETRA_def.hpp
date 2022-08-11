@@ -587,6 +587,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }else if("goldak" == testname){
       //cudaMemcpyFromSymbol( &h_rf[0], tpetra::goldak::residual_test_dp_, sizeof(RESFUNC));
       testcase = 8;
+  }else if("fullycoupled" == testname){
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::goldak::residual_test_dp_, sizeof(RESFUNC));
+      testcase = 9;
 
     } else {
       if( 0 == comm_->getRank() ){
@@ -955,6 +958,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }else if("goldak" == paramList.get<std::string> (TusastestNameString)){
       //cudaMemcpyFromSymbol( &h_pf[0], tpetra::heat::prec_heat_test_dp_, sizeof(PREFUNC));
       testcase = 8;
+    }else if("fullycoupled" == paramList.get<std::string> (TusastestNameString)){
+        //cudaMemcpyFromSymbol( &h_pf[0], tpetra::heat::prec_heat_test_dp_, sizeof(PREFUNC));
+        testcase = 9;
 
     } else {
       if( 0 == comm_->getRank() ){
@@ -999,6 +1005,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  pf[1] = tpetra::farzadi3d::prec_phase_farzadi_;
 	}else if (testcase == 8){
 	  pf[0] = tpetra::goldak::prec_test_;
+    }else if (testcase == 9){
+      pf[0] = tpetra::farzadi3d::prec_conc_farzadi_;
+      pf[1] = tpetra::farzadi3d::prec_phase_farzadi_;
+      pf[2] = tpetra::goldak::prec_test_;
 	}else{
 	  exit(0);
 	}
@@ -1902,6 +1912,49 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //paramfunc_ = &farzadi::param_;
 
     neumannfunc_ = NULL;
+    
+}else if("fullycoupled" == paramList.get<std::string> (TusastestNameString)){
+
+    if(paramList.get<double> (TusasthetaNameString) < .49) exit(0);
+
+    numeqs_ = 3;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::fullycoupled::init_conc_farzadi_;
+    (*initfunc_)[1] = &tpetra::fullycoupled::init_phase_farzadi_;
+    (*initfunc_)[2] = &tpetra::fullycoupled::init_heat_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_activated_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_activated_dp_;
+    (*residualfunc_)[2] = tpetra::goldak::residual_coupled_test_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
+    (*preconfunc_)[1] = tpetra::farzadi3d::prec_phase_farzadi_dp_;
+    (*preconfunc_)[2] = tpetra::goldak::prec_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+    (*varnames_)[2] = "theta";
+
+    dirichletfunc_ = NULL;
+
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::fullycoupled::postproc_t_;
+
+    paramfunc_.resize(5);
+    paramfunc_[0] = &tpetra::farzadi3d::param_;
+    paramfunc_[1] = &tpetra::heat::param_;
+    paramfunc_[2] = &tpetra::radconvbc::param_;
+    paramfunc_[3] = &tpetra::goldak::param_;
+    paramfunc_[4] = &tpetra::fullycoupled::param_;
+
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    (*neumannfunc_)[2][4] = &tpetra::radconvbc::nbc_;
 
   }else if("farzadiexp" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test

@@ -5607,18 +5607,21 @@ KOKKOS_INLINE_FUNCTION
 //TUSAS_DEVICE
 RES_FUNC_TPETRA(residual_heat_test_)
 {
+  //right now, it is probably best to handle nondimensionalization of temperature via:
+  // theta = (T-T_s)/(T_l-T_s) external to this module by multiplication of (T_l-T_s)=delta T
+
   //printf("here\n");
   //printf("%lf %lf %lf\n",rho_d,cp_d,k_d);
   const double ut = rho_d*cp_d/tau0_d*deltau_d*(basis[eqn_id].uu()-basis[eqn_id].uuold())/dt_*basis[eqn_id].phi(i);
   const double f[3] = {k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].dudx()*basis[eqn_id].dphidx(i)
-			  + basis[eqn_id].dudy()*basis[eqn_id].dphidy(i)
-			  + basis[eqn_id].dudz()*basis[eqn_id].dphidz(i)),
-			 k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].duolddx()*basis[eqn_id].dphidx(i)
-			  + basis[eqn_id].duolddy()*basis[eqn_id].dphidy(i)
-			  + basis[eqn_id].duolddz()*basis[eqn_id].dphidz(i)),
-			 k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].duoldolddx()*basis[eqn_id].dphidx(i)
-			  + basis[eqn_id].duoldolddy()*basis[eqn_id].dphidy(i)
-			  + basis[eqn_id].duoldolddz()*basis[eqn_id].dphidz(i))};
+			   + basis[eqn_id].dudy()*basis[eqn_id].dphidy(i)
+			   + basis[eqn_id].dudz()*basis[eqn_id].dphidz(i)),
+			  k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].duolddx()*basis[eqn_id].dphidx(i)
+			   + basis[eqn_id].duolddy()*basis[eqn_id].dphidy(i)
+			   + basis[eqn_id].duolddz()*basis[eqn_id].dphidz(i)),
+			  k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].duoldolddx()*basis[eqn_id].dphidx(i)
+			   + basis[eqn_id].duoldolddy()*basis[eqn_id].dphidy(i)
+			   + basis[eqn_id].duoldolddz()*basis[eqn_id].dphidz(i))};
   return ut + (1.-t_theta2_)*t_theta_*f[0]
    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
@@ -7421,6 +7424,14 @@ namespace radconvbc
   double ep = .7;
   double sigma = 5.67037e-9;
   double ti = 323.;
+  
+  double tau0_h = 1.;
+  double W0_h = 1.;
+  
+  double deltau_h = 1.;
+  double uref_h = 0.;
+
+  double scaling_constant = 1.0;
 
 DBC_FUNC(dbc_) 
 {
@@ -7432,15 +7443,20 @@ NBC_FUNC_TPETRA(nbc_)
   //https://reference.wolfram.com/language/PDEModels/tutorial/HeatTransfer/HeatTransfer.html#2048120463
   //h(t-ti)+\ep\sigma(t^4-ti^4)
   const double test = basis[0].phi[i];
-  const double u = basis[0].uu;
-  const double uold = basis[0].uuold;
-  const double uoldold = basis[0].uuoldold;
+  const double u = deltau_h*basis[0].uu+uref_h; // T=deltau_h*theta+uref_h
+  const double uold = deltau_h*basis[0].uuold+uref_h;
+  const double uoldold = deltau_h*basis[0].uuoldold+uref_h;
   const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
 		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
 		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};
-  return (1.-t_theta2_)*t_theta_*f[0]
+  
+  const double coef = deltau_h / W0_h;
+  
+  const double rv = (1.-t_theta2_)*t_theta_*f[0]
     +(1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+  
+  return rv * coef * scaling_constant;
 }
 
 INI_FUNC(init_heat_)
@@ -7454,6 +7470,13 @@ PARAM_FUNC(param_)
   ep = plist->get<double>("ep_",.7);
   sigma = plist->get<double>("sigma_",5.67037e-9);
   ti = plist->get<double>("ti_",323.);
+  
+  deltau_h = plist->get<double>("deltau_",1.);
+  uref_h = plist->get<double>("uref_",0.); 
+
+  W0_h = plist->get<double>("W0_",1.);
+
+  scaling_constant = plist->get<double>("scaling_constant_",1.);
 }
 }//namespace radconvbc
 
@@ -7839,6 +7862,7 @@ PARAM_FUNC(param_)
 
   //here we need the rest..
   //and pull fro xml
+  //te = 1635.;// K
   double te_p = plist->get<double>("te_",1641.);
   #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(te_d,&te_p,sizeof(double));
@@ -7993,6 +8017,70 @@ PARAM_FUNC(param_)
 
 }
 }//namespace goldak
+namespace fullycoupled
+{
+  double hemisphere_IC_rad = 1.0;
+  double hemispherical_IC_x0 = 0.0;
+  double hemispherical_IC_y0 = 0.0;
+  double hemispherical_IC_z0 = 0.0;
+  bool hemispherical_IC = false;	
+  
+INI_FUNC(init_conc_farzadi_)
+{
+  return -1.;
+}
+
+INI_FUNC(init_phase_farzadi_)
+{
+  if (hemispherical_IC){
+    const double w0 = tpetra::farzadi3d::w0;
+	  
+	const double dist = std::sqrt( (x-hemispherical_IC_x0/w0)*(x-hemispherical_IC_x0/w0) 
+	  	+ (y-hemispherical_IC_y0/w0)*(y-hemispherical_IC_y0/w0) 
+	  	+ (z-hemispherical_IC_z0/w0)*(z-hemispherical_IC_z0/w0));
+	const double r = hemisphere_IC_rad/w0 + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
+	return std::tanh( (dist-r)/std::sqrt(2.));
+  }
+  else {
+    double h = tpetra::farzadi3d::base_height + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));  
+	double c = (x-tpetra::farzadi3d::x0)*(x-tpetra::farzadi3d::x0) + (y-tpetra::farzadi3d::y0)*(y-tpetra::farzadi3d::y0) + (z-tpetra::farzadi3d::z0)*(z-tpetra::farzadi3d::z0);
+	return ((tpetra::farzadi3d::C == 0) ? (tanh((h-z)/sqrt(2.))) : (c < tpetra::farzadi3d::r*tpetra::farzadi3d::r) ? 1. : -1.);	
+  }
+}
+
+INI_FUNC(init_heat_)
+{
+  const double t_preheat = tpetra::goldak::t0_h;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  return val;
+}
+
+DBC_FUNC(dbc_) 
+{
+  // The assumption here is that the desired Dirichlet BC is the initial temperature,
+  // that may not be true in the future.
+  const double t_preheat = tpetra::goldak::t0_h;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  return val;
+}
+
+PPR_FUNC(postproc_t_)
+{
+  // return the physical temperature in K here
+  const double theta = u[2];
+  return theta * tpetra::heat::deltau_h + tpetra::heat::uref_h;
+}
+
+PARAM_FUNC(param_)
+{
+	hemispherical_IC = plist->get<bool>("hemispherical_IC", false);
+	hemisphere_IC_rad = plist->get<double>("hemisphere_IC_rad", 1.0);
+	hemispherical_IC_x0 = plist->get<double>("hemispherical_IC_x0", 0.0);
+	hemispherical_IC_y0 = plist->get<double>("hemispherical_IC_y0", 0.0);
+	hemispherical_IC_z0 = plist->get<double>("hemispherical_IC_z0", 0.0);
+}
+}//namespace fullycoupled
+
 }//namespace tpetra
 
 

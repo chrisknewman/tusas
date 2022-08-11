@@ -7391,37 +7391,68 @@ void dfldt_coupled(GPUBasisLHex* basis, const int index, const double dt_, const
   return;
 }
 
+KOKKOS_INLINE_FUNCTION
+const double power(const double t)
+{
+  // t is nondimensional
+  // t_hold, t_decay, and tt are dimensional
+  
+  const double t_hold = t_hold_d;
+  const double t_decay = t_decay_d;
+  const double tt = t*tau0_d;
+  return (tt < t_hold) ? P_d : 
+    ((tt<t_hold+t_decay) ? P_d*((t_hold+t_decay)-tt)/(t_decay)
+     :0.);
+}
+
 KOKKOS_INLINE_FUNCTION 
 const double qdot(const double &x, const double &y, const double &z, const double &t)
 {
-  const double P = (t < t_hold_d) ? P_d : 
-    ((t<t_hold_d+t_decay_d) ? P_d*(t-(t_hold_d+t_decay_d))/(-t_decay_d)
-     :0.);
-  //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
-  const double coef = eta_d*P*5.19615/r_d/r_d/d_d/gamma_d/pi_d;
+  // x, y, z, and t are nondimensional values
+  // r, d, and p and dimensional
+  // Qdot as a whole has dimensions, but that's ok since it's written in terms of non-dimensional (x,y,z,t)
 
-  const double f = exp(
-		       -3.*(
-			    ((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d+(z-z0_d)*(z-z0_d)/d_d/d_d
-			    )
-		       );
+  const double p = power(t);
+  const double r = r_d;
+  const double d = d_d;
+  
+  //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
+  const double coef = eta_d*p*5.19615/r/r/d/gamma_d/pi_d;
+  const double exparg = ((W0_d*x-x0_d)*(W0_d*x-x0_d)+(W0_d*y-y0_d)*(W0_d*y-y0_d))/r/r+(W0_d*z-z0_d)*(W0_d*z-z0_d)/d/d;
+  const double f = exp( -3.* exparg );
 
   return coef*f;
 }
 
+KOKKOS_INLINE_FUNCTION 
+const double power_h(const double t)
+{
+  // t is nondimensional
+  // t_hold, t_decay, and tt are dimensional
+  
+  const double t_hold = t_hold_h;
+  const double t_decay = t_decay_h;
+  const double tt = t*tau0_h;
+  return (tt < t_hold) ? P_h : 
+    ((tt<t_hold+t_decay) ? P_h*((t_hold+t_decay)-tt)/(t_decay)
+     :0.);
+}
+
+KOKKOS_INLINE_FUNCTION 
 const double qdot_h(const double &x, const double &y, const double &z, const double &t)
 {
-  const double P = (t < t_hold_h) ? P_h : 
-    ((t<t_hold_h+t_decay_h) ? P_h*(t-(t_hold_h+t_decay_h))/(-t_decay_h)
-     :0.);
-  //s_h = 2 below; we can simplify this expression 5.19615=3^1.5
-  const double coef = eta_h*P*5.19615/r_h/r_h/d_h/gamma_h/pi_h;
+  // x, y, z, and t are nondimensional values
+  // r, d, and p and dimensional
+  // Qdot as a whole has dimensions, but that's ok since it's written in terms of non-dimensional (x,y,z,t)
 
-  const double f = exp(
-		       -3.*(
-			    ((x-x0_h)*(x-x0_h)+(y-y0_h)*(y-y0_h))/r_h/r_h+(z-z0_h)*(z-z0_h)/d_h/d_h
-			    )
-		       );
+  const double p = power_h(t);
+  const double r = r_h;
+  const double d = d_h;
+  
+  //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
+  const double coef = eta_h*p*5.19615/r/r/d/gamma_d/pi_h;
+  const double exparg = ((W0_h*x-x0_h)*(W0_d*x-x0_h)+(W0_h*y-y0_h)*(W0_d*y-y0_h))/r/r+(W0_h*z-z0_h)*(W0_h*z-z0_h)/d/d;
+  const double f = exp( -3.* exparg );
 
   return coef*f;
 }

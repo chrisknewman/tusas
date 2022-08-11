@@ -7530,7 +7530,7 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 {
   //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
 
-  double val = tpetra::goldak::residual_test_dp_(basis,
+  double val = tpetra::goldak::residual_test_(basis,
 						 i,
 						 dt_,
 						 dtold_,
@@ -7562,7 +7562,7 @@ RES_FUNC_TPETRA(residual_coupled_test_)
 {
   //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
 
-  double val = tpetra::goldak::residual_test_dp_(basis,
+  double val = tpetra::goldak::residual_test_(basis,
 						 i,
 						 dt_,
 						 dtold_,
@@ -7606,12 +7606,18 @@ PRE_FUNC_TPETRA(prec_test_)
 
 INI_FUNC(init_heat_)
 {
-  return 300.;
+	const double t_preheat = t0_h;
+    const double val = (t_preheat-uref_h)/tpetra::heat::deltau_h;
+    return val;
 }
 
 DBC_FUNC(dbc_) 
 {
-  return 300.;
+	// The assumption here is that the desired Dirichlet BC is the initial temperature,
+    // that may not be true in the future.
+    const double t_preheat = t0_h;
+    const double val = (t_preheat-uref_h)/tpetra::heat::deltau_h;
+    return val;
 }
 
 PPR_FUNC(postproc_qdot_)
@@ -7626,13 +7632,7 @@ PPR_FUNC(postproc_qdot_)
 
 PPR_FUNC(postproc_u_)
 {
-  //const double uu = u[0];
-  //const double x = xyz[0];
-  //const double y = xyz[1];
-  //const double z = xyz[2];
-
-  //return u[0];
-  return u[0];
+  return u[0]*tpetra::heat::deltau_h + uref_h;
 }
 
 PARAM_FUNC(param_)

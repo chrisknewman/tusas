@@ -632,8 +632,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
 	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
 	}else if (testcase == 8){
-	  rf[0] = tpetra::goldak::residual_test_;
-	  //rf[1] = tpetra::goldak::residual_test_;
+	  rf[0] = tpetra::goldak::residual_uncoupled_test_;
 	}else{
 	  exit(0);
 	}
@@ -2153,8 +2152,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 1;
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tpetra::goldak::residual_test_dp_;
+    (*residualfunc_)[0] = tpetra::goldak::residual_uncoupled_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;

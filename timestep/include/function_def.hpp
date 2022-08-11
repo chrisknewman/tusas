@@ -7470,6 +7470,19 @@ RES_FUNC_TPETRA(residual_test_)
 						    t_theta2_,
 						    time,
 						    eqn_id); 
+
+  const double qd[3] = {-qdot(basis[eqn_id].xx(),basis[eqn_id].yy(),basis[eqn_id].zz(),time)*basis[eqn_id].phi(i),
+			-qdot(basis[eqn_id].xx(),basis[eqn_id].yy(),basis[eqn_id].zz(),time-dt_)*basis[eqn_id].phi(i),
+			-qdot(basis[eqn_id].xx(),basis[eqn_id].yy(),basis[eqn_id].zz(),time-dt_-dtold_)*basis[eqn_id].phi(i)};
+
+  const double rv = (val 
+		     + (1.-t_theta2_)*t_theta_*qd[0]
+		     + (1.-t_theta2_)*(1.-t_theta_)*qd[1]
+		     +.5*t_theta2_*((2.+dt_/dtold_)*qd[1]-dt_/dtold_*qd[2]));
+
+  return rv;
+	// SJD: This is different enough than the 'master' branch that I'm keeping it (but commented out)
+	/*						
 //   printf("%f \n",dfldt_d);
 //   exit(0);
   //better 3pt derivatives, see difference.nb and inspiration at
@@ -7500,6 +7513,7 @@ RES_FUNC_TPETRA(residual_test_)
 		     +.5*t_theta2_*((2.+dt_/dtold_)*ut[1]-dt_/dtold_*ut[2]));
   //const double d =tpetra::heat::rho_d*tpetra::heat::cp_d;
   return rv;///d;
+  */
 }
 
 KOKKOS_INLINE_FUNCTION

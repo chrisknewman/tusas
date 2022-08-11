@@ -636,6 +636,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_uncoupled_;
 	}else if (testcase == 8){
 	  rf[0] = tpetra::goldak::residual_uncoupled_test_;
+    }else if (testcase == 9){
+      rf[0] = tpetra::farzadi3d::residual_conc_farzadi_activated_;
+      rf[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_activated_;
+      rf[2] = tpetra::goldak::residual_coupled_test_;
 	}else{
 	  exit(0);
 	}

@@ -7344,6 +7344,53 @@ double t0_d = 300.;
 double t0_h = 300.;
 TUSAS_DEVICE
 double scaling_constant_d = 1.;
+
+KOKKOS_INLINE_FUNCTION 
+void dfldt_uncoupled(GPUBasisLHex* basis, const int index, const double dt_, const double dtold_, double *a)
+{
+  //the latent heat term is zero outside of the mushy region (ie outside Te < T < Tl)
+
+  const double coef = 1./tau0_d;
+
+  const double tt[3] = {tpetra::heat::deltau_d*basis[index].uu()+uref_d,
+			tpetra::heat::deltau_d*basis[index].uuold()+uref_d,
+			tpetra::heat::deltau_d*basis[index].uuoldold()+uref_d};
+  const double dfldu_d[3] = {((tt[0] > te_d) && (tt[0] < tl_d)) ? coef*dfldu_mushy_d : 0.0,
+			     ((tt[1] > te_d) && (tt[1] < tl_d)) ? coef*dfldu_mushy_d : 0.0,
+			     ((tt[2] > te_d) && (tt[2] < tl_d)) ? coef*dfldu_mushy_d : 0.0};
+
+  a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index].uu()-dfldu_d[1]*basis[index].uuold())/dt_
+                                 -dt_/dtold_*(dfldu_d[0]*basis[index].uu()-dfldu_d[2]*basis[index].uuoldold())/(dt_+dtold_)
+                                 );
+  a[1] = (dtold_/dt_/(dt_+dtold_)*(dfldu_d[0]*basis[index].uu())
+                                 -(dtold_-dt_)/dt_/dtold_*(dfldu_d[1]*basis[index].uuold())
+                                 -dt_/dtold_/(dt_+dtold_)*(dfldu_d[2]*basis[index].uuoldold())
+                                 );
+  a[2] = (-(1.+dtold_/dt_)*(dfldu_d[2]*basis[index].uuoldold()-dfldu_d[1]*basis[index].uuold())/dtold_
+                                 +dtold_/dt_*(dfldu_d[2]*basis[index].uuoldold()-dfldu_d[0]*basis[index].uu())/(dtold_+dt_)
+                                 );
+  return;
+}
+
+KOKKOS_INLINE_FUNCTION 
+void dfldt_coupled(GPUBasisLHex* basis, const int index, const double dt_, const double dtold_, double *a)
+{
+  const double coef = tpetra::heat::rho_d*Lf_d/tau0_d;
+  const double dfldu_d[3] = {-.5*coef,-.5*coef,-.5*coef};
+
+  a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index].uu()-dfldu_d[1]*basis[index].uuold())/dt_
+                                 -dt_/dtold_*(dfldu_d[0]*basis[index].uu()-dfldu_d[2]*basis[index].uuoldold())/(dt_+dtold_)
+                                 );
+  a[1] = (dtold_/dt_/(dt_+dtold_)*(dfldu_d[0]*basis[index].uu())
+                                 -(dtold_-dt_)/dt_/dtold_*(dfldu_d[1]*basis[index].uuold())
+                                 -dt_/dtold_/(dt_+dtold_)*(dfldu_d[2]*basis[index].uuoldold())
+                                 );
+  a[2] = (-(1.+dtold_/dt_)*(dfldu_d[2]*basis[index].uuoldold()-dfldu_d[1]*basis[index].uuold())/dtold_
+                                 +dtold_/dt_*(dfldu_d[2]*basis[index].uuoldold()-dfldu_d[0]*basis[index].uu())/(dtold_+dt_)
+                                 );
+  return;
+}
+
 KOKKOS_INLINE_FUNCTION 
 const double qdot(const double &x, const double &y, const double &z, const double &t)
 {

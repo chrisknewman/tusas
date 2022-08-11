@@ -630,7 +630,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  rf[0] = tpetra::heat::residual_heat_test_;
 	}else if (testcase == 4){
 	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
-	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
+	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_uncoupled_;
 	}else if (testcase == 8){
 	  rf[0] = tpetra::goldak::residual_uncoupled_test_;
 	}else{
@@ -1880,7 +1880,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
-    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_uncoupled_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
@@ -1891,6 +1891,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[1] = "phi";
 
     dirichletfunc_ = NULL;
+    
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
@@ -2155,7 +2160,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[0] = tpetra::goldak::residual_uncoupled_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
+    (*preconfunc_)[0] = tpetra::goldak::prec_test_dp_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";
@@ -2179,9 +2184,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[0] = &tpetra::heat::param_;
     paramfunc_[1] = &tpetra::radconvbc::param_;
     paramfunc_[2] = &tpetra::goldak::param_;
-
-    // numeqs_ number of variables(equations) 
-//     neumannfunc_ = NULL;
     
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);	 
     (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;
@@ -2190,7 +2192,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_qdot_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
     post_proc[1].postprocfunc_ = &tpetra::goldak::postproc_u_;
-
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

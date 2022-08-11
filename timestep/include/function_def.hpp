@@ -8051,7 +8051,7 @@ INI_FUNC(init_phase_farzadi_)
 INI_FUNC(init_heat_)
 {
   const double t_preheat = tpetra::goldak::t0_h;
-  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  const double val = (t_preheat-tpetra::goldak::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
@@ -8060,7 +8060,7 @@ DBC_FUNC(dbc_)
   // The assumption here is that the desired Dirichlet BC is the initial temperature,
   // that may not be true in the future.
   const double t_preheat = tpetra::goldak::t0_h;
-  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  const double val = (t_preheat-tpetra::goldak::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
@@ -8068,7 +8068,7 @@ PPR_FUNC(postproc_t_)
 {
   // return the physical temperature in K here
   const double theta = u[2];
-  return theta * tpetra::heat::deltau_h + tpetra::heat::uref_h;
+  return theta * tpetra::heat::deltau_h + tpetra::goldak::uref_h;
 }
 
 PARAM_FUNC(param_)

@@ -5875,7 +5875,7 @@ namespace farzadi3d
   // parameters to scale dimensional quantities
   TUSAS_DEVICE
   double delta_T0 = 47.9143;
-  delta_T0_h = 47.9143;
+  double delta_T0_h = 47.9143;
 
   TUSAS_DEVICE
   double w0 = 5.65675e-8;

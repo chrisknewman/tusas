@@ -5570,9 +5570,22 @@ double rho_d = 1.;
 TUSAS_DEVICE
 double cp_d = 1.;
 
+TUSAS_DEVICE
+double tau0_d = 1.;
+TUSAS_DEVICE
+double W0_d = 1.;
+TUSAS_DEVICE
+double deltau_d = 1.;
+
 double k_h = 2.;
 double rho_h = 1.;
 double cp_h = 1.;
+
+double tau0_h = 1.;
+double W0_h = 1.;
+
+double deltau_h = 1.;
+
 
   //KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
@@ -5596,26 +5609,25 @@ RES_FUNC_TPETRA(residual_heat_test_)
 {
   //printf("here\n");
   //printf("%lf %lf %lf\n",rho_d,cp_d,k_d);
-   const double ut = rho_d*cp_d*(basis[eqn_id].uu()-basis[eqn_id].uuold())/dt_*basis[eqn_id].phi(i);
-   const double f[3] = {k_d*(basis[eqn_id].dudx()*basis[eqn_id].dphidx(i)
-			     + basis[eqn_id].dudy()*basis[eqn_id].dphidy(i)
-			     + basis[eqn_id].dudz()*basis[eqn_id].dphidz(i)),
-			k_d*(basis[eqn_id].duolddx()*basis[eqn_id].dphidx(i)
-			     + basis[eqn_id].duolddy()*basis[eqn_id].dphidy(i)
-			     + basis[eqn_id].duolddz()*basis[eqn_id].dphidz(i)),
-			k_d*(basis[eqn_id].duoldolddx()*basis[eqn_id].dphidx(i)
-			     + basis[eqn_id].duoldolddy()*basis[eqn_id].dphidy(i)
-			     + basis[eqn_id].duoldolddz()*basis[eqn_id].dphidz(i))};
-
+  const double ut = rho_d*cp_d/tau0_d*deltau_d*(basis[eqn_id].uu()-basis[eqn_id].uuold())/dt_*basis[eqn_id].phi(i);
+  const double f[3] = {k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].dudx()*basis[eqn_id].dphidx(i)
+			  + basis[eqn_id].dudy()*basis[eqn_id].dphidy(i)
+			  + basis[eqn_id].dudz()*basis[eqn_id].dphidz(i)),
+			 k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].duolddx()*basis[eqn_id].dphidx(i)
+			  + basis[eqn_id].duolddy()*basis[eqn_id].dphidy(i)
+			  + basis[eqn_id].duolddz()*basis[eqn_id].dphidz(i)),
+			 k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].duoldolddx()*basis[eqn_id].dphidx(i)
+			  + basis[eqn_id].duoldolddy()*basis[eqn_id].dphidy(i)
+			  + basis[eqn_id].duoldolddz()*basis[eqn_id].dphidz(i))};
   return ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-  //return 0.;
+   + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+   +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
 
+// SJD: This function appears to be unused.
 TUSAS_DEVICE
 double residual_heat_test_p(GPUBasisLHex * basis,
                                     const int &i,
@@ -5681,6 +5693,30 @@ PARAM_FUNC(param_)
   cp_d = cp;
 #endif
   cp_h = cp;
+  
+  double tau0 = plist->get<double>("tau0_",1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(tau0_d,&tau0,sizeof(double));
+#else
+  tau0_d = tau0;
+#endif
+  tau0_h = tau0;
+
+  double W0 = plist->get<double>("W0_",1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(W0_d,&W0,sizeof(double));
+#else
+  W0_d = W0;
+#endif
+  W0_h = W0;
+
+  double deltau = plist->get<double>("deltau_",1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(deltau_d,&deltau,sizeof(double));
+#else
+  deltau_d = deltau;
+#endif
+  deltau_h = deltau;
 }
 //double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_)

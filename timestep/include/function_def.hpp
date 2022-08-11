@@ -7276,12 +7276,22 @@ TUSAS_DEVICE
 const double pi_d = 3.141592653589793;
 const double pi_h = 3.141592653589793;
 
+TUSAS_DEVICE
+double te_d = 1641.;
 double te = 1641.;
+TUSAS_DEVICE
+double tl_d = 1706.;
 double tl = 1706.;
+TUSAS_DEVICE
+double Lf_d = 2.95e5;
 double Lf = 2.95e5;
 TUSAS_DEVICE
-double dfldt_d = 403.923e5;
-  //double dfldt_d = 8900.*Lf/(tl-te);//fl=(t-te)/(tl-te);
+double dfldu_mushy_d = 0.0;//fl=(t-te)/(tl-te);
+double dfldu_mushy_h = 0.0;
+
+// TESTING
+TUSAS_DEVICE
+double dfldt_d = 0.0;
 
 TUSAS_DEVICE
 double eta_d = 0.3;
@@ -7317,6 +7327,23 @@ TUSAS_DEVICE
 double t_decay_d = 0.01;
 double t_decay_h = 0.01;
 
+TUSAS_DEVICE
+double tau0_d = 1.;
+double tau0_h = 1.;
+
+TUSAS_DEVICE
+double W0_d = 1.;
+double W0_h = 1.;
+
+TUSAS_DEVICE
+double uref_d = 1693.4;
+double uref_h = 1693.4;
+
+TUSAS_DEVICE
+double t0_d = 300.;
+double t0_h = 300.;
+TUSAS_DEVICE
+double scaling_constant_d = 1.;
 KOKKOS_INLINE_FUNCTION 
 const double qdot(const double &x, const double &y, const double &z, const double &t)
 {
@@ -7473,19 +7500,37 @@ PARAM_FUNC(param_)
 
   //here we need the rest..
   //and pull fro xml
-  //te = 1635.;// K
-  te = plist->get<double>("te_",1641.);
-  //tl = 1706.;// K
-  tl = plist->get<double>("tl_",1706.);
-  //Lf = 17.2;// kJ/mol
-  Lf = plist->get<double>("Lf_",2.95e5);
-
-  double dfldt_p = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
-#ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(dfldt_d,&dfldt_p,sizeof(double));
+  double te_p = plist->get<double>("te_",1641.);
+  #ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(te_d,&te_p,sizeof(double));
 #else
-  dfldt_d = dfldt_p;
+  te_d = te_p;
 #endif
+  te = te_p;
+  //tl = 1706.;// K
+  double tl_p = plist->get<double>("tl_",1706.);
+  #ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(tl_d,&tl_p,sizeof(double));
+#else
+  tl_d = tl_p;
+#endif
+  tl = tl_p;
+  //Lf = 17.2;// kJ/mol
+  double Lf_p = plist->get<double>("Lf_",2.95e5);
+  #ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(Lf_d,&Lf_p,sizeof(double));
+#else
+  Lf_d = Lf_p;
+#endif
+  Lf = Lf_p; 
+  
+  double dfldu_mushy_p = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(dfldu_mushy_d,&dfldu_mushy_p,sizeof(double));
+#else
+  dfldu_mushy_d = dfldu_mushy_p;
+#endif
+  dfldu_mushy_h = dfldu_mushy_p;
 
   double eta_p = plist->get<double>("eta_",0.3);//dimensionless
 #ifdef TUSAS_HAVE_CUDA
@@ -7567,6 +7612,45 @@ PARAM_FUNC(param_)
   t_decay_d = t_decay_p;
 #endif
   t_decay_h = t_decay_p;
+  
+  double tau0_p = plist->get<double>("tau0_",1.);
+  #ifdef TUSAS_HAVE_CUDA
+    cudaMemcpyToSymbol(tau0_d,&tau0_p,sizeof(double));
+  #else
+    tau0_d = tau0_p;
+  #endif
+  tau0_h = tau0_p;
+  
+  double W0_p = plist->get<double>("W0_",1.);
+  #ifdef TUSAS_HAVE_CUDA
+    cudaMemcpyToSymbol(W0_d,&W0_p,sizeof(double));
+  #else
+    W0_d = W0_p;
+  #endif
+  W0_h = W0_p;
+  
+  double t0_p = plist->get<double>("t0_",300.);
+  #ifdef TUSAS_HAVE_CUDA
+    cudaMemcpyToSymbol(t0_d,&t0_p,sizeof(double));
+  #else
+    t0_d = t0_p;
+  #endif
+  t0_h = t0_p;
+  
+  double scaling_constant_p = plist->get<double>("scaling_constant_",1.);
+  #ifdef TUSAS_HAVE_CUDA
+    cudaMemcpyToSymbol(scaling_constant_d,&scaling_constant_p,sizeof(double));
+  #else
+    scaling_constant_d = scaling_constant_p;
+  #endif
+  
+  double uref = plist->get<double>("uref_",0.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(uref_d,&uref,sizeof(double));
+#else
+  uref_d = uref;
+#endif
+  uref_h = uref;
 
 }
 }//namespace goldak

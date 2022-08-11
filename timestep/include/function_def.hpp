@@ -6241,7 +6241,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
 			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(g4[1])*test,
 			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(g4[2])*test};
 
-  const double val = tpetra::farzadi3d::residual_phase_farzadi_dp_(basis,
+  const double val = tpetra::farzadi3d::residual_phase_farzadi_(basis,
 								   i,
 								   dt_,
 								   dtold_,
@@ -6313,7 +6313,7 @@ RES_FUNC_TPETRA((*residual_phase_farzadi_coupled_dp_)) = residual_phase_farzadi_
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_conc_farzadi_activated_)
 {
-	const double val = tpetra::farzadi3d::residual_conc_farzadi_dp_(basis,
+	const double val = tpetra::farzadi3d::residual_conc_farzadi_(basis,
   						 i,
   						 dt_,
   						 dtold_,
@@ -6338,7 +6338,7 @@ RES_FUNC_TPETRA((*residual_conc_farzadi_activated_dp_)) = residual_conc_farzadi_
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_phase_farzadi_coupled_activated_)
 {
-	const double val = tpetra::farzadi3d::residual_phase_farzadi_coupled_dp_(basis,
+	const double val = tpetra::farzadi3d::residual_phase_farzadi_coupled_(basis,
   						 i,
   						 dt_,
   						 dtold_,

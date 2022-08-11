@@ -5875,6 +5875,7 @@ namespace farzadi3d
 
   TUSAS_DEVICE
   double w0 = 5.65675e-8;
+  double w0_h = 5.65675e-8;
 
   TUSAS_DEVICE
   double tau0 = 6.68455e-6;
@@ -6011,6 +6012,7 @@ z0 = z0_p;
 #else
   w0 = w0_p;
 #endif
+  w0_h = w0_p;
   double tau0_p = (lambda_p*0.6267*w0_p*w0_p)/D_liquid_p;
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(tau0,&tau0_p,sizeof(double));
@@ -8033,7 +8035,7 @@ INI_FUNC(init_conc_farzadi_)
 INI_FUNC(init_phase_farzadi_)
 {
   if (hemispherical_IC){
-    const double w0 = tpetra::farzadi3d::w0;
+    const double w0 = tpetra::farzadi3d::w0_h;
 	  
 	const double dist = std::sqrt( (x-hemispherical_IC_x0/w0)*(x-hemispherical_IC_x0/w0) 
 	  	+ (y-hemispherical_IC_y0/w0)*(y-hemispherical_IC_y0/w0) 

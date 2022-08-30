@@ -1,0 +1,98 @@
+<ParameterList>
+       
+<!-- simulation parameters -->
+
+  <Parameter name="nt" type="int" value = "2"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/farzadi_40x40x40_1p25_s50.e"/>
+  <Parameter name="dt" type="double" value="0.5e0"/>
+  <Parameter name="testcase" type="string" value="farzadi"/>
+  <Parameter name="method" type="string" value="tpetra"/>
+  <Parameter name="preconditioner" type="bool" value = "false"/>
+  <Parameter name="theta" type="double" value="0.5"/>
+  <Parameter name="outputfreq" type="int" value = "2"/>
+  <Parameter name="noxrelres" type="double" value="1.e-4"/>
+  <Parameter name="ltpquadord" type="int" value = "3"/>
+  <Parameter name="noxmaxiter" type="int" value = "4"/>  
+  <Parameter name="noxacceptfailed" type="bool" value = "true"/>
+
+  <Parameter name="predrelres" type="double" value="1.e-7"/>
+  <Parameter name="predmaxiter" type="int" value = "4"/>
+  <Parameter name="initialsolve" type="bool" value = "false"/>
+
+  <Parameter name="adaptivetimestep" type="bool" value = "false"/>
+  <ParameterList name="Adaptive Timestep Parameters">
+    <Parameter name="maxiter" type="int" value = "2"/>
+    <Parameter name="atol" type="double" value = "5.e-4"/>
+    <Parameter name="rtol" type="double" value = "0."/>
+    <Parameter name="safety factor" type="double" value = ".95"/>
+    <Parameter name="rmin" type="double" value = ".9"/>
+    <Parameter name="rmax" type="double" value = "1.1"/>
+    <Parameter name="max dt" type="double" value = "2.0"/>
+  </ParameterList>
+
+ 
+  <ParameterList name="Nonlinear Solver">
+      <ParameterList name="Direction">
+          <ParameterList name="Newton">
+          </ParameterList>
+      </ParameterList>
+      <ParameterList name="Line Search">
+          <Parameter name ="Method" type="string" value="Polynomial"/>
+      </ParameterList>
+  </ParameterList>
+
+  <ParameterList name="Linear Solver"> 
+    <Parameter name="Linear Solver Type" type="string" value="Belos"/>
+    <ParameterList name="Linear Solver Types">
+      <ParameterList name="Belos"> 
+	<Parameter name="Solver Type" type="string" value="Pseudo Block GMRES"/>
+	<ParameterList name="Solver Types">
+	  <ParameterList name="Pseudo Block GMRES">
+<!--	    <Parameter name="Orthogonalization" type="string" value="DGKS"/> -->
+	    <Parameter name="Orthogonalization" type="string" value="ICGS"/>
+<!--        <Parameter name="Maximum Iterations" type="int" value="50"/> -->
+	    <Parameter name="Output Frequency" type="int" value="1"/>
+<!--        <Parameter name="Show Maximum Residual Norm Only"  type="bool" value = "true"/> -->
+	    <Parameter name="Verbosity" type="int" value="33"/>
+	    <Parameter name="Output Style" type="int" value="1"/>
+	  </ParameterList>
+	</ParameterList>
+<!-- 	<ParameterList name="VerboseObject"> -->
+<!-- 	  <Parameter name="Verbosity Level" type="string" value="extreme"/> -->
+<!-- 	  <Parameter name="Output File" type="string" value="belos.dat"/> -->
+<!-- 	</ParameterList> -->
+      </ParameterList> 
+    </ParameterList>
+  </ParameterList> 
+
+   <ParameterList name="ProblemParams">
+	<Parameter name="k" type="double" value="0.86"/>
+	<Parameter name="eps" type="double" value="0.02"/>
+	<Parameter name="lambda" type="double" value="4.0"/>
+	<Parameter name="d0" type="double" value="2.35e-8"/>
+	<Parameter name="D_liquid" type="double" value="3.e-9"/>
+	<Parameter name="m" type="double" value="-10.56"/>
+	<Parameter name="c_inf" type="double" value="7.34"/>
+	<Parameter name="Fu_0" type="double" value="0.0"/>
+
+<!-- C DEFINES THE INITIAL SHAPE OF THE SOLID THAT WILL GROW WITH TIME -->
+<!-- C == 1 SIMULATES GROWTH OF A INITIAL CIRCULAR NUCLEI WITH CENTER (x0, y0, z0), AND C == 0 SIMULATES GROWTH OF A INITIAL PLANAR INTERFACE-->
+<!-- dT == 0 SIMULATES DIRECTIONAL WITH G AND R, and dT != 0 FOR ISOTHERMAL WITH UNDERCOOLING dT -->
+
+	<Parameter name="C" type="int" value="0"/>
+	<Parameter name="dT" type="double" value="0"/>
+	
+	<Parameter name="G" type="double" value="1.e6"/>
+	<Parameter name="R" type="double" value="2.e-3"/>
+
+	<Parameter name="base_height" type="double" value="55.0"/>
+	<Parameter name="amplitude" type="double" value="0.8"/>
+	
+	<Parameter name="r" type="double" value="10.0"/>
+	<Parameter name="x0" type="double" value="20.0"/>
+	<Parameter name="y0" type="double" value="20.0"/>
+	<Parameter name="z0" type="double" value="20.0"/>
+	
+   </ParameterList>
+
+</ParameterList>

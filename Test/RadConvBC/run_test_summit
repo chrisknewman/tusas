@@ -1,0 +1,14 @@
+#!/bin/bash
+rm -rf results.e
+rm -rf decomp
+rm -rf decompscript
+rm -rf nem_spread.inp
+jsrun -n 4 -c 1 -a 1 -g 1 $1/tusas --input-file=test.xml --writedecomp
+jsrun -n 1 bash decompscript
+jsrun -n 4 -c 1 -a 1 -g 1 $1/tusas --kokkos-threads=1 --input-file=test.xml --skipdecomp
+jsrun -n 1 bash epuscript
+###if [[ $OSTYPE == "darwin15" ]]; then
+$1/exodiff -file=exofile Gold.e results.e
+###else
+###    ../exodiff Gold.e results.e
+###fi

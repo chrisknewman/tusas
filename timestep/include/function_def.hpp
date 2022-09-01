@@ -6518,7 +6518,7 @@ PPR_FUNC(postproc_t_)
 
   double xx = x*w0_h;
   double tt = time*tau0_h;
-  return ((dT < 0.001) ? 877.3 + (xx-R*tt)/l_T0*delta_T0 : 877.3);
+  return ((dT < 0.001) ? 877.3 + (xx-R_h*tt)/l_T0_h*delta_T0_h : 877.3);
 }
 }//namespace farzadi3d
 
@@ -7672,10 +7672,10 @@ const double qdot_h(const double &x, const double &y, const double &z, const dou
   const double d = d_h;
   
   //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
-  const double coef = eta_h*p*5.19615/r/r/d/gamma_d/pi_h;
+  const double coef = eta_h*p*5.19615/r/r/d/gamma_h/pi_h;
   const double exparg = ((W0_h*x-x0_h)*(W0_d*x-x0_h)+(W0_h*y-y0_h)*(W0_d*y-y0_h))/r/r+(W0_h*z-z0_h)*(W0_h*z-z0_h)/d/d;
   const double f = exp( -3.* exparg );
-
+  
   return coef*f;
 }
 

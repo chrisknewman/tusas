@@ -1,0 +1,9 @@
+#!/bin/bash
+rm -rf results.e
+rm -rf decomp
+rm -rf decompscript
+jsrun -n 2 -c 1 -a 1 -g 1 $1/tusas --input-file=farzadi.xml --writedecomp
+jsrun -n 1 bash decompscript
+jsrun -n 2 -c 1 -a 1 -g 1 $1/tusas --input-file=farzadi.xml --skipdecomp
+jsrun -n 1 bash epuscript
+$1/exodiff -file exofile GoldSummit.e results.e

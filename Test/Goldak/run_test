@@ -3,4 +3,4 @@ rm -rf results.e
 rm -rf decomp
 rm -rf decompscript
 OMP_NUM_THREADS=4 mpirun -n 1 $1/tusas --kokkos-threads=4 --input-file=goldak.xml 
-$1/exodiff -file exofile GoldSummit.e results.e
+$1/exodiff -file exofile Gold.e results.e

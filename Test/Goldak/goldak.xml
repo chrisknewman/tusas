@@ -1,0 +1,98 @@
+<ParameterList>
+       
+<!-- simulation parameters -->
+
+  <Parameter name="nt" type="int" value = "2"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/fc_verification_goldak.e"/>
+  <Parameter name="dt" type="double" value="0.01e0"/>
+  <Parameter name="testcase" type="string" value="goldak"/>
+  <Parameter name="method" type="string" value="tpetra"/>
+  <Parameter name="preconditioner" type="bool" value = "false"/>
+  <Parameter name="theta" type="double" value="0.5"/>
+  <Parameter name="outputfreq" type="int" value = "1"/>
+  <Parameter name="noxrelres" type="double" value="1.e-11"/>
+  <Parameter name="ltpquadord" type="int" value = "3"/>
+  <Parameter name="noxmaxiter" type="int" value = "100"/>  
+  <Parameter name="noxacceptfailed" type="bool" value = "true"/>
+
+  <Parameter name="predrelres" type="double" value="1.e-7"/>
+  <Parameter name="predmaxiter" type="int" value = "10"/>
+  <Parameter name="initialsolve" type="bool" value = "false"/>
+
+  <ParameterList name="Nonlinear Solver">
+      <ParameterList name="Direction">
+          <ParameterList name="Newton">
+          </ParameterList>
+      </ParameterList>
+      <ParameterList name="Line Search">
+          <Parameter name ="Method" type="string" value="Polynomial"/>
+      </ParameterList>
+  </ParameterList>
+ 
+  <ParameterList name="Linear Solver">
+    <Parameter name="Linear Solver Type" type="string" value="Belos"/>
+    <ParameterList name="Linear Solver Types">
+      <ParameterList name="Belos">
+        <Parameter name="Solver Type" type="string" value="Pseudo Block GMRES"/>
+        <ParameterList name="Solver Types">
+          <ParameterList name="Pseudo Block GMRES">
+<!--        <Parameter name="Orthogonalization" type="string" value="DGKS"/> -->
+            <Parameter name="Orthogonalization" type="string" value="ICGS"/>
+<!--        <Parameter name="Maximum Iterations" type="int" value="50"/> -->
+            <Parameter name="Output Frequency" type="int" value="1"/>
+<!--        <Parameter name="Show Maximum Residual Norm Only"  type="bool" value = "true"/> -->
+            <Parameter name="Verbosity" type="int" value="33"/>
+            <Parameter name="Output Style" type="int" value="1"/>
+          </ParameterList>
+        </ParameterList>
+<!--    <ParameterList name="VerboseObject"> -->
+<!--      <Parameter name="Verbosity Level" type="string" value="extreme"/> -->
+<!--      <Parameter name="Output File" type="string" value="belos.dat"/> -->
+<!--    </ParameterList> -->
+      </ParameterList>
+    </ParameterList>
+  </ParameterList>
+
+   <ParameterList name="ProblemParams">
+	
+
+    <Parameter name="scaling_constant_" type="double" value="1.0e-1"/>
+
+
+    <Parameter name="W0_" type="double" value="1.0634687181807895e-07"/>
+    <Parameter name="tau0_" type="double" value="9.45034951077221e-06"/>
+    <Parameter name="t0_" type="double" value="1690.0"/>
+
+    <Parameter name="h_" type="double" value="10.0"/>
+    <Parameter name="ep_" type="double" value="0.2"/>
+    <Parameter name="sigma_" type="double" value="5.6704e-8"/>
+    <Parameter name="ti_" type="double" value="300"/>
+
+    <!-- <Parameter name="k_" type="double" value="24.5"/> -->
+    <Parameter name="k_" type="double" value="24.5"/>
+    
+    <Parameter name="rho_" type="double" value="7310."/>
+    <Parameter name="cp_" type="double" value="2450."/>
+
+    <!-- <Parameter name="Lf_" type="double" value="2.95e5"/> -->
+    <Parameter name="Lf_" type="double" value="0.0"/>
+
+    <Parameter name="deltau_" type="double" value="12.62"/>
+    <Parameter name="uref_" type="double" value="1693.4"/>
+
+    <Parameter name="eta_" type="double" value="0.3"/>
+    <Parameter name="P_" type="double" value="0.0"/>
+    <Parameter name="s_" type="double" value="2."/>
+    <Parameter name="r_" type="double" value=".0002"/>
+    <Parameter name="d_" type="double" value=".00001"/>
+    <Parameter name="gamma_" type="double" value="0.886227"/>
+    <Parameter name="x0_" type="double" value="0."/>
+    <Parameter name="y0_" type="double" value="0."/>
+    <Parameter name="z0_" type="double" value="10.634687e-6"/>
+
+    <Parameter name="t_hold_" type="double" value="25.0"/>
+    <Parameter name="t_decay_" type="double" value="5.0"/>	
+	
+   </ParameterList>
+
+</ParameterList>

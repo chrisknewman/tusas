@@ -5514,7 +5514,9 @@ PPR_FUNC(postproc_c_)
 			            const double &t_theta_,\
 			            const double &t_theta2_,\
                                     const double &time,\
-				    const int &eqn_id)
+				    const int &eqn_id,\
+				    const double &vol,\
+				    const double &rand)
 #else
 #define RES_FUNC_TPETRA(NAME)  double NAME(GPUBasisLQuad * basis,\
                                     const int &i,\
@@ -5523,7 +5525,9 @@ PPR_FUNC(postproc_c_)
 			            const double &t_theta_,\
 			            const double &t_theta2_,\
                                     const double &time,\
-				    const int &eqn_id)
+				    const int &eqn_id,\
+				    const double &vol,\
+				    const double &rand)
 #endif
 #ifdef TUSAS3D
 #define PRE_FUNC_TPETRA(NAME)  double NAME(const GPUBasisLHex *basis, \
@@ -6267,7 +6271,9 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
 								   t_theta_,
 								   t_theta2_,
 								   time,
-								   eqn_id);
+								eqn_id,
+								vol,
+								rand);
 
   const double rv = val/mob[0]
     + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
@@ -6316,7 +6322,9 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
 								   t_theta_,
 								   t_theta2_,
 								   time,
-								   eqn_id);
+								eqn_id,
+								vol,
+								rand);
 
   const double rv = val/mob[0]
     + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
@@ -6339,7 +6347,9 @@ RES_FUNC_TPETRA(residual_conc_farzadi_activated_)
   						 t_theta_,
   						 t_theta2_,
   						 time,
-  						 eqn_id);
+								     eqn_id,
+								     vol,
+								     rand);
 	
 	const double u[2] = {basis[eqn_id].uu(),basis[eqn_id].uuold()};
 	
@@ -6364,7 +6374,9 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_activated_)
   						 t_theta_,
   						 t_theta2_,
   						 time,
-  						 eqn_id);
+									      eqn_id,
+									      vol,
+									      rand);
 	
 	const double phi[2] = {basis[eqn_id].uu(),basis[eqn_id].uuold()};
 	
@@ -7691,7 +7703,9 @@ RES_FUNC_TPETRA(residual_test_)
 						    t_theta_,
 						    t_theta2_,
 						    time,
-						    eqn_id); 
+						 eqn_id,
+						 vol,
+						 rand); 
 
   const double qd[3] = {-qdot(basis[eqn_id].xx(),basis[eqn_id].yy(),basis[eqn_id].zz(),time)*basis[eqn_id].phi(i),
 			-qdot(basis[eqn_id].xx(),basis[eqn_id].yy(),basis[eqn_id].zz(),time-dt_)*basis[eqn_id].phi(i),
@@ -7759,7 +7773,9 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 						 t_theta_,
 						 t_theta2_,
 						 time,
-						 eqn_id);
+					      eqn_id,
+					      vol,
+					      rand);
 
   double dfldu_d[3];
   dfldt_uncoupled(basis,eqn_id,dt_,dtold_,dfldu_d);
@@ -7791,7 +7807,9 @@ RES_FUNC_TPETRA(residual_coupled_test_)
 						 t_theta_,
 						 t_theta2_,
 						 time,
-						 eqn_id);
+					      eqn_id,
+					      vol,
+					      rand);
 
   int phi_index = 1;
   double dfldu_d[3];

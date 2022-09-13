@@ -35,6 +35,7 @@
 #include "elem_color.h"
 #include "timestep.hpp"
 #include "post_process.h"
+#include "random_distribution.h"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
@@ -225,7 +226,9 @@ private:
 			    const double &t_theta_, 
 			    const double &t_theta2_, 
 			    const double &time,
-			    const int &eqn_id);
+			    const int &eqn_id,
+			    const double &vol,
+			    const double &rand);
 #else
   typedef double (*RESFUNC)(GPUBasisLQuad * basis, 
 			    const int &i, 
@@ -322,6 +325,8 @@ private:
 
   void init_P_();
   std::string outfilename;
+
+  Teuchos::RCP<random_distribution> randomdistribution;
 
 };
 

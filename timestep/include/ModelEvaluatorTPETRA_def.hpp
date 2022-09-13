@@ -301,6 +301,11 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   Elem_col = Teuchos::rcp(new elem_color(Comm,mesh,dorestart));
 
+  if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+    const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+    randomdistribution = Teuchos::rcp(new random_distribution(Comm, mesh_, LTP_quadrature_order));
+  }
+
   init_nox();
 
   std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,
@@ -506,12 +511,33 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const double time = time_; //cuda 8 lambdas dont capture private data
   const int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
   const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+
   if (4 <  LTP_quadrature_order ){
       if( 0 == comm_->getRank() ){
 	std::cout<<std::endl<<std::endl<<"4 <  LTP_quadrature_order" <<std::endl<<std::endl<<std::endl;
       }
       exit(0);
   }
+
+  const int num_elem1 = (*mesh_->get_elem_num_map()).size();
+  const int ngp1 = LTP_quadrature_order*LTP_quadrature_order*LTP_quadrature_order;//3d
+  Kokkos::View<double**,Kokkos::DefaultExecutionSpace> randomdistribution_2d("randomdistribution_2d", num_elem1, ngp1);
+  if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+    //std::vector<std::vector<double> > vals(randomdistribution->get_gauss_vals());
+    for( int i=0; i<num_elem1; i++){
+      for(int ig=0;ig<ngp1;ig++){
+	//randomdistribution_2d(i,ig) = vals[i][ig];
+	randomdistribution_2d(i,ig) = randomdistribution->get_gauss_val(i,ig);
+	//randomdistribution_2d(i,ig) = 0.;
+      }
+    }
+  }else{
+    for( int i=0; i<num_elem1; i++){
+      for(int ig=0;ig<ngp1;ig++){
+	randomdistribution_2d(i,ig) = 0.;
+      }
+    }
+  }//if
 
   const std::string testname = paramList.get<std::string> (TusastestNameString);
   
@@ -698,25 +724,25 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    //BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	    jacwt = B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	  }//neq
-	     
-	  //printf("%f\n",jacwt);
-	//const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
-			     //const double jacwt = B[0].jac*B[0].wt;
+	  
+	  const double vol = 0.;   
 
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const int lrow = numeqs*meshc[elemrow+i];
 	    const int lrow = numeqs*meshc_1dra(elemrow+i);
 
+	    const double rand = randomdistribution_2d(elem, gp);
+
 	    for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
 	      //printf("%le\n",B[0].phi[0]);
 	      //const double val = jacwt*((d_rf[neq])((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
-	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);
+	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand);
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tpetra::heat::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	      double val = jacwt*(h_rf[neq]((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
+	      double val = jacwt*(h_rf[neq]((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand));
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
@@ -1450,6 +1476,12 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
   if( timeadapt ) maxiter = atsList->get<int>(TusasatsmaxiterNameString);
 //   std::cout<<maxiter<<std::endl;
 //   exit(0);
+
+  if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+    randomdistribution->compute_random(numsteps_);
+    //randomdistribution->print();
+    //exit(0);
+  }
 
   double dtpred = dt_;
   int numit = 0;

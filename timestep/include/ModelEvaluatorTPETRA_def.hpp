@@ -725,7 +725,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    jacwt = B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	  }//neq
 	  
-	  const double vol = 0.;   
+	  const double vol = B[0].vol();   
 
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 

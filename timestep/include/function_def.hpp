@@ -5808,7 +5808,7 @@ KOKKOS_INLINE_FUNCTION
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
   return rho_d*cp_d/tau0_d*deltau_d*basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i]
-    + t_theta_*k_d/tau0_d*deltau_d*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+    + t_theta_*k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 }
@@ -6118,6 +6118,8 @@ namespace farzadi3d
   
   int C = 0;
   
+  double t_activate_farzadi = 0.0;
+  
 PARAM_FUNC(param_)
 {
   double k_p = plist->get<double>("k", 0.14);
@@ -6260,6 +6262,10 @@ z0 = z0_p;
 #else
   D_liquid_ = D_liquid__p;
 #endif
+
+t_activate_farzadi = plist->get<double>("t_activate_farzadi", 0.0);
+
+
   //std::cout<<l_T0<<"   "<<G<<"  "<<Vp0<<"  "<<tau0<<"   "<<w0<<std::endl;
 }
   
@@ -6333,9 +6339,10 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
 		       divgradu[1] + divj[1] + phitu[1],
 		       divgradu[2] + divj[2] + phitu[2]};
 
-  return ut + (1.-t_theta2_)*t_theta_*f[0]
+  return (ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
+
 }
 
 TUSAS_DEVICE
@@ -6513,12 +6520,64 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
     + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
     + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]/mob[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]/mob[1]-dt_/dtold_*hp1g4[2]/mob[2]);
-
+	
   return mob[0]*rv;
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_phase_farzadi_coupled_dp_)) = residual_phase_farzadi_coupled_;
+
+RES_FUNC_TPETRA(residual_conc_farzadi_activated_)
+{
+	const double val = tpetra::farzadi3d::residual_conc_farzadi_dp_(basis,
+  						 i,
+  						 dt_,
+  						 dtold_,
+  						 t_theta_,
+  						 t_theta2_,
+  						 time,
+  						 eqn_id,
+  						 vol,
+  						 rand);
+	
+	const double u[2] = {basis[eqn_id]->uu,basis[eqn_id]->uuold};
+	
+	// Coefficient to turn Farzadi evolution off until a specified time
+	const double delta = 1.0e12; 			   
+	const double sigmoid_var = delta * (time-t_activate_farzadi/tau0);
+	const double sigmoid = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var))); 			   
+
+	return val * sigmoid + (u[1]-u[0]) * (1.0 - sigmoid);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_conc_farzadi_activated_dp_)) = residual_conc_farzadi_activated_;
+
+RES_FUNC_TPETRA(residual_phase_farzadi_coupled_activated_)
+{
+	const double val = tpetra::farzadi3d::residual_phase_farzadi_coupled_dp_(basis,
+  						 i,
+  						 dt_,
+  						 dtold_,
+  						 t_theta_,
+  						 t_theta2_,
+  						 time,
+  						 eqn_id,
+  						 vol,
+  						 rand);
+	
+	const double phi[2] = {basis[eqn_id]->uu,basis[eqn_id]->uuold};
+	
+	// Coefficient to turn Farzadi evolution off until a specified time
+	const double delta = 1.0e12; 			   
+	const double sigmoid_var = delta * (time-t_activate_farzadi/tau0);
+	const double sigmoid = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var))); 			   
+
+	return val * sigmoid + (phi[1]-phi[0]) * (1.0 - sigmoid);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_phase_farzadi_coupled_activated_dp_)) = residual_phase_farzadi_coupled_activated_;
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_conc_farzadi_)
@@ -7602,7 +7661,7 @@ RES_FUNC_TPETRA(residual_test_)
   const double ut = (u[0]-u[1])/dt_*test;
 
   const double f[3] = {ff(u[0])*test,ff(u[1])*test,ff(u[2])*test};
-  //std::cout<<u[1]<<"  "<<u[2]<<std::endl;
+ 
   return ut - (1.-t_theta2_)*t_theta_*f[0]
     - (1.-t_theta2_)*(1.-t_theta_)*f[1]
     -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
@@ -7635,16 +7694,19 @@ NBC_FUNC_TPETRA(nbc_)
   //h(t-ti)+\ep\sigma(t^4-ti^4)
   //std::cout<<h<<" "<<ep<<" "<<sigma<<" "<<ti<<std::endl;
   const double test = basis[0].phi[i];
-  const double u = deltau_h*basis[0].uu+uref_h;//T=deltau_h*theta+uref_h
+  const double u = deltau_h*basis[0].uu+uref_h; // T=deltau_h*theta+uref_h
   const double uold = deltau_h*basis[0].uuold+uref_h;
   const double uoldold = deltau_h*basis[0].uuoldold+uref_h;
-  const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test/deltau_h,
-		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test/deltau_h,
-		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test/deltau_h};
+  const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
+		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
+		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};
+  
   const double coef = deltau_h / W0_h;
+  
   const double rv = (1.-t_theta2_)*t_theta_*f[0]
     +(1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+  
   return rv * coef * scaling_constant;
 }
 
@@ -7711,6 +7773,12 @@ double tau0_d = 1.;
 TUSAS_DEVICE
 double W0_d = 1.;
 
+TUSAS_DEVICE
+double t0_d = 300.;
+
+TUSAS_DEVICE
+double scaling_constant_d = 1.;
+
 KOKKOS_INLINE_FUNCTION 
 void dfldt_uncoupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
 {
@@ -7761,34 +7829,33 @@ void dfldt_coupled(GPUBasis * basis[], const int index, const double dt_, const 
 KOKKOS_INLINE_FUNCTION 
 const double P(const double t)
 {
-//   const double t_hold = t_hold_d/tau0_d;
-//   const double t_decay = t_decay_d/tau0_d;
-//   const double tt = t/tau0_d;
+  // t is nondimensional
+  // t_hold, t_decay, and tt are dimensional
+  
   const double t_hold = t_hold_d;
   const double t_decay = t_decay_d;
   const double tt = t*tau0_d;
-  return (tt < t_hold)    ? P_d :
-    (tt < t_hold+t_decay) ? P_d*(t_hold+t_decay-tt)/t_decay :
-    0.;
+  return (tt < t_hold) ? P_d : 
+    ((tt<t_hold+t_decay) ? P_d*((t_hold+t_decay)-tt)/(t_decay)
+     :0.);
 }
 
 KOKKOS_INLINE_FUNCTION 
 const double qdot(const double &x, const double &y, const double &z, const double &t)
 {
+  // x, y, z, and t are nondimensional values
+  // r, d, and p and dimensional
+  // Qdot as a whole has dimensions, but that's ok since it's written in terms of non-dimensional (x,y,z,t)
 
   const double p = P(t);
+  const double r = r_d;
+  const double d = d_d;
+  
   //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
-  const double r = r_d;// /W0_d;
-  const double d = d_d;// /W0_d;
-
   const double coef = eta_d*p*5.19615/r/r/d/gamma_d/pi_d;
-
-  //const double exparg = ((x-x0_d/W0_d)*(x-x0_d/W0_d)+(y-y0_d/W0_d)*(y-y0_d/W0_d))/r/r+(z-z0_d/W0_d)*(z-z0_d/W0_d)/d/d;
   const double exparg = ((W0_d*x-x0_d)*(W0_d*x-x0_d)+(W0_d*y-y0_d)*(W0_d*y-y0_d))/r/r+(W0_d*z-z0_d)*(W0_d*z-z0_d)/d/d;
-
   const double f = exp( -3.* exparg );
-  //std::cout<<W0_d*x<<std::endl;
-  //if(f > 0.) std::cout<<f<<" "<<coef<<" "<<coef*f<<std::endl;
+
   return coef*f;
 }
 
@@ -7851,8 +7918,7 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
   
-  //return rv*tau0_d/tpetra::heat::deltau_h;
-  return rv;
+  return rv * scaling_constant_d;
 }
 
 TUSAS_DEVICE
@@ -7887,8 +7953,7 @@ RES_FUNC_TPETRA(residual_coupled_test_)
 		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
   
-  //return rv*tau0_d/tpetra::heat::deltau_h;
-  return rv;
+  return rv * scaling_constant_d;
 }
 
 TUSAS_DEVICE
@@ -7905,7 +7970,7 @@ PRE_FUNC_TPETRA(prec_test_)
 						      t_theta_,
 						      eqn_id);
 
-  return val;// /tpetra::heat::rho_d/tpetra::heat::cp_d;
+  return val * scaling_constant_d;
 }
 
 TUSAS_DEVICE
@@ -7913,19 +7978,22 @@ PRE_FUNC_TPETRA((*prec_test_dp_)) = prec_test_;
 
 INI_FUNC(init_heat_)
 {
-  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  const double t_preheat = t0_d;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
 DBC_FUNC(dbc_) 
 {
-  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  // The assumption here is that the desired Dirichlet BC is the initial temperature,
+  // that may not be true in the future.
+  const double t_preheat = t0_d;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
 PPR_FUNC(postproc_qdot_)
 {
-  //const double uu = u[0];
   const double x = xyz[0];
   const double y = xyz[1];
   const double z = xyz[2];
@@ -7985,14 +8053,24 @@ PARAM_FUNC(param_)
   t_decay_d = plist->get<double>("t_decay_",0.01);
   tau0_d = plist->get<double>("tau0_",1.);
   W0_d = plist->get<double>("W0_",1.);
+  
+  t0_d = plist->get<double>("t0_",300.);
 
   dfldu_mushy_d = tpetra::heat::rho_d*Lf/(tl-te); //fl=(t-te)/(tl-te);
+  
+  scaling_constant_d = plist->get<double>("scaling_constant_",1.);
+
 }
 }//namespace goldak
 
 namespace fullycoupled
 {
-
+  double hemisphere_IC_rad = 1.0;
+  double hemispherical_IC_x0 = 0.0;
+  double hemispherical_IC_y0 = 0.0;
+  double hemispherical_IC_z0 = 0.0;
+  bool hemispherical_IC = false;	
+  
 INI_FUNC(init_conc_farzadi_)
 {
   return -1.;
@@ -8000,28 +8078,55 @@ INI_FUNC(init_conc_farzadi_)
 
 INI_FUNC(init_phase_farzadi_)
 {
-
-  double h = tpetra::farzadi3d::base_height + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
-  
-  double c = (x-tpetra::farzadi3d::x0)*(x-tpetra::farzadi3d::x0) + (y-tpetra::farzadi3d::y0)*(y-tpetra::farzadi3d::y0) + (z-tpetra::farzadi3d::z0)*(z-tpetra::farzadi3d::z0);
-  
-  return ((tpetra::farzadi3d::C == 0) ? (tanh((h-x)/sqrt(2.))) : (c < tpetra::farzadi3d::r*tpetra::farzadi3d::r) ? 1. : -1.);	
+  if (hemispherical_IC){
+	  const double w0 = tpetra::farzadi3d::w0;
+	  
+	  const double dist = std::sqrt( (x-hemispherical_IC_x0/w0)*(x-hemispherical_IC_x0/w0) 
+	  	+ (y-hemispherical_IC_y0/w0)*(y-hemispherical_IC_y0/w0) 
+	  	+ (z-hemispherical_IC_z0/w0)*(z-hemispherical_IC_z0/w0));
+	  const double r = hemisphere_IC_rad/w0 + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
+	  return std::tanh( (dist-r)/std::sqrt(2.));
+  }
+  else {
+	  double h = tpetra::farzadi3d::base_height + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
+	  
+	  return std::tanh((h-z)/std::sqrt(2.));
+	  
+	  double c = (x-tpetra::farzadi3d::x0)*(x-tpetra::farzadi3d::x0) + (y-tpetra::farzadi3d::y0)*(y-tpetra::farzadi3d::y0) + (z-tpetra::farzadi3d::z0)*(z-tpetra::farzadi3d::z0);
+	  return ((tpetra::farzadi3d::C == 0) ? (tanh((h-z)/sqrt(2.))) : (c < tpetra::farzadi3d::r*tpetra::farzadi3d::r) ? 1. : -1.);	
+  }
 }
 
 INI_FUNC(init_heat_)
 {
-  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  const double t_preheat = tpetra::goldak::t0_d;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
 }
 
 DBC_FUNC(dbc_) 
 {
-  const double val = (300.-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
+  // The assumption here is that the desired Dirichlet BC is the initial temperature,
+  // that may not be true in the future.
+  const double t_preheat = tpetra::goldak::t0_d;
+  const double val = (t_preheat-tpetra::heat::uref_h)/tpetra::heat::deltau_h;
   return val;
+}
+
+PPR_FUNC(postproc_t_)
+{
+  // return the physical temperature in K here
+  const double theta = u[2];
+  return theta * tpetra::heat::deltau_h + tpetra::heat::uref_h;
 }
 
 PARAM_FUNC(param_)
 {
+	hemispherical_IC = plist->get<bool>("hemispherical_IC", false);
+	hemisphere_IC_rad = plist->get<double>("hemisphere_IC_rad", 1.0);
+	hemispherical_IC_x0 = plist->get<double>("hemispherical_IC_x0", 0.0);
+	hemispherical_IC_y0 = plist->get<double>("hemispherical_IC_y0", 0.0);
+	hemispherical_IC_z0 = plist->get<double>("hemispherical_IC_z0", 0.0);
 }
 }//namespace fullycoupled
 

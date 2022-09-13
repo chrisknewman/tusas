@@ -1957,7 +1957,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
-    //paramfunc_ = &farzadi::param_;
 
     neumannfunc_ = NULL;
 
@@ -1974,8 +1973,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[2] = &tpetra::fullycoupled::init_heat_;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
-    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_dp_;
+    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_activated_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_activated_dp_;
     (*residualfunc_)[2] = tpetra::goldak::residual_coupled_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
@@ -1993,16 +1992,15 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
+    post_proc[1].postprocfunc_ = &tpetra::fullycoupled::postproc_t_;
 
-    paramfunc_.resize(4);
+    paramfunc_.resize(5);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
     paramfunc_[1] = &tpetra::heat::param_;
     paramfunc_[2] = &tpetra::radconvbc::param_;
     paramfunc_[3] = &tpetra::goldak::param_;
-    //paramfunc_ = &farzadi::param_;
+    paramfunc_[4] = &tpetra::fullycoupled::param_;
 
-    //neumannfunc_ = NULL;
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     (*neumannfunc_)[2][4] = &tpetra::radconvbc::nbc_;
 

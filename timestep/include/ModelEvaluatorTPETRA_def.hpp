@@ -223,17 +223,20 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   x_ = Teuchos::rcp(new vector_type(node_overlap_map_));
   y_ = Teuchos::rcp(new vector_type(node_overlap_map_));
   z_ = Teuchos::rcp(new vector_type(node_overlap_map_));
-  Teuchos::ArrayRCP<scalar_type> xv = x_->get1dViewNonConst();
-  Teuchos::ArrayRCP<scalar_type> yv = y_->get1dViewNonConst();
-  Teuchos::ArrayRCP<scalar_type> zv = z_->get1dViewNonConst();
-  const size_t localLength = node_overlap_map_->getNodeNumElements();
-  //for (size_t nn=0; nn < localLength; nn++) {
-  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
-    xv[nn] = mesh_->get_x(nn);
-    yv[nn] = mesh_->get_y(nn);
-    zv[nn] = mesh_->get_z(nn);
+
+  //Teuchos::ArrayRCP<scalar_type> xv = x_->get1dViewNonConst();
+  {
+    auto xv = x_->get1dViewNonConst();
+    auto yv = y_->get1dViewNonConst();
+    auto zv = z_->get1dViewNonConst();
+    const size_t localLength = node_overlap_map_->getNodeNumElements();
+    //for (size_t nn=0; nn < localLength; nn++) {
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
+			   xv[nn] = mesh_->get_x(nn);
+			   yv[nn] = mesh_->get_y(nn);
+			   zv[nn] = mesh_->get_z(nn);
+			 });
   }
-		       );
 
   x_space_ = Thyra::createVectorSpace<scalar_type>(x_owned_map_);
   f_space_ = x_space_;
@@ -477,16 +480,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     uoldold->doImport(*u_old_old_,*importer_,Tpetra::INSERT);
   }
 
-  auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>();
-  auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>();
-  auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto x_view = x_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+  auto y_view = y_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+  auto z_view = z_->getLocalViewDevice(Tpetra::Access::ReadOnly);
   //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
   //this will utilize texture memory not available on tesla or earlier gpus
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra = Kokkos::subview (x_view, Kokkos::ALL (), 0);
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
-  auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto u_view = u->getLocalViewDevice(Tpetra::Access::ReadOnly);
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
     u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
 
@@ -496,9 +499,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
 
-  //Kokkos::View<int**,Kokkos::DefaultExecutionSpace> meshc_2d("meshc_2d",n_nodes_per_elem,(*mesh_->get_elem_num_map()).size());
-  //std::cout<<n_nodes_per_elem*(*mesh_->get_elem_num_map()).size()<<"  "<<((mesh_->connect)[0]).size()<<std::endl;
-  //Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
   for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
     meshc_1d(i)=(mesh_->connect)[0][i];
   }
@@ -557,10 +557,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 //     std::string elem_type=mesh_->get_blk_elem_type(blk);
 //     std::string * elem_type_p = &elem_type;
 
-    auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
-    auto uoldold_view = uoldold->getLocalView<Kokkos::DefaultExecutionSpace>();
+    auto uold_view = uold->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto uoldold_view = uoldold->getLocalViewDevice(Tpetra::Access::ReadOnly);
     
-    auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+    auto f_view = f_overlap->getLocalViewDevice(Tpetra::Access::ReadWrite);
         
     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
     //Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
@@ -701,6 +701,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
 	  zz[k] = z_1dra(nodeid);
+	  //zz[k] =  z_view(nodeid,0);
 
 	  //std::cout<<k<<"   "<<xx[k]<<"   "<<yy[k]<<"   "<<zz[k]<<"   "<<nodeid<<std::endl;
 	  for( int neq = 0; neq < numeqs; neq++ ){
@@ -798,9 +799,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
       }
       //on host only right now..
-      auto uold_view = uold->getLocalView<Kokkos::DefaultHostExecutionSpace>();
-      auto uoldold_view = uoldold->getLocalView<Kokkos::DefaultHostExecutionSpace>();
-      auto f_view = f_overlap->getLocalView<Kokkos::DefaultHostExecutionSpace>();
+      auto uold_view = uold->getLocalViewHost(Tpetra::Access::ReadOnly);
+      auto uoldold_view = uoldold->getLocalViewHost(Tpetra::Access::ReadOnly);
+      auto f_view = f_overlap->getLocalViewHost(Tpetra::Access::ReadWrite);
       auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
       Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
 	uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
@@ -877,7 +878,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
 
     //on host only right now
-    auto f_view = f_overlap->getLocalView<Kokkos::DefaultHostExecutionSpace>();
+    //auto f_view = f_overlap->getLocalView<Kokkos::DefaultHostExecutionSpace>();
+    auto f_view = f_overlap->getLocalViewHost(Tpetra::Access::ReadWrite);
     
     
     //auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
@@ -1508,7 +1510,7 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 
     //we need x_vec as a kokkos view for the parallel_for to work on gpu   
 
-    auto un_view = u_new_->getLocalView<Kokkos::DefaultHostExecutionSpace>();
+    auto un_view = u_new_->getLocalViewHost(Tpetra::Access::ReadWrite);
     auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
     //for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
@@ -1524,7 +1526,7 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 
       if( 0 == mypid)std::cout<<" Performing local projection "<<std::endl;
       
-      auto un_view = u_new_->getLocalView<Kokkos::DefaultHostExecutionSpace>();
+      auto un_view = u_new_->getLocalViewHost(Tpetra::Access::ReadWrite);
       auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
       //for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
       Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
@@ -1668,7 +1670,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
   //ArrayRCP<scalar_type> uv = u->get1dViewNonConst();
 
   //on host only now
-  auto u_view = u->getLocalView<Kokkos::DefaultHostExecutionSpace>();
+  auto u_view = u->getLocalViewHost(Tpetra::Access::ReadWrite);
   auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
   
   const size_t localLength = num_owned_nodes_;
@@ -2789,7 +2791,7 @@ template<class scalar_type>
   Teuchos::RCP< vector_type> u_temp = Teuchos::rcp(new vector_type(x_overlap_map_));
   //Teuchos::RCP< Epetra_Vector> u_old_temp = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
   //on host only now
-  auto u_view = u_temp->getLocalView<Kokkos::DefaultHostExecutionSpace>();
+  auto u_view = u_temp->getLocalViewHost(Tpetra::Access::ReadWrite);
   auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
   for( int k = 0; k < numeqs_; k++ ){
     //for (int nn=0; nn < num_overlap_nodes_; nn++) {
@@ -3130,18 +3132,20 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
    //dudt(t=0) = (u_old_ - u_old_old_)/dt_
    //u_old_old_ = u_old_ - dt_*dudt(t=0)
    //           = 2*u_old_ - x_vec
-  Teuchos::ArrayRCP<const scalar_type> uoldview = u_old_->get1dView();
-  Teuchos::ArrayRCP<scalar_type> uoldoldview = u_old_old_->get1dViewNonConst();
-
-  //for (int nn=0; nn <  num_owned_nodes_; nn++) {//cn figure out a better way here...
-  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_owned_nodes_),[=](const int& nn){
-     for( int k = 0; k < numeqs_; k++ ){
-       
-       uoldoldview[numeqs_*nn+k] = 2.*uoldview[numeqs_*nn+k] - vals[numeqs_*nn+k];
-   
-     }
-   }
+    {
+      Teuchos::ArrayRCP<const scalar_type> uoldview = u_old_->get1dView();
+      Teuchos::ArrayRCP<scalar_type> uoldoldview = u_old_old_->get1dViewNonConst();
+      
+      //for (int nn=0; nn <  num_owned_nodes_; nn++) {//cn figure out a better way here...
+      Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_owned_nodes_),[=](const int& nn){
+			     for( int k = 0; k < numeqs_; k++ ){
+			       
+			       uoldoldview[numeqs_*nn+k] = 2.*uoldview[numeqs_*nn+k] - vals[numeqs_*nn+k];
+			       
+			     }
+			   }
 		       );
+    }
    
    t_theta_ = t_theta_temp;
  }

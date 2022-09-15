@@ -33,7 +33,7 @@ random_distribution::random_distribution(const Teuchos::RCP<const Epetra_Comm>& 
   if( quad_type ){
     ngp = ltpquadorder*ltpquadorder;
   }
-  else if( quad_type ){
+  else if( hex_type ){
     ngp = ltpquadorder*ltpquadorder*ltpquadorder;;
   }
   else{

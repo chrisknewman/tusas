@@ -255,9 +255,9 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
 {
   Teuchos::RCP<Epetra_FECrsGraph> W_graph;
 
-  int numind = 9*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
+  int numind = 17*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
                          //this was causing problems with clang
-  if(3 == mesh_->get_num_dim() ) numind = 27*numeqs_;
+  if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
 
   W_graph = Teuchos::rcp(new Epetra_FECrsGraph(Copy, *x_owned_map_, numind));
 
@@ -1066,7 +1066,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 #endif
 	P_->GlobalAssemble();
 	std::vector<nemesis_lint_t> node_num_map(mesh_->get_node_num_map());
-	int lenind = 27;//cn 27 in 3d
+	int lenind = 81;//cn 27 in 3d
 	std::map<int,DBCFUNC>::iterator it;
         for( int k = 0; k < numeqs_; k++ ){
 	  for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){

@@ -343,9 +343,9 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 {
   Teuchos::RCP<crs_graph_type> W_graph;
 
-  int numind = 9*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
+  int numind = 17*numeqs_;//this is an approximation 17 for lquad; 25?? for qquad; 81*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
                          //this was causing problems with clang
-  if(3 == mesh_->get_num_dim() ) numind = 27*numeqs_;
+  if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
 
   size_t ni = numind;
 
@@ -395,9 +395,9 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 
   Teuchos::RCP<crs_graph_type> W_graph;
 
-  int numind = 9*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
+  int numind = 17*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
                          //this was causing problems with clang
-  if(3 == mesh_->get_num_dim() ) numind = 27*numeqs_;
+  if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
 
   size_t ni = numind;
 
@@ -1334,6 +1334,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 		    NOX::Utils::Details //+
 		    //NOX::Utils::LinearSolverDetails
 		    );
+  //nlPrintParams.set("Output Information",0);
   // Create the solver
   solver_ =  NOX::Solver::buildSolver(nox_group, combo, nl_params);
 

@@ -657,6 +657,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	RESFUNC rf[TUSAS_MAX_NUMEQS];
 	if (testcase == 0){
 	  rf[0] = tpetra::heat::residual_heat_test_;
+	}else if (testcase == 3){
+	  rf[0] = tpetra::heat::residual_heat_test_;
+	  rf[1] = tpetra::heat::residual_heat_test_;
 	}else if (testcase == 4){
 	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
 	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_uncoupled_;

@@ -5919,6 +5919,9 @@ namespace farzadi3d
   
   TUSAS_DEVICE
   double t_activate_farzadi_d = 0.0;
+
+  TUSAS_DEVICE
+  double interface_noise_amplitude_d = 0.0;
   
 PARAM_FUNC(param_)
 {
@@ -6076,6 +6079,13 @@ double t_activate_farzadi_p = plist->get<double>("t_activate_farzadi", 0.0);
   cudaMemcpyToSymbol(t_activate_farzadi_d,&t_activate_farzadi_p,sizeof(double));
 #else
   t_activate_farzadi_d = t_activate_farzadi_p;
+#endif
+
+double interface_noise_amplitude_p = plist->get<double>("interface_noise_amplitude", 0.0);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(interface_noise_amplitude_d,&interface_noise_amplitude_p,sizeof(double));
+#else
+  interface_noise_amplitude_d = interface_noise_amplitude_p;
 #endif
 
   //std::cout<<l_T0<<"   "<<G<<"  "<<Vp0<<"  "<<tau0<<"   "<<w0<<std::endl;
@@ -6326,10 +6336,13 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
 								vol,
 								rand);
 
+  
+  const double noise_term[3] = {interface_noise_amplitude_d*std::sqrt(dt_/vol) * rand*test * (1.0 - phi[0]*phi[0]), 0.0, 0.0};
+
   const double rv = val/mob[0]
-    + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]/mob[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]/mob[1]-dt_/dtold_*hp1g4[2]/mob[2]);
+    + (1.-t_theta2_)*t_theta_*(hp1g4[0]/mob[0] + noise_term[0])
+    + (1.-t_theta2_)*(1.-t_theta_)*(hp1g4[1]/mob[1] + noise_term[1])
+    +.5*t_theta2_*( (2.+dt_/dtold_)*hp1g4[1]/mob[1] - dt_/dtold_*hp1g4[2]/mob[2] + (2.+dt_/dtold_)*noise_term[1]-dt_/dtold_*noise_term[2] );
 	
   return mob[0]*rv;
 }

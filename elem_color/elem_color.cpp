@@ -43,7 +43,7 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
   if(dorestart){
     restart();
   } else {
-    mesh_->compute_nodal_patch_overlap();
+    //mesh_->compute_nodal_patch_overlap();
     //compute_graph();
     create_colorer();
     init_mesh_data();
@@ -95,10 +95,9 @@ void elem_color::compute_graph()
 
   if( 0 == mypid )
     std::cout<<std::endl<<"Mesh::compute_elem_adj() started."<<std::endl<<std::endl;
-  {
-    //Teuchos::TimeMonitor ElemadjTimer(*ts_time_elemadj); 
-    mesh_->compute_elem_adj();
-  }
+
+  mesh_->compute_elem_adj();
+
   if( 0 == mypid )
     std::cout<<std::endl<<"Mesh::compute_elem_adj() ended."<<std::endl<<std::endl;
 
@@ -111,14 +110,15 @@ void elem_color::compute_graph()
 
 #ifdef ELEM_COLOR_USE_ZOLTAN
       std::vector<global_ordinal_type> col1(col.begin(),col.end());
-      Teuchos::ArrayView<global_ordinal_type> CV(col1);
-      global_ordinal_type row1 = row;
+      const Teuchos::ArrayView<global_ordinal_type> CV(col1);
+      //for(int k =0;k<col1.size(); k++)std::cout<<ne<<" "<<CV[k]<<std::endl;
+      const global_ordinal_type row1 = row;
       elem_graph_->insertGlobalIndices(row1, CV);
 #else
       graph_->InsertGlobalIndices(row, (int)(col.size()), &col[0]);
 #endif
-    }
-  }
+    }//ne
+  }//blk
   //graph_->Print(std::cout);
   //elem_graph_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 
@@ -166,9 +166,8 @@ void elem_color::create_colorer()
   Teuchos::RCP<row_graph_type> RowGraph =
     Teuchos::rcp_dynamic_cast<row_graph_type>(elem_graph_);
 
-  Teuchos::RCP<const row_graph_type> constRowGraph =
-    Teuchos::rcp_const_cast<const row_graph_type>(RowGraph);
-
+//   Teuchos::RCP<const row_graph_type> constRowGraph =
+//     Teuchos::rcp_const_cast<const row_graph_type>(RowGraph);
 
   graphAdapter_type adapter(RowGraph);
 

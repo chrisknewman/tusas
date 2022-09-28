@@ -1783,7 +1783,7 @@ void Mesh::compute_elem_adj(){
 	//(0==elem_type.compare("tetra10")) 
 	){ 
       num_vertices_in_elem = 4;
-      num_elem_in_patch = 4;
+      //num_elem_in_patch = 4;
     }
     else if( (0==elem_type.compare("HEX8")) || 
 	     (0==elem_type.compare("HEX")) || 
@@ -1793,7 +1793,7 @@ void Mesh::compute_elem_adj(){
 	     (0==elem_type.compare("hex27")) 
 	     ){ 
       num_vertices_in_elem = 8;
-      num_elem_in_patch = 8;
+      //num_elem_in_patch = 8;
     }
     else{
       std::cout<<"Mesh::compute_elem_adj() unsupported element at this time"<<std::endl<<std::endl<<std::endl;
@@ -1845,6 +1845,8 @@ void Mesh::compute_elem_adj(){
 	}//k
 #if 0
       }//if
+      sort( elem_connect[ne].begin(), elem_connect[ne].end() );
+      elem_connect[ne].erase( unique( elem_connect[ne].begin(), elem_connect[ne].end() ), elem_connect[ne].end() );
 #endif
     }//ne
 #if 0

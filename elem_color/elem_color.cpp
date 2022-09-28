@@ -22,6 +22,8 @@
 #include <Zoltan2_TpetraRowGraphAdapter.hpp>
 #include <Zoltan2_ColoringProblem.hpp>
 
+//#include <MatrixMarket_Tpetra.hpp>
+
 std::string getmypidstring(const int mypid, const int numproc);
 
 elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm, 
@@ -43,7 +45,7 @@ elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm,
   if(dorestart){
     restart();
   } else {
-    mesh_->compute_nodal_patch_overlap();
+    //mesh_->compute_nodal_patch_overlap();
     //compute_graph();
     create_colorer();
     init_mesh_data();
@@ -68,7 +70,6 @@ void elem_color::compute_graph()
   using Teuchos::rcp;
 
   std::vector<Mesh::mesh_lint_t> elem_num_map(*(mesh_->get_elem_num_map()));
-
 
   //map_->Print(std::cout);
   const global_size_t numGlobalEntries = Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid();
@@ -96,30 +97,29 @@ void elem_color::compute_graph()
 
   if( 0 == mypid )
     std::cout<<std::endl<<"Mesh::compute_elem_adj() started."<<std::endl<<std::endl;
-  {
-    //Teuchos::TimeMonitor ElemadjTimer(*ts_time_elemadj); 
-    mesh_->compute_elem_adj();
-  }
+
+  mesh_->compute_elem_adj();
+
   if( 0 == mypid )
     std::cout<<std::endl<<"Mesh::compute_elem_adj() ended."<<std::endl<<std::endl;
 
   for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
     
-    //int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
     for (int ne=0; ne < mesh_->get_num_elem_in_blk(blk); ne++) {
       Mesh::mesh_lint_t row = mesh_->get_global_elem_id(ne);
       std::vector<Mesh::mesh_lint_t> col = mesh_->get_elem_connect(ne);//this is appearently global id, not local
 
 #ifdef ELEM_COLOR_USE_ZOLTAN
       std::vector<global_ordinal_type> col1(col.begin(),col.end());
-      Teuchos::ArrayView<global_ordinal_type> CV(col1);
-      global_ordinal_type row1 = row;
+      const Teuchos::ArrayView<global_ordinal_type> CV(col1);
+      //for(int k =0;k<col1.size(); k++)std::cout<<ne<<" "<<CV[k]<<std::endl;
+      const global_ordinal_type row1 = row;
       elem_graph_->insertGlobalIndices(row1, CV);
 #else
       graph_->InsertGlobalIndices(row, (int)(col.size()), &col[0]);
 #endif
-    }
-  }
+    }//ne
+  }//blk
   //graph_->Print(std::cout);
   //elem_graph_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 
@@ -130,7 +130,16 @@ void elem_color::compute_graph()
 
 #ifdef ELEM_COLOR_USE_ZOLTAN
   elem_graph_->fillComplete();
+  //describe outputs -1 for most column locations; even though insertion appears correct and the coloring
+  //is ultimately correct. Similar output for W_graph in the preconditioner.
+  //dumping via matrix market produces the right data.
+
   //elem_graph_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+//   const std::string graphName="";
+//   const std::string graphDescription="";
+//   const std::string fname="g.dat";
+//   Tpetra::MatrixMarket::Writer<Tpetra::CrsMatrix<> >::writeSparseGraphFile(fname, *elem_graph_, graphName, graphDescription, false);
+//   exit(0);
 #else
   //if (graph_->GlobalAssemble() != 0){
   if (graph_->FillComplete() != 0){
@@ -167,9 +176,8 @@ void elem_color::create_colorer()
   Teuchos::RCP<row_graph_type> RowGraph =
     Teuchos::rcp_dynamic_cast<row_graph_type>(elem_graph_);
 
-  Teuchos::RCP<const row_graph_type> constRowGraph =
-    Teuchos::rcp_const_cast<const row_graph_type>(RowGraph);
-
+//   Teuchos::RCP<const row_graph_type> constRowGraph =
+//     Teuchos::rcp_const_cast<const row_graph_type>(RowGraph);
 
   graphAdapter_type adapter(RowGraph);
 
@@ -205,6 +213,7 @@ void elem_color::create_colorer()
     elem_LIDS_[color].push_back(lid);
   }
 
+  //RowGraph->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   elem_graph_ = Teuchos::null;
   elem_map_ = Teuchos::null;
 

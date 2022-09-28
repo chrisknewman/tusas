@@ -52,6 +52,7 @@ random_distribution::random_distribution(const Teuchos::RCP<const Epetra_Comm>& 
   const int num_elem = elem_map_->NumMyElements();
   gauss_val.resize(num_elem, std::vector<double>(ngp,0));
   compute_random(0);
+  //std::cout<<comm_->MyPID()<<"   "<<elem_num_map.size()<<std::endl;
   //print();
 }
 
@@ -63,12 +64,17 @@ void random_distribution::compute_random(const int nt)
 {
   const int mypid = comm_->MyPID();
   int initial_seed = 12345*(nt+1)*(mypid+1);
+  //int initial_seed = 12345*(nt+1);
   std::mt19937 gen(initial_seed); 
   std::uniform_int_distribution<> udist(1,10000); 
   const int num_elem = elem_map_->NumMyElements();
+  //std::cout<<mypid<<"   "<<udist(gen)<<std::endl;
 
   for( int i=0; i<num_elem; i++){
+    //const int gid = elem_map_->GID64(i)+1;
+    //std::cout<<mypid<<"  "<<gid<<std::endl;
     int elem_seed = udist(gen);
+    //int elem_seed = udist(gen)*gid;
     std::mt19937 mt(elem_seed);
     std::normal_distribution<> normal_dist(0,1);
     for(int ig=0;ig<ngp;ig++){

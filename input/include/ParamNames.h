@@ -188,9 +188,9 @@ std::string const TusasoutputpathNameString = "outputpath";
 /// File path for output.
 std::string const TusasoutputpathDocString = "outputpath (string): default decomp/ (path must exist)";
 
-/// Perform adaptive random distribution
+/// Perform random distribution
 std::string const TusasrandomDistributionNameString = "randomdistribution";
-/// Perform adaptive random distribution
+/// Perform random distribution
 std::string const TusasrandomDistributionDocString = "randomdistribution (bool): true; false (default)";
 
 #endif

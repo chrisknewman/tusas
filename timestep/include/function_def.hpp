@@ -8306,6 +8306,18 @@ PPR_FUNC(phi_)
 }
 
 }//namespace quaternion
+namespace random
+{
+
+RES_FUNC_TPETRA(residual_test_)
+{
+  //test function
+  const double test = basis[0]->phi[i];
+  //printf("%d %le \n",i,rand);
+  return (basis[0]->uu - rand)*test;
+}
+
+}//namespace random
 }//namespace tpetra
 
 

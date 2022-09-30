@@ -783,7 +783,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       // 	|| (0==elem_type.compare("hex8")) 
       // 	|| (0==elem_type.compare("hex"))  ){ // linear hex
       //     } 
-      if(8 == n_nodes_per_elem) { // linear hex
+      if(8 == n_nodes_per_elem) { // linear hex-- we need to port the bar element for quads
       }
       else {
 	exit(0);
@@ -817,8 +817,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       
       for( int k = 0; k < numeqs_; k++ ){
 	for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
-	  const int ss_id = it->first;
-	  
+	  //if there are not as many sisesets as there are physical sides, we need to find the sideset id
+	  const int index = it->first;
+	  int ss_id = -99;
+	  mesh_->side_set_found(index, ss_id);
 	  //loop over element faces--this will be the parallel loop eventually
 	  //we would need toto know coloring on the sideset or switch to scattered mesh
 	  for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces--this will be the parallel loop

@@ -2187,16 +2187,24 @@ void Mesh::create_sorted_elemlist_yxz()
 }
 
 bool Mesh::side_set_found(const int ss) const {
+  int id = 0;
+  return side_set_found(ss,id);
+}
+
+bool Mesh::side_set_found(const int ss, int &id) const {
   //it appears the ss_ids and ns_ids are indexed starting at 1
+  id = 0;
   for (auto i : ss_ids){
     //std::cout<<i<<std::endl;
     if(ss == i-1){
+      //std::cout<<(i-1)<<std::endl;
       return true;
     }
+    id++;
   }
-
   return false;
 }
+
 
 bool Mesh::node_set_found(const int ns) const {
   //it appears the ss_ids and ns_ids are indexed starting at 1

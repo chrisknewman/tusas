@@ -899,7 +899,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
-	const int ns_id = it->first;
+	const int index = it->first;
+	int ns_id = -99;
+	mesh_->node_set_found(index, ns_id);
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
 
 

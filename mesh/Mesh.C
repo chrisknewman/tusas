@@ -2200,18 +2200,25 @@ bool Mesh::side_set_found(const int ss, int &id) const {
     }
     id++;
   }
+  id = -99;
   return false;
 }
 
-
 bool Mesh::node_set_found(const int ns) const {
+  int id = 0;
+  return node_set_found(ns,id);
+}
+
+bool Mesh::node_set_found(const int ns, int &id) const {
   //it appears the ss_ids and ns_ids are indexed starting at 1
+  id = 0;
   for (auto i : ns_ids){
     //std::cout<<i<<std::endl;
     if(ns == i-1){
       return true;
     }
+    id++;
   }
-
+  id = -99;
   return false;
 }

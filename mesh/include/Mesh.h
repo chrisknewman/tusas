@@ -198,6 +198,7 @@ class Mesh
   int close_exodus(int ex_id);
   bool side_set_found(const int ss, int &id) const;
   bool side_set_found(const int ss) const;
+  bool node_set_found(const int ss, int &id) const;
   bool node_set_found(const int ns) const;
 
  private:

@@ -132,7 +132,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 SET( DIR_TEST "Test" )
 
-FILE ( COPY ${TRILINOS_DIR}/bin/exodiff DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/ )
+#FILE ( COPY ${TRILINOS_DIR}/bin/exodiff DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/ )
 
 #use -DUSE_BASH on mac with clang and openmp, as DYLD_LIBRARY_PATH does not get propogated to child processes in shells found in /bin/*
 

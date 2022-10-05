@@ -1354,7 +1354,8 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 
   Teuchos::RCP<NOX::StatusTest::NormF> relresid = 
     Teuchos::rcp(new NOX::StatusTest::NormF(*nox_group.get(), relrestol));
-
+  Teuchos::RCP<NOX::StatusTest::NormUpdate> update =
+    Teuchos::rcp(new NOX::StatusTest::NormUpdate(1.0e-5));
   Teuchos::RCP<NOX::StatusTest::NormWRMS> wrms =
     Teuchos::rcp(new NOX::StatusTest::NormWRMS(1.0e-2, 1.0e-8));
   Teuchos::RCP<NOX::StatusTest::Combo> converged =
@@ -1362,6 +1363,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   //converged->addStatusTest(absresid);
   converged->addStatusTest(relresid);
   //converged->addStatusTest(wrms);
+  //converged->addStatusTest(update);
 
   int maxit = 200;
   maxit = paramList.get<int> (TusasnoxmaxiterNameString);

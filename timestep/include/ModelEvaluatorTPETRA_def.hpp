@@ -57,7 +57,7 @@
 #define TUSAS_RUN_ON_CPU
 
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
-#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 32
+#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 40
 
 std::string getmypidstring(const int mypid, const int numproc);
 
@@ -2404,31 +2404,35 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
   }else if("quaternion" == paramList.get<std::string> (TusastestNameString)){
 
-    numeqs_ = 4;
+    numeqs_ = 5;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = &tpetra::quaternion::residual_;
     (*residualfunc_)[1] = &tpetra::quaternion::residual_;
     (*residualfunc_)[2] = &tpetra::quaternion::residual_;
     (*residualfunc_)[3] = &tpetra::quaternion::residual_;
+    (*residualfunc_)[4] = &tpetra::quaternion::residual_phi_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &tpetra::heat::prec_heat_test_;
     (*preconfunc_)[1] = &tpetra::heat::prec_heat_test_;
     (*preconfunc_)[2] = &tpetra::heat::prec_heat_test_;
     (*preconfunc_)[3] = &tpetra::heat::prec_heat_test_;
+    (*preconfunc_)[4] = &tpetra::heat::prec_heat_test_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::quaternion::init_;
-    (*initfunc_)[1] = &tpetra::quaternion::init_;
-    (*initfunc_)[2] = &tpetra::quaternion::init_;
-    (*initfunc_)[3] = &tpetra::quaternion::init_;
+    (*initfunc_)[0] = &tpetra::quaternion::initq0_;
+    (*initfunc_)[1] = &tpetra::quaternion::initq1_;
+    (*initfunc_)[2] = &tpetra::quaternion::initq2_;
+    (*initfunc_)[3] = &tpetra::quaternion::initq3_;
+    (*initfunc_)[4] = &tpetra::quaternion::initphi_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "q0";
     (*varnames_)[1] = "q1";
     (*varnames_)[2] = "q2";
     (*varnames_)[3] = "q3";
+    (*varnames_)[4] = "phi";
 
     // numeqs_ number of variables(equations) 
     dirichletfunc_ = NULL;
@@ -2436,13 +2440,15 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::quaternion::postproc0_;
+    post_proc[0].postprocfunc_ = &tpetra::quaternion::postproc_normq_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc1_;
+    post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc_ea0_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)2));
-    post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc2_;
+    post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc_ea1_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)3));
-    post_proc[3].postprocfunc_ = &tpetra::quaternion::phi_;
+    post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
+//     post_proc.push_back(new post_process(Comm,mesh_,(int)4));
+//     post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_d_;
 
 
     localprojectionindices_.push_back(0);

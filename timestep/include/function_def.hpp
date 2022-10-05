@@ -8138,11 +8138,23 @@ namespace quaternion
   //[2] LLNL-JRNL-636233 Phase-field modeling of coring during solidification of Au-Ni alloy using quaternions and CALPHAD input
   //J. L. Fattebert, M. E. Wickett, P. E. A. Turchi May 7, 2013
 
-  const double Mmax = .64;//1/sec/pJ
-  const double Mmin= 1.e-6;
+  const double r0 = .064;
+
+  const double Mq = 1.;//1/sec/pJ
+  const double Mphi = 1.;//1/sec/pJ
+  //const double Mmax = .64;//1/sec/pJ
+  //const double Mmin= 1.e-6;
   const double Dmax = 1000.;
   //const double Dmin = 1.e-6;
-  const double ep = .3125;//(pJ/um)^1/2
+  const double epq = .0477;//(pJ/um)^1/2
+  const double epphi = .083852;//(pJ/um)^1/2
+  //                          const double L = 2.e9;//J/m^3   =======>
+  const double L = 2000.;//pJ/um^3
+  const double omega = 31.25;//pJ/um^3
+  const double H = .884e-3;//pJ/K/um^2
+  const double T = 1000.;//K
+  const double Tm = 1025.;//K
+
   const int N = 4;
   const double pi = 3.141592653589793;
 
@@ -8166,6 +8178,23 @@ namespace quaternion
     return val;
   }
 
+  const double p(const double &phi)
+  {
+    return phi*phi;
+  }
+  const double pp(const double &phi)
+  {
+    return 2.*phi;
+  }
+  const double h(const double &phi)
+  {
+    return phi*phi*phi*(10.-15.*phi+6.*phi*phi);
+  }
+  const double hp(const double &phi)
+  {
+    return 3.*phi*phi*(10.-15.*phi+6.*phi*phi)+phi*phi*phi*(-15.+12.*phi);
+  }
+    
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_)
 {
@@ -8180,47 +8209,149 @@ RES_FUNC_TPETRA(residual_)
   //const double uold = basis[0]->uuold;
   const double uold = basis[eqn_id]->uuold;
 
-  double phi = getphi(basis[eqn_id]->xx,basis[eqn_id]->yy,0.,
-		      .5,.5,0.,
-		      .2, time);
-
-  double Dq = phi*phi*Dmax;
-  double m = 1.-phi*phi*phi*(10.-15.*phi+6.*phi*phi);
-  double M = Mmin+m*(Mmax-Mmin);
+  const double phi = basis[4]->uu;
+  double Dq = 2.*T*H*p(phi);
+  double m = 1.-h(phi);
+  double M = m*Mq;
 
   //we need norm grad q here
+  //grad q is nonzero only within interfaces
+  double normgradq[3] = {0.,0.,0.};
+  for(int k = 0; k < N; k++){
+    normgradq[0] = normgradq[0] + basis[k]->dudx*basis[k]->dudx + basis[k]->dudy*basis[k]->dudy + basis[k]->dudz*basis[k]->dudz;
+    normgradq[1] = normgradq[1] + basis[k]->duolddx*basis[k]->duolddx + basis[k]->duolddy*basis[k]->duolddy + basis[k]->duolddz*basis[k]->duolddz;
+    normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
+  }
+  //std::cout<<normgradq[0]<<std::endl;
+  normgradq[0] = sqrt(normgradq[0]);
+  normgradq[1] = sqrt(normgradq[1]);
+  normgradq[2] = sqrt(normgradq[2]);
 
-  const double divgradu[3] = {M*(ep+Dq)*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
-			      M*(ep+Dq)*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
-			      M*(ep+Dq)*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
+  const double ut = (u-basis[eqn_id]->uuold)/dt_*test*normgradq[0];
+
+  double ep[3] = {normgradq[0]*epq*epq,normgradq[1]*epq*epq,normgradq[2]*epq*epq};
+
+  const double divgradu[3] = {M*(ep[0]+Dq)*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
+			      M*(ep[1]+Dq)*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
+			      M*(ep[2]+Dq)*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
   double suml[3] = {0.,0.,0.};
   for(int k = 0; k < N; k++){
     suml[0] = suml[0] + (basis[k]->uu)*(basis[k]->uu);
-    //suml[1] = suml[1] + (basis[k]->uuold)*(basis[k]->uuold);
-    //suml[2] = suml[2] + (basis[k]->uuoldold)*(basis[k]->uuoldold);
+    suml[1] = suml[1] + (basis[k]->uuold)*(basis[k]->uuold);
+    suml[2] = suml[2] + (basis[k]->uuoldold)*(basis[k]->uuoldold);
   }
 
-  //suml[0]=1.;
-  std::cout<<suml[0]<<std::endl;
-  suml[1]=1.;
-  suml[2]=1.;
+//   suml[0]=1.;
+//   suml[1]=1.;
+//   suml[2]=1.;
 
   double sumk[3] = {0.,0.,0.};
   for(int k = 0; k < N; k++){
-    sumk[0] = sumk[0] + (basis[eqn_id]->uu)/suml[0]*M*(ep+Dq)*(basis[k]->uu)*(basis[k]->dudx*dtestdx + basis[k]->dudy*dtestdy + basis[k]->dudz*dtestdz);
-    sumk[1] = sumk[1] + (basis[eqn_id]->uuold)/suml[1]*M*(ep+Dq)*(basis[k]->uuold)*(basis[k]->duolddx*dtestdx + basis[k]->duolddy*dtestdy + basis[k]->duolddz*dtestdz);
-    sumk[2] = sumk[2] + (basis[eqn_id]->uuoldold)/suml[2]*M*(ep+Dq)*(basis[k]->uuoldold)*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
+    sumk[0] = sumk[0] + (basis[k]->uu)*(basis[k]->dudx*dtestdx + basis[k]->dudy*dtestdy + basis[k]->dudz*dtestdz);
+    sumk[1] = sumk[1] + (basis[k]->uuold)*(basis[k]->duolddx*dtestdx + basis[k]->duolddy*dtestdy + basis[k]->duolddz*dtestdz);
+    sumk[2] = sumk[2] + (basis[k]->uuoldold)*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
   }
-  const double f[3] = {divgradu[0] -  sumk[0], divgradu[1] -  sumk[1], divgradu[2] -  sumk[2]};
-  const double ut = (u-basis[eqn_id]->uuold)/dt_*test;
+  sumk[0] = -(basis[eqn_id]->uu)/suml[0]*M*(ep[0]+Dq)*sumk[0];
+  sumk[1] = -(basis[eqn_id]->uuold)/suml[1]*M*(ep[1]+Dq)*sumk[1];
+  sumk[2] = -(basis[eqn_id]->uuoldold)/suml[2]*M*(ep[2]+Dq)*sumk[2];
 
-  return ut + (1.-t_theta2_)*t_theta_*f[0]
+  //const double f[3] = {divgradu[0] +  0.*sumk[0], divgradu[1] +  0.*sumk[1], divgradu[2] +  0.*sumk[2]};
+  const double f[3] = {divgradu[0], divgradu[1], divgradu[2]};
+
+  return (ut + (1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));//*1.e2;
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_phi_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[0]->dphidx[i];
+  const double dtestdy = basis[0]->dphidy[i];
+  const double dtestdz = basis[0]->dphidz[i];
+  //test function
+  const double test = basis[0]->phi[i];
+  //u, phi
+  const double phi[3] = {basis[eqn_id]->uu, basis[eqn_id]->uuold, basis[eqn_id]->uuoldold};
+
+  const double phit = (phi[0]-phi[1])/dt_*test;
+
+  const double divgradu[3] = {Mphi*epphi*epphi*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
+			      Mphi*epphi*epphi*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
+			      Mphi*epphi*epphi*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
+  
+  const double ww[3] = {Mphi*16*omega*phi[0]*(1.-phi[0])*test,
+			Mphi*16*omega*phi[1]*(1.-phi[1])*test,
+			Mphi*16*omega*phi[2]*(1.-phi[2])*test};
+
+  double normgradq[3] = {0.,0.,0.};
+  for(int k = 0; k < N; k++){
+    normgradq[0] = normgradq[0] + basis[k]->dudx*basis[k]->dudx + basis[k]->dudy*basis[k]->dudy + basis[k]->dudz*basis[k]->dudz;
+    normgradq[1] = normgradq[1] + basis[k]->duolddx*basis[k]->duolddx + basis[k]->duolddy*basis[k]->duolddy + basis[k]->duolddz*basis[k]->duolddz;
+    normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
+  }
+  normgradq[0] = sqrt(normgradq[0]);
+  normgradq[1] = sqrt(normgradq[1]);
+  normgradq[2] = sqrt(normgradq[2]);
+  //coupling term
+  const double pq[3] = {Mphi*2.*H*T*pp(phi[0])*normgradq[0]*test,
+			Mphi*2.*H*T*pp(phi[1])*normgradq[1]*test,
+			Mphi*2.*H*T*pp(phi[2])*normgradq[2]*test};
+
+  const double hh[3] = {(-Mphi*hp(phi[0])*L*(Tm-T)/Tm*test),
+			(-Mphi*hp(phi[1])*L*(Tm-T)/Tm*test),
+			(-Mphi*hp(phi[2])*L*(Tm-T)/Tm*test)};
+  const double f[3] = {divgradu[0] + ww[0] + pq[0] + hh[0],
+		       divgradu[1] + ww[1] + pq[1] + hh[1],
+		       divgradu[2] + ww[2] + pq[2] + hh[2]};
+
+  return phit + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
+INI_FUNC(initq0_)
+{
+  double val = .5;
+  if (x > r0 && y <= r0 ) val = -.5;
+  return val;
+}
+
+INI_FUNC(initq1_)
+{
+  double val = .5;
+  if (x > r0 && y > r0 ) val = -.5;
+  return val;
+}
+
+INI_FUNC(initq2_)
+{
+  return 0.5;
+}
+
+INI_FUNC(initq3_)
+{
+  return 0.5;
+}
+
+INI_FUNC(initphi_)
+{
+  double val = 0.;
+  const double x0 = 0.;
+  const double x1 = .128;
+  if( x*x + y*y <= r0*r0 ) val = 1.;
+  if( (x-x1)*(x-x1) + y*y <= r0*r0 ) val = 1.;
+  if( (x-x1)*(x-x1) + (y-x1)*(y-x1) <= r0*r0 ) val = 1.;
+  if( x*x + (y-x1)*(y-x1) <= r0*r0 ) val = 1.;
+
+  return val;
+}
+
 INI_FUNC(init_)
 {
+  //this will be a function of eqn_id...
+
   const double r = .2;
   const double x0 = .5;
   const double y0 = .5;
@@ -8258,26 +8389,28 @@ INI_FUNC(init_)
 //paraview expects [0,1] for an rgb value
 //https://discourse.paraview.org/t/coloring-surface-by-predefined-rgb-values/6011/6
 //so should we shift and scale each of these here?
-PPR_FUNC(postproc0_)
+PPR_FUNC(postproc_ea0_)
 {
   //u is u0,u1,...
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-
+  //                       w      x      y      z
   double sinr_cosp = 2. * (u[0] * u[1] + u[2] * u[3]);
+  //                            x      x      y      y
   double cosr_cosp = 1. - 2. * (u[1] * u[1] + u[2] * u[2]);
   double s = std::atan2(sinr_cosp, cosr_cosp);
   return (s+pi)/2./pi;
   //return s;
 }
 
-PPR_FUNC(postproc1_)
+PPR_FUNC(postproc_ea1_)
 {
   //u is u0,u1,...
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-
+  //                 w      y      z      x
   double sinp = 2 * (u[0] * u[2] - u[3] * u[1]);
   double s = 0.;
   if (std::abs(sinp) >= 1.){
+  //if (std::abs(sinp) >= .95){
     s = std::copysign(pi / 2., sinp); // use 90 degrees if out of range
   }else{
     s = std::asin(sinp);
@@ -8286,23 +8419,28 @@ PPR_FUNC(postproc1_)
   //return s;
 }
 
-PPR_FUNC(postproc2_)
+PPR_FUNC(postproc_ea2_)
 {
   //u is u0,u1,...
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
-
+  //                       w      z      x      y
   double siny_cosp = 2. * (u[0] * u[3] + u[1] * u[2]);
+  //                            y      y      z      z
   double cosy_cosp = 1. - 2. * (u[2] * u[2] + u[3] * u[3]);
   double s = std::atan2(siny_cosp, cosy_cosp);
   return (s+pi)/2./pi;
   //return s;
 }
 
-PPR_FUNC(phi_)
+PPR_FUNC(postproc_normq_)
 {
-  return getphi(xyz[0],xyz[1],0.,
-		      .5,.5,0.,
-		      .2, time);
+  return u[0]*u[0]+u[1]*u[1]+u[2]*u[2]+u[3]*u[3];
+}
+
+PPR_FUNC(postproc_d_)
+{
+  double phi=u[3];
+  return 2*H*T*p(phi);
 }
 
 }//namespace quaternion

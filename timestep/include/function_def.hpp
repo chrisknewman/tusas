@@ -8234,6 +8234,7 @@ RES_FUNC_TPETRA(residual_)
   const double divgradu[3] = {M*(ep[0]+Dq)*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      M*(ep[1]+Dq)*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      M*(ep[2]+Dq)*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
+#if 0  
   double suml[3] = {0.,0.,0.};
   for(int k = 0; k < N; k++){
     suml[0] = suml[0] + (basis[k]->uu)*(basis[k]->uu);
@@ -8254,13 +8255,18 @@ RES_FUNC_TPETRA(residual_)
   sumk[0] = -(basis[eqn_id]->uu)/suml[0]*M*(ep[0]+Dq)*sumk[0];
   sumk[1] = -(basis[eqn_id]->uuold)/suml[1]*M*(ep[1]+Dq)*sumk[1];
   sumk[2] = -(basis[eqn_id]->uuoldold)/suml[2]*M*(ep[2]+Dq)*sumk[2];
-
+#endif
   //const double f[3] = {divgradu[0] +  0.*sumk[0], divgradu[1] +  0.*sumk[1], divgradu[2] +  0.*sumk[2]};
   const double f[3] = {divgradu[0], divgradu[1], divgradu[2]};
 
-  return (ut + (1.-t_theta2_)*t_theta_*f[0]
+  double val= (ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
 	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));//*1.e2;
+//   if(val!=val){
+//     std::cout<<divgradu[0]<<" "<<divgradu[1]<<" "<<divgradu[2]<<std::endl;
+//   }
+//   std::cout<<val<<" "<<i<<std::endl;
+  return val;
 }
 
 KOKKOS_INLINE_FUNCTION 

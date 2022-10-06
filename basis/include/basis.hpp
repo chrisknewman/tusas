@@ -2898,7 +2898,7 @@ public:
     
     jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
       + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
-    
+    //std::cout<<jac<<" "<<wt<<" "<<gp<<std::endl;
     volp = jac*canonical_vol;
     dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
     dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;

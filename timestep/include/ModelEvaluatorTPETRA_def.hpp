@@ -262,18 +262,43 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
     std::string optionsFile = "mueluOptions.xml";  
     Teuchos::updateParametersFromXmlFileAndBroadcast(optionsFile,Teuchos::Ptr<Teuchos::ParameterList>(&mueluParamList), *P_->getComm());
+
+    //if( mueluParamList.get<bool>("repartition: enable") ){
+    muelucoords_ = Teuchos::rcp(new mv_type(x_owned_map_, (size_t)3));
+    auto xv = x_->get1dViewNonConst();
+    auto yv = y_->get1dViewNonConst();
+    auto zv = z_->get1dViewNonConst();
+    const size_t localLength = x_owned_map_->getNodeNumElements();
+    for(int i = 0; i< localLength; i++){
+      const global_ordinal_type gid = (x_owned_map_->getGlobalElement(i))/numeqs_;
+      const global_ordinal_type lid = node_overlap_map_->getLocalElement(gid);
+      //std::cout<<gid<<" "<<lid<<" "<<xv[lid]<<std::endl;
+      muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 0, xv[lid]);
+      muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 1, yv[lid]);
+      muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 2, zv[lid]);
+    }//i
+    //muelucoords_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+    Teuchos::ParameterList userDataList = mueluParamList.sublist("user data");
+    userDataList.set<RCP<mv_type> >("Coordinates",muelucoords_);
+
+    mueluParamList.set("number of equations",numeqs_);
+    //}
+
     if( 0 == comm_->getRank() ){
       std::cout << "\nReading MueLu parameter list from the XML file \""<<optionsFile<<"\" ...\n";
       mueluParamList.print(std::cout, 2, true, true );
+      userDataList.print(std::cout, 2, true, true );
     }
 
-    prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_, mueluParamList);
+    //prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_, mueluParamList);
+    prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>
+      ((Teuchos::RCP<Tpetra::Operator<scalar_type,local_ordinal_type, global_ordinal_type, node_type> >)P_, mueluParamList);
+
 
     if( 0 == comm_->getRank() ){
       std::cout <<" MueLu preconditioner created"<<std::endl<<std::endl;
     }
   }
-
 
   Thyra::ModelEvaluatorBase::InArgsSetup<scalar_type> inArgs;
   inArgs.setModelEvalDescription(this->description());
@@ -1074,8 +1099,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		const local_ordinal_type row = lrow +neq; 
 		local_ordinal_type col[1] = {lcol[0] + neq};
 		
-		//cn this call seems to be what is crashing the cuda version
-		
 	      //P->sumIntoLocalValues(lrow,(local_ordinal_type)1,val,lcol,false);
 		PV.sumIntoValues (row, col,(local_ordinal_type)1,val);
 		
@@ -1136,8 +1159,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 	
- 	//for ( int j = 0; j < num_node_ns; j++ ){
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
+ 	for ( int j = 0; j < num_node_ns; j++ ){
+	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
 
 	  const int lid_overlap = node_set_view(j);
 	  //const global_ordinal_type gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
@@ -1168,8 +1191,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  delete[] vals;
 	  delete[] inds;
 	
-	  });//parallel_for
-	  //}//j
+	  //});//parallel_for
+	  }//j
 
       }//it
     }//k

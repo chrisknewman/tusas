@@ -210,6 +210,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 						comm_
 						));
 
+  node_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(node_overlap_map_,greedy_tie_break))));
   //cn we could store previous time values in a multivector
   u_old_ = Teuchos::rcp(new vector_type(x_owned_map_));
   u_old_->putScalar(Teuchos::ScalarTraits<scalar_type>::zero());
@@ -263,31 +264,30 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     std::string optionsFile = "mueluOptions.xml";  
     Teuchos::updateParametersFromXmlFileAndBroadcast(optionsFile,Teuchos::Ptr<Teuchos::ParameterList>(&mueluParamList), *P_->getComm());
 
-    //if( mueluParamList.get<bool>("repartition: enable") ){
-    muelucoords_ = Teuchos::rcp(new mv_type(x_owned_map_, (size_t)3));
-    auto xv = x_->get1dViewNonConst();
-    auto yv = y_->get1dViewNonConst();
-    auto zv = z_->get1dViewNonConst();
-    const size_t localLength = x_owned_map_->getNodeNumElements();
-    for(int i = 0; i< localLength; i++){
-      const global_ordinal_type gid = (x_owned_map_->getGlobalElement(i))/numeqs_;
-      const global_ordinal_type lid = node_overlap_map_->getLocalElement(gid);
-      //std::cout<<gid<<" "<<lid<<" "<<xv[lid]<<std::endl;
-      muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 0, xv[lid]);
-      muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 1, yv[lid]);
-      muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 2, zv[lid]);
-    }//i
-    //muelucoords_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-    Teuchos::ParameterList &userDataList = mueluParamList.sublist("user data");
-    userDataList.set<RCP<mv_type> >("Coordinates",muelucoords_);
-
-    mueluParamList.set("number of equations",numeqs_);
-    //}
+    if( mueluParamList.get<bool>("repartition: enable",false) ){
+      muelucoords_ = Teuchos::rcp(new mv_type(node_owned_map_, (size_t)3));
+      auto xv = x_->get1dViewNonConst();
+      auto yv = y_->get1dViewNonConst();
+      auto zv = z_->get1dViewNonConst();
+      const size_t localLength = node_owned_map_->getNodeNumElements();
+      for(int i = 0; i< localLength; i++){
+	const global_ordinal_type gid = (node_owned_map_->getGlobalElement(i));
+	const global_ordinal_type lid = node_overlap_map_->getLocalElement(gid);
+	//std::cout<<gid<<" "<<lid<<" "<<xv[lid]<<std::endl;
+	muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 0, xv[lid]);
+	muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 1, yv[lid]);
+	muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 2, zv[lid]);
+      }//i
+      //muelucoords_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+      Teuchos::ParameterList &userDataList = mueluParamList.sublist("user data");
+      userDataList.set<RCP<mv_type> >("Coordinates",muelucoords_);
+      
+      mueluParamList.set("number of equations",numeqs_);
+    }
 
     if( 0 == comm_->getRank() ){
       std::cout << "\nReading MueLu parameter list from the XML file \""<<optionsFile<<"\" ...\n";
       mueluParamList.print(std::cout, 2, true, true );
-      userDataList.print(std::cout, 2, true, true );
     }
 
     //prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>(P_, mueluParamList);

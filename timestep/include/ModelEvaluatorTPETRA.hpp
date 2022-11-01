@@ -165,6 +165,7 @@ private:
   Teuchos::RCP<const map_type > x_overlap_map_;
   Teuchos::RCP<const map_type > x_owned_map_;
   Teuchos::RCP<const map_type > node_overlap_map_;
+  Teuchos::RCP<const map_type > node_owned_map_;
 
   Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > f_space_;
 

@@ -270,14 +270,16 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
       auto yv = y_->get1dViewNonConst();
       auto zv = z_->get1dViewNonConst();
       const size_t localLength = node_owned_map_->getNodeNumElements();
-      for(int i = 0; i< localLength; i++){
+      //for(int i = 0; i< localLength; i++){
+      Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& i){
 	const global_ordinal_type gid = (node_owned_map_->getGlobalElement(i));
 	const global_ordinal_type lid = node_overlap_map_->getLocalElement(gid);
 	//std::cout<<gid<<" "<<lid<<" "<<xv[lid]<<std::endl;
 	muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 0, xv[lid]);
 	muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 1, yv[lid]);
 	muelucoords_->replaceLocalValue ((local_ordinal_type)i, (size_t) 2, zv[lid]);
-      }//i
+			   });
+      //}//i
       //muelucoords_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
       Teuchos::ParameterList &userDataList = mueluParamList.sublist("user data");
       userDataList.set<RCP<mv_type> >("Coordinates",muelucoords_);

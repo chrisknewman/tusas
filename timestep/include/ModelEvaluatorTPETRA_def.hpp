@@ -274,7 +274,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
       }//i
       //muelucoords_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
       Teuchos::ParameterList &userDataList = mueluParamList.sublist("user data");
-      userDataList.set<RCP<mv_type> >("Coordinates",muelucoords_);
+      userDataList.set<Teuchos::RCP<mv_type> >("Coordinates",muelucoords_);
       
       mueluParamList.set("number of equations",numeqs_);
     }

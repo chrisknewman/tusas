@@ -135,6 +135,8 @@ private:
                          node_type> export_type;
   typedef Tpetra::CrsMatrix<scalar_type,local_ordinal_type, global_ordinal_type,
                          node_type> matrix_type;
+  typedef Tpetra::MultiVector<scalar_type, local_ordinal_type,
+			      global_ordinal_type, node_type> mv_type;
 
   ::Thyra::ModelEvaluatorBase::OutArgs<Scalar> createOutArgsImpl() const;
 
@@ -165,6 +167,7 @@ private:
   Teuchos::RCP<const map_type > x_overlap_map_;
   Teuchos::RCP<const map_type > x_owned_map_;
   Teuchos::RCP<const map_type > node_overlap_map_;
+  Teuchos::RCP<const map_type > node_owned_map_;
 
   Teuchos::RCP<const Thyra::VectorSpaceBase<Scalar> > f_space_;
 
@@ -181,6 +184,8 @@ private:
   Teuchos::RCP<vector_type> x_;
   Teuchos::RCP<vector_type> y_;
   Teuchos::RCP<vector_type> z_;
+
+  Teuchos::RCP<mv_type> muelucoords_;
 
   Teuchos::RCP<crs_graph_type>  W_graph_;
   Teuchos::RCP<crs_graph_type>  W_overlap_graph_;

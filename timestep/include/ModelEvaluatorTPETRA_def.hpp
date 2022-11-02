@@ -274,7 +274,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
       }//i
       //muelucoords_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
       Teuchos::ParameterList &userDataList = mueluParamList.sublist("user data");
-      userDataList.set<RCP<mv_type> >("Coordinates",muelucoords_);
+      userDataList.set<Teuchos::RCP<mv_type> >("Coordinates",muelucoords_);
       
       mueluParamList.set("number of equations",numeqs_);
     }
@@ -1590,14 +1590,14 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 	
 	dt_ = dtpred;
 
-	if( 0 == mypid)std::cout<<"     advance() step NOT ACCEPTED with dt = "<<dt_
+	if( 0 == mypid)std::cout<<"     advance() step NOT ACCEPTED with dt = "<<std::scientific<<dt_
 				<<"; new dt = "<<dtpred
-				<<"; and iterations = "<<numit<<std::endl;
+				<<"; and iterations = "<<numit<<std::endl<<std::defaultfloat;
 	
       }else{
-	if( 0 == mypid)std::cout<<"     advance() step accepted with dt = "<<dt_
+	if( 0 == mypid)std::cout<<"     advance() step accepted with dt = "<<std::scientific<<dt_
 				<<"; new dt = "<<dtpred
-				<<"; and iterations = "<<numit<<std::endl;
+				<<"; and iterations = "<<numit<<std::endl<<std::defaultfloat;
 
 	break;
 
@@ -2831,7 +2831,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
     maxdt[k] = std::max(h1,dt_*rmin);
     mindt[k] = std::min(h1,dt_*rmax);
     if( 0 == comm_->getRank()){
-      std::cout<<std::endl<<"     Variable: "<<(*varnames_)[k]<<std::endl;
+      std::cout<<std::endl<<"     Variable: "<<(*varnames_)[k]<<std::endl<<std::scientific;
       //std::cout<<"                              tol = "<<tol<<std::endl;
       std::cout<<"                            error = "<<error[k]<<std::endl;
       std::cout<<"                           max dt = "<<dtmax<<std::endl;
@@ -2855,7 +2855,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   }
   dtpred = std::min(dtpred,dtmax);
   if( 0 == comm_->getRank()){
-    std::cout<<std::endl<<"           min(dtpred,dtmax) : "<<dtpred<<std::endl<<std::endl;	
+    std::cout<<std::endl<<"           min(dtpred,dtmax) : "<<dtpred<<std::endl<<std::endl<<std::defaultfloat;	
   }  
   return dtpred;
 }

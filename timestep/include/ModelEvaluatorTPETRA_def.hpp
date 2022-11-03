@@ -2982,6 +2982,7 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 						mesh_,
 						k, 
 						post_process::NORMRMS, 
+						//post_process::NORM2, 
 						k, 
 						"temperror",
 						16));
@@ -3008,7 +3009,8 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 	temporal_norm.push_back(new post_process(Comm,
 						 mesh_,
 						 k, 
-						 post_process::NORMRMS, 
+						 post_process::NORMRMS,
+						 //post_process::NORM2, 
 						 k, 
 						 "tempnorm",
 						 16));

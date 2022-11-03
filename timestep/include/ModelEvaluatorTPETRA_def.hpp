@@ -3228,50 +3228,52 @@ template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
   {
     bool dorestart = paramList.get<bool> (TusasrestartNameString);
-      //cn this is not going to work with multiple k
-      //what do we do with temporal_est[0].pos....
-      //is index_ correct here??
-      Teuchos::ParameterList *atsList;
-      atsList = &paramList.sublist (TusasatslistNameString, false );
-      for( int k = 0; k < numeqs_; k++ ){
-	temporal_est.push_back(new post_process(Comm,
-						mesh_,
-						k, 
-						post_process::NORMRMS,
-						dorestart, 
-						k, 
-						"temperror",
-						16));
-	//be with an error estimate based on second derivative
-	if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
-	   temporal_est[k].postprocfunc_ = &timeadapt::d2udt2_;
-	//be with error estimate based on fe predictor: fe-be
-	if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
-	  temporal_est[k].postprocfunc_ = &timeadapt::predictor_fe_;
+    post_process::SCALAR_OP norm = post_process::NORMRMS;
 
-	//we will have tr with adams-bashforth predictor: ab-tr
-	//would require a small first step to get ab going
-	//or get u_n-1 via initial solve above with maybe a better update
-	//see gresho for a wierd ab way for this--can use regular ab
-
-	//and possibly tr with an explicit midpoint rule (huen) predictor: huen-tr
-	//(we could use initial solve above 
-	//with better update to get
-	//(up_n+1 - u_n-1)/(2 dt) = f(t_n)
-	//with error = - (u_n+1 - up_n+1)/5
-	//see https://www.cs.princeton.edu/courses/archive/fall11/cos323/notes/cos323_f11_lecture17_ode2.pdf
-	//we would utilize t_theta2_ similarly
-
-	temporal_norm.push_back(new post_process(Comm,
-						 mesh_,
-						 k, 
-						 post_process::NORMRMS, 
-						 dorestart,
-						 k, 
-						 "tempnorm",
-						 16));
- 	temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
-
-      }
+    //cn this is not going to work with multiple k
+    //what do we do with temporal_est[0].pos....
+    //is index_ correct here??
+    Teuchos::ParameterList *atsList;
+    atsList = &paramList.sublist (TusasatslistNameString, false );
+    for( int k = 0; k < numeqs_; k++ ){
+      temporal_est.push_back(new post_process(Comm,
+					      mesh_,
+					      k, 
+					      norm,
+					      dorestart, 
+					      k, 
+					      "temperror",
+					      16));
+      //be with an error estimate based on second derivative
+      if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
+	temporal_est[k].postprocfunc_ = &timeadapt::d2udt2_;
+      //be with error estimate based on fe predictor: fe-be
+      if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
+	temporal_est[k].postprocfunc_ = &timeadapt::predictor_fe_;
+      
+      //we will have tr with adams-bashforth predictor: ab-tr
+      //would require a small first step to get ab going
+      //or get u_n-1 via initial solve above with maybe a better update
+      //see gresho for a wierd ab way for this--can use regular ab
+      
+      //and possibly tr with an explicit midpoint rule (huen) predictor: huen-tr
+      //(we could use initial solve above 
+      //with better update to get
+      //(up_n+1 - u_n-1)/(2 dt) = f(t_n)
+      //with error = - (u_n+1 - up_n+1)/5
+      //see https://www.cs.princeton.edu/courses/archive/fall11/cos323/notes/cos323_f11_lecture17_ode2.pdf
+      //we would utilize t_theta2_ similarly
+      
+      temporal_norm.push_back(new post_process(Comm,
+					       mesh_,
+					       k, 
+					       norm, 
+					       dorestart,
+					       k, 
+					       "tempnorm",
+					       16));
+      temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
+      
+    }
   }
 #endif

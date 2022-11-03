@@ -84,6 +84,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasrandomDistributionNameString,(bool)false,TusasrandomDistributionDocString);
 
+  paramList.set(TusaspredmaxiterNameString,(int)20,TusaspredmaxiterDocString);//not sure where to put this, the residual tol is set in atslist
+
   Teuchos::ParameterList *ATSList;
   ATSList = &paramList.sublist(TusasatslistNameString,(bool)false);
   ATSList->set(TusasatsmaxiterNameString,1);
@@ -95,6 +97,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   ATSList->set(TusasatsepsNameString,1.e-10);
   ATSList->set(TusasatsmaxdtNameString,1.e-1);
   ATSList->set(TusasatstypeNameString,"predictor corrector",TusasatstypeDocString);
+  ATSList->set(TusaspredmaxiterNameString,(int)20,TusaspredmaxiterDocString);
+  //ATSList->set(TusaspredrelresNameString,paramList.get<double>(TusasnoxrelresNameString),TusaspredrelresDocString);//not sure where to put this, the residual tol is set in atslist
 
   //ML parameters for ML and MueLu
   Teuchos::ParameterList *MLList;

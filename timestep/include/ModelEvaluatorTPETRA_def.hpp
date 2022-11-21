@@ -70,7 +70,7 @@ public:
 						   Thyra::ScaledLinearOpBase<Scalar>(){};
   ~tusasjfnkOp(){};
 
-  bool supportsScaleLeftImpl() const {return false;};
+  bool supportsScaleLeftImpl() const {return true;};
   bool supportsScaleRightImpl() const {return false;};
   void scaleLeftImpl (const VectorBase< Scalar > &row_scaling){ 
     using Teuchos::rcpFromRef;
@@ -82,8 +82,10 @@ public:
     
     RCP<Tpetra::Vector<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type> > fs =
       TpetraOperatorVectorExtraction<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type>::getTpetraVector(f);
-    fs->scale(1.,*rs);
+  
+    fs->scale(1.,*rs);  
   };
+  
   void scaleRightImpl (const VectorBase< Scalar > &col_scaling){};
   RCP< const VectorSpaceBase< Scalar > > range() const {return NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::range();};
   RCP< const VectorSpaceBase< Scalar > > domain() const {return NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::domain();};
@@ -1271,7 +1273,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   bool do_scaling = paramList.get<bool> (TusasleftScalingNameString);
   if(do_scaling){
     scaling_ = Thyra::createMember(this->get_x_space());
-    Thyra::put_scalar(10.0,scaling_.ptr());
+    update_left_scaling();
   }else{
     scaling_ = Teuchos::null;
   }
@@ -1488,6 +1490,11 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
     randomdistribution->compute_random(numsteps_);
     //randomdistribution->print();
     //exit(0);
+  }
+
+  bool do_scaling = paramList.get<bool> (TusasleftScalingNameString);
+  if(do_scaling){
+    update_left_scaling();
   }
 
   double dtpred = dt_;
@@ -3275,5 +3282,30 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
       temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
       
     }
+  }
+
+template<class Scalar>
+  void ModelEvaluatorTPETRA<Scalar>::update_left_scaling()
+  {
+    //this is currently row scaling by inverse of solution at previous timestep
+    const double small = 1e-8;
+
+    Teuchos::RCP<vector_type> temp = Teuchos::rcp(new vector_type(*u_old_));
+
+    auto temp_view = temp->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto temp_1d = Kokkos::subview (temp_view, Kokkos::ALL (), 0);
+
+    const size_t localLength = num_owned_nodes_;
+    //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
+    for(int nn = 0; nn < localLength; nn++){
+      for( int k = 0; k < numeqs_; k++ ){
+	if(temp_1d[numeqs_*nn+k] < small ) temp_1d[numeqs_*nn+k] = 1.;
+	std::cout<<numeqs_*nn+k<<" "<<temp_1d[numeqs_*nn+k]<<std::endl;
+      }
+    }
+
+    Teuchos::RCP< ::Thyra::VectorBase< double > > r = Thyra::createVector(temp,x_space_);
+			 //Thyra::put_scalar(1.0,scaling_.ptr());
+    Thyra::reciprocal(*r,scaling_.ptr());
   }
 #endif

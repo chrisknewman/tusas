@@ -206,6 +206,8 @@ private:
   Thyra::ModelEvaluatorBase::OutArgs<Scalar> prototypeOutArgs_;
   Teuchos::RCP<::Thyra::VectorBase< double > > scaling_;
 
+  void update_left_scaling();
+
   /// Initialize and create the NOX and linear solvers.
   void init_nox();
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface

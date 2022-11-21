@@ -3299,13 +3299,14 @@ template<class Scalar>
     //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
     for(int nn = 0; nn < localLength; nn++){
       for( int k = 0; k < numeqs_; k++ ){
-	if(temp_1d[numeqs_*nn+k] < small ) temp_1d[numeqs_*nn+k] = 1.;
-	std::cout<<numeqs_*nn+k<<" "<<temp_1d[numeqs_*nn+k]<<std::endl;
+	if(abs(temp_1d[numeqs_*nn+k]) < small ) temp_1d[numeqs_*nn+k] = 1.;
+	//std::cout<<numeqs_*nn+k<<" "<<temp_1d[numeqs_*nn+k]<<std::endl;
       }
     }
 
     Teuchos::RCP< ::Thyra::VectorBase< double > > r = Thyra::createVector(temp,x_space_);
 			 //Thyra::put_scalar(1.0,scaling_.ptr());
     Thyra::reciprocal(*r,scaling_.ptr());
+    scaling_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   }
 #endif

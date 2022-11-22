@@ -67,23 +67,31 @@ class tusasjfnkOp
 {
 public:
   tusasjfnkOp(Teuchos::ParameterList &printParams):NOX::Thyra::MatrixFreeJacobianOperator<Scalar>(printParams),
-						   Thyra::ScaledLinearOpBase<Scalar>(){};
+ 						   Thyra::ScaledLinearOpBase<Scalar>()
+{};
   ~tusasjfnkOp(){};
 
   bool supportsScaleLeftImpl() const {return true;};
   bool supportsScaleRightImpl() const {return false;};
+  Teuchos::RCP<const ::Thyra::VectorBase<double> >  scaling;
   void scaleLeftImpl (const VectorBase< Scalar > &row_scaling){ 
-    using Teuchos::rcpFromRef;
+//     using Teuchos::rcpFromRef;
     
-    const RCP<const Tpetra::Vector<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type> > rs =
-      TpetraOperatorVectorExtraction<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type>::getConstTpetraVector(rcpFromRef(row_scaling));
+//     const RCP<const Tpetra::Vector<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type> > rs =
+//       TpetraOperatorVectorExtraction<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type>::getConstTpetraVector(rcpFromRef(row_scaling));
     
-    Teuchos::RCP< Thyra::VectorBase< double > > f = NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::f_perturb_;
+//     Teuchos::RCP< Thyra::VectorBase< double > > f = NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::f_perturb_;
     
-    RCP<Tpetra::Vector<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type> > fs =
-      TpetraOperatorVectorExtraction<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type>::getTpetraVector(f);
+//     RCP<Tpetra::Vector<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type> > fs =
+//       TpetraOperatorVectorExtraction<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type>::getTpetraVector(f);
   
-    fs->scale(1.,*rs);  
+//     fs->scale(1.,*rs); 
+    
+//     Scalar delta = this->getDelta();
+//     std::cout<<"scaleLeftImpl "<<norm(row_scaling)<<std::endl;
+//     ele_wise_scale(row_scaling,f.ptr()); 
+    
+    scaling = row_scaling.clone_v();
   };
   
   void scaleRightImpl (const VectorBase< Scalar > &col_scaling){};
@@ -91,7 +99,12 @@ public:
   RCP< const VectorSpaceBase< Scalar > > domain() const {return NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::domain();};
   bool opSupportedImpl(EOpTransp M_trans) const {return false;};
   void applyImpl(const EOpTransp M_trans, const MultiVectorBase< Scalar > &X, const Ptr< MultiVectorBase< Scalar > > &Y, const Scalar alpha, const Scalar beta) const
-  {NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::applyImpl(M_trans, X, Y, alpha, beta);};
+  {
+    //std::cout<<"applyImpl"<<std::endl;
+    NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::applyImpl(M_trans, X, Y, alpha, beta);
+    if (nonnull(scaling))
+      ele_wise_scale(*scaling,(Y->col(0)).ptr());
+  };
 };
 
 template<class Scalar>
@@ -1314,6 +1327,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   else {
     nox_group =
       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null, scaling_, Teuchos::null));
+//       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel,  scaling_, Teuchos::null, Teuchos::null));
   }
 
   nox_group->computeF();
@@ -3307,6 +3321,6 @@ template<class Scalar>
     Teuchos::RCP< ::Thyra::VectorBase< double > > r = Thyra::createVector(temp,x_space_);
 			 //Thyra::put_scalar(1.0,scaling_.ptr());
     Thyra::reciprocal(*r,scaling_.ptr());
-    scaling_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+    //scaling_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   }
 #endif

@@ -1294,42 +1294,45 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
 
   // Create the JFNK operator
-  Teuchos::ParameterList printParams;//cn this is empty??? for now
+  //Teuchos::ParameterList printParams;//cn this is empty??? for now
 //   Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
 //     Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
-  Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
-    Teuchos::rcp(new tusasjfnkOp<double>(printParams));
 
-  Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
-  jfnkOp->setParameterList(jfnkParams);
-  if( 0 == mypid )
-    jfnkParams->print(std::cout);
+  //Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp = thyraModel->create_W_Op();
+  //Teuchos::rcp(new tusasjfnkOp<double>(printParams));
+
+//   Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
+//   jfnkOp->setParameterList(jfnkParams);
+//   if( 0 == mypid )
+//     jfnkParams->print(std::cout);
 
   Teuchos::RCP< ::Thyra::ModelEvaluator<double> > Model = Teuchos::rcpFromRef(*this);
   // Wrap the model evaluator in a JFNK Model Evaluator
   Teuchos::RCP< ::Thyra::ModelEvaluator<double> > thyraModel =
     Teuchos::rcp(new NOX::MatrixFreeModelEvaluatorDecorator<double>(Model));
 
-  // Wrap the model evaluator in a JFNK Model Evaluator
-//   Teuchos::RCP< ::Thyra::ModelEvaluator<double> > thyraModel =
-//     Teuchos::rcp(new NOX::MatrixFreeModelEvaluatorDecorator<double>(this));
+  Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp = 
+    Teuchos::rcp_dynamic_cast<NOX::Thyra::MatrixFreeJacobianOperator<double> >(thyraModel->create_W_op());
 
-  //Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp = thyraModel->create_W_prec();
   // Create the NOX::Thyra::Group
 
   bool precon = paramList.get<bool> (TusaspreconNameString);
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
+  Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp;
   if(precon){
-    Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp = thyraModel->create_W_prec();
-    nox_group =
-      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null, scaling_, Teuchos::null));
-  }
-  else {
-    nox_group =
-      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null, scaling_, Teuchos::null));
-//       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel,  scaling_, Teuchos::null, Teuchos::null));
+    precOp = thyraModel->create_W_prec();
   }
 
+  if(do_scaling){
+    nox_group =
+      //      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null, scaling_, Teuchos::null));
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel,  scaling_, Teuchos::null, Teuchos::null));
+  }else{
+    nox_group =
+      Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null, scaling_, Teuchos::null));
+
+  }
+  
   nox_group->computeF();
 
   // VERY IMPORTANT!!!  jfnk object needs base evaluation objects.
@@ -1390,10 +1393,11 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
     atsList = &paramList.sublist (TusasatslistNameString, false );
     if(atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector"){
       //init_predictor(); 
-      
+      Teuchos::ParameterList printParams;
+      Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
+
       Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp1 =
 	Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
-      
       jfnkOp1->setParameterList(jfnkParams);
       
       Teuchos::RCP<NOX::Thyra::Group> noxpred_group =
@@ -1477,6 +1481,27 @@ ModelEvaluatorTPETRA<Scalar>::create_W_prec() const
   //exit(0);
 
   return prec;
+}
+
+template<class Scalar>
+Teuchos::RCP< ::Thyra::LinearOpBase< Scalar > > 
+ModelEvaluatorTPETRA<Scalar>::create_W_op() const
+{
+  // Create the JFNK operator
+  Teuchos::ParameterList printParams;//cn this is empty??? for now
+//   Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
+//     Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
+  Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
+    Teuchos::rcp(new tusasjfnkOp<double>(printParams));
+
+  Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
+  jfnkOp->setParameterList(jfnkParams);
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+  int mypid = comm_->getRank() ;
+  if( 0 == mypid )
+    jfnkParams->print(std::cout);
+
+  return jfnkOp;
 }
 
 template<class scalar_type>

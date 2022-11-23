@@ -104,6 +104,7 @@ public:
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const{return nominalValues_;};
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   Teuchos::RCP< ::Thyra::PreconditionerBase< Scalar > > create_W_prec() const;
+  Teuchos::RCP< ::Thyra::LinearOpBase< Scalar > > create_W_op() const;
 
   void initialize();
   void finalize();

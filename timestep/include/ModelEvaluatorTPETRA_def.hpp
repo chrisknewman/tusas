@@ -73,7 +73,7 @@ public:
 
   bool supportsScaleLeftImpl() const {return true;};
   bool supportsScaleRightImpl() const {return false;};
-  Teuchos::RCP<const ::Thyra::VectorBase<double> >  scaling;
+  Teuchos::RCP< ::Thyra::VectorBase<Scalar> >  scaling;
   void scaleLeftImpl (const VectorBase< Scalar > &row_scaling){ 
 //     using Teuchos::rcpFromRef;
     
@@ -90,8 +90,9 @@ public:
 //     Scalar delta = this->getDelta();
 //     std::cout<<"scaleLeftImpl "<<norm(row_scaling)<<std::endl;
 //     ele_wise_scale(row_scaling,f.ptr()); 
-    
-    scaling = row_scaling.clone_v();
+    //probably want scaling = row_scaling*scaling here, ie
+    ele_wise_scale(row_scaling,scaling.ptr()); 
+    //scaling = row_scaling.clone_v();
   };
   
   void scaleRightImpl (const VectorBase< Scalar > &col_scaling){};
@@ -1574,6 +1575,8 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
       numit++;
     }//timer
     nnewt_ += solver_->getNumIterations();
+
+    if(paramList.get<bool> (TusasprintNormsNameString)) print_norms();
     
     const Thyra::VectorBase<double> * sol = 
       &(dynamic_cast<const NOX::Thyra::Vector&>(
@@ -3347,5 +3350,42 @@ template<class Scalar>
 			 //Thyra::put_scalar(1.0,scaling_.ptr());
     Thyra::reciprocal(*r,scaling_.ptr());
     //scaling_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  }
+
+template<class Scalar>
+void ModelEvaluatorTPETRA<Scalar>::print_norms()
+  {
+    auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+    int mypid = comm_->getRank();
+    
+    const Thyra::VectorBase<double> * sol = 
+      &(dynamic_cast<const NOX::Thyra::Vector&>(
+						solver_->getSolutionGroup().getF()
+						).getThyraVector()
+	);
+    Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+
+    Teuchos::ArrayRCP<const scalar_type> vals = x_vec.values();
+
+    std::vector<double> norms(numeqs_);
+    Teuchos::RCP<vector_type > u = Teuchos::rcp(new vector_type(node_owned_map_));
+    const size_t localLength = node_owned_map_->getNodeNumElements();
+    auto un_view = u->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
+    for( int k = 0; k < numeqs_; k++ ){
+      //for(int nn = 0; nn< localLength; nn++){
+      Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
+	un_1d[nn] = vals[numeqs_*nn+k];
+      }
+			   );//parallel_for
+      norms[k] = u->norm2();
+    }
+    const double norm = solver_->getSolutionGroup().getNormF();
+    if( 0 == mypid ) 
+      std::cout<<" ||F|| = "<<std::scientific<<norm<<std::endl;
+    for( int k = 0; k < numeqs_; k++ ){
+      if( 0 == mypid ) 
+	std::cout<<" ||F_"<<k<<"|| = "<<norms[k]<<std::endl<<std::defaultfloat;
+    }
   }
 #endif

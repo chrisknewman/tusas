@@ -5796,6 +5796,7 @@ RES_FUNC_TPETRA(residual_heat_test_)
 		       k_d/W0_d/W0_d*deltau_d*(basis[eqn_id]->duoldolddx*basis[eqn_id]->dphidx[i]
 			    + basis[eqn_id]->duoldolddy*basis[eqn_id]->dphidy[i]
 			    + basis[eqn_id]->duoldolddz*basis[eqn_id]->dphidz[i])};
+  //std::cout<<std::scientific<<f[0]<<std::endl<<std::defaultfloat;
   return ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
@@ -7917,7 +7918,7 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 		     + (1.-t_theta2_)*t_theta_*dfldt[0]
 		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
-  
+
   return rv * scaling_constant_d;
 }
 

@@ -86,6 +86,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusaspredmaxiterNameString,(int)20,TusaspredmaxiterDocString);//not sure where to put this, the residual tol is set in atslist
 
+  paramList.set(TusasprintNormsNameString,(bool)false,TusasprintNormsDocString);
+
   Teuchos::ParameterList *ATSList;
   ATSList = &paramList.sublist(TusasatslistNameString,(bool)false);
   ATSList->set(TusasatsmaxiterNameString,1);

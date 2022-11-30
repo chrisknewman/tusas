@@ -3370,14 +3370,16 @@ void ModelEvaluatorTPETRA<Scalar>::print_norms()
     std::vector<double> norms(numeqs_);
     Teuchos::RCP<vector_type > u = Teuchos::rcp(new vector_type(node_owned_map_));
     const size_t localLength = node_owned_map_->getNodeNumElements();
-    auto un_view = u->getLocalViewHost(Tpetra::Access::ReadWrite);
+    //auto un_view = u->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto un_view = u->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadWrite);
     auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
     for( int k = 0; k < numeqs_; k++ ){
       //for(int nn = 0; nn< localLength; nn++){
-      Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
+      Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,localLength),[=](const int& nn){
 	un_1d[nn] = vals[numeqs_*nn+k];
       }
 			   );//parallel_for
+      //}//k
       norms[k] = u->norm2();
     }
     const double norm = solver_->getSolutionGroup().getNormF();

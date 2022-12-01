@@ -1,0 +1,7 @@
+#!/bin/bash
+rm -rf decomp/
+mkdir decomp/
+mkdir decomp/1
+mkdir decomp/2
+/Users/cnewman/src/Trilinos/VOTD_KOKKOS//bin/nem_slice  -a ./input-ldbl ../../meshes/hex64_3d.e
+/Users/cnewman/src/Trilinos/VOTD_KOKKOS//bin/nem_spread  nem_spread.inp

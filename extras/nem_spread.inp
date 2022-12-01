@@ -1,0 +1,6 @@
+Input FEM file		= ../../meshes/hex64_3d.e
+LB file         	= decomp/tusas_nemesis.nemI
+Debug      	= 0
+Restart Info	= off
+Parallel Disk Info	= number=2
+Parallel file location	= root=./decomp/, subdir=.

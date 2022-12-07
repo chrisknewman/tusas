@@ -114,6 +114,10 @@ std::string const TusasestimateTimestepDocString = "estimatetimestep (bool): tru
 std::string const TusasinitialSolveNameString = "initialsolve";
 /// Perform initial nonlinear solve
 std::string const TusasinitialSolveDocString = "initialsolve (bool): true; false (default)";
+/// Print residual norms
+std::string const TusasprintNormsNameString = "printnorms";
+/// Print residual norms
+std::string const TusasprintNormsDocString = "print residual norms (bool): true; false (default)";
 
 /// Perform adaptive timestepping
 std::string const TusasadaptiveTimestepNameString = "adaptivetimestep";

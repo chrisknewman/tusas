@@ -209,6 +209,8 @@ private:
   Thyra::ModelEvaluatorBase::InArgs<Scalar> prototypeInArgs_;
   Thyra::ModelEvaluatorBase::OutArgs<Scalar> prototypeOutArgs_;
 
+  void print_norms();
+
   /// Initialize and create the NOX and linear solvers.
   void init_nox();
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface

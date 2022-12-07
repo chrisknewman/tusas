@@ -5919,6 +5919,7 @@ namespace farzadi3d
   
   TUSAS_DEVICE
   double t_activate_farzadi_d = 0.0;
+  double t_activate_farzadi_h = 0.0;
 
   TUSAS_DEVICE
   double interface_noise_amplitude_d = 0.0;
@@ -6080,6 +6081,7 @@ double t_activate_farzadi_p = plist->get<double>("t_activate_farzadi", 0.0);
 #else
   t_activate_farzadi_d = t_activate_farzadi_p;
 #endif
+  t_activate_farzadi_h = t_activate_farzadi_p;
 
 double interface_noise_amplitude_p = plist->get<double>("interface_noise_amplitude", 0.0);
 #ifdef TUSAS_HAVE_CUDA
@@ -6397,7 +6399,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_activated_)
 	const double delta = 1.0e12; 			   
 	const double sigmoid_var = delta * (time-t_activate_farzadi_d/tau0);
 	const double sigmoid = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var))); 			   
-
+	//if(sigmoid > 0) printf("%lf\n",sigmoid);
 	return val * sigmoid + (phi[1]-phi[0]) * (1.0 - sigmoid)*basis[eqn_id].phi(i);
 }
 
@@ -6544,6 +6546,13 @@ PPR_FUNC(postproc_t_)
   double xx = x*w0_h;
   double tt = time*tau0_h;
   return ((dT < 0.001) ? 877.3 + (xx-R_h*tt)/l_T0_h*delta_T0_h : 877.3);
+}
+PPR_FUNC(postproc_sigmoid_)
+{
+  const double delta = 1.0e12; 			   
+  const double sigmoid_var = delta * (time-t_activate_farzadi_h/tau0_h);
+  const double sigmoid = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var))); 
+  return sigmoid;
 }
 }//namespace farzadi3d
 
@@ -7496,7 +7505,9 @@ NBC_FUNC_TPETRA(nbc_)
   const double rv = (1.-t_theta2_)*t_theta_*f[0]
     +(1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-  
+
+  //cn hack  
+  //scaling_constant = 1./basis[0].uuold;
   return rv * coef * scaling_constant;
 }
 
@@ -7802,6 +7813,8 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
   
+  //cn hack  
+  //scaling_constant_d = 1./basis[eqn_id].uuold();
   return rv * scaling_constant_d;
 }
 
@@ -7837,6 +7850,8 @@ RES_FUNC_TPETRA(residual_coupled_test_)
 		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
   
+  //cn hack  
+  //scaling_constant_d = 1./basis[eqn_id].uuold();
   return rv * scaling_constant_d;
 }
 
@@ -7854,6 +7869,8 @@ PRE_FUNC_TPETRA(prec_test_)
 						      t_theta_,
 						      eqn_id);
 
+  //cn hack  
+  //scaling_constant_d = 1./basis[eqn_id].uuold();
   return val * scaling_constant_d;
 }
 
@@ -8116,6 +8133,18 @@ PPR_FUNC(postproc_t_)
   // return the physical temperature in K here
   const double theta = u[2];
   return theta * tpetra::heat::deltau_h + tpetra::goldak::uref_h;
+}
+
+PPR_FUNC(postproc_phi_)
+{
+  const double phi = u[1];
+  return phi+1.;
+}
+
+PPR_FUNC(postproc_theta_)
+{
+  const double theta = u[2];
+  return theta;
 }
 
 PARAM_FUNC(param_)

@@ -777,6 +777,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      const int lid = lrow+neq;
 	      f_1d[lid] += val;
 	      //printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
+	      //(time>.3)printf("%d %le\n",neq,val);
 	    }//neq
 	  }//i
 	}//gp
@@ -1308,8 +1309,10 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   Teuchos::ParameterList printParams;//cn this is empty??? for now
   Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
     Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
-
+  //jfnkOp->getValidParameters ()->print(std::cout);
   Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
+  //jfnkParams->set("Perturbation Algorithm","Knoll Keyes JCP 2004");
+  //jfnkParams->set("Difference Type","Central");
   jfnkOp->setParameterList(jfnkParams);
   if( 0 == mypid )
     jfnkParams->print(std::cout);
@@ -1559,6 +1562,8 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
     }//timer
     nnewt_ += solver_->getNumIterations();
     
+    if(paramList.get<bool> (TusasprintNormsNameString)) print_norms();
+
     const Thyra::VectorBase<double> * sol = 
       &(dynamic_cast<const NOX::Thyra::Vector&>(
 						solver_->getSolutionGroup().getX()
@@ -1691,6 +1696,24 @@ template<class scalar_type>
 //     exit(0);
     for( int k = 0; k < numeqs_; k++ ){
       mesh_->add_nodal_field((*varnames_)[k]);
+    }
+    Teuchos::ParameterList *atsList;
+    atsList = &paramList.sublist (TusasatslistNameString, false );
+
+    //initial solve need by second derivative error estimate
+    //and for lagged coupled time derivatives
+    //ie get a solution at u_{-1}
+    if(((atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
+	&&paramList.get<bool> (TusasestimateTimestepNameString))
+       ||((atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
+	&&paramList.get<bool> (TusasestimateTimestepNameString)&&t_theta_ < 1.)
+       ||paramList.get<bool> (TusasinitialSolveNameString)){
+
+      initialsolve();
+    }//if
+
+    if(paramList.get<bool> (TusasestimateTimestepNameString)){    
+      setadaptivetimestep();
     }
   }//if !dorestart
    
@@ -2018,10 +2041,31 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(Comm,mesh_,
+					 (int)0, 
+					 post_process::NORM2,
+					 (int)0,
+					 (std::string)"pp",
+					 (double)16 ));
     post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
     post_proc[1].postprocfunc_ = &tpetra::fullycoupled::postproc_t_;
+    post_proc.push_back(new post_process(Comm,mesh_,
+					 (int)2, 
+					 post_process::NORM2,
+					 (int)0,
+					 "pp",
+					 16 ));
+    post_proc[2].postprocfunc_ = &tpetra::fullycoupled::postproc_phi_;
+    post_proc.push_back(new post_process(Comm,mesh_,
+					 (int)3, 
+					 post_process::NORM2,
+					 (int)0,
+					 "pp",
+					 16 ));
+    post_proc[3].postprocfunc_ = &tpetra::fullycoupled::postproc_theta_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)4, post_process::MAXVALUE));
+    post_proc[4].postprocfunc_ = &tpetra::farzadi3d::postproc_sigmoid_;
 
     paramfunc_.resize(5);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
@@ -3017,5 +3061,43 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
  	temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
 
       }
+  }
+
+template<class Scalar>
+void ModelEvaluatorTPETRA<Scalar>::print_norms()
+  {
+    auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+    int mypid = comm_->getRank();
+    
+    const Thyra::VectorBase<double> * sol = 
+      &(dynamic_cast<const NOX::Thyra::Vector&>(
+						solver_->getSolutionGroup().getF()
+						).getThyraVector()
+	);
+    Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
+
+    Teuchos::ArrayRCP<const scalar_type> vals = x_vec.values();
+
+    std::vector<double> norms(numeqs_);
+    Teuchos::RCP<vector_type > u = Teuchos::rcp(new vector_type(node_owned_map_));
+    const size_t localLength = node_owned_map_->getNodeNumElements();
+    auto un_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+    auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
+    for( int k = 0; k < numeqs_; k++ ){
+      for(int nn = 0; nn< localLength; nn++){
+	//Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0,localLength),[=](const int& nn){
+	//Kokkos::parallel_for(localLength,KOKKOS_LAMBDA(const int& nn){
+	un_1d[nn] = vals[numeqs_*nn+k];
+      }
+      //);//parallel_for
+      norms[k] = u->norm2();
+    }
+    const double norm = solver_->getSolutionGroup().getNormF();
+    if( 0 == mypid ) 
+      std::cout<<" ||F|| = "<<std::scientific<<norm<<std::endl<<std::defaultfloat;
+    for( int k = 0; k < numeqs_; k++ ){
+      if( 0 == mypid ) 
+	std::cout<<" ||F_"<<k<<"|| = "<<std::scientific<<norms[k]<<std::endl<<std::defaultfloat;
+    }
   }
 #endif

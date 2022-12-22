@@ -597,6 +597,14 @@ PPR_FUNC(normu_)
 
   return uu;
 }
+PPR_FUNC(dynamic_)
+{
+  const double uu = u[eqn_id];
+  const double uuold = uold[eqn_id];
+//   std::cout<<uu<<" "<<uuold<<" "<<dt<<std::endl;
+//   return uu*dt/(uu-uuold);
+  return (uu-uuold)/dt/uu;
+}
 }//namespace timeadapt
 
 double rand_phi_zero_(const double &phi, const double &random_number)
@@ -7692,23 +7700,32 @@ DBC_FUNC(dbc_)
 NBC_FUNC_TPETRA(nbc_)
 {
   //https://reference.wolfram.com/language/PDEModels/tutorial/HeatTransfer/HeatTransfer.html#2048120463
-  //h(t-ti)+\ep\sigma(t^4-ti^4)
+  //h(t-ti)+\ep\sigma(t^4-ti^4) = -g(t)
+  //du/dn = g
+  //return g*test here
+
   //std::cout<<h<<" "<<ep<<" "<<sigma<<" "<<ti<<std::endl;
   const double test = basis[0].phi[i];
   const double u = deltau_h*basis[0].uu+uref_h; // T=deltau_h*theta+uref_h
   const double uold = deltau_h*basis[0].uuold+uref_h;
   const double uoldold = deltau_h*basis[0].uuoldold+uref_h;
+#if 1
   const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
 		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
 		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};
-  
+#else
+  const double c = h+4.*ep*sigma*ti*ti*ti;
+  const double f[3] = {(c*(ti-u))*test,
+		       (c*(ti-uold))*test,
+		       (c*(ti-uoldold))*test};
+#endif  
   const double coef = deltau_h / W0_h;
-  
+  //std::cout<<f[0]<<" "<<f[1]<<" "<<f[2]<<std::endl;
   const double rv = (1.-t_theta2_)*t_theta_*f[0]
     +(1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
   
-  return rv * coef * scaling_constant;
+  return f[0] * coef * scaling_constant;
 }
 
 INI_FUNC(init_heat_)
@@ -8463,6 +8480,15 @@ RES_FUNC_TPETRA(residual_test_)
 }
 
 }//namespace random
+
+NBC_FUNC_TPETRA(nbc_one_)
+{
+  
+  double phi = basis->phi[i];
+  
+  return 1.*phi;
+}
+
 }//namespace tpetra
 
 

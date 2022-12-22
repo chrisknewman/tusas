@@ -843,14 +843,20 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
       }
       //on host only right now..
-      auto uold_view = uold->getLocalViewHost(Tpetra::Access::ReadOnly);
-      auto uoldold_view = uoldold->getLocalViewHost(Tpetra::Access::ReadOnly);
       auto f_view = f_overlap->getLocalViewHost(Tpetra::Access::ReadWrite);
       auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
+      //this sould be ok
+      //auto u_view = u->getLocalViewHost(Tpetra::Access::ReadOnly);
+      //Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
+      //  u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+
+      auto uold_view = uold->getLocalViewHost(Tpetra::Access::ReadOnly);
       Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
 	uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
+      auto uoldold_view = uoldold->getLocalViewHost(Tpetra::Access::ReadOnly);
       Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
 	uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
+
       GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
       GPUBasis * BGPU = &Bq;
       const int num_node_per_side = 4;
@@ -886,7 +892,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    
 	    BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
 	    for ( int gp = 0; gp < ngp; gp++){
-	      const double jacwt = BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0], &uu_oldold[0]);//we can add uu_old, uu_oldold
+	      const double jacwt = BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0], &uu_oldold[0]);
 	      for( int i = 0; i < num_node_per_side; i++ ){  
 		
 		const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
@@ -1894,11 +1900,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     // numeqs_ number of variables(equations) 
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
-    //neumannfunc_ = NULL;
-    //(*neumannfunc_)[0][0] = &tpetra::robin::nbc_robin_test_;								 
-    //(*neumannfunc_)[0][1] = &nbc_zero_;						 
-    (*neumannfunc_)[0][2] = &tpetra::radconvbc::nbc_;						 
-    //(*neumannfunc_)[0][3] = &nbc_zero_;
+    //neumannfunc_ = NULL;						 
+    (*neumannfunc_)[0][2] = &tpetra::radconvbc::nbc_;
 
     //post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     //post_proc[0].postprocfunc_ = &tpetra::postproc_;
@@ -2084,7 +2087,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   }else if("fullycoupled" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
 
-    if(paramList.get<double> (TusasthetaNameString) < .49) exit(0);
+    //if(paramList.get<double> (TusasthetaNameString) < .49) exit(0);
 
     numeqs_ = 3;
 
@@ -2123,7 +2126,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[4] = &tpetra::fullycoupled::param_;
 
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
-    (*neumannfunc_)[2][4] = &tpetra::radconvbc::nbc_;
+    //(*neumannfunc_)[2][4] = &tpetra::radconvbc::nbc_; 
+    (*neumannfunc_)[2][4] = &tpetra::nbc_one_;
 
   }else if("farzadiexp" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
@@ -2340,8 +2344,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     //neumannfunc_ = NULL;
     //(*neumannfunc_)[0][0] = &nbc_one_;							 
-    (*neumannfunc_)[0][1] = &tpetra::robin::nbc_robin_test_;						 
-    //(*neumannfunc_)[0][1] = &nbc_zero_;						 
+    (*neumannfunc_)[0][1] = &tpetra::robin::nbc_robin_test_;
+    //(*neumannfunc_)[0][1] = &nbc_zero_;
     //(*neumannfunc_)[0][2] = &nbc_zero_;						 
     //(*neumannfunc_)[0][3] = &nbc_zero_;
 
@@ -2756,6 +2760,12 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     itp->update_scalar_data(time_);
   }
 
+  for(itp = temporal_dyn.begin();itp != temporal_dyn.end();++itp){
+    itp->scalar_reduction();
+    itp->update_mesh_data();
+    itp->update_scalar_data(time_);
+  }
+
   Elem_col->update_mesh_data();
 
   return err;
@@ -3120,12 +3130,18 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   for(itp = temporal_norm.begin();itp != temporal_norm.end();++itp){
     itp->scalar_reduction();
   }
+
+  temporalpostprocess(temporal_dyn); 
+  for(itp = temporal_dyn.begin();itp != temporal_dyn.end();++itp){
+    itp->scalar_reduction();
+  }
   
   std::vector<double> maxdt(numeqs_);
   std::vector<double> mindt(numeqs_);
   std::vector<double> newdt(numeqs_);
   std::vector<double> error(numeqs_,1.);
   std::vector<double> norm(numeqs_,0.);
+  std::vector<double> dyn(numeqs_,0.);
   
   if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Estimating timestep size:"<<std::endl;
@@ -3133,7 +3149,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
 	     <<" and theta = "<<t_theta_<<std::endl;
     std::cout<<"     with atol = "<<atol
 	     <<"; rtol = "<<rtol
-	     <<"; sf = "<<sf<<"; rmax = "<<rmax<<"; rmin = "<<rmin<<"; current dt = "<<dt_<<std::endl;
+	     <<"; sf = "<<sf<<"; rmax = "<<rmax<<"; rmin = "<<rmin<<"; current dt = "<<dt_<<"; dtmax = "<<dtmax<<std::endl;
   }
 
   double err_coef = 1.;
@@ -3150,6 +3166,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
   for( int k = 0; k < numeqs_; k++ ){
     error[k] = err_coef*(temporal_est[k].get_scalar_val());
     norm[k] = temporal_norm[k].get_scalar_val();
+    dyn[k] = 1./temporal_dyn[k].get_scalar_val();
     const double abserr = std::max(error[k],eps);
     const double tol = atol + rtol*norm[k];
     double rr;
@@ -3173,6 +3190,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
       std::cout<<"          h = sf*dt*(tol/err)^1/p = "<<h1<<std::endl;
       std::cout<<"                   max(h,dt*rmin) = "<<maxdt[k]<<std::endl;
       std::cout<<"                   min(h,dt*rmax) = "<<mindt[k]<<std::endl;
+      std::cout<<"                       dynamic dt = "<<dyn[k]<<std::endl;
       std::cout<<std::endl;
     }
     if( h1 < dt_ ){
@@ -3362,6 +3380,16 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 					       "tempnorm",
 					       16));
       temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
+
+      temporal_dyn.push_back(new post_process(Comm,
+					       mesh_,
+					       k, 
+					       post_process::NORMINF,
+					       dorestart,
+					       k, 
+					       "tempdyn",
+					       16));
+      temporal_dyn[k].postprocfunc_ = &timeadapt::dynamic_;
       
     }
     if( 0 == comm_->getRank()){
@@ -3409,7 +3437,7 @@ void ModelEvaluatorTPETRA<Scalar>::print_norms()
 	);
     Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
 
-    Teuchos::ArrayRCP<const scalar_type> vals = x_vec.values();
+    Teuchos::ArrayRCP<const scalar_type> vals = x_vec.values();//this probably needs to be a view
 
     std::vector<double> norms(numeqs_);
     Teuchos::RCP<vector_type > u = Teuchos::rcp(new vector_type(node_owned_map_));

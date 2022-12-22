@@ -1,2 +1,4 @@
-NODAL VARIABLES all relative 1.e-2 floor 1.e-6
-	u	
+NODAL VARIABLES relative 1.e-2 floor 1.e-6
+	u
+	pp0 
+	pp1

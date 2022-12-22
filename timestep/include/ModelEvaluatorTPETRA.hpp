@@ -307,6 +307,7 @@ private:
   void temporalpostprocess(boost::ptr_vector<post_process>pp);
   boost::ptr_vector<post_process> temporal_est;
   boost::ptr_vector<post_process> temporal_norm;
+  boost::ptr_vector<post_process> temporal_dyn;
   void setadaptivetimestep();
 
   void init_P_();

@@ -15,4 +15,5 @@ As such, Tusas allows flexible precondtioning as it only requires the user to im
 In addition, configuration of the nonlinear system and preconditioner can be performed at runtime.
 
 For questions and inquiries a mailing list is available for discussion: tusas-users@googlegroups.com
+
 Google / gmail users can sign in and click the "Join group" button. Otherwise send an email to: tusas-users+subscribe@googlegroups.com

@@ -13,3 +13,6 @@ The preconditioning strategy in Tusas is based on block factorization and algebr
 that allows an efficient, implicit time integration. 
 As such, Tusas allows flexible precondtioning as it only requires the user to implement code for a row of the preconditioning matrix.
 In addition, configuration of the nonlinear system and preconditioner can be performed at runtime.
+
+For questions and inquiries a mailing list is available for discussion: tusas-users@googlegroups.com
+Google / gmail users can sign in and click the "Join group" button. Otherwise send an email to: tusas-users+subscribe@googlegroups.com

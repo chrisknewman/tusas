@@ -1009,7 +1009,6 @@ int Mesh::write_nodal_data_exodus(int ex_id, int counter){
   int ex_err;
   char **var_names;
 
-
   if(verbose)
 
     std::cout<<"=== Write Nodal Data Exodus ==="<<std::endl
@@ -1020,14 +1019,18 @@ int Mesh::write_nodal_data_exodus(int ex_id, int counter){
   ex_err = ex_put_var_param (ex_id, "N", num_nodal_fields);
 
   var_names = new char*[num_nodal_fields];
-
+  std::vector<int> ex_index(num_nodal_fields);
   for(int i = 0; i < num_nodal_fields; i++){
 
-    var_names[i] = (char *)&nodal_field_names[i][0];
+    ex_index[i] = read_nodal_field_index(ex_id, nodal_field_names[i]);
+    if( 0 > ex_index[i] ) ex_index[i] = i;
+
+    var_names[ex_index[i]] = (char *)&nodal_field_names[i][0];
 
     if(verbose)
-
       std::cout<<" name  "<<var_names[i]<<std::endl<<std::endl;
+
+    //std::cout<<i<<"  "<<ex_index[i]<<"  "<<var_names[i]<<" "<<nodal_field_names[i]<<std::endl;
 
   }
 
@@ -1037,8 +1040,9 @@ int Mesh::write_nodal_data_exodus(int ex_id, int counter){
 
     if(verbose)
       std::cout<<"   i  "<<i<<"  "<<nodal_fields[i].size()<<std::endl<<std::endl;
-    ex_err = ex_put_nodal_var (ex_id, counter, i + 1, num_nodes, &nodal_fields[i][0]);
-    //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<nodal_fields[i][j]<<std::endl;
+
+    ex_err = ex_put_nodal_var (ex_id, counter, ex_index[i] + 1, num_nodes, &nodal_fields[i][0]);
+    //ex_err = ex_put_nodal_var (ex_id, counter, i + 1, num_nodes, &nodal_fields[ex_index[i]][0]);
   
   }
 
@@ -1151,7 +1155,7 @@ int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, const int 
 }
 
 int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, std::string name, double *data){
-  //int index = get_nodal_field_index(name) + 1;//exodus starts at 1
+  
   int index = read_nodal_field_index(ex_id, name) + 1;//exodus starts at 1
   int ex_err = ex_get_nodal_var (ex_id, timestep, index, num_nodes, &data[0]);
   return ex_err;
@@ -1181,10 +1185,10 @@ int Mesh::read_nodal_field_index(const int ex_id, std::string name){
   for (int i = 0; i < num_node_vars; i++) delete [] var_names[i];
   delete [] var_names;
 
-  if(0 > index){
-    std::cout<<name<<" not found"<<std::endl<<std::endl;
-    exit(0);
-  }
+//   if(0 > index){
+//     std::cout<<name<<" not found"<<std::endl<<std::endl;
+//     exit(0);
+//   }
   //std::cout<<index<<std::endl;
 
   //exit(0);

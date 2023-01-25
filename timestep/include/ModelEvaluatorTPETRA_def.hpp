@@ -2901,7 +2901,7 @@ template<class scalar_type>
   if( 0 == mypid )
     std::cout<<"  Reading restart last time = "<<time<<std::endl;
   if( 0 > error ) {
-    std::cout<<"Error obtaining restart last time"<<std::endl;
+    std::cout<<"Error obtaining restart last time; mypid = "<<mypid<<"; time = "<<time<<std::endl;
     exit(0);
   }
 

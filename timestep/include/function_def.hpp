@@ -549,7 +549,7 @@ PPR_FUNC(predictor_fe_)
   //const double uuoldold = uoldold[eqn_id];
   const double uupred = gradu[eqn_id];//hack for now
   //std::cout<<eqn_id<<" "<<uold[eqn_id]<<std::endl;
-  std::cout<<eqn_id<<" "<<uu<<"  "<<uupred<<"  "<<uu - uupred<<std::endl;
+  //std::cout<<eqn_id<<" "<<uu<<"  "<<uupred<<"  "<<uu - uupred<<std::endl;
   return (uu - uupred);
 }
 PPR_FUNC(postproc1_)
@@ -8231,6 +8231,7 @@ RES_FUNC_TPETRA(residual_)
   double Dq = 2.*T*H*p(phi);
   double m = 1.-h(phi);
   double M = m*Mq;
+  //double M = Mq;
 
   //we need norm grad q here
   //grad q is nonzero only within interfaces
@@ -8245,36 +8246,22 @@ RES_FUNC_TPETRA(residual_)
   normgradq[1] = sqrt(normgradq[1]);
   normgradq[2] = sqrt(normgradq[2]);
 
-  const double ut = (u-basis[eqn_id]->uuold)/dt_*test*normgradq[0];
+  const double ut = (u-basis[eqn_id]->uuold)/dt_*test;
 
-  double ep[3] = {normgradq[0]*epq*epq,normgradq[1]*epq*epq,normgradq[2]*epq*epq};
+  //double ep[3] = {normgradq[0]*epq*epq,normgradq[1]*epq*epq,normgradq[2]*epq*epq};
+  double ep[3] = {epq*epq,epq*epq,epq*epq};
 
+  if (normgradq[0] < 1e-12 ) {
+    //Dq = 0.;
+    //ep[0] = 0.;
+  }else{
+    Dq = Dq/normgradq[0];
+  }
+  //Dq = 2.*T*H*p(phi);
   const double divgradu[3] = {M*(ep[0]+Dq)*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      M*(ep[1]+Dq)*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      M*(ep[2]+Dq)*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
-#if 0  
-  double suml[3] = {0.,0.,0.};
-  for(int k = 0; k < N; k++){
-    suml[0] = suml[0] + (basis[k]->uu)*(basis[k]->uu);
-    suml[1] = suml[1] + (basis[k]->uuold)*(basis[k]->uuold);
-    suml[2] = suml[2] + (basis[k]->uuoldold)*(basis[k]->uuoldold);
-  }
 
-//   suml[0]=1.;
-//   suml[1]=1.;
-//   suml[2]=1.;
-
-  double sumk[3] = {0.,0.,0.};
-  for(int k = 0; k < N; k++){
-    sumk[0] = sumk[0] + (basis[k]->uu)*(basis[k]->dudx*dtestdx + basis[k]->dudy*dtestdy + basis[k]->dudz*dtestdz);
-    sumk[1] = sumk[1] + (basis[k]->uuold)*(basis[k]->duolddx*dtestdx + basis[k]->duolddy*dtestdy + basis[k]->duolddz*dtestdz);
-    sumk[2] = sumk[2] + (basis[k]->uuoldold)*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
-  }
-  sumk[0] = -(basis[eqn_id]->uu)/suml[0]*M*(ep[0]+Dq)*sumk[0];
-  sumk[1] = -(basis[eqn_id]->uuold)/suml[1]*M*(ep[1]+Dq)*sumk[1];
-  sumk[2] = -(basis[eqn_id]->uuoldold)/suml[2]*M*(ep[2]+Dq)*sumk[2];
-#endif
-  //const double f[3] = {divgradu[0] +  0.*sumk[0], divgradu[1] +  0.*sumk[1], divgradu[2] +  0.*sumk[2]};
   const double f[3] = {divgradu[0], divgradu[1], divgradu[2]};
 
   double val= (ut + (1.-t_theta2_)*t_theta_*f[0]
@@ -8284,6 +8271,7 @@ RES_FUNC_TPETRA(residual_)
 //     std::cout<<divgradu[0]<<" "<<divgradu[1]<<" "<<divgradu[2]<<std::endl;
 //   }
 //   std::cout<<val<<" "<<i<<std::endl;
+  //val = 0.;
   return val;
 }
 
@@ -8301,13 +8289,14 @@ RES_FUNC_TPETRA(residual_phi_)
 
   const double phit = (phi[0]-phi[1])/dt_*test;
 
+  //M eps^2 grad phi rrad test
   const double divgradu[3] = {Mphi*epphi*epphi*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      Mphi*epphi*epphi*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      Mphi*epphi*epphi*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
   
-  const double ww[3] = {Mphi*16*omega*phi[0]*(1.-phi[0])*test,
-			Mphi*16*omega*phi[1]*(1.-phi[1])*test,
-			Mphi*16*omega*phi[2]*(1.-phi[2])*test};
+  const double ww[3] = {Mphi*16.*omega*phi[0]*(1.-phi[0])*test,
+			Mphi*16.*omega*phi[1]*(1.-phi[1])*test,
+			Mphi*16.*omega*phi[2]*(1.-phi[2])*test};
 
   double normgradq[3] = {0.,0.,0.};
   for(int k = 0; k < N; k++){
@@ -8335,6 +8324,7 @@ RES_FUNC_TPETRA(residual_phi_)
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
+//q0 is -.5 lower right
 INI_FUNC(initq0_)
 {
   double val = .5;
@@ -8342,6 +8332,7 @@ INI_FUNC(initq0_)
   return val;
 }
 
+//q1 is -.5 in upper right
 INI_FUNC(initq1_)
 {
   double val = .5;
@@ -8349,6 +8340,7 @@ INI_FUNC(initq1_)
   return val;
 }
 
+//q2 and q3 are .5 everywhere
 INI_FUNC(initq2_)
 {
   return 0.5;
@@ -8413,6 +8405,31 @@ INI_FUNC(init_)
 //paraview expects [0,1] for an rgb value
 //https://discourse.paraview.org/t/coloring-surface-by-predefined-rgb-values/6011/6
 //so should we shift and scale each of these here?
+
+//Also the page seems different today, 4-12-23
+#if 0
+EulerAngles ToEulerAngles(Quaternion q) {
+    EulerAngles angles;
+
+    // roll (x-axis rotation)
+    double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
+    double cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
+    angles.roll = std::atan2(sinr_cosp, cosr_cosp);
+
+    // pitch (y-axis rotation)
+    double sinp = std::sqrt(1 + 2 * (q.w * q.y - q.x * q.z));
+    double cosp = std::sqrt(1 - 2 * (q.w * q.y - q.x * q.z));
+    angles.pitch = 2 * std::atan2(sinp, cosp) - M_PI / 2;
+
+    // yaw (z-axis rotation)
+    double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
+    double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
+    angles.yaw = std::atan2(siny_cosp, cosy_cosp);
+
+    return angles;
+}
+#endif
+
 PPR_FUNC(postproc_ea0_)
 {
   //u is u0,u1,...

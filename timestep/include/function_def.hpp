@@ -549,7 +549,7 @@ PPR_FUNC(predictor_fe_)
   //const double uuoldold = uoldold[eqn_id];
   const double uupred = gradu[eqn_id];//hack for now
   //std::cout<<eqn_id<<" "<<uold[eqn_id]<<std::endl;
-  //std::cout<<eqn_id<<" "<<uu<<"  "<<uupred<<"  "<<uu - uupred<<std::endl;
+  std::cout<<eqn_id<<" "<<uu<<"  "<<uupred<<"  "<<uu - uupred<<std::endl;
   return (uu - uupred);
 }
 PPR_FUNC(postproc1_)
@@ -8468,6 +8468,117 @@ PPR_FUNC(postproc_d_)
 }
 
 }//namespace quaternion
+namespace grain
+{
+
+  //see
+  //[1] Suwa et al, Mater. T. JIM., 44,11, (2003);
+  //[2] Krill et al, Acta Mater., 50,12, (2002); 
+
+
+
+  double L = 1.;
+  double alpha = 1.;
+  double beta = 1.;
+  double gamma = 1.;
+  double kappa = 2.;
+
+  int N = 6;
+
+  double pi = 3.141592653589793;
+
+  double r(const double &x,const int &n){
+    return sin(64./512.*x*n*pi);
+  }
+
+PARAM_FUNC(param_)
+{
+  N = plist->get<int>("numgrain");
+}
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0]->dphidx[i];
+  double dtestdy = basis[0]->dphidy[i];
+  double dtestdz = basis[0]->dphidz[i];
+  double test = basis[0]->phi[i];
+
+  double u = basis[eqn_id]->uu;
+  double uold = basis[eqn_id]->uuold;
+
+  double divgradu = kappa*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz);
+
+  double s = 0.;
+  for(int k = 0; k < N; k++){
+    s = s + basis[k]->uu*basis[k]->uu;
+  }
+  s = s - u*u;
+
+  return (u-uold)/dt_*test + L* ((-alpha*u + beta*u*u*u +2.*gamma*u*s)*test +  divgradu); 
+
+}
+PRE_FUNC(prec_)
+{
+#if 0
+  //cn probably want to move each of these operations inside of getbasis
+  //derivatives of the test function
+  double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
+    +basis[0].dphideta[i]*basis[0].detadx
+    +basis[0].dphidzta[i]*basis[0].dztadx;
+  double dtestdy = basis[0].dphidxi[i]*basis[0].dxidy
+    +basis[0].dphideta[i]*basis[0].detady
+    +basis[0].dphidzta[i]*basis[0].dztady;
+  double dtestdz = basis[0].dphidxi[i]*basis[0].dxidz
+    +basis[0].dphideta[i]*basis[0].detadz
+    +basis[0].dphidzta[i]*basis[0].dztadz;
+
+  double dbasisdx = basis[0].dphidxi[j]*basis[0].dxidx
+    +basis[0].dphideta[j]*basis[0].detadx
+    +basis[0].dphidzta[j]*basis[0].dztadx;
+  double dbasisdy = basis[0].dphidxi[j]*basis[0].dxidy
+    +basis[0].dphideta[j]*basis[0].detady
+    +basis[0].dphidzta[j]*basis[0].dztady;
+  double dbasisdz = basis[0].dphidxi[j]*basis[0].dxidz
+    +basis[0].dphideta[j]*basis[0].detadz
+    +basis[0].dphidzta[j]*basis[0].dztadz;
+
+  double u = basis[eqn_id].uu;
+  
+  double test = basis[0].phi[i];
+  double divgrad = L*kappa*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  double u_t =test * basis[0].phi[j]/dt_;
+  double alphau = -test*L*alpha*basis[0].phi[j];
+  double betau = 3.*u*u*basis[0].phi[j]*test*L*beta;
+
+  double s = 0.;
+  for(int k = 0; k < N; k++){
+    s = s + basis[k].uu*basis[k].uu;
+  }
+  s = s - u*u;
+
+  double gammau = 2.*gamma*L*basis[0].phi[j]*s*test;
+
+  return u_t + divgrad + betau + gammau;// + alphau ;
+#endif
+  return 1.;
+}
+PPR_FUNC(postproc_)
+{
+  //u is u0,u1,...
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+
+  double s =0.;
+  for(int j = 0; j < N; j++){
+    s = s + u[j]*u[j];
+  }
+
+  return s;
+}
+}//namespace grain
+
 namespace random
 {
 

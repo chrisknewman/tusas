@@ -1434,6 +1434,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
       converged1->addStatusTest(relresid1);
       converged1->addStatusTest(maxiters1);
       //combo->addStatusTest(converged1);
+      //converged1->print(std::cout);
       
       Teuchos::RCP<Teuchos::ParameterList> nl_params1 =
 	Teuchos::rcp(new Teuchos::ParameterList);
@@ -1612,7 +1613,26 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
     if(localprojectionindices_.size() > 0 ){
 
       if( 0 == mypid)std::cout<<" Performing local projection "<<std::endl;
-      
+
+
+      //right now,4-12-23 we make some assumptions and simplifications
+      // we define the P1(v) as the projection of v onto the *direction* of q
+      // P1(v) = q (q, v)
+      // we want p1(v) to have norm=1, with ||P1(v))|| = (q,v)||q||
+      // P(v) = q (q,v) / ( (q,v) ||q||) = q/||q||
+      //
+      // ie any vector projected onto q with norm=1 is q/||q||
+      //
+      //also see section III.1 of 
+      //https://www.unige.ch/~hairer/poly-sde-mani.pdf  
+      //Solving Differential Equations on Manifolds
+      //Ernst Hairer
+      //Universite de Geneve June 2011
+      //Section de mathematiques
+      //2-4 rue du Lievre, CP 64
+      //CH-1211 Geneve 4
+    
+
       auto un_view = u_new_->getLocalViewHost(Tpetra::Access::ReadWrite);
       auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
       //for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...

@@ -8324,19 +8324,25 @@ RES_FUNC_TPETRA(residual_phi_)
 //q0 is -.5 lower right
 INI_FUNC(initq0_)
 {
-  double val = .5;
+  double val = .0;//.5
   const double s = .001;
   const double den = sqrt(2)*s;
 
-  if (x > r0 && y <= r0 ) val = -.5;
+  //if (x > r0 && y <= r0 ) val = -.5;
+  val = .5*(1.+tanh((r0-x)/den)+tanh((y-r0)/den));
+  if (val > .5) val = .5;
   return val;
 }
 
 //q1 is -.5 in upper right
 INI_FUNC(initq1_)
 {
-  double val = .5;
-  if (x > r0 && y > r0 ) val = -.5;
+  double val = .0;//.5
+  const double s = .001;
+  const double den = sqrt(2)*s;
+  //if (x > r0 && y > r0 ) val = -.5;
+  val = .5*(1.+tanh((r0-x)/den)+tanh((r0-y)/den));
+  if (val > .5) val = .5;
   return val;
 }
 

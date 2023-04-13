@@ -8227,9 +8227,9 @@ RES_FUNC_TPETRA(residual_)
   //const double uold = basis[0]->uuold;
   const double uold = basis[eqn_id]->uuold;
 
-  const double phi = basis[4]->uu;
-  double Dq = 2.*T*H*p(phi);
-  double m = 1.-h(phi);
+  const double phi[3] = {basis[4]->uu,basis[4]->uuold,basis[4]->uuoldold};
+  double Dq[3] = {2.*T*H*p(phi[0]),2.*T*H*p(phi[1]),2.*T*H*p(phi[2])};
+  double m = 1.-h(phi[0]);
   double M = m*Mq;
   //double M = Mq;
 
@@ -8251,16 +8251,13 @@ RES_FUNC_TPETRA(residual_)
   //double ep[3] = {normgradq[0]*epq*epq,normgradq[1]*epq*epq,normgradq[2]*epq*epq};
   double ep[3] = {epq*epq,epq*epq,epq*epq};
 
-  if (normgradq[0] < 1e-12 ) {
-    //Dq = 0.;
-    //ep[0] = 0.;
-  }else{
-    Dq = Dq/normgradq[0];
-  }
+  Dq[0] = (normgradq[0] > 1e-10 ) ? Dq[0]/normgradq[0] : Dq[0];
+  Dq[1] = (normgradq[1] > 1e-10 ) ? Dq[1]/normgradq[0] : Dq[1];
+  Dq[2] = (normgradq[2] > 1e-10 ) ? Dq[2]/normgradq[2] : Dq[2];
   //Dq = 2.*T*H*p(phi);
-  const double divgradu[3] = {M*(ep[0]+Dq)*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
-			      M*(ep[1]+Dq)*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
-			      M*(ep[2]+Dq)*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
+  const double divgradu[3] = {M*(ep[0]+Dq[0])*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
+			      M*(ep[1]+Dq[1])*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
+			      M*(ep[2]+Dq[2])*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
 
   const double f[3] = {divgradu[0], divgradu[1], divgradu[2]};
 
@@ -8328,6 +8325,9 @@ RES_FUNC_TPETRA(residual_phi_)
 INI_FUNC(initq0_)
 {
   double val = .5;
+  const double s = .001;
+  const double den = sqrt(2)*s;
+
   if (x > r0 && y <= r0 ) val = -.5;
   return val;
 }
@@ -8356,10 +8356,18 @@ INI_FUNC(initphi_)
   double val = 0.;
   const double x0 = 0.;
   const double x1 = .128;
-  if( x*x + y*y <= r0*r0 ) val = 1.;
-  if( (x-x1)*(x-x1) + y*y <= r0*r0 ) val = 1.;
-  if( (x-x1)*(x-x1) + (y-x1)*(y-x1) <= r0*r0 ) val = 1.;
-  if( x*x + (y-x1)*(y-x1) <= r0*r0 ) val = 1.;
+  const double s = .001;
+  const double den = sqrt(2)*s;
+  //if( x*x + y*y <= r0*r0 ) val = 1.;
+
+  val = .5*(tanh((r0-sqrt(x*x + y*y))/den) + 1.);
+
+  //if( (x-x1)*(x-x1) + y*y <= r0*r0 ) val = 1.;
+  val += .5*(tanh((r0-sqrt((x-x1)*(x-x1) + y*y))/den) + 1.);
+  //if( (x-x1)*(x-x1) + (y-x1)*(y-x1) <= r0*r0 ) val = 1.;
+  val += .5*(tanh((r0-sqrt((x-x1)*(x-x1) + (y-x1)*(y-x1)))/den) + 1.);
+  //if( x*x + (y-x1)*(y-x1) <= r0*r0 ) val = 1.;
+  val += .5*(tanh((r0-sqrt(x*x + (y-x1)*(y-x1)))/den) + 1.);
 
   return val;
 }

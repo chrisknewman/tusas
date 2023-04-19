@@ -486,15 +486,6 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 }
 
 template<class Scalar>
-void ModelEvaluatorTPETRA<Scalar>::set_x0(const Teuchos::ArrayView<const Scalar> &x0_in)
-{
-#ifdef TEUCHOS_DEBUG
-  TEUCHOS_ASSERT_EQUALITY(x_space_->dim(), x0_in.size());
-#endif
-  x0_->get1dViewNonConst()().assign(x0_in);
-}
-
-template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
   const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
@@ -2552,11 +2543,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[4] = &tpetra::quaternion::residual_phi_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::heat::prec_heat_test_;
-    (*preconfunc_)[1] = &tpetra::heat::prec_heat_test_;
-    (*preconfunc_)[2] = &tpetra::heat::prec_heat_test_;
-    (*preconfunc_)[3] = &tpetra::heat::prec_heat_test_;
-    (*preconfunc_)[4] = &tpetra::heat::prec_heat_test_;
+    (*preconfunc_)[0] = &tpetra::quaternion::precon_;
+    (*preconfunc_)[1] = &tpetra::quaternion::precon_;
+    (*preconfunc_)[2] = &tpetra::quaternion::precon_;
+    (*preconfunc_)[3] = &tpetra::quaternion::precon_;
+    (*preconfunc_)[4] = &tpetra::quaternion::precon_phi_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &tpetra::quaternion::initq0_;

@@ -8156,6 +8156,8 @@ namespace quaternion
   //[2] LLNL-JRNL-636233 Phase-field modeling of coring during solidification of Au-Ni alloy using quaternions and CALPHAD input
   //J. L. Fattebert, M. E. Wickett, P. E. A. Turchi May 7, 2013
 
+  const double beta = 1.e-10;
+
   const double r0 = .064;
 
   const double Mq = 1.;//1/sec/pJ
@@ -8242,24 +8244,48 @@ RES_FUNC_TPETRA(residual_)
     normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
   }
   //std::cout<<normgradq[0]<<std::endl;
-  normgradq[0] = sqrt(normgradq[0]);
-  normgradq[1] = sqrt(normgradq[1]);
-  normgradq[2] = sqrt(normgradq[2]);
+  const double b2 = beta*beta;
+  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : beta;
+  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : beta;
+  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : beta;
 
   const double ut = (u-basis[eqn_id]->uuold)/dt_*test;
 
-  //double ep[3] = {normgradq[0]*epq*epq,normgradq[1]*epq*epq,normgradq[2]*epq*epq};
-  double ep[3] = {epq*epq,epq*epq,epq*epq};
+  const double ep[3] = {epq*epq,epq*epq,epq*epq};
+  //const double ep[3] = {epq*epq*p(phi[0]),epq*epq*p(phi[1]),epq*epq*p(phi[2])};
 
-  Dq[0] = (normgradq[0] > 1e-10 ) ? Dq[0]/normgradq[0] : Dq[0];
-  Dq[1] = (normgradq[1] > 1e-10 ) ? Dq[1]/normgradq[0] : Dq[1];
-  Dq[2] = (normgradq[2] > 1e-10 ) ? Dq[2]/normgradq[2] : Dq[2];
-  //Dq = 2.*T*H*p(phi);
+  Dq[0] = Dq[0]/normgradq[0];
+  Dq[1] = Dq[1]/normgradq[1];
+  //Dq[2] = Dq[2]/normgradq[2];
+
+
+  double pfu[3] = {0., 0., 0.};
+
+  double normq[3] = {0., 0., 0.};
+
+  for(int k = 0; k < N; k++){
+    const double qk = basis[k]->uu;
+    pfu[0] = pfu[0] + basis[k]->uu*(basis[k]->dudx*dtestdx + basis[k]->dudy*dtestdy + basis[k]->dudz*dtestdz);
+    pfu[1] = pfu[1] + basis[k]->uuold*(basis[k]->duolddx*dtestdx + basis[k]->duolddy*dtestdy + basis[k]->duolddz*dtestdz);
+    //pfu[2] = pfu[2] + basis[k]->uuoldold*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
+    normq[0] = normq[0] + basis[k]->uu*basis[k]->uu;
+    normq[1] = normq[1] + basis[k]->uuold*basis[k]->uuold;
+    normq[2] = normq[2] + basis[k]->uuoldold*basis[k]->uuoldold;
+  }
+  normq[0] = (normq[0] > b2 ) ? normq[0] : b2;
+  normq[1] = (normq[1] > b2 ) ? normq[1] : b2;
+  //std::cout<<sqrt(normq[0])<<"   "<<sqrt(normq[1])<<std::endl;
+  pfu[0] = -pfu[0]*M*(ep[0]+Dq[0])/sqrt(normq[0]);
+  pfu[1] = -pfu[1]*M*(ep[1]+Dq[1])/sqrt(normq[1]);
+  //pfu[1] = -pfu[2]*M*(ep[2]+Dq[2])/sqrt(normq[2]);
+  if(pfu[0] != pfu[0]) exit(0);
+  if(pfu[1] != pfu[1]) exit(0);
+
   const double divgradu[3] = {M*(ep[0]+Dq[0])*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      M*(ep[1]+Dq[1])*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      M*(ep[2]+Dq[2])*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
 
-  const double f[3] = {divgradu[0], divgradu[1], divgradu[2]};
+  const double f[3] = {divgradu[0]+pfu[0], divgradu[1]+pfu[1], divgradu[2]+pfu[2]};
 
   double val= (ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
@@ -8270,6 +8296,32 @@ RES_FUNC_TPETRA(residual_)
 //   std::cout<<val<<" "<<i<<std::endl;
   //val = 0.;
   return val;
+}
+  
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(precon_)
+{
+  const double phi = basis[4].uu;
+  double Dq = 2.*T*H*p(phi);
+  double m = 1.-h(phi);
+  double M = m*Mq;
+  //double M = Mq;
+  const double ep = epq*epq;
+
+  double normgradq = 0.;
+  for(int k = 0; k < N; k++){
+    normgradq = normgradq + basis[k].dudx*basis[k].dudx + basis[k].dudy*basis[k].dudy + basis[k].dudz*basis[k].dudz;
+  }
+  const double b2 = beta*beta;
+  normgradq = (normgradq > b2) ? sqrt(normgradq) : beta;
+  Dq = Dq/normgradq;
+
+  const double ut = basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
+  const double divgradu = M*(ep+Dq)*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+       + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
+       + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
+
+  return ut + t_theta_*divgradu;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -8301,9 +8353,11 @@ RES_FUNC_TPETRA(residual_phi_)
     normgradq[1] = normgradq[1] + basis[k]->duolddx*basis[k]->duolddx + basis[k]->duolddy*basis[k]->duolddy + basis[k]->duolddz*basis[k]->duolddz;
     normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
   }
-  normgradq[0] = sqrt(normgradq[0]);
-  normgradq[1] = sqrt(normgradq[1]);
-  normgradq[2] = sqrt(normgradq[2]);
+  const double b2 = beta*beta;
+  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : beta;
+  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : beta;
+  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : beta;
+
   //coupling term
   const double pq[3] = {Mphi*2.*H*T*pp(phi[0])*normgradq[0]*test,
 			Mphi*2.*H*T*pp(phi[1])*normgradq[1]*test,
@@ -8312,13 +8366,31 @@ RES_FUNC_TPETRA(residual_phi_)
   const double hh[3] = {(-Mphi*hp(phi[0])*L*(Tm-T)/Tm*test),
 			(-Mphi*hp(phi[1])*L*(Tm-T)/Tm*test),
 			(-Mphi*hp(phi[2])*L*(Tm-T)/Tm*test)};
-  const double f[3] = {divgradu[0] + ww[0] + pq[0] + hh[0],
-		       divgradu[1] + ww[1] + pq[1] + hh[1],
-		       divgradu[2] + ww[2] + pq[2] + hh[2]};
+
+  const double epqq[3] = {0.,0.,0.};
+  //const double epqq[3] = {Mphi*epq*epq*phi[0]*normgradq[0]*normgradq[0]*test,
+  //			 Mphi*epq*epq*phi[1]*normgradq[1]*normgradq[1]*test,
+  //		 Mphi*epq*epq*phi[2]*normgradq[2]*normgradq[2]*test};
+
+  const double f[3] = {divgradu[0] + ww[0] + pq[0] + hh[0] + epqq[0],
+		       divgradu[1] + ww[1] + pq[1] + hh[1] + epqq[1],
+		       divgradu[2] + ww[2] + pq[2] + hh[2] + epqq[2]};
 
   return phit + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(precon_phi_)
+{
+  const double phit = basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
+  const double divgradphi = Mphi*epphi*epphi*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+					    + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
+					    + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
+
+  const double ww = Mphi*16.*omega*(1.-2.*basis[eqn_id].uu)*basis[eqn_id].phi[j]*basis[eqn_id].phi[i];
+  return phit + t_theta_*(divgradphi + ww);
 }
 
 //q0 is -.5 lower right
@@ -8494,9 +8566,15 @@ PPR_FUNC(postproc_normq_)
 
 PPR_FUNC(postproc_d_)
 {
-  double phi=u[3];
+  double phi=u[4];
   return 2*H*T*p(phi);
 }
+
+PPR_FUNC(postproc_normgradq_)
+{
+  return u[0]*u[0]+u[1]*u[1]+u[2]*u[2]+u[3]*u[3];
+}
+
 
 }//namespace quaternion
 namespace grain

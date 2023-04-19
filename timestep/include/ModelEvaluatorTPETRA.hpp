@@ -98,8 +98,7 @@ public:
   Teuchos::RCP<const ::Thyra::VectorSpaceBase<Scalar> > get_f_space() const{return f_space_;};
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> createInArgs() const{return prototypeInArgs_;};
-  /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
-  void set_x0(const Teuchos::ArrayView<const Scalar> &x0);
+
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface
   ::Thyra::ModelEvaluatorBase::InArgs<Scalar> getNominalValues() const{return nominalValues_;};
   /// Satisfy Thyra::StateFuncModelEvaluatorBase interface

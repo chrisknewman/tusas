@@ -1,4 +1,4 @@
-//////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 //
 //  Copyright (c) Triad National Security, LLC.  This file is part of the
 //  Tusas code (LA-CC-17-001) and is subject to the revised BSD license terms
@@ -102,6 +102,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   mesh_(mesh),
   Comm(comm)
 {
+
+
   dt_ = paramList.get<double> (TusasdtNameString);
   dtold_ = dt_;
   t_theta_ = paramList.get<double> (TusasthetaNameString);
@@ -183,13 +185,13 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   GreedyTieBreak<local_ordinal_type,global_ordinal_type> greedy_tie_break;
   x_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(x_overlap_map_,greedy_tie_break))));
   //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-  
+
   importer_ = Teuchos::rcp(new import_type(x_owned_map_, x_overlap_map_));
   //exporter_ = Teuchos::rcp(new export_type(x_owned_map_, x_overlap_map_));
   exporter_ = Teuchos::rcp(new export_type(x_overlap_map_, x_owned_map_));
-  
-  num_owned_nodes_ = x_owned_map_->getNodeNumElements()/numeqs_;
-  num_overlap_nodes_ = x_overlap_map_->getNodeNumElements()/numeqs_;
+
+  num_owned_nodes_ = x_owned_map_->getLocalNumElements()/numeqs_;
+  num_overlap_nodes_ = x_overlap_map_->getLocalNumElements()/numeqs_;
 
   Teuchos::ArrayView<global_ordinal_type> NV(node_num_map);
   node_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
@@ -208,17 +210,52 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   pred_temp_ = Teuchos::rcp(new vector_type(x_owned_map_));
   pred_temp_->putScalar(Teuchos::ScalarTraits<scalar_type>::zero());
 
+  {
+    // auto u_o = u_old_->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
+    // auto u_o_o = u_old_old_->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
+    // auto u_n = u_new_->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
+    // auto p_t = pred_temp_->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
+    auto u_o = u_old_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto u_o_o = u_old_old_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto u_n = u_new_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto p_t = pred_temp_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+  }
+
   x_ = Teuchos::rcp(new vector_type(node_overlap_map_));
   y_ = Teuchos::rcp(new vector_type(node_overlap_map_));
   z_ = Teuchos::rcp(new vector_type(node_overlap_map_));
-  Teuchos::ArrayRCP<scalar_type> xv = x_->get1dViewNonConst();
-  Teuchos::ArrayRCP<scalar_type> yv = y_->get1dViewNonConst();
-  Teuchos::ArrayRCP<scalar_type> zv = z_->get1dViewNonConst();
-  const size_t localLength = node_overlap_map_->getNodeNumElements();
-  for (size_t nn=0; nn < localLength; nn++) {
-    xv[nn] = mesh_->get_x(nn);
-    yv[nn] = mesh_->get_y(nn);
-    zv[nn] = mesh_->get_z(nn);
+
+  {
+    // auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadWrite);
+    // auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadWrite);
+    // auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadWrite);
+    auto x_view = x_->getLocalViewDevice(Tpetra::Access::ReadWrite);
+    auto y_view = y_->getLocalViewDevice(Tpetra::Access::ReadWrite);
+    auto z_view = z_->getLocalViewDevice(Tpetra::Access::ReadWrite);
+
+    Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> xv1 = Kokkos::subview (x_view, Kokkos::ALL (), 0);
+    Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> yv1 = Kokkos::subview (y_view, Kokkos::ALL (), 0);
+    Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> zv1 = Kokkos::subview (z_view, Kokkos::ALL (), 0);
+
+    {
+      auto xv1_h = Kokkos::create_mirror_view(xv1);
+      auto yv1_h = Kokkos::create_mirror_view(yv1);
+      auto zv1_h = Kokkos::create_mirror_view(zv1);
+
+      const size_t localLength = node_overlap_map_->getLocalNumElements();
+      for (size_t nn=0; nn < localLength; nn++) {
+        xv1_h[nn] = mesh_->get_x(nn);
+        yv1_h[nn] = mesh_->get_y(nn);
+        zv1_h[nn] = mesh_->get_z(nn);
+        // printf("constructor: nn, xv, yv, zv = %d %f %f %f \n",nn,xv1_h[nn],yv1_h[nn],zv1_h[nn]);
+      }
+
+      Kokkos::deep_copy(xv1, xv1_h);
+      Kokkos::deep_copy(yv1, yv1_h);
+      Kokkos::deep_copy(zv1, zv1_h);
+    
+      Kokkos::fence();
+    }
   }
  
   x_space_ = Thyra::createVectorSpace<scalar_type>(x_owned_map_);
@@ -226,6 +263,11 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //x0_ = Thyra::createMember(x_space_);
   x0_ = Teuchos::rcp(new vector_type(x_owned_map_));
   x0_->putScalar(Teuchos::ScalarTraits<scalar_type>::zero());
+
+  {
+    // auto xzero = x0_->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
+    auto xzero = x0_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+  }
 
   //#ifndef TUSASMUELU
   bool precon = paramList.get<bool> (TusaspreconNameString);
@@ -256,6 +298,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     if( 0 == comm_->getRank() ){
       std::cout <<" MueLu preconditioner created"<<std::endl<<std::endl;
     }
+
   }
   //#endif
 
@@ -295,13 +338,14 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,
 								       TusaserrorestimatorNameString)).toVector();
+
   std::vector<int>::iterator it;
+
   for(it = indices.begin();it != indices.end(); ++it){
     //std::cout<<*it<<" "<<std::endl;
     int error_index = *it;
     Error_est.push_back(new error_estimator(Comm,mesh_,numeqs_,error_index));
   }
-
 
 }
 
@@ -410,15 +454,6 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 }
 
 template<class Scalar>
-void ModelEvaluatorTPETRA<Scalar>::set_x0(const Teuchos::ArrayView<const Scalar> &x0_in)
-{
-#ifdef TEUCHOS_DEBUG
-  TEUCHOS_ASSERT_EQUALITY(x_space_->dim(), x0_in.size());
-#endif
-  x0_->get1dViewNonConst()().assign(x0_in);
-}
-
-template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const Thyra::ModelEvaluatorBase::InArgs<Scalar> &inArgs,
   const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
@@ -452,20 +487,28 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     u->doImport(*x_vec,*importer_,Tpetra::INSERT);
     uold->doImport(*u_old_,*importer_,Tpetra::INSERT);
     uoldold->doImport(*u_old_old_,*importer_,Tpetra::INSERT);
+
+    Kokkos::fence();
   }
 
-  auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>();
-  auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>();
-  auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>();
+  // auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>();
+  // auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>();
+  // auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto x_view = x_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+  auto y_view = y_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+  auto z_view = z_->getLocalViewDevice(Tpetra::Access::ReadOnly);
   //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
   //this will utilize texture memory not available on tesla or earlier gpus
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra = Kokkos::subview (x_view, Kokkos::ALL (), 0);
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
-  auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+#if 0
+  // auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
+  auto u_view = u->getLocalViewDevice(Tpetra::Access::ReadOnly);
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
     u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+#endif
 
   const int blk = 0;
   const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
@@ -476,6 +519,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #endif
   const int num_color = Elem_col->get_num_color();
 
+  //printf("num_color = %d\n", num_color);
+
   Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
 
 
@@ -484,9 +529,23 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   //std::cout<<n_nodes_per_elem*(*mesh_->get_elem_num_map()).size()<<"  "<<((mesh_->connect)[0]).size()<<std::endl;
 
   //Kokkos::vector<int> meshc(((mesh_->connect)[0]).size());
-  for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
-    meshc_1d(i)=(mesh_->connect)[0][i];
+
+
+  // scope for meshc_1d_h
+  {
+    auto meshc_1d_h = Kokkos::create_mirror_view(meshc_1d);
+
+    for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
+      meshc_1d_h(i)=(mesh_->connect)[0][i];
+    }
+
+    Kokkos::deep_copy(meshc_1d, meshc_1d_h);
+
+    Kokkos::fence();
   }
+
+  Kokkos::fence();
+
   Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
 
   const double dt = dt_; //cuda 8 lambdas dont capture private data
@@ -503,9 +562,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       exit(0);
   }
 
+  // printf("CPU: dt,dtold,t_theta,t_theta2,time = %f %f %f %f %f \n",dt,dtold,t_theta,t_theta2,time);
+
   const std::string testname = paramList.get<std::string> (TusastestNameString);
-  
+
   if (nonnull(outArgs.get_f())){
+    // auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
+    auto u_view = u->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
+      u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+
+    { // start scope for f_vec and f_overlap 
 
     const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
@@ -518,10 +585,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 //     std::string elem_type=mesh_->get_blk_elem_type(blk);
 //     std::string * elem_type_p = &elem_type;
 
-    auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
-    auto uoldold_view = uoldold->getLocalView<Kokkos::DefaultExecutionSpace>();
+    // auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
+    // auto uoldold_view = uoldold->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
+    auto uold_view = uold->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto uoldold_view = uoldold->getLocalViewDevice(Tpetra::Access::ReadOnly);
     
-    auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+    // auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadWrite);
+    auto f_view = f_overlap->getLocalViewDevice(Tpetra::Access::ReadWrite);
         
     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
     //Kokkos::View<double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
@@ -605,10 +675,25 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
       //Kokkos::vector<int> elem_map_k(num_elem);
-      for(int i = 0; i<num_elem; i++) {
-	//elem_map_k[i] = elem_map[i]; 
-	elem_map_1d(i) = elem_map[i]; 
+
+
+      // scope for elem_map_1d_h
+      {
+        // make a mirror on the host
+        auto elem_map_1d_h = Kokkos::create_mirror_view(elem_map_1d);
+
+        for(int i = 0; i<num_elem; i++) {
+    	  //elem_map_k[i] = elem_map[i]; 
+	  elem_map_1d_h(i) = elem_map[i]; 
+        }
+
+        // deep_copy from host to device
+        Kokkos::deep_copy(elem_map_1d,elem_map_1d_h);
+
+        Kokkos::fence();
       }
+
+      Kokkos::fence();
 
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
@@ -640,7 +725,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #endif
 			     //const int ngp = B[0].ngp;
 	const int ngp = B[0].ngp();
-	//printf("%d\n",ngp);
+	//printf("ngp = %d\n",ngp);
 
 	double xx[BASIS_NODES_PER_ELEM];
 	double yy[BASIS_NODES_PER_ELEM];
@@ -663,6 +748,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  yy[k] = y_1dra(nodeid);
 	  zz[k] = z_1dra(nodeid);
 
+          // printf("First: nodeid, k, xx, yy, zz = %d %d %f %f %f \n",nodeid,k,xx[k],yy[k],zz[k]);
+
 	  //std::cout<<k<<"   "<<xx[k]<<"   "<<yy[k]<<"   "<<zz[k]<<"   "<<nodeid<<std::endl;
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    //std::cout<<numeqs*k+neq<<"           "<<n_nodes_per_elem*neq+k <<"      "<<nodeid<<"    "<<numeqs_*nodeid+neq<<std::endl;
@@ -670,6 +757,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); 
 	    uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs*nodeid+neq);
 	    uu_oldold[n_nodes_per_elem*neq+k] = uoldold_1dra(numeqs*nodeid+neq);
+
+            // printf("uu, uu_old, uu_oldold = %f %f %f\n",
+            //           uu[n_nodes_per_elem*neq+k],uu_old[n_nodes_per_elem*neq+k],uu_oldold[n_nodes_per_elem*neq+k]);
+
 	  }//neq
 	}//k
 
@@ -686,7 +777,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    jacwt = B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	  }//neq
 	     
-	  //printf("%f\n",jacwt);
+	  // printf("jacwt = %f\n",jacwt);
 	//const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
 			     //const double jacwt = B[0].jac*B[0].wt;
 
@@ -699,11 +790,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 #ifdef TUSAS_CRUSHER
 	      const double val = jacwt*(tpetra::heat::residual_heat_test_((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
+              // printf("GPU: dt,dtold,t_theta,t_theta2,time = %f %f %f %f %f \n",dt,dtold,t_theta,t_theta2,time);
+              // printf("val = %f\n",val);
 #else
 #ifdef TUSAS_HAVE_CUDA
 	      //printf("%le\n",B[0].phi[0]);
 	      //const double val = jacwt*((d_rf[neq])((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
-	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);tpetra::heat::residual_heat_test_
+	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);// tpetra::heat::residual_heat_test_
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tpetra::heat::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
@@ -714,6 +807,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      const int lid = lrow+neq;
 	      f_1d[lid] += val;
 	      //printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
+              // printf("%d %le %d\n",lid,f_1d[lid],c);
 	    }//neq
 	  }//i
 	}//gp
@@ -721,6 +815,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		     //};//ne
 
     }//c 
+
 
 #ifdef TUSAS_HAVE_CUDA
     //cudaFree(d_rf);
@@ -731,8 +826,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
     }
+
+    Kokkos::fence();
+
+    } // end scope for f_vec and f_overlap
+
+    Kokkos::fence();
+
   }//get_f
 
+#if 0
   if (nonnull(outArgs.get_f())) {
     if (NULL != neumannfunc_) {
 
@@ -766,15 +869,39 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	Teuchos::TimeMonitor ImportTimer(*ts_time_import);
 	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
       }
-      
-      auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
-      auto uoldold_view = uoldold->getLocalView<Kokkos::DefaultExecutionSpace>();
-      auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+
+      // auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
+      // auto uoldold_view = uoldold->getLocalView<Kokkos::DefaultExecutionSpace>();
+      // auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+      auto uold_view = uold->getLocalViewDevice(Tpetra::Access::ReadOnly);
+      auto uoldold_view = uoldold->getLocalViewDevice(Tpetra::Access::ReadOnly);
+      auto f_view = f_overlap->getLocalViewDevice(Tpetra::Access::ReadWrite);
       auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
       Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
 	uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
       Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
 	uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
+
+      auto f_1d_h = Kokkos::create_mirror_view(f_1d);
+      auto uold_1dra_h = Kokkos::create_mirror_view(uold_1dra);
+      auto uoldold_1dra_h = Kokkos::create_mirror_view(uoldold_1dra);
+      Kokkos::deep_copy(f_1d_h,f_1d);
+      Kokkos::deep_copy(uold_1dra_h,uold_1dra);
+      Kokkos::deep_copy(uoldold_1dra_h,uoldold_1dra);
+
+      Kokkos::fence();
+
+      auto x_1dra_h = Kokkos::create_mirror_view(x_1dra);
+      auto y_1dra_h = Kokkos::create_mirror_view(y_1dra);
+      auto z_1dra_h = Kokkos::create_mirror_view(z_1dra);
+      auto u_1dra_h = Kokkos::create_mirror_view(u_1dra);
+
+      Kokkos::deep_copy(x_1dra_h,x_1dra);
+      Kokkos::deep_copy(y_1dra_h,y_1dra);
+      Kokkos::deep_copy(z_1dra_h,z_1dra);
+      Kokkos::deep_copy(u_1dra_h,u_1dra);
+
+      Kokkos::fence();
 
       GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
       //GPUBasis * BGPU = &Bq;
@@ -784,7 +911,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       const int ngp = Bq.ngp;
       
       std::map<int,NBCFUNC>::iterator it;
-      
+
       for( int k = 0; k < numeqs_; k++ ){
 	for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
 	  const int ss_id = it->first;
@@ -800,12 +927,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    double uu_oldold[BASIS_NODES_PER_ELEM];
 	    for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
 	      const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+ll];
-	      xx[ll] = x_1dra(lid);
-	      yy[ll] = y_1dra(lid);
-	      zz[ll] = z_1dra(lid);
-	      uu[ll] = u_1dra(numeqs_*lid+k);
-	      uu_old[ll] = uold_1dra(numeqs_*lid+k);
-	      uu_oldold[ll] = uoldold_1dra(numeqs_*lid+k);
+	      xx[ll] = x_1dra_h(lid);
+	      yy[ll] = y_1dra_h(lid);
+	      zz[ll] = z_1dra_h(lid);
+	      uu[ll] = u_1dra_h(numeqs_*lid+k);
+	      uu_old[ll] = uold_1dra_h(numeqs_*lid+k);
+	      uu_oldold[ll] = uoldold_1dra_h(numeqs_*lid+k);
 	    }//ll
 	    
 	    //BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
@@ -823,21 +950,30 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		//const double val = -jacwt*(it->second)(BGPU,i,dt,dtold,t_theta,t_theta2,time);
 		const double val = -jacwt*(it->second)(&Bq,i,dt,dtold,t_theta,t_theta2,time);
 		
-		f_1d[row] += val;
+		f_1d_h[row] += val;
 		
 	      }//i
 	    }//gp
 	  }//j
 	}//it
       }//k
+
+      Kokkos::deep_copy(f_1d,f_1d_h);
+
+      Kokkos::fence();
+
       {
 	Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
 	f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
       }
     }//neumann
   }//get_f
+#endif
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
+
+    { // start scope of f_vec and f_overlap
+
     const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
     //std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
@@ -849,60 +985,189 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       f_overlap->doImport(*f_vec,*importer_,Tpetra::INSERT);
     }
 
+    { // start scope of f_view
+
+#ifdef TUSAS_RUN_ON_CPU
+    auto f_view = f_overlap->getLocalViewHost(Tpetra::Access::ReadWrite);
+#else
     //u is already imported to overlap_map here
     //auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
-    auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
+    auto f_view = f_overlap->getLocalViewDevice(Tpetra::Access::ReadWrite);
+#endif
     
     
     //auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
     //Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+
+    { // start scope for the f_1d and the *_id_h views
+
     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
-	
+
+#ifdef TUSAS_RUN_ON_CPU
+#if 0
+    // auto f_1d_h = Kokkos::create_mirror_view(f_1d);
+    auto x_1dra_h = Kokkos::create_mirror_view(x_1dra);
+    auto y_1dra_h = Kokkos::create_mirror_view(y_1dra);
+    auto z_1dra_h = Kokkos::create_mirror_view(z_1dra);
+    auto u_1dra_h = Kokkos::create_mirror_view(u_1dra);
+
+    // Kokkos::deep_copy(f_1d_h,f_1d);
+    Kokkos::deep_copy(x_1dra_h,x_1dra);
+    Kokkos::deep_copy(y_1dra_h,y_1dra);
+    Kokkos::deep_copy(z_1dra_h,z_1dra);
+    Kokkos::deep_copy(u_1dra_h,u_1dra);
+#endif
+    Kokkos::fence();
+#endif
+
+    auto u_temp = u->getLocalViewHost(Tpetra::Access::ReadOnly);
+//     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
+//       ut_1dra = Kokkos::subview (u_temp, Kokkos::ALL (), 0);
+    auto ut_1dra = Kokkos::subview (u_temp, Kokkos::ALL (), 0);
+
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	const int ns_id = it->first;
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
 
-
 	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-	Kokkos::View <int*> node_set_view("nsv",ns_size);
-	for (size_t i = 0; i < ns_size; ++i) {
-	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+
+/// ======================================================
+#ifdef TUSAS_RUN_ON_CPU
+
+        { // start scope for node_set_view_h
+
+        Kokkos::View <int*,Kokkos::HostSpace> node_set_view_h("nsv",ns_size);
+
+        for (size_t i = 0; i < ns_size; ++i) {
+          node_set_view_h(i) = (mesh_->get_node_set(ns_id))[i];
         }
+
+        for ( int j = 0; j < num_node_ns; j++ ){
+
+          const int lid = node_set_view_h(j);//could use Kokkos::vector here...
+#if 0
+          const double xx = x_1dra_h(lid);
+          const double yy = y_1dra_h(lid);
+          const double zz = z_1dra_h(lid);
+#endif
+          //const double val1 = (it->second)(xx,yy,zz,time);
+          const double val1 = 0.;
+
+          // const double val = u_1dra_h(numeqs_*lid + k)  - val1;
+          const double val = ut_1dra(numeqs_*lid + k)  - val1;
+          //printf("%f/n",val1);
+          // f_1d_h(numeqs_*lid + k) = val;
+          f_1d(numeqs_*lid + k) = val;
+
+        }//j
+
+        } // end scope of node_set_view_h
+
+#else // on device
+
+        Kokkos::View <int*> node_set_view("nsv",ns_size);
+
+        {
+           auto node_set_view_h = Kokkos::create_mirror_view(node_set_view);
+
+           for (size_t i = 0; i < ns_size; ++i) {
+             node_set_view_h(i) = (mesh_->get_node_set(ns_id))[i];
+           }
+
+           Kokkos::deep_copy(node_set_view,node_set_view_h);
+
+           Kokkos::fence();
+        }
+
+        Kokkos::fence();
+
+        Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
+
+           const int lid = node_set_view(j);//could use Kokkos::vector here...
+           // const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,time);
+           const double val1 =0.;
+           const double val = u_1dra(numeqs_*lid + k)  - val1;
+           f_1d(numeqs_*lid + k) = val;
+
+        });//parallel_for
+
+#endif
+///=======================================================
+#if 0
+	Kokkos::View <int*> node_set_view("nsv",ns_size);
+
+        auto node_set_view_h = Kokkos::create_mirror_view(node_set_view);
+
+	for (size_t i = 0; i < ns_size; ++i) {
+	  node_set_view_h(i) = (mesh_->get_node_set(ns_id))[i];
+        }
+
+        Kokkos::deep_copy(node_set_view,node_set_view_h);
 
 #ifdef TUSAS_RUN_ON_CPU	
  	for ( int j = 0; j < num_node_ns; j++ ){
 #else
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
 #endif
-			       const int lid = node_set_view(j);//could use Kokkos::vector here...
 
 #ifdef TUSAS_RUN_ON_CPU
-			       const double xx = x_1dra(lid);
-			       const double yy = y_1dra(lid);
-			       const double zz = z_1dra(lid);	
+                               const int lid = node_set_view_h(j);//could use Kokkos::vector here...
+			       const double xx = x_1dra_h(lid);
+			       const double yy = y_1dra_h(lid);
+			       const double zz = z_1dra_h(lid);	
 			       const double val1 = (it->second)(xx,yy,zz,time);
 #else
+                               const int lid = node_set_view(j);//could use Kokkos::vector here...
 			       const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,time);
 #endif
+
+#ifdef TUSAS_RUN_ON_CPU
+                               const double val = u_1dra_h(numeqs_*lid + k)  - val1;
+                               f_1d_h(numeqs_*lid + k) = val;
+#else
 			       const double val = u_1dra(numeqs_*lid + k)  - val1;
 			       f_1d(numeqs_*lid + k) = val;
+#endif
+
 #ifdef TUSAS_RUN_ON_CPU	
 			     }//j
 #else
 			     });//parallel_for
 #endif
+
+#endif
       }//it
     }//k
+
+#ifdef TUSAS_RUN_ON_CPU
+    // Kokkos::deep_copy(f_1d,f_1d_h);
+#endif
+
+    Kokkos::fence();
+
+    } // end scope of f_1d and the *_id_h views
+
+    Kokkos::fence();
+
+    } // end scope of f_view
+
+    Kokkos::fence();
+
+#if 1
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::REPLACE);//REPLACE ???
+      Kokkos::fence();
     }
+#endif
+
+    } // end scope of f_vec and f_overlap
+
   }//get_f
 
 
-
-      
+#if 0      
   if( nonnull(outArgs.get_W_prec() )){
 
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
@@ -913,8 +1178,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     P->resumeFill();
     P->setAllToScalar((scalar_type)0.0);
 
-    auto PV = P->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
-
+    // auto PV = P->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
+    auto PV = P->getLocalMatrixDevice();
 
     PREFUNC * h_pf;
     h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
@@ -972,7 +1237,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #endif
 #endif
 
-
     for(int c = 0; c < num_color; c++){
       //std::vector<int> elem_map = colors[c];
       std::vector<int> elem_map = Elem_col->get_color(c);
@@ -982,12 +1246,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
       //Kokkos::vector<int> elem_map_k(num_elem);
-      for(int i = 0; i<num_elem; i++) {
-	//elem_map_k[i] = elem_map[i];
-	elem_map_1d(i) = elem_map[i]; 
-	//std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
+
+      {
+         auto elem_map_1d_h = Kokkos::create_mirror_view(elem_map_1d);
+
+         for(int i = 0; i<num_elem; i++) {
+   	   //elem_map_k[i] = elem_map[i];
+	   elem_map_1d_h(i) = elem_map[i]; 
+	   //std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
+         }
+
+         Kokkos::deep_copy(elem_map_1d,elem_map_1d_h);
+
+         Kokkos::fence();
       }
-      //exit(0);	
+
+      Kokkos::fence();
 
       //printf("%d\n",c);
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
@@ -1032,6 +1306,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  xx[k] = x_1dra(nodeid);
 	  yy[k] = y_1dra(nodeid);
 	  zz[k] = z_1dra(nodeid);
+
+          // printf("Second: nodeid, k, xx, yy, zz = %d %d %f %f %f \n",nodeid,k,xx[k],yy[k],zz[k]);
 
 	  for( int neq = 0; neq < numeqs; neq++ ){
 	    uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); //we can add uu_old, uu_oldold
@@ -1108,15 +1384,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   }//outArgs.get_W_prec() 
 
 
-
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
+
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
     P->resumeFill();//this is overlap, P_ is owned
 
     // local nodeset ids are on overlap
    
 #ifdef TUSAS_RUN_ON_CPU
-    auto PV = P->getLocalMatrix();
+    // auto PV = P->getLocalMatrix();
+    auto PV = P->getLocalMatrixDevice();
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     for( int k = 0; k < numeqs_; k++ ){
@@ -1126,9 +1403,20 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   
 	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
 	Kokkos::View <int*> node_set_view("nsv",ns_size);
-	for (size_t i = 0; i < ns_size; ++i) {
-	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+
+        {
+           auto node_set_view_h = Kokkos::create_mirror_view(node_set_view);
+
+   	   for (size_t i = 0; i < ns_size; ++i) {
+	     node_set_view_h(i) = (mesh_->get_node_set(ns_id))[i];
+           }
+
+           Kokkos::deep_copy(node_set_view,node_set_view_h);
+
+           Kokkos::fence();
         }
+
+        Kokkos::fence();
 	
  	//for ( int j = 0; j < num_node_ns; j++ ){
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
@@ -1169,11 +1457,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }//k
 #else
 #endif
+
     P->fillComplete();
     //P->fillComplete();
     //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 //     exit(0);
-
 
     P_->resumeFill();
     {
@@ -1193,6 +1481,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   }//outArgs.get_W_prec() 
   //#endif
+#endif
+
   return;
 }
 
@@ -1385,6 +1675,8 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
     }
   }
 
+  Kokkos::fence();
+
   if( 0 == mypid )
     std::cout<<std::endl<<"init_nox() completed."<<std::endl<<std::endl;
 }
@@ -1434,6 +1726,7 @@ ModelEvaluatorTPETRA<scalar_type>::createOutArgsImpl() const
 template<class scalar_type>
 double ModelEvaluatorTPETRA<scalar_type>::advance()
 {
+
   auto comm_ = Teuchos::DefaultComm<int>::getComm();
   const int mypid = comm_->getRank();
 
@@ -1487,13 +1780,20 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 	);
     Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
     
-    Teuchos::ArrayRCP<scalar_type> unewv = u_new_->get1dViewNonConst();
-    const size_t localLength = num_owned_nodes_;
+    {
+#if 0
+      Teuchos::ArrayRCP<scalar_type> unewv = u_new_->get1dViewNonConst();
+#else
+      auto u_local_view = u_new_->getLocalViewHost(Tpetra::Access::ReadWrite);
+      auto unewv = Kokkos::subview (u_local_view, Kokkos::ALL (), 0);
+#endif
+      const size_t localLength = num_owned_nodes_;
     
-    for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
-      for( int k = 0; k < numeqs_; k++ ){
-	//uoldoldv[numeqs_*nn+k]=uoldv[numeqs_*nn+k];
-	unewv[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
+      for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
+        for( int k = 0; k < numeqs_; k++ ){
+  	  //uoldoldv[numeqs_*nn+k]=uoldv[numeqs_*nn+k];
+  	  unewv[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
+        }
       }
     }
 
@@ -1622,9 +1922,9 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 {
   //ArrayRCP<scalar_type> uv = u->get1dViewNonConst();
 
-  auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto u_view = u->getLocalViewHost(Tpetra::Access::ReadWrite);
   auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
-  
+
   const size_t localLength = num_owned_nodes_;
   for( int k = 0; k < numeqs_; k++ ){
     //#pragma omp parallel for
@@ -1642,6 +1942,9 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 
 
   }
+
+  Kokkos::fence();
+
   //exit(0);
 }
 
@@ -1669,7 +1972,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
     
-    
+#if 1    
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
     
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
@@ -1679,14 +1982,19 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][1] = &dbc_zero_;						 
     (*dirichletfunc_)[0][2] = &dbc_zero_;						 
     (*dirichletfunc_)[0][3] = &dbc_zero_;
+#else
+    dirichletfunc_ = NULL;
+#endif
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::heat::param_;
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
+    // NICHOLS HACK: commented out the next two lines
+    // post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    // post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
+
 #if 0
   }else if("radconvbc" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
@@ -2284,17 +2592,25 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
   int num_nodes = num_overlap_nodes_;
   std::vector<std::vector<double>> output(numeqs_, std::vector<double>(num_nodes));
 
-  const Teuchos::ArrayRCP<scalar_type> uv = temp->get1dViewNonConst();
-  //const size_t localLength = num_owned_nodes_;
+  {
+#if 0
+    const Teuchos::ArrayRCP<scalar_type> uv = temp->get1dViewNonConst();
+#else
+    auto u_local_view = temp->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto uv = Kokkos::subview (u_local_view, Kokkos::ALL (), 0);
+#endif
+    //const size_t localLength = num_owned_nodes_;
 
-  for( int k = 0; k < numeqs_; k++ ){
-    //#pragma omp parallel for
-    for (int nn=0; nn < num_nodes; nn++) {
-      //output[k][nn]=(*temp)[numeqs_*nn+k];
-      output[k][nn]=uv[numeqs_*nn+k];
-      //std::cout<<uv[numeqs_*nn+k]<<std::endl;
+    for( int k = 0; k < numeqs_; k++ ){
+      //#pragma omp parallel for
+      for (int nn=0; nn < num_nodes; nn++) {
+        //output[k][nn]=(*temp)[numeqs_*nn+k];
+        output[k][nn]=uv[numeqs_*nn+k];
+        //std::cout<<uv[numeqs_*nn+k]<<std::endl;
+      }
     }
   }
+
   int err = 0;
   for( int k = 0; k < numeqs_; k++ ){
     mesh_->update_nodal_data((*varnames_)[k], &output[k][0]);
@@ -2520,8 +2836,9 @@ template<class scalar_type>
   Teuchos::RCP< vector_type> u_temp = Teuchos::rcp(new vector_type(x_overlap_map_));
   //Teuchos::RCP< Epetra_Vector> u_old_temp = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
 
-  auto u_view = u_temp->getLocalView<Kokkos::DefaultExecutionSpace>();
+  auto u_view = u_temp->getLocalViewHost(Tpetra::Access::ReadWrite);
   auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+
   for( int k = 0; k < numeqs_; k++ ){
     for (int nn=0; nn < num_overlap_nodes_; nn++) {
       u_1d[numeqs_*nn+k] = inputu[k][nn];
@@ -2529,6 +2846,8 @@ template<class scalar_type>
       //std::cout<<u_1d[numeqs_*nn+k]<<"   "<<inputu[k][nn]<<"  "<<k<<"  "<<nn<<std::endl;
     }
   }
+
+  Kokkos::fence();
 
   u->doExport(*u_temp,*exporter_, Tpetra::INSERT);
   //u_old->doExport(*u_temp,*exporter_, Tpetra::INSERT);
@@ -2563,30 +2882,43 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
   std::vector<double> uuoldold(numeqs_);
   std::vector<double> ug(dim*numee);
 
-  auto uview = u_new_->get1dView();
-  auto uoldview = u_old_->get1dView();
-  auto uoldoldview = u_old_old_->get1dView();
+  {
+#if 0
+    auto uview = u_new_->get1dView();
+    auto uoldview = u_old_->get1dView();
+    auto uoldoldview = u_old_old_->get1dView();
+#else
+    auto u_n_view = u_new_->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto u_o_view = u_old_->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto u_oo_view = u_old_old_->getLocalViewHost(Tpetra::Access::ReadOnly);
 
-  for (int nn=0; nn < num_owned_nodes_; nn++) {
+    auto uview = Kokkos::subview (u_n_view, Kokkos::ALL (), 0);
+    auto uoldview = Kokkos::subview (u_o_view, Kokkos::ALL (), 0);
+    auto uoldoldview = Kokkos::subview (u_oo_view, Kokkos::ALL (), 0);
+#endif
 
-    for( int k = 0; k < numeqs_; k++ ){
-      uu[k] = uview[numeqs_*nn+k];
-      uuold[k] = uoldview[numeqs_*nn+k];
-      uuoldold[k] = uoldoldview[numeqs_*nn+k];
-    }
+    for (int nn=0; nn < num_owned_nodes_; nn++) {
 
-    for( int k = 0; k < numee; k++ ){
-      ug[k*dim] = (*(Error_est[k]->gradx_))[nn];
-      ug[k*dim+1] = (*(Error_est[k]->grady_))[nn];
-      ug[k*dim+2] = (*(Error_est[k]->gradz_))[nn];
-    }
+      for( int k = 0; k < numeqs_; k++ ){
+        uu[k] = uview[numeqs_*nn+k];
+        uuold[k] = uoldview[numeqs_*nn+k];
+        uuoldold[k] = uoldoldview[numeqs_*nn+k];
+      }
 
-    std::vector<post_process*>::iterator itp;
-    for(itp = post_proc.begin();itp != post_proc.end();++itp){
-      (*itp)->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dt_);
-    }
+      for( int k = 0; k < numee; k++ ){
+        ug[k*dim] = (*(Error_est[k]->gradx_))[nn];
+        ug[k*dim+1] = (*(Error_est[k]->grady_))[nn];
+        ug[k*dim+2] = (*(Error_est[k]->gradz_))[nn];
+      }
 
-  }//nn
+      std::vector<post_process*>::iterator itp;
+      for(itp = post_proc.begin();itp != post_proc.end();++itp){
+        (*itp)->process(nn,&uu[0],&uuold[0],&uuoldold[0],&ug[0],time_,dt_,dt_);
+      }
+
+    }//nn
+
+  }
 }
 
 template<class Scalar>
@@ -2607,12 +2939,23 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(std::vector<post_process*
   std::vector<double> uuoldold(numeqs);
   std::vector<double> ug(numeqs);
   
+  {
   //right now for cuda, do this on cpu since the function pointer is buried in another class
   //and it takes very little percentage of time
   //another approach would be to use tpetra vectors here
+#if 0
   Teuchos::ArrayRCP<const scalar_type> unewview = u_new_->get1dView();
   Teuchos::ArrayRCP<const scalar_type> uoldview = u_old_->get1dView();
   Teuchos::ArrayRCP<const scalar_type> predtempview = pred_temp_->get1dView();
+#else
+  auto u_n_view = u_new_->getLocalViewHost(Tpetra::Access::ReadOnly);
+  auto u_o_view = u_old_->getLocalViewHost(Tpetra::Access::ReadOnly);
+  auto pt_view = pred_temp_->getLocalViewHost(Tpetra::Access::ReadOnly);
+    
+  auto unewview = Kokkos::subview (u_n_view, Kokkos::ALL (), 0);
+  auto uoldview = Kokkos::subview (u_o_view, Kokkos::ALL (), 0);
+  auto predtempview = Kokkos::subview (pt_view, Kokkos::ALL (), 0);
+#endif 
   for (int nn=0; nn < num_owned_nodes_; nn++) {
     for( int k = 0; k < numeqs; k++ ){
       uu[k] = unewview[numeqs*nn+k];
@@ -2628,6 +2971,7 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(std::vector<post_process*
       //std::cout<<nn<<" "<<mesh_->get_local_id((x_owned_map_->GID(nn))/numeqs_)<<" "<<xyz[0]<<std::endl;
     }
   }//nn
+  }
 }
 
 template<class Scalar>
@@ -2784,7 +3128,13 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
       );    
   Thyra::ConstDetachedSpmdVectorView<double> x_vec(sol->col(0));
 
+  {
+#if 0
   Teuchos::ArrayRCP<scalar_type> predtempview = pred_temp_->get1dViewNonConst();
+#else
+  auto pt_view = pred_temp_->getLocalViewHost(Tpetra::Access::ReadWrite);
+  auto predtempview = Kokkos::subview (pt_view, Kokkos::ALL (), 0);
+#endif
 
   const int localLength = num_owned_nodes_;
 
@@ -2793,6 +3143,7 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
       predtempview[numeqs_*nn+k]=x_vec[numeqs_*nn+k];
     }
   } 
+  }
 
   if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Predictor step ended"<<std::endl<<std::endl<<std::endl;
@@ -2841,15 +3192,26 @@ void ModelEvaluatorTPETRA<Scalar>::initialsolve()
    //dudt(t=0) = (u_old_ - u_old_old_)/dt_
    //u_old_old_ = u_old_ - dt_*dudt(t=0)
    //           = 2*u_old_ - x_vec
+
+  {
+  // move away from Teuchos::ArrayRCP and towards Kokkos views
+#if 0
   Teuchos::ArrayRCP<const scalar_type> uoldview = u_old_->get1dView();
   Teuchos::ArrayRCP<scalar_type> uoldoldview = u_old_old_->get1dViewNonConst();
+#else
+  auto u_o_view = u_old_->getLocalViewHost(Tpetra::Access::ReadOnly);
+  auto u_oo_view = u_old_old_->getLocalViewHost(Tpetra::Access::ReadWrite);
 
+  auto uoldview = Kokkos::subview (u_o_view, Kokkos::ALL (), 0);
+  auto uoldoldview = Kokkos::subview (u_oo_view, Kokkos::ALL (), 0);
+#endif
    for (int nn=0; nn <  num_owned_nodes_; nn++) {//cn figure out a better way here...
      for( int k = 0; k < numeqs_; k++ ){
        
        uoldoldview[numeqs_*nn+k] = 2.*uoldview[numeqs_*nn+k] - x_vec[numeqs_*nn+k];
    
      }
+   }
    }
    
    t_theta_ = t_theta_temp;

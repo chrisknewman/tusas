@@ -361,7 +361,7 @@ void elem_color::insert_off_proc_elems(){
   std::vector<Mesh::mesh_lint_t> shared_nodes;
 
   //for(int i = 0; i < o_map_->NumMyElements (); i++){
-  for(int i = 0; i < overlap_map_->getNodeNumElements(); i++){
+  for(int i = 0; i < overlap_map_->getLocalNumElements(); i++){
 // #ifdef MESH_64
 //     Mesh::mesh_lint_t ogid = o_map_->GID64(i);
 // #else
@@ -432,7 +432,7 @@ void elem_color::insert_off_proc_elems(){
   Tpetra::Vector<global_ordinal_type, local_ordinal_type,
     global_ordinal_type, node_type> rep_shared_vec_(rep_shared_node_map_);
 
-  for (int i=0; i<rep_shared_node_map_->getNodeNumElements(); i++) {
+  for (int i=0; i<rep_shared_node_map_->getLocalNumElements(); i++) {
     rep_shared_vec_.replaceLocalValue(i, (long long) rep_shared_node_map_->getGlobalElement(i));
   }
 
@@ -456,7 +456,7 @@ void elem_color::insert_off_proc_elems(){
   r_shared_node_map_->Print(std::cout);
   replicated_map_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 //exit(0);
-  std::cout<<r_shared_node_map_->NumMyElements ()<<"   "<<rep_shared_node_map_->getNodeNumElements ()<<std::endl;
+  std::cout<<r_shared_node_map_->NumMyElements ()<<"   "<<rep_shared_node_map_->getLocalNumElements ()<<std::endl;
 
 
 
@@ -468,7 +468,7 @@ void elem_color::insert_off_proc_elems(){
 
 
   for(int i = 0; i < r_shared_node_map_->NumMyElements (); i++){
-  //for(int i = 0; i < rep_shared_node_map_->getNodeNumElements (); i++){
+  //for(int i = 0; i < rep_shared_node_map_->getLocalNumElements (); i++){
 
 
 #ifdef MESH_64

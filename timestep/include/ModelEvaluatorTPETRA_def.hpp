@@ -333,6 +333,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   Elem_col = Teuchos::rcp(new elem_color(Comm,mesh,dorestart));
+  Kokkos::fence();
 
   init_nox();
 
@@ -519,7 +520,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #endif
   const int num_color = Elem_col->get_num_color();
 
-  //printf("num_color = %d\n", num_color);
 
   Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
 
@@ -671,11 +671,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //std::vector<int> elem_map = colors[c];
       const std::vector<int> elem_map = Elem_col->get_color(c);//local
 
+      Kokkos::fence();
       const int num_elem = elem_map.size();
+      //const int num_elem = (Elem_col->get_color(c)).size();
+      Kokkos::fence();
 
       Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
       //Kokkos::vector<int> elem_map_k(num_elem);
-
 
       // scope for elem_map_1d_h
       {
@@ -695,9 +697,23 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       Kokkos::fence();
 
+      //std::cout<<"evalModelImpl() 1: "<<num_elem<<" "<<num_elem<<std::endl;
+
+
+
+
+//       const int num_elem1 = num_elem;
+//       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
+// 			     printf("%d %d\n",ne,num_elem1);	   
+// 			   });
+//       exit(0);
+
+
+
+
+
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
-
 
 #ifdef TUSAS_CRUSHER
 #else
@@ -716,13 +732,20 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}
 #endif
 
+	//printf("evalModelImpl() 2: \n");
 	const int elem = elem_map_1d(ne);
+
+
 #ifdef TUSAS3D	
-	GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-	//GPUBasisLHex B[TUSAS_MAX_NUMEQS];// = {GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex()};
+			     //GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	//GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex()};
+	GPUBasisLHex B[1] = {GPUBasisLHex()};
 #else
  	GPUBasisLQuad B[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
 #endif
+
+// 			     printf("evalModelImpl() 1: %d %d\n",ne,num_elem);
+// #if 0
 			     //const int ngp = B[0].ngp;
 	const int ngp = B[0].ngp();
 	//printf("ngp = %d\n",ngp);
@@ -791,7 +814,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #ifdef TUSAS_CRUSHER
 	      const double val = jacwt*(tpetra::heat::residual_heat_test_((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
               // printf("GPU: dt,dtold,t_theta,t_theta2,time = %f %f %f %f %f \n",dt,dtold,t_theta,t_theta2,time);
-              // printf("val = %f\n",val);
+
+	      //printf("val = %f \n",val);
 #else
 #ifdef TUSAS_HAVE_CUDA
 	      //printf("%le\n",B[0].phi[0]);
@@ -811,9 +835,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    }//neq
 	  }//i
 	}//gp
+	//#endif
       });//parallel_for
 		     //};//ne
-
+      Kokkos::fence();
+      //std::cout<<"evalModelImpl() 2: "<<std::endl;
+    //exit(0);
     }//c 
 
 
@@ -1496,21 +1523,25 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   if( 0 == mypid )
     std::cout<<std::endl<<"init_nox() started."<<std::endl<<std::endl;
 
+
+  Kokkos::fence();
   nnewt_=0;
+
 
   ::Stratimikos::DefaultLinearSolverBuilder builder;
   Teuchos::RCP<Teuchos::ParameterList> lsparams =
     Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusaslsNameString)));
-  //#ifndef TUSASMUELU   
+  //#ifndef TUSASMUELU 
+#if 0  
   //::Stratimikos::enableMueLu<local_ordinal_type,global_ordinal_type, node_type>(builder); 
   using Base = Thyra::PreconditionerFactoryBase<scalar_type>;
   using Impl = Thyra::MueLuPreconditionerFactory<scalar_type,local_ordinal_type,global_ordinal_type, node_type>;
   builder.setPreconditioningStrategyFactory(Teuchos::abstractFactoryStd<Base,Impl>(), "MueLu");
-  //#endif
+#endif
   builder.setParameterList(lsparams);
 
-  if( 0 == mypid )
-    builder.getParameterList()->print(std::cout);
+//   if( 0 == mypid )
+//     builder.getParameterList()->print(std::cout);
 
   Teuchos::RCP< ::Thyra::LinearOpWithSolveFactoryBase<double> >
     lowsFactory = builder.createLinearSolveStrategy("");
@@ -1536,8 +1567,8 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 
   Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
   jfnkOp->setParameterList(jfnkParams);
-  if( 0 == mypid )
-    jfnkParams->print(std::cout);
+//   if( 0 == mypid )
+//     jfnkParams->print(std::cout);
 
   Teuchos::RCP< ::Thyra::ModelEvaluator<double> > Model = Teuchos::rcpFromRef(*this);
   // Wrap the model evaluator in a JFNK Model Evaluator
@@ -1563,7 +1594,9 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, Teuchos::null, Teuchos::null, Teuchos::null, Teuchos::null));
   }
 
+  Kokkos::fence();
   nox_group->computeF();
+  Kokkos::fence();
 
   // VERY IMPORTANT!!!  jfnk object needs base evaluation objects.
   // This creates a circular dependency, so use a weak pointer.

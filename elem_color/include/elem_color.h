@@ -102,11 +102,11 @@ public:
 
   //we could point to the underlying isorropia data instead, in the future
   /// Return a std::vector of elements in the i-th color.
-  std::vector<int> get_color(const int i ///<color index
+  const std::vector<int> get_color(const int i ///<color index
 			     ) const {return elem_LIDS_[i];}
   std::vector< std::vector< int > > get_colors(){return elem_LIDS_;}
   /// Return the number of colors.
-  int get_num_color(){return num_color_;}
+  const int get_num_color() const {return num_color_;}
   /// Output element color to exodus file.
   void update_mesh_data();
 

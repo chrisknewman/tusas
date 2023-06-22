@@ -8167,12 +8167,14 @@ namespace quaternion
   const double Dmax = 1000.;
   //const double Dmin = 1.e-6;
   const double epq = .0477;//(pJ/um)^1/2
+  //const double epq = .0;//(pJ/um)^1/2
   const double epphi = .083852;//(pJ/um)^1/2
   //                          const double L = 2.e9;//J/m^3   =======>
   const double L = 2000.;//pJ/um^3
   const double omega = 31.25;//pJ/um^3
   const double H = .884e-3;//pJ/K/um^2
-  const double T = 1000.;//K
+  //const double T = 1000.;//K
+  const double T = 950.;//K
   const double Tm = 1025.;//K
 
   const int N = 4;
@@ -8251,8 +8253,8 @@ RES_FUNC_TPETRA(residual_)
 
   const double ut = (u-basis[eqn_id]->uuold)/dt_*test;
 
-  const double ep[3] = {epq*epq,epq*epq,epq*epq};
-  //const double ep[3] = {epq*epq*p(phi[0]),epq*epq*p(phi[1]),epq*epq*p(phi[2])};
+  //const double ep[3] = {epq*epq,epq*epq,epq*epq};
+  const double ep[3] = {epq*epq*p(phi[0]),epq*epq*p(phi[1]),epq*epq*p(phi[2])};
 
   Dq[0] = Dq[0]/normgradq[0];
   Dq[1] = Dq[1]/normgradq[1];
@@ -8264,7 +8266,7 @@ RES_FUNC_TPETRA(residual_)
   double normq[3] = {0., 0., 0.};
 
   for(int k = 0; k < N; k++){
-    const double qk = basis[k]->uu;
+    //const double qk = basis[k]->uu;
     pfu[0] = pfu[0] + basis[k]->uu*(basis[k]->dudx*dtestdx + basis[k]->dudy*dtestdy + basis[k]->dudz*dtestdz);
     pfu[1] = pfu[1] + basis[k]->uuold*(basis[k]->duolddx*dtestdx + basis[k]->duolddy*dtestdy + basis[k]->duolddz*dtestdz);
     //pfu[2] = pfu[2] + basis[k]->uuoldold*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
@@ -8275,8 +8277,11 @@ RES_FUNC_TPETRA(residual_)
   normq[0] = (normq[0] > b2 ) ? normq[0] : b2;
   normq[1] = (normq[1] > b2 ) ? normq[1] : b2;
   //std::cout<<sqrt(normq[0])<<"   "<<sqrt(normq[1])<<std::endl;
-  pfu[0] = -pfu[0]*M*(ep[0]+Dq[0])/sqrt(normq[0]);
-  pfu[1] = -pfu[1]*M*(ep[1]+Dq[1])/sqrt(normq[1]);
+
+  //I think we need a q_i here...
+
+  pfu[0] = -pfu[0]*u*M*(ep[0]+Dq[0])/sqrt(normq[0]);
+  pfu[1] = -pfu[1]*uold*M*(ep[1]+Dq[1])/sqrt(normq[1]);
   //pfu[1] = -pfu[2]*M*(ep[2]+Dq[2])/sqrt(normq[2]);
   if(pfu[0] != pfu[0]) exit(0);
   if(pfu[1] != pfu[1]) exit(0);
@@ -8368,13 +8373,70 @@ RES_FUNC_TPETRA(residual_phi_)
 			(-Mphi*hp(phi[2])*L*(Tm-T)/Tm*test)};
 
   const double epqq[3] = {0.,0.,0.};
-  //const double epqq[3] = {Mphi*epq*epq*phi[0]*normgradq[0]*normgradq[0]*test,
-  //			 Mphi*epq*epq*phi[1]*normgradq[1]*normgradq[1]*test,
-  //		 Mphi*epq*epq*phi[2]*normgradq[2]*normgradq[2]*test};
+//   const double epqq[3] = {Mphi*epq*epq*phi[0]*normgradq[0]*normgradq[0]*test,
+// 			  Mphi*epq*epq*phi[1]*normgradq[1]*normgradq[1]*test,
+// 			  Mphi*epq*epq*phi[2]*normgradq[2]*normgradq[2]*test};
 
   const double f[3] = {divgradu[0] + ww[0] + pq[0] + hh[0] + epqq[0],
 		       divgradu[1] + ww[1] + pq[1] + hh[1] + epqq[1],
 		       divgradu[2] + ww[2] + pq[2] + hh[2] + epqq[2]};
+
+  return phit + (1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_phase_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[0]->dphidx[i];
+  const double dtestdy = basis[0]->dphidy[i];
+  const double dtestdz = basis[0]->dphidz[i];
+  //test function
+  const double test = basis[0]->phi[i];
+  //u, phi
+  const double phi[3] = {basis[eqn_id]->uu, basis[eqn_id]->uuold, basis[eqn_id]->uuoldold};
+
+  const double phit = (phi[0]-phi[1])/dt_*test;
+
+  //M eps^2 grad phi rrad test
+  const double divgradu[3] = {Mphi*epphi*epphi*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
+			      Mphi*epphi*epphi*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
+			      Mphi*epphi*epphi*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
+  
+  const double ww[3] = {Mphi*16.*omega*phi[0]*(1.-phi[0])*test,
+			Mphi*16.*omega*phi[1]*(1.-phi[1])*test,
+			Mphi*16.*omega*phi[2]*(1.-phi[2])*test};
+#if 0
+  double normgradq[3] = {0.,0.,0.};
+  for(int k = 0; k < N; k++){
+    normgradq[0] = normgradq[0] + basis[k]->dudx*basis[k]->dudx + basis[k]->dudy*basis[k]->dudy + basis[k]->dudz*basis[k]->dudz;
+    normgradq[1] = normgradq[1] + basis[k]->duolddx*basis[k]->duolddx + basis[k]->duolddy*basis[k]->duolddy + basis[k]->duolddz*basis[k]->duolddz;
+    normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
+  }
+  const double b2 = beta*beta;
+  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : beta;
+  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : beta;
+  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : beta;
+
+  //coupling term
+  const double pq[3] = {Mphi*2.*H*T*pp(phi[0])*normgradq[0]*test,
+			Mphi*2.*H*T*pp(phi[1])*normgradq[1]*test,
+			Mphi*2.*H*T*pp(phi[2])*normgradq[2]*test};
+#endif
+  const double hh[3] = {(-Mphi*hp(phi[0])*L*(Tm-T)/Tm*test),
+			(-Mphi*hp(phi[1])*L*(Tm-T)/Tm*test),
+			(-Mphi*hp(phi[2])*L*(Tm-T)/Tm*test)};
+
+  const double epqq[3] = {0.,0.,0.};
+//   const double epqq[3] = {Mphi*epq*epq*phi[0]*normgradq[0]*normgradq[0]*test,
+// 			  Mphi*epq*epq*phi[1]*normgradq[1]*normgradq[1]*test,
+// 			  Mphi*epq*epq*phi[2]*normgradq[2]*normgradq[2]*test};
+
+  const double f[3] = {divgradu[0] + ww[0] + hh[0] + epqq[0],
+		       divgradu[1] + ww[1] + hh[1] + epqq[1],
+		       divgradu[2] + ww[2] + hh[2] + epqq[2]};
 
   return phit + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
@@ -8493,6 +8555,16 @@ INI_FUNC(init_)
 //so should we shift and scale each of these here?
 
 //Also the page seems different today, 4-12-23
+
+//And our convention to normalize via:
+//  return (s+pi)/2./pi;
+//so that each angle is between 0 and 1 can be used as RGB coloring
+
+//Also, with the example, q=[.5 -.5 .5 .5] and roundoff, etc 
+//produces arguments to atan2 with near +/- 0, producing oscillations
+//we need to fix this
+//ie small chages in q lead to large changes in euler angle
+
 #if 0
 EulerAngles ToEulerAngles(Quaternion q) {
     EulerAngles angles;
@@ -8559,6 +8631,33 @@ PPR_FUNC(postproc_ea2_)
   //return s;
 }
 
+//a possible alternative to euler angles is to just consider the quaternion as rgba color
+//there may be visualization ttols that allow for this, although doesn't seem easy in 
+//paraview
+//rgba can be converted to rgb via the following, assuming some backroung color BGColor,
+//and all values normalized in [0 1]:
+//  Source => Target = (BGColor + Source) =
+//  Target.R = ((1 - Source.A) * BGColor.R) + (Source.A * Source.R)
+//  Target.G = ((1 - Source.A) * BGColor.G) + (Source.A * Source.G)
+//  Target.B = ((1 - Source.A) * BGColor.B) + (Source.A * Source.B)
+//
+//note that in our example problem, q0 and q1 can have values in [-.5 .5]
+//but paraview does not seem to care about negative values
+
+PPR_FUNC(postproc_rgb_r_)
+{
+  return (1.-u[3])*0.+u[3]*u[0];
+}
+PPR_FUNC(postproc_rgb_g_)
+{
+  return (1.-u[3])*0.+u[3]*u[1];
+}
+PPR_FUNC(postproc_rgb_b_)
+{
+  return (1.-u[3])*0.+u[3]*u[2];
+}
+
+
 PPR_FUNC(postproc_normq_)
 {
   return u[0]*u[0]+u[1]*u[1]+u[2]*u[2]+u[3]*u[3];
@@ -8570,11 +8669,32 @@ PPR_FUNC(postproc_d_)
   return 2*H*T*p(phi);
 }
 
-PPR_FUNC(postproc_normgradq_)
+PPR_FUNC(postproc_qdotqt_)
 {
-  return u[0]*u[0]+u[1]*u[1]+u[2]*u[2]+u[3]*u[3];
+  double s = 0.;
+  for(int k = 0; k < 4; k++) s = s + u[k]*(u[k]-uold[k])/dt;
+  return s;
 }
 
+PPR_FUNC(postproc_normgradq_)
+{
+  double s = 0.;
+  for(int k = 0; k < 12; k++) s = s + gradu[k]*gradu[k];
+  return s;
+}
+
+PPR_FUNC(postproc_qdotqold_)
+{
+  double s = 0.;
+  for(int k = 0; k < 4; k++) s = s + u[k]*uold[k];
+  return s;
+}
+
+PPR_FUNC(postproc_normphi_)
+{
+  double s = u[4]*u[4];
+  return s;
+}
 
 }//namespace quaternion
 namespace grain

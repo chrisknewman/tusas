@@ -2568,17 +2568,68 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
     post_proc[0].postprocfunc_ = &tpetra::quaternion::postproc_normq_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc_ea0_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
+    post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc_qdotqt_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)2));
-    post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc_ea1_;
+    post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc_rgb_r_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)3));
-    post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
-//     post_proc.push_back(new post_process(Comm,mesh_,(int)4));
-//     post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_d_;
+    post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_rgb_g_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)4));
+    post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_rgb_b_;
+#if 0
+    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::NORM2));
+    post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc_normphi_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)3));
+    post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_ea0_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)4));
+    post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_ea1_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)5));
+    post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
+#endif
 
+    localprojectionindices_.push_back(0);
+    localprojectionindices_.push_back(1);
+    localprojectionindices_.push_back(2);
+    localprojectionindices_.push_back(3);
+
+  }else if("quaternionphase" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::quaternion::residual_phase_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::quaternion::precon_phi_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::quaternion::initphi_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "phi";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+
+#if 0
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
+    post_proc[0].postprocfunc_ = &tpetra::quaternion::postproc_normq_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
+    post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc_qdotqt_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::NORM2));
+    post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc_normphi_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)3));
+    post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_ea0_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)4));
+    post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_ea1_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)5));
+    post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
+#endif
 
     localprojectionindices_.push_back(0);
     localprojectionindices_.push_back(1);

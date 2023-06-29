@@ -5008,11 +5008,11 @@ namespace pfhub2 {
 
     //std::cout<<"-1"<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
     for(int i = 0; i < max_iter; i++){
-      double det = hh*d2fdc2() + (1.-hh)*d2fdc2();
+      double det = hh*d2fdc2() + (1.-hh)*d2fdc2();//-fa''*h+(1-h)*fb''
       double f1 = hh*c_b[0] + (1.- hh)*c_a[0] - c;
       double f2 = df_betadc(c_b[0]) - df_alphadc(c_a[0]);
-      delta_c_b = (-d2fdc2()*f1 - (1-hh)*f2)/det;
-      delta_c_a = (-d2fdc2()*f1 + hh*f2)/det;
+      delta_c_b = (-d2fdc2()*f1 - (1-hh)*f2)/det;//-fa''f*1-(1-h)*f2
+      delta_c_a = (-d2fdc2()*f1 + hh*f2)/det;//-fb''*f1+h*f2
       c_b[0] = delta_c_b + c_b[0];
       c_a[0] = delta_c_a + c_a[0];
       //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
@@ -8634,7 +8634,7 @@ PPR_FUNC(postproc_ea2_)
 //a possible alternative to euler angles is to just consider the quaternion as rgba color
 //there may be visualization ttols that allow for this, although doesn't seem easy in 
 //paraview
-//rgba can be converted to rgb via the following, assuming some backroung color BGColor,
+//rgba can be converted to rgb via the following, assuming some background color BGColor,
 //and all values normalized in [0 1]:
 //  Source => Target = (BGColor + Source) =
 //  Target.R = ((1 - Source.A) * BGColor.R) + (Source.A * Source.R)

@@ -2345,8 +2345,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     preconfunc_ = NULL;
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::pfhub2::prec_c_;
-    (*preconfunc_)[1] = &tpetra::pfhub2::prec_c_;
+    (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[1] = &tpetra::pfhub2::prec_ut_;
     (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
 
     if( 4 == numeta){

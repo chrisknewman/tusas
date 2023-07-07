@@ -2,6 +2,7 @@
 rm -rf results.e
 rm -rf decomp
 rm -rf decompscript
+rm -rf epuscript
 rm -rf nem_spread.inp
 mpirun -np 2 $1/tusas --input-file=test.xml --writedecomp
 bash decompscript

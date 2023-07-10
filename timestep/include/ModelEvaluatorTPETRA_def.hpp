@@ -2390,6 +2390,79 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 //     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
 //     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
+  }else if("cahnhilliard" == paramList.get<std::string> (TusastestNameString)){
+    //std::cout<<"cahnhilliard"<<std::endl;
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::cahnhilliard::init_c_;
+    (*initfunc_)[1] = &tpetra::cahnhilliard::init_mu_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::cahnhilliard::residual_c_;
+    (*residualfunc_)[1] = &tpetra::cahnhilliard::residual_mu_;
+
+    preconfunc_ = NULL;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "mu";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    (*dirichletfunc_)[0][1] = &dbc_zero_;
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+    (*dirichletfunc_)[1][1] = &dbc_zero_;
+    (*dirichletfunc_)[1][3] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+    paramfunc_.resize(1);
+    paramfunc_[0] = tpetra::cahnhilliard::param_;
+
+    //exit(0);
+
+  }else if("cahnhilliardtrans" == paramList.get<std::string> (TusastestNameString)){
+    //std::cout<<"cahnhilliard"<<std::endl;
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::cahnhilliard::init_mu_;
+    (*initfunc_)[1] = &tpetra::cahnhilliard::init_c_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::cahnhilliard::residual_mu_trans_;
+    (*residualfunc_)[1] = &tpetra::cahnhilliard::residual_c_trans_;
+
+    preconfunc_ = NULL;
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::cahnhilliard::prec_mu_trans_;
+    (*preconfunc_)[1] = &tpetra::cahnhilliard::prec_c_trans_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "mu";
+    (*varnames_)[1] = "c";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    (*dirichletfunc_)[0][1] = &dbc_zero_;
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+    (*dirichletfunc_)[1][1] = &dbc_zero_;
+    (*dirichletfunc_)[1][3] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+    paramfunc_.resize(1);
+    paramfunc_[0] = tpetra::cahnhilliard::param_;
+
+    //exit(0);
+
   }else if("robin" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;

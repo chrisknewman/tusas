@@ -3367,6 +3367,7 @@ RES_FUNC(residual_heat_test_)
 
 namespace cahnhilliard
 {
+  //https://www.sciencedirect.com/science/article/pii/S0021999112007243
   double M = 1.;
   double Eps = 1.;
   double alpha = 1.;//alpha >= 1
@@ -7640,6 +7641,167 @@ INI_FUNC(init_eta_)
 }
 
 }//namespace pfhub2
+namespace cahnhilliard
+{
+  //this has an mms described at:
+  //https://www.sciencedirect.com/science/article/pii/S0021999112007243
+
+  //residual_*_ is a traditional formulation for [c mu] with
+  //R_c = c_t - divgrad mu
+  //R_mu = -mu + df/dc - divgrad c
+
+  //residual_*_trans_ utilizes a transformation as [mu c] with
+  //R_mu = c_t - divgrad mu
+  //R_c = -mu + df/dc - divgrad c
+  //that puts the elliptic terms on the diagonal, with better solver convergence and 
+  //potential for preconditioning
+  //the transformation is inspired by:
+  //https://web.archive.org/web/20220201192736id_/https://publikationen.bibliothek.kit.edu/1000141249/136305383
+  //https://www.sciencedirect.com/science/article/pii/S037704271930319X
+
+  //right now, the preconditioner can probably be improved by scaling c by dt
+
+  double M = 1.;
+  double Eps = 1.;
+  double alpha = 1.;//alpha >= 1
+  double pi = 3.141592653589793;
+  double fcoef_ = 0.;
+
+double F(const double &x,const double &t)
+{
+// Sin(a*Pi*x) 
+//  - M*(Power(a,2)*Power(Pi,2)*(1 + t)*Sin(a*Pi*x) - Power(a,4)*Ep*Power(Pi,4)*(1 + t)*Sin(a*Pi*x) + 
+//       6*Power(a,2)*Power(Pi,2)*Power(1 + t,3)*Power(Cos(a*Pi*x),2)*Sin(a*Pi*x) - 
+//       3*Power(a,2)*Power(Pi,2)*Power(1 + t,3)*Power(Sin(a*Pi*x),3))
+
+  double a = alpha;
+  return sin(a*pi*x) 
+    - M*(std::pow(a,2)*std::pow(pi,2)*(1 + t)*sin(a*pi*x) - std::pow(a,4)*Eps*std::pow(pi,4)*(1 + t)*sin(a*pi*x) + 
+	 6*std::pow(a,2)*std::pow(pi,2)*std::pow(1 + t,3)*std::pow(cos(a*pi*x),2)*sin(a*pi*x) - 
+	 3*std::pow(a,2)*std::pow(pi,2)*std::pow(1 + t,3)*std::pow(sin(a*pi*x),3));
+}
+double fp(const double &u)
+{
+  return u*u*u - u;
+}
+
+INI_FUNC(init_c_)
+{
+  return sin(alpha*pi*x);
+}
+
+INI_FUNC(init_mu_)
+{
+  //-Sin[a \[Pi] x] + a^2 \[Pi]^2 Sin[a \[Pi] x] + Sin[a \[Pi] x]^3
+  return -sin(alpha*pi*x) + alpha*alpha*pi*pi*sin(alpha*pi*x) + sin(alpha*pi*x)*sin(alpha*pi*x)*sin(alpha*pi*x);
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_c_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0]->dphidx[i];
+  double dtestdy = basis[0]->dphidy[i];
+  double dtestdz = basis[0]->dphidz[i];
+  //test function
+  double test = basis[0]->phi[i];
+  double c = basis[0]->uu;
+  double cold = basis[0]->uuold;
+  double mu = basis[1]->uu;
+  double x = basis[0]->xx;
+
+  double ct = (c - cold)/dt_*test;
+  double divgradmu = M*t_theta_*(basis[1]->dudx*dtestdx + basis[1]->dudy*dtestdy + basis[1]->dudz*dtestdz)
+    + M*(1.-t_theta_)*(basis[1]->duolddx*dtestdx + basis[1]->duolddy*dtestdy + basis[1]->duolddz*dtestdz);
+  double f = t_theta_*fcoef_*F(x,time)*test + (1.-t_theta_)*fcoef_*F(x,time-dt_)*test;
+
+  return ct + divgradmu - f;
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_mu_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0]->dphidx[i];
+  double dtestdy = basis[0]->dphidy[i];
+  double dtestdz = basis[0]->dphidz[i];
+  //test function
+  double test = basis[1]->phi[i];
+  double c = basis[0]->uu;
+  double mu = basis[1]->uu;
+
+  double mut = mu*test;
+  double f = fp(c)*test;
+  double divgradc = Eps*(basis[0]->dudx*dtestdx + basis[0]->dudy*dtestdy + basis[0]->dudz*dtestdz);
+
+  return -mut + f + divgradc;
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_mu_trans_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0]->dphidx[i];
+  double dtestdy = basis[0]->dphidy[i];
+  double dtestdz = basis[0]->dphidz[i];
+  //test function
+  double test = basis[0]->phi[i];
+  double c = basis[1]->uu;
+  double cold = basis[1]->uuold;
+  //double mu = basis[1]->uu;
+  double x = basis[0]->xx;
+
+  double ct = (c - cold)/dt_*test;
+  double divgradmu = M*t_theta_*(basis[0]->dudx*dtestdx + basis[0]->dudy*dtestdy + basis[0]->dudz*dtestdz)
+    + M*(1.-t_theta_)*(basis[0]->duolddx*dtestdx + basis[0]->duolddy*dtestdy + basis[0]->duolddz*dtestdz);
+  double f = t_theta_*fcoef_*F(x,time)*test + (1.-t_theta_)*fcoef_*F(x,time-dt_)*test;
+
+  return ct + divgradmu - f;
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_c_trans_)
+{
+  //derivatives of the test function
+  double dtestdx = basis[0]->dphidx[i];
+  double dtestdy = basis[0]->dphidy[i];
+  double dtestdz = basis[0]->dphidz[i];
+  //test function
+  double test = basis[1]->phi[i];
+  double c = basis[1]->uu;
+  double mu = basis[0]->uu;
+
+  double mut = mu*test;
+  double f = fp(c)*test;
+  double divgradc = Eps*(basis[1]->dudx*dtestdx + basis[1]->dudy*dtestdy + basis[1]->dudz*dtestdz);
+
+  return -mut + f + divgradc;
+}
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_mu_trans_)
+{
+  const double divgradmu = M*t_theta_*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+       + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
+       + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
+  return divgradmu;
+}
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_c_trans_)
+{
+  const double divgradc = Eps*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+       + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
+       + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
+  return divgradc;
+}
+
+PARAM_FUNC(param_)
+{
+  fcoef_ = plist->get<double>("fcoef");
+}
+}//namespace cahnhilliard
+
 
 namespace robin
 {

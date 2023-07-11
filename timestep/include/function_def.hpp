@@ -7174,6 +7174,10 @@ namespace pfhub2
   TUSAS_DEVICE
   int eqn_off_ = 2;
   TUSAS_DEVICE
+  int ci_ = 0;
+  TUSAS_DEVICE
+  int mui_ = 1;
+  TUSAS_DEVICE
   const double c0_ = .5;
   TUSAS_DEVICE
   const double eps_ = .05;
@@ -7217,6 +7221,24 @@ namespace pfhub2
 #else
     eqn_off_ = eqn_off_p;
 #endif
+  }
+ 
+  PARAM_FUNC(param_trans_)
+  {
+    int N_p = plist->get<int>("N");
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
+#else
+    N_ = N_p;
+#endif
+    int eqn_off_p = plist->get<int>("OFFSET");
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
+#else
+    eqn_off_ = eqn_off_p;
+#endif
+    ci_ = 1;
+    mui_ = 0;
   }
  
 KOKKOS_INLINE_FUNCTION 
@@ -7328,26 +7350,22 @@ double dfdeta(const double c, const double eta)
   return f_alpha(c)*(-dh_deta)+f_beta(c)*dh_deta;
 }
 
-const int ci = 0;
-const int mui = 1;
-
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_)
 {
-  //c_t
-  //const int ci = 1;
-  const double ut = (basis[ci]->uu-basis[ci]->uuold)/dt_*basis[eqn_id]->phi[i];
+  // c_t + M grad mu grad test
+  const double ut = (basis[ci_]->uu-basis[ci_]->uuold)/dt_*basis[eqn_id]->phi[i];
   //M_ divgrad mu
-  //const int mui = 0;
-  const double f[3] = {M_*(basis[mui]->dudx*basis[eqn_id]->dphidx[i]
-			   + basis[mui]->dudy*basis[eqn_id]->dphidy[i]
-			   + basis[mui]->dudz*basis[eqn_id]->dphidz[i]),
-		       M_*(basis[mui]->duolddx*basis[eqn_id]->dphidx[i]
-			   + basis[mui]->duolddy*basis[eqn_id]->dphidy[i]
-			   + basis[mui]->duolddz*basis[eqn_id]->dphidz[i]),
-		       M_*(basis[mui]->duoldolddx*basis[eqn_id]->dphidx[i]
-			   + basis[mui]->duoldolddy*basis[eqn_id]->dphidy[i]
-			   + basis[mui]->duoldolddz*basis[eqn_id]->dphidz[i])};
+
+  const double f[3] = {M_*(basis[mui_]->dudx*basis[eqn_id]->dphidx[i]
+			   + basis[mui_]->dudy*basis[eqn_id]->dphidy[i]
+			   + basis[mui_]->dudz*basis[eqn_id]->dphidz[i]),
+		       M_*(basis[mui_]->duolddx*basis[eqn_id]->dphidx[i]
+			   + basis[mui_]->duolddy*basis[eqn_id]->dphidy[i]
+			   + basis[mui_]->duolddz*basis[eqn_id]->dphidz[i]),
+		       M_*(basis[mui_]->duoldolddx*basis[eqn_id]->dphidx[i]
+			   + basis[mui_]->duoldolddy*basis[eqn_id]->dphidy[i]
+			   + basis[mui_]->duoldolddz*basis[eqn_id]->dphidz[i])};
 
   return ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
@@ -7423,8 +7441,7 @@ RES_FUNC_TPETRA(residual_eta_)
   //test function
   const double test = basis[eqn_id]->phi[i];
   //u, phi
-  //const int ci = 1;
-  const double c[3] = {basis[ci]->uu, basis[ci]->uuold, basis[ci]->uuoldold};
+  const double c[3] = {basis[ci_]->uu, basis[ci_]->uuold, basis[ci_]->uuoldold};
 
   const double eta[3] = {basis[eqn_id]->uu, basis[eqn_id]->uuold, basis[eqn_id]->uuoldold};
 
@@ -7525,18 +7542,16 @@ RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_mu_)
 {
-  //const int ci = 1;
-  //const int mui = 0;
-  const double c = basis[ci]->uu;
-  const double mu = basis[mui]->uu;
+  //-mu + df/dc +div c grad test
+  const double c = basis[ci_]->uu;
+  const double mu = basis[mui_]->uu;
   //const double eta = basis[2]->uu;
   const double test = basis[eqn_id]->phi[i];
 
-  const double divgradc = k_c_*(basis[ci]->dudx*basis[ci]->dphidx[i]
-				+ basis[ci]->dudy*basis[ci]->dphidy[i]
-				+ basis[ci]->dudz*basis[ci]->dphidz[i]);
-//   const double hh = h(&eta);
-//   const double dfdc = df_alphadc(c)*(1.-hh)+df_betadc(c)*hh;
+  const double divgradc = k_c_*(basis[ci_]->dudx*basis[eqn_id]->dphidx[i]
+				+ basis[ci_]->dudy*basis[eqn_id]->dphidy[i]
+				+ basis[ci_]->dudz*basis[eqn_id]->dphidz[i]);
+
   double eta_array[N_MAX];
   for( int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
@@ -7545,6 +7560,7 @@ RES_FUNC_TPETRA(residual_mu_)
 
   const double df_dc = dfdc(c,eta_array)*test;
 
+  //return dt_*(-mu*test + df_dc + divgradc);
   return -mu*test + df_dc + divgradc;
 }
 

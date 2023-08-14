@@ -2650,12 +2650,16 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE,dorestart));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::NORMINF,dorestart));
     post_proc[0].postprocfunc_ = &tpetra::localprojection::postproc_u1_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE,dorestart));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::NORMINF,dorestart));
     post_proc[1].postprocfunc_ = &tpetra::localprojection::postproc_u2_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::MAXVALUE,dorestart));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::NORMINF,dorestart));
     post_proc[2].postprocfunc_ = &tpetra::localprojection::postproc_norm_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)3, post_process::NORMINF,dorestart));
+    post_proc[3].postprocfunc_ = &tpetra::localprojection::postproc_u1err_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)4, post_process::NORMINF,dorestart));
+    post_proc[4].postprocfunc_ = &tpetra::localprojection::postproc_u2err_;
 
     localprojectionindices_.push_back(0);
     localprojectionindices_.push_back(1);

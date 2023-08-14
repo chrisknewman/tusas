@@ -6055,8 +6055,19 @@ PPR_FUNC(postproc_u2_)
 
 PPR_FUNC(postproc_norm_)
 {
-  return sqrt(u[0]*u[0]+u[1]*u[1]);
+  return sqrt(u[0]*u[0]+u[1]*u[1])-1.;
 }
+
+PPR_FUNC(postproc_u1err_)
+{
+  return cos(time)-u[0];
+}
+
+PPR_FUNC(postproc_u2err_)
+{
+  return sin(time)-u[1];
+}
+
 
 }//namespace localprojection
 

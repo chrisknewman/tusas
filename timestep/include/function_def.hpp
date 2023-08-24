@@ -8541,6 +8541,7 @@ namespace quaternion
   const double beta = 1.e-10;
 
   const double r0 = .064;
+  const double halfdx = .001;
 
   const double Mq = 1.;//1/sec/pJ
   const double Mphi = 1.;//1/sec/pJ
@@ -8556,7 +8557,7 @@ namespace quaternion
   const double omega = 31.25;//pJ/um^3
   const double H = .884e-3;//pJ/K/um^2
   //const double T = 1000.;//K
-  const double T = 950.;//K
+  const double T = 1000.;//K
   const double Tm = 1025.;//K
 
   const int N = 4;
@@ -8569,7 +8570,7 @@ namespace quaternion
     const double c = (x-x0)*(x-x0) + (y-y0)*(y-y0) + (z-z0)*(z-z0);
     return r-sqrt(c);
   }
-
+#if 0
   const double getphi(const double &x, const double &y, const double &z,
 	   const double &x0, const double &y0, const double &z0,
 		      const double &r, const double &t)
@@ -8581,7 +8582,7 @@ namespace quaternion
     double val = shift + scale*tanh(d/sqrt(2.)/.01);
     return val;
   }
-
+#endif
   const double p(const double &phi)
   {
     return phi*phi;
@@ -8598,6 +8599,14 @@ namespace quaternion
   {
     return 3.*phi*phi*(10.-15.*phi+6.*phi*phi)+phi*phi*phi*(-15.+12.*phi);
   }
+  const double g(const double &phi)
+  {
+    return 16.*phi*phi*(1.-phi)*(1.-phi);
+  }
+  const double gp(const double &phi)
+  {
+    return 32.*phi*(1.-3.*phi+2.*phi*phi);
+  }
     
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_)
@@ -8610,14 +8619,12 @@ RES_FUNC_TPETRA(residual_)
   const double test = basis[0]->phi[i];
   //u, phi
   const double u = basis[eqn_id]->uu;
-  //const double uold = basis[0]->uuold;
   const double uold = basis[eqn_id]->uuold;
 
   const double phi[3] = {basis[4]->uu,basis[4]->uuold,basis[4]->uuoldold};
-  double Dq[3] = {2.*T*H*p(phi[0]),2.*T*H*p(phi[1]),2.*T*H*p(phi[2])};
-  double m = 1.-h(phi[0]);
-  double M = m*Mq;
-  //double M = Mq;
+  const double m[3] = {1.-h(phi[0]),1.-h(phi[1]),1.-h(phi[2])};
+  double M[3] = {m[0]*(Mq+1e-6)+1e-6,m[1]*(Mq+1e-6)+1e-6,m[2]*(Mq+1e-6)+1e-6};
+  //double M[3] = {Mq,Mq,Mq};
 
   //we need norm grad q here
   //grad q is nonzero only within interfaces
@@ -8628,55 +8635,57 @@ RES_FUNC_TPETRA(residual_)
     normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
   }
   //std::cout<<normgradq[0]<<std::endl;
-  const double b2 = beta*beta;
-  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : beta;
-  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : beta;
-  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : beta;
-
-  const double ut = (u-basis[eqn_id]->uuold)/dt_*test;
+  const double betal = 0.*beta;
+  double b2 = beta*beta;
+  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : betal;
+  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : betal;
+  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : betal;
 
   //const double ep[3] = {epq*epq,epq*epq,epq*epq};
   const double ep[3] = {epq*epq*p(phi[0]),epq*epq*p(phi[1]),epq*epq*p(phi[2])};
 
-  Dq[0] = Dq[0]/normgradq[0];
-  Dq[1] = Dq[1]/normgradq[1];
-  //Dq[2] = Dq[2]/normgradq[2];
-
+  double Dq[3] = {2.*T*H*p(phi[0]),2.*T*H*p(phi[1]),2.*T*H*p(phi[2])};
 
   double pfu[3] = {0., 0., 0.};
 
   double normq[3] = {0., 0., 0.};
 
   for(int k = 0; k < N; k++){
-    //const double qk = basis[k]->uu;
     pfu[0] = pfu[0] + basis[k]->uu*(basis[k]->dudx*dtestdx + basis[k]->dudy*dtestdy + basis[k]->dudz*dtestdz);
     pfu[1] = pfu[1] + basis[k]->uuold*(basis[k]->duolddx*dtestdx + basis[k]->duolddy*dtestdy + basis[k]->duolddz*dtestdz);
-    //pfu[2] = pfu[2] + basis[k]->uuoldold*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
+    pfu[2] = pfu[2] + basis[k]->uuoldold*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
     normq[0] = normq[0] + basis[k]->uu*basis[k]->uu;
     normq[1] = normq[1] + basis[k]->uuold*basis[k]->uuold;
     normq[2] = normq[2] + basis[k]->uuoldold*basis[k]->uuoldold;
   }
+
+  b2 = beta*beta;
   normq[0] = (normq[0] > b2 ) ? normq[0] : b2;
   normq[1] = (normq[1] > b2 ) ? normq[1] : b2;
-  //std::cout<<sqrt(normq[0])<<"   "<<sqrt(normq[1])<<std::endl;
+  normq[2] = (normq[2] > b2 ) ? normq[2] : b2;
 
-  //I think we need a q_i here...
+  //DD is the diffusion term ep + Dq/normgradq
+  const double DD[3] = {ep[0]*normgradq[0]+Dq[0],ep[1]*normgradq[1]+Dq[1],ep[2]*normgradq[2]+Dq[2]};
 
-  pfu[0] = -pfu[0]*u*M*(ep[0]+Dq[0])/sqrt(normq[0]);
-  pfu[1] = -pfu[1]*uold*M*(ep[1]+Dq[1])/sqrt(normq[1]);
-  //pfu[1] = -pfu[2]*M*(ep[2]+Dq[2])/sqrt(normq[2]);
+  //const double ut = normgradq[0]*(u-uold)/dt_*test;
+  const double ut = normgradq[1]*(u-uold)/dt_*test;
+
+  pfu[0] = -pfu[0]*u*M[0]*DD[0]/normq[0];
+  pfu[1] = -pfu[1]*uold*M[1]*DD[1]/normq[1];
+  pfu[2] = -pfu[2]*basis[eqn_id]->uuoldold*M[2]*DD[2]/normq[2];
   if(pfu[0] != pfu[0]) exit(0);
   if(pfu[1] != pfu[1]) exit(0);
+  if(pfu[2] != pfu[2]) exit(0);
 
-  const double divgradu[3] = {M*(ep[0]+Dq[0])*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
-			      M*(ep[1]+Dq[1])*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
-			      M*(ep[2]+Dq[2])*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
-
-  const double f[3] = {divgradu[0]+pfu[0], divgradu[1]+pfu[1], divgradu[2]+pfu[2]};
+  const double divgradu[3] = {M[0]*DD[0]*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
+			      M[1]*DD[1]*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
+			      M[2]*DD[2]*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
+  const double a = 1.;
+  const double f[3] = {divgradu[0]+a*pfu[0], divgradu[1]+a*pfu[1], divgradu[2]+a*pfu[2]};
 
   double val= (ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));//*1.e2;
+	       + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+	       +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]))/1.;//*normgradq[0];
 //   if(val!=val){
 //     std::cout<<divgradu[0]<<" "<<divgradu[1]<<" "<<divgradu[2]<<std::endl;
 //   }
@@ -8693,22 +8702,23 @@ PRE_FUNC_TPETRA(precon_)
   double m = 1.-h(phi);
   double M = m*Mq;
   //double M = Mq;
-  const double ep = epq*epq;
+  const double ep = epq*epq*p(phi);
 
   double normgradq = 0.;
   for(int k = 0; k < N; k++){
     normgradq = normgradq + basis[k].dudx*basis[k].dudx + basis[k].dudy*basis[k].dudy + basis[k].dudz*basis[k].dudz;
   }
-  const double b2 = beta*beta;
-  normgradq = (normgradq > b2) ? sqrt(normgradq) : beta;
-  Dq = Dq/normgradq;
-
-  const double ut = basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
-  const double divgradu = M*(ep+Dq)*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
+  const double betal = 0.*beta;
+  const double b2 = betal*betal;
+  normgradq = (normgradq > b2) ? sqrt(normgradq) : betal;
+  //Dq = Dq/normgradq;
+  const double DD = ep*normgradq+Dq;
+  const double ut = normgradq*basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
+  const double divgradu = M*DD*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 
-  return ut + t_theta_*divgradu;
+  return (ut + t_theta_*divgradu)/10.;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -8729,10 +8739,10 @@ RES_FUNC_TPETRA(residual_phi_)
   const double divgradu[3] = {Mphi*epphi*epphi*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      Mphi*epphi*epphi*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      Mphi*epphi*epphi*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
-  
-  const double ww[3] = {Mphi*16.*omega*phi[0]*(1.-phi[0])*test,
-			Mphi*16.*omega*phi[1]*(1.-phi[1])*test,
-			Mphi*16.*omega*phi[2]*(1.-phi[2])*test};
+
+  const double ww[3] = {Mphi*gp(phi[0])*test,
+			Mphi*gp(phi[1])*test,
+			Mphi*gp(phi[2])*test};
 
   double normgradq[3] = {0.,0.,0.};
   for(int k = 0; k < N; k++){
@@ -8740,19 +8750,20 @@ RES_FUNC_TPETRA(residual_phi_)
     normgradq[1] = normgradq[1] + basis[k]->duolddx*basis[k]->duolddx + basis[k]->duolddy*basis[k]->duolddy + basis[k]->duolddz*basis[k]->duolddz;
     normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
   }
-  const double b2 = beta*beta;
-  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : beta;
-  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : beta;
-  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : beta;
+  const double betal = 0.*beta;
+  const double b2 = betal*betal;
+  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : betal;
+  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : betal;
+  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : betal;
 
   //coupling term
   const double pq[3] = {Mphi*2.*H*T*pp(phi[0])*normgradq[0]*test,
 			Mphi*2.*H*T*pp(phi[1])*normgradq[1]*test,
 			Mphi*2.*H*T*pp(phi[2])*normgradq[2]*test};
 
-  const double hh[3] = {(-Mphi*hp(phi[0])*L*(Tm-T)/Tm*test),
-			(-Mphi*hp(phi[1])*L*(Tm-T)/Tm*test),
-			(-Mphi*hp(phi[2])*L*(Tm-T)/Tm*test)};
+  const double hh[3] = {(Mphi*hp(phi[0])*L*(T-Tm)/Tm*test),
+			(Mphi*hp(phi[1])*L*(T-Tm)/Tm*test),
+			(Mphi*hp(phi[2])*L*(T-Tm)/Tm*test)};
 
   const double epqq[3] = {0.,0.,0.};
 //   const double epqq[3] = {Mphi*epq*epq*phi[0]*normgradq[0]*normgradq[0]*test,
@@ -8786,39 +8797,31 @@ RES_FUNC_TPETRA(residual_phase_)
   const double divgradu[3] = {Mphi*epphi*epphi*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      Mphi*epphi*epphi*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      Mphi*epphi*epphi*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
-  
-  const double ww[3] = {Mphi*16.*omega*phi[0]*(1.-phi[0])*test,
-			Mphi*16.*omega*phi[1]*(1.-phi[1])*test,
-			Mphi*16.*omega*phi[2]*(1.-phi[2])*test};
-#if 0
-  double normgradq[3] = {0.,0.,0.};
-  for(int k = 0; k < N; k++){
-    normgradq[0] = normgradq[0] + basis[k]->dudx*basis[k]->dudx + basis[k]->dudy*basis[k]->dudy + basis[k]->dudz*basis[k]->dudz;
-    normgradq[1] = normgradq[1] + basis[k]->duolddx*basis[k]->duolddx + basis[k]->duolddy*basis[k]->duolddy + basis[k]->duolddz*basis[k]->duolddz;
-    normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
-  }
-  const double b2 = beta*beta;
-  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : beta;
-  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : beta;
-  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : beta;
+
+  const double ww[3] = {Mphi*gp(phi[0])*test,
+			Mphi*gp(phi[1])*test,
+			Mphi*gp(phi[2])*test};
+
+  //double normgradq[3] = {0.,0.,0.};
+  double normgradq[3] = {1.,1.,1.};
 
   //coupling term
   const double pq[3] = {Mphi*2.*H*T*pp(phi[0])*normgradq[0]*test,
 			Mphi*2.*H*T*pp(phi[1])*normgradq[1]*test,
 			Mphi*2.*H*T*pp(phi[2])*normgradq[2]*test};
-#endif
-  const double hh[3] = {(-Mphi*hp(phi[0])*L*(Tm-T)/Tm*test),
-			(-Mphi*hp(phi[1])*L*(Tm-T)/Tm*test),
-			(-Mphi*hp(phi[2])*L*(Tm-T)/Tm*test)};
+
+  const double hh[3] = {(Mphi*hp(phi[0])*L*(T-Tm)/Tm*test),
+			(Mphi*hp(phi[1])*L*(T-Tm)/Tm*test),
+			(Mphi*hp(phi[2])*L*(T-Tm)/Tm*test)};
 
   const double epqq[3] = {0.,0.,0.};
 //   const double epqq[3] = {Mphi*epq*epq*phi[0]*normgradq[0]*normgradq[0]*test,
 // 			  Mphi*epq*epq*phi[1]*normgradq[1]*normgradq[1]*test,
 // 			  Mphi*epq*epq*phi[2]*normgradq[2]*normgradq[2]*test};
 
-  const double f[3] = {divgradu[0] + ww[0] + hh[0] + epqq[0],
-		       divgradu[1] + ww[1] + hh[1] + epqq[1],
-		       divgradu[2] + ww[2] + hh[2] + epqq[2]};
+  const double f[3] = {divgradu[0] + ww[0] + pq[0] + hh[0] + epqq[0],
+		       divgradu[1] + ww[1] + pq[1] + hh[1] + epqq[1],
+		       divgradu[2] + ww[2] + pq[2] + hh[2] + epqq[2]};
 
   return phit + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
@@ -8840,15 +8843,25 @@ PRE_FUNC_TPETRA(precon_phi_)
 //q0 is -.5 lower right
 INI_FUNC(initq0_)
 {
-  double val = .0;//.5
+  double val = .0;
   const double s = .001;
   const double den = sqrt(2)*s;
 
-  //if (x > r0 && y <= r0 ) val = -.5;
   val = .5*(1.+tanh((r0-x)/den)+tanh((y-r0)/den));
   if (val > .5) val = .5;
   return val;
 }
+
+INI_FUNC(initq0s_)
+{
+  double val = .5;
+
+  const double s = r0 + halfdx;
+
+  if (x > s && y < s) val = -.5;
+  return val;
+}
+
 
 //q1 is -.5 in upper right
 INI_FUNC(initq1_)
@@ -8860,6 +8873,17 @@ INI_FUNC(initq1_)
   val = .5*(1.+tanh((r0-x)/den)+tanh((r0-y)/den));
   if (val > .5) val = .5;
   return val;
+}
+
+INI_FUNC(initq1s_)
+{
+  double val = .5;
+
+  const double s = r0 + halfdx;
+
+  if (x > s && y > s) val = -.5;
+  return val;
+
 }
 
 //q2 and q3 are .5 everywhere
@@ -9039,6 +9063,10 @@ PPR_FUNC(postproc_rgb_b_)
   return (1.-u[3])*0.+u[3]*u[2];
 }
 
+PPR_FUNC(postproc_normqold_)
+{
+  return uold[0]*uold[0]+uold[1]*uold[1]+uold[2]*uold[2]+uold[3]*uold[3];
+}
 
 PPR_FUNC(postproc_normq_)
 {

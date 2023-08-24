@@ -1516,6 +1516,17 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
   auto comm_ = Teuchos::DefaultComm<int>::getComm();
   const int mypid = comm_->getRank();
 
+
+  //There was some concern that the temporal error is zero.
+  //This can happen since the predictor solution is currently given as the
+  //guess to the corrector. IE if the predictor solution is a good enough
+  //guess for the corrector, and the corrector does not take an iteration
+  //then these solutions are the same. 
+  //Ie we are in a realm where we should just be taking explicit steps.
+  //We could force an iteration of the corrector to get a non zero solution here.
+
+
+
   int maxiter = 1;
   bool timeadapt = paramList.get<bool>(TusasadaptiveTimestepNameString);
   Teuchos::ParameterList *atsList;
@@ -2762,8 +2773,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*preconfunc_)[4] = &tpetra::quaternion::precon_phi_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::quaternion::initq0_;
-    (*initfunc_)[1] = &tpetra::quaternion::initq1_;
+    (*initfunc_)[0] = &tpetra::quaternion::initq0s_;
+    (*initfunc_)[1] = &tpetra::quaternion::initq1s_;
     (*initfunc_)[2] = &tpetra::quaternion::initq2_;
     (*initfunc_)[3] = &tpetra::quaternion::initq3_;
     (*initfunc_)[4] = &tpetra::quaternion::initphi_;
@@ -2801,10 +2812,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
 #endif
 
+#if 0
     localprojectionindices_.push_back(0);
     localprojectionindices_.push_back(1);
     localprojectionindices_.push_back(2);
     localprojectionindices_.push_back(3);
+#endif
 
   }else if("quaternionphase" == paramList.get<std::string> (TusastestNameString)){
 
@@ -2826,27 +2839,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
 
     neumannfunc_ = NULL;
-
-
-#if 0
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
-    post_proc[0].postprocfunc_ = &tpetra::quaternion::postproc_normq_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
-    post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc_qdotqt_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::NORM2));
-    post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc_normphi_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)3));
-    post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_ea0_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)4));
-    post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_ea1_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)5));
-    post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
-#endif
-
-    localprojectionindices_.push_back(0);
-    localprojectionindices_.push_back(1);
-    localprojectionindices_.push_back(2);
-    localprojectionindices_.push_back(3);
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

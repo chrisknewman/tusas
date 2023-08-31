@@ -315,6 +315,9 @@ private:
   std::vector<int> localprojectionindices_;
 
   Teuchos::RCP<random_distribution> randomdistribution;
+
+  bool predictor_step;
+  bool corrector_step;
 };
 
 //==================================================================

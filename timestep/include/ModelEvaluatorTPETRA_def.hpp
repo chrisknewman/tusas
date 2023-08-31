@@ -135,6 +135,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   t_theta_ = paramList.get<double> (TusasthetaNameString);
   t_theta2_ = 0.;
   numsteps_ = 0;
+  predictor_step = false;
+  corrector_step = false;
   set_test_case();
 
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
@@ -491,6 +493,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const Thyra::ModelEvaluatorBase::OutArgs<Scalar> &outArgs
   ) const
 {  
+  //inArgs.describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  //std::cout<<inArgs.description()<<std::endl;;
+  //exit(0);
 
   //cn the easiest way probably to do the sum into off proc nodes is to load a 
   //vector(overlap_map) the export with summation to the f_vec(owned_map)
@@ -1237,6 +1242,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   }//outArgs.get_W_prec() 
 
+//   if (time_ < 1.e-9  && predictor_step == true)
+//     exit(0);
+
   return;
 }
 
@@ -1565,6 +1573,7 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 
       if( 0 == mypid )
 	std::cout<<" Corrector step started"<<std::endl;
+      corrector_step = true;
       NOX::Thyra::Vector thyraguess(*guess);
       solver_->reset(thyraguess);
       
@@ -1582,6 +1591,7 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
       if( 0 == mypid )
 	std::cout<<" Corrector step ended"<<std::endl;
       numit++;
+      corrector_step = false;
     }//timer
     nnewt_ += solver_->getNumIterations();
 
@@ -1841,6 +1851,50 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 			 );//parallel_for
 
   }//k
+
+  if(localprojectionindices_.size() > 0 ){
+    
+    auto comm_ = Teuchos::DefaultComm<int>::getComm();
+    const int mypid = comm_->getRank();
+    if( 0 == mypid)std::cout<<" Performing local projection "<<std::endl;
+    
+    
+    //right now,4-12-23 we make some assumptions and simplifications
+    // we define the P1(v) as the projection of v onto the *direction* of q
+    // P1(v) = q (q, v)
+    // we want p1(v) to have norm=1, with ||P1(v))|| = (q,v)||q||
+    // P(v) = q (q,v) / ( (q,v) ||q||) = q/||q||
+    //
+    // ie any vector projected onto q with norm=1 is q/||q||
+    //
+    //also see section III.1 of 
+    //https://www.unige.ch/~hairer/poly-sde-mani.pdf  
+    //Solving Differential Equations on Manifolds
+    //Ernst Hairer
+    //Universite de Geneve June 2011
+    //Section de mathematiques
+    //2-4 rue du Lievre, CP 64
+    //CH-1211 Geneve 4
+    
+    
+    auto un_view = u_new_->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);
+    //for (int nn=0; nn < localLength; nn++) {//cn figure out a better way here...
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
+			   double norm = 0.;
+			   //std::cout<<nn<<std::endl;
+			   for( auto k : localprojectionindices_ ){
+			     norm = norm + un_1d[numeqs_*nn+k]*un_1d[numeqs_*nn+k];
+			     //std::cout<<"   "<<k<<" "<<numeqs_*nn+k<<" "<<un_1d[numeqs_*nn+k]<<" ";
+			   } 
+			   //std::cout<<"norm = "<<norm<<std::endl;
+			   for( auto k : localprojectionindices_ ){
+			     un_1d[numeqs_*nn+k] = un_1d[numeqs_*nn+k]/sqrt(norm);
+			   }
+			 }
+			 );//parallel_for
+  }//if
+
   //exit(0);
 }
 
@@ -2844,7 +2898,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){
       std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
-	       <<" not found. (void ModelEvaluatorTPETRA<scalar_type>::set_test_case())" <<std::endl<<std::endl<<std::endl;
+	       <<" not found. (void ModelEvaluatorTPETRA<scalar_type>::set_test_case())" 
+	       <<std::endl<<std::endl<<std::endl;
     }
     exit(0);
   }
@@ -2853,7 +2908,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){
       std::cout<<std::endl<<std::endl<<"numeqs_ > TUSAS_MAX_NUMEQS; 1. increase TUSAS_MAX_NUMEQS to "
-	       <<numeqs_<<" ; 2. adjust TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM appropriately and recompile." <<std::endl<<std::endl<<std::endl;
+	       <<numeqs_<<" ; 2. adjust TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM appropriately and recompile." 
+	       <<std::endl<<std::endl<<std::endl;
     }
     exit(0);
   } 
@@ -3484,6 +3540,7 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
   //right now theta2=0 corresponds to FE, BE and TR
   //theta2=1 corresponds to AB
 
+  predictor_step = true;
   auto comm_ = Teuchos::DefaultComm<int>::getComm();
   if( 0 == comm_->getRank()){
     std::cout<<std::endl<<std::endl<<std::endl<<"     Predictor step started"<<std::endl;	
@@ -3533,6 +3590,7 @@ void ModelEvaluatorTPETRA<Scalar>::predictor()
   if( 0 == comm_->getRank()){
     std::cout<<std::endl<<"     Predictor step ended"<<std::endl<<std::endl<<std::endl;
   }
+  predictor_step = false;
   //exit(0);
  }
 

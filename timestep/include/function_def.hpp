@@ -6006,6 +6006,8 @@ RES_FUNC_TPETRA(residual_u1_)
 {
   const double test = basis[eqn_id]->phi[i];
 
+  //std::cout<<basis[0]->uu*basis[0]->uu+basis[1]->uu*basis[1]->uu<<std::endl;
+
   const double u2[3] = {basis[1]->uu, basis[1]->uuold, basis[1]->uuoldold};
   const double f[3] = {u2[0]*test,
 		       u2[1]*test,
@@ -8607,6 +8609,14 @@ namespace quaternion
   {
     return 32.*phi*(1.-3.*phi+2.*phi*phi);
   }
+  const double norm( const double &u1, const double &u2, const double &u3, const double &u4)
+  {
+    return sqrt(u1*u1+u2*u2+u3*u3+u4*u4);
+  }
+  const double normsquared( const double &u1, const double &u2, const double &u3, const double &u4)
+  {
+    return u1*u1+u2*u2+u3*u3+u4*u4;
+  }
     
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_)
@@ -8635,11 +8645,11 @@ RES_FUNC_TPETRA(residual_)
     normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
   }
   //std::cout<<normgradq[0]<<std::endl;
-  const double betal = 0.*beta;
+  //const double betal = beta;
   double b2 = beta*beta;
-  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : betal;
-  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : betal;
-  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : betal;
+  normgradq[0] = sqrt(b2 + normgradq[0]);
+  normgradq[1] = sqrt(b2 + normgradq[1]);
+  normgradq[2] = sqrt(b2 + normgradq[2]);
 
   //const double ep[3] = {epq*epq,epq*epq,epq*epq};
   const double ep[3] = {epq*epq*p(phi[0]),epq*epq*p(phi[1]),epq*epq*p(phi[2])};
@@ -8664,11 +8674,12 @@ RES_FUNC_TPETRA(residual_)
   normq[1] = (normq[1] > b2 ) ? normq[1] : b2;
   normq[2] = (normq[2] > b2 ) ? normq[2] : b2;
 
-  //DD is the diffusion term ep + Dq/normgradq
-  const double DD[3] = {ep[0]*normgradq[0]+Dq[0],ep[1]*normgradq[1]+Dq[1],ep[2]*normgradq[2]+Dq[2]};
+  //DD is the diffusion term ep^ p + 2 H T p/normgradq
+  //const double DD[3] = {ep[0]*normgradq[0]+Dq[0],ep[1]*normgradq[1]+Dq[1],ep[2]*normgradq[2]+Dq[2]};
+  const double DD[3] = {ep[0]+Dq[0]/normgradq[0],ep[1]+Dq[1]/normgradq[1],ep[2]+Dq[2]/normgradq[2]};
 
-  //const double ut = normgradq[0]*(u-uold)/dt_*test;
-  const double ut = normgradq[1]*(u-uold)/dt_*test;
+  //const double ut = normgradq[1]*(u-uold)/dt_*test;
+  const double ut = (u-uold)/dt_*test;
 
   pfu[0] = -pfu[0]*u*M[0]*DD[0]/normq[0];
   pfu[1] = -pfu[1]*uold*M[1]*DD[1]/normq[1];
@@ -8708,12 +8719,15 @@ PRE_FUNC_TPETRA(precon_)
   for(int k = 0; k < N; k++){
     normgradq = normgradq + basis[k].dudx*basis[k].dudx + basis[k].dudy*basis[k].dudy + basis[k].dudz*basis[k].dudz;
   }
-  const double betal = 0.*beta;
+  const double betal = beta;
   const double b2 = betal*betal;
-  normgradq = (normgradq > b2) ? sqrt(normgradq) : betal;
-  //Dq = Dq/normgradq;
-  const double DD = ep*normgradq+Dq;
-  const double ut = normgradq*basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
+
+  normgradq = sqrt(b2 + normgradq);
+  Dq = Dq/normgradq;
+  //const double DD = ep*normgradq+Dq;
+  const double DD = ep+Dq;
+  //const double ut = normgradq*basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
+  const double ut = basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
   const double divgradu = M*DD*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
@@ -8735,6 +8749,18 @@ RES_FUNC_TPETRA(residual_phi_)
 
   const double phit = (phi[0]-phi[1])/dt_*test;
 
+  const double normq[3] = {sqrt(basis[0]->uu*basis[0]->uu+basis[1]->uu*basis[1]->uu+basis[2]->uu*basis[2]->uu+basis[3]->uu*basis[3]->uu),
+			  sqrt(basis[0]->uuold*basis[0]->uuold+basis[1]->uuold*basis[1]->uuold+basis[2]->uuold*basis[2]->uuold+basis[3]->uuold*basis[3]->uuold),
+			  sqrt(basis[0]->uuoldold*basis[0]->uuoldold+basis[1]->uuoldold*basis[1]->uuoldold+basis[2]->uuoldold*basis[2]->uuoldold+basis[3]->uuoldold*basis[3]->uuoldold)};
+#if 0 
+  //this shows that even though qold has norm 1 at nodes, it does not necessarily have norm 1 at guass pts
+  //what does this do to grad qold at guass pts? 
+  if(t_theta_ < 1.){
+    if(normq[1] < 1.)
+      std::cout<<normq[0]<<"  "<<norm(basis[0]->uu,basis[1]->uu,basis[2]->uu,basis[3]->uu)<<" "
+	       <<normq[1]<<"  "<<norm(basis[0]->uuold,basis[1]->uuold,basis[2]->uuold,basis[3]->uuold)<<std::endl;
+  }
+#endif
   //M eps^2 grad phi rrad test
   const double divgradu[3] = {Mphi*epphi*epphi*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      Mphi*epphi*epphi*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
@@ -8752,9 +8778,9 @@ RES_FUNC_TPETRA(residual_phi_)
   }
   const double betal = 0.*beta;
   const double b2 = betal*betal;
-  normgradq[0] = (normgradq[0] > b2) ? sqrt(normgradq[0]) : betal;
-  normgradq[1] = (normgradq[1] > b2) ? sqrt(normgradq[1]) : betal;
-  normgradq[2] = (normgradq[2] > b2) ? sqrt(normgradq[2]) : betal;
+  normgradq[0] = sqrt(b2 + normgradq[0]);//(normgradq[0] > b2) ? sqrt(normgradq[0]) : betal;
+  normgradq[1] = sqrt(b2 + normgradq[1]);//(normgradq[1] > b2) ? sqrt(normgradq[1]) : betal;
+  normgradq[2] = sqrt(b2 + normgradq[2]);//(normgradq[2] > b2) ? sqrt(normgradq[2]) : betal;
 
   //coupling term
   const double pq[3] = {Mphi*2.*H*T*pp(phi[0])*normgradq[0]*test,

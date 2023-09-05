@@ -27,7 +27,6 @@
 #include <Tpetra_Map_decl.hpp>
 #include <Tpetra_Import.hpp>
 #include <Tpetra_replaceDiagonalCrsMatrix_decl.hpp>
-
 #include <Thyra_TpetraThyraWrappers.hpp>
 #include <Thyra_VectorBase.hpp>
 #include "Thyra_PreconditionerFactoryBase.hpp"
@@ -2866,12 +2865,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
 #endif
 
-#if 0
+    //#if 0
     localprojectionindices_.push_back(0);
     localprojectionindices_.push_back(1);
     localprojectionindices_.push_back(2);
     localprojectionindices_.push_back(3);
-#endif
+    //#endif
 
   }else if("quaternionphase" == paramList.get<std::string> (TusastestNameString)){
 

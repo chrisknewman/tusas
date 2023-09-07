@@ -2830,7 +2830,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[1] = &tpetra::quaternion::initq1s_;
     (*initfunc_)[2] = &tpetra::quaternion::initq2_;
     (*initfunc_)[3] = &tpetra::quaternion::initq3_;
-    (*initfunc_)[4] = &tpetra::quaternion::initphi_;
+    //(*initfunc_)[4] = &tpetra::quaternion::initphi_;
+    (*initfunc_)[4] = &tpetra::quaternion::initphis_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "q0";
@@ -2889,6 +2890,30 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[0] = "phi";
 
     // numeqs_ number of variables(equations) 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+  }else if("l21d" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::l21d::residual_;
+    (*residualfunc_)[1] = &tpetra::l21d::residual_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::quaternion::precon_;
+    (*preconfunc_)[1] = &tpetra::quaternion::precon_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::l21d::initq0_;
+    (*initfunc_)[1] = &tpetra::l21d::initq1_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "q0";
+    (*varnames_)[1] = "q1";
+
     dirichletfunc_ = NULL;
 
     neumannfunc_ = NULL;

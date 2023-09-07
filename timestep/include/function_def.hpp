@@ -8766,9 +8766,9 @@ RES_FUNC_TPETRA(residual_phi_)
 			      Mphi*epphi*epphi*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      Mphi*epphi*epphi*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
 
-  const double ww[3] = {Mphi*gp(phi[0])*test,
-			Mphi*gp(phi[1])*test,
-			Mphi*gp(phi[2])*test};
+  const double ww[3] = {Mphi*omega*gp(phi[0])*test,
+			Mphi*omega*gp(phi[1])*test,
+			Mphi*omega*gp(phi[2])*test};
 
   double normgradq[3] = {0.,0.,0.};
   for(int k = 0; k < N; k++){
@@ -8862,7 +8862,7 @@ PRE_FUNC_TPETRA(precon_phi_)
 					    + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
 					    + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 
-  const double ww = Mphi*16.*omega*(1.-2.*basis[eqn_id].uu)*basis[eqn_id].phi[j]*basis[eqn_id].phi[i];
+  const double ww = Mphi*32.*omega*(1.-6.*basis[eqn_id].uu+6.*basis[eqn_id].uu*basis[eqn_id].uu)*basis[eqn_id].phi[j]*basis[eqn_id].phi[i];
   return phit + t_theta_*(divgradphi + ww);
 }
 
@@ -8943,6 +8943,28 @@ INI_FUNC(initphi_)
 
   return val;
 }
+
+INI_FUNC(initphis_)
+{
+  double val = 0.;
+  const double x0 = 0.;
+  const double x1 = .128;
+  //const double s = .001;
+  //const double den = sqrt(2)*s;
+  if( x*x + y*y <= r0*r0 ) val = 1.;
+
+  //val = .5*(tanh((r0-sqrt(x*x + y*y))/den) + 1.);
+
+  if( (x-x1)*(x-x1) + y*y <= r0*r0 ) val = 1.;
+  //val += .5*(tanh((r0-sqrt((x-x1)*(x-x1) + y*y))/den) + 1.);
+  if( (x-x1)*(x-x1) + (y-x1)*(y-x1) <= r0*r0 ) val = 1.;
+  //val += .5*(tanh((r0-sqrt((x-x1)*(x-x1) + (y-x1)*(y-x1)))/den) + 1.);
+  if( x*x + (y-x1)*(y-x1) <= r0*r0 ) val = 1.;
+  //val += .5*(tanh((r0-sqrt(x*x + (y-x1)*(y-x1)))/den) + 1.);
+
+  return val;
+}
+
 
 INI_FUNC(init_)
 {
@@ -9076,18 +9098,49 @@ PPR_FUNC(postproc_ea2_)
 //note that in our example problem, q0 and q1 can have values in [-.5 .5]
 //but paraview does not seem to care about negative values
 
+const double bgcolor[3] = {1.,1.,1.};
+
 PPR_FUNC(postproc_rgb_r_)
 {
-  return (1.-u[3])*0.+u[3]*u[0];
+  return (1.-u[3])*bgcolor[0]+u[3]*u[0];
 }
 PPR_FUNC(postproc_rgb_g_)
 {
-  return (1.-u[3])*0.+u[3]*u[1];
+  return (1.-u[3])*bgcolor[1]+u[3]*u[1];
 }
 PPR_FUNC(postproc_rgb_b_)
 {
-  return (1.-u[3])*0.+u[3]*u[2];
+  return (1.-u[3])*bgcolor[2]+u[3]*u[2];
 }
+
+//other code suggests:
+// // converts vec3 color to vec4 quaternion
+// vec4 c2q( in vec3 c ) {
+//     c = c / sqrt3; // length(c) must be <= 1.0
+//     float rr = c.r*c.r;
+//     float gg = c.g*c.g;
+//     float bb = c.b*c.b;
+//     float ww = 1.0 - sqrt(rr+gg+bb);
+//     float xx = rr/(ww+1.0);
+//     float yy = gg/(ww+1.0);
+//     float zz = bb/(ww+1.0);
+//     return vec4( sqrt( xx ), sqrt( yy ), sqrt( zz ), sqrt( ww ) );
+// }
+
+// // converts vec4 quaternion to vec3 color
+// vec3 q2c( in vec4 q ) {
+//     float xx = q.x*q.x;
+//     float yy = q.y*q.y;
+//     float zz = q.z*q.z;
+//     float ww = q.w*q.w;
+//     float rr = (1.0-ww)*xx;
+//     float gg = (1.0-ww)*yy;
+//     float bb = (1.0-ww)*zz;
+//     vec3 c = vec3( sqrt( rr ), sqrt( gg ), sqrt( bb ) );
+//     return c * sqrt3; // renormalize
+// }
+
+
 
 PPR_FUNC(postproc_normqold_)
 {
@@ -9133,6 +9186,38 @@ PPR_FUNC(postproc_normphi_)
 }
 
 }//namespace quaternion
+
+namespace l21d
+{
+const double a = 0.7071067811865475;// 1/sqrt[2]
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_)
+{
+  //derivatives of the test function
+  //test function
+  const double test = basis[0]->phi[i];
+  std::cout<<basis[0]->uu<<" "<<basis[1]->uu<<" "<<basis[0]->uu*basis[0]->uu+basis[1]->uu*basis[1]->uu<<std::endl;
+  return basis[eqn_id]->uu*test - basis[eqn_id]->uuold*test;
+}
+
+INI_FUNC(initq0_)
+{
+  return a;
+}
+
+INI_FUNC(initq1_)
+{
+  double val = a;
+
+  const double s = 0.;
+
+  if (x > s ) val = -a;
+  return val;
+}
+
+}//namespace l21d
+
 namespace grain
 {
 

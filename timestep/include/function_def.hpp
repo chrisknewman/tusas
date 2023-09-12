@@ -1371,7 +1371,7 @@ RES_FUNC(residual_conc_farzadi_)
   double dphidx = basis[1].dudx;
   double dphidy = basis[1].dudy;
 
-  double ut = (1.+k_)/2.*(u-uold)/dt_*test;
+  double ut = (1.+k_-(1.0-k_)*phi)/2.*(u-uold)/dt_*test;
   //ut = (u-uold)/dt_*test;
   double divgradu = D*(1.-phi)/2.*(basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);//(grad u,grad phi)
   //divgradu = (basis[0].dudx*dtestdx + basis[0].dudy*dtestdy);
@@ -6337,7 +6337,8 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   const double dphidy[3] = {basis[phi_id]->dudy,basis[phi_id]->duolddy,basis[phi_id]->duoldolddy};
   const double dphidz[3] = {basis[phi_id]->dudz,basis[phi_id]->duolddz,basis[phi_id]->duoldolddz};
 
-  const double ut = (1.+k)/2.*(u[0]-u[1])/dt_*test;
+  const double ut = (1. + k - (1.0 - k) * phi[0]) / 2. * (u[0] - u[1]) / dt_ * test;
+
   const double divgradu[3] = {D_liquid_*(1.-phi[0])/2.*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      D_liquid_*(1.-phi[1])/2.*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      D_liquid_*(1.-phi[2])/2.*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};//(grad u,grad phi)
@@ -6674,7 +6675,7 @@ RES_FUNC_TPETRA(residual_conc_farzadi_exp_)
   const double dphidy[2] = {basis[1]->dudy,basis[1]->duolddy};
   const double dphidz[2] = {basis[1]->dudz,basis[1]->duolddz};
 
-  const double ut = (1.+k)/2.*(u[0]-u[1])/dt_*test;
+  const double ut = (1.+k-(1.0-k)*phi[0])/2.*(u[0]-u[1])/dt_*test;
   const double divgradu[2] = {D_liquid_*(1.-phi[0])/2.*(basis[0]->dudx*dtestdx + basis[0]->dudy*dtestdy + basis[0]->dudz*dtestdz),
 			      D_liquid_*(1.-phi[1])/2.*(basis[0]->duolddx*dtestdx + basis[0]->duolddy*dtestdy + basis[0]->duolddz*dtestdz)};//(grad u,grad phi)
 

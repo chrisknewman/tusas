@@ -8684,15 +8684,15 @@ RES_FUNC_TPETRA(residual_)
   pfu[0] = -pfu[0]*u*M[0]*DD[0]/normq[0];
   pfu[1] = -pfu[1]*uold*M[1]*DD[1]/normq[1];
   pfu[2] = -pfu[2]*basis[eqn_id]->uuoldold*M[2]*DD[2]/normq[2];
-  if(pfu[0] != pfu[0]) exit(0);
-  if(pfu[1] != pfu[1]) exit(0);
-  if(pfu[2] != pfu[2]) exit(0);
+//   if(pfu[0] != pfu[0]) exit(0);
+//   if(pfu[1] != pfu[1]) exit(0);
+//   if(pfu[2] != pfu[2]) exit(0);
 
   const double divgradu[3] = {M[0]*DD[0]*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      M[1]*DD[1]*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      M[2]*DD[2]*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
-  const double a = 1.;
-  const double f[3] = {divgradu[0]+a*pfu[0], divgradu[1]+a*pfu[1], divgradu[2]+a*pfu[2]};
+  const double projcoeff = 1.;
+  const double f[3] = {divgradu[0]+ projcoeff*pfu[0], divgradu[1]+projcoeff*pfu[1], divgradu[2]+projcoeff*pfu[2]};
 
   double val= (ut + (1.-t_theta2_)*t_theta_*f[0]
 	       + (1.-t_theta2_)*(1.-t_theta_)*f[1]
@@ -8732,7 +8732,7 @@ PRE_FUNC_TPETRA(precon_)
        + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
        + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
 
-  return (ut + t_theta_*divgradu)/10.;
+  return (ut + t_theta_*divgradu);// /10.;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -9176,13 +9176,17 @@ PPR_FUNC(postproc_qdotqold_)
 {
   double s = 0.;
   for(int k = 0; k < 4; k++) s = s + u[k]*uold[k];
-  return s;
+  return std::sqrt(s);
 }
 
 PPR_FUNC(postproc_normphi_)
 {
   double s = u[4]*u[4];
   return s;
+}
+
+PARAM_FUNC(param_)
+{
 }
 
 }//namespace quaternion

@@ -2809,6 +2809,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
   }else if("quaternion" == paramList.get<std::string> (TusastestNameString)){
 
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
     numeqs_ = 5;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
@@ -2840,6 +2843,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[3] = "q3";
     (*varnames_)[4] = "phi";
 
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::quaternion::param_;
+
     // numeqs_ number of variables(equations) 
     dirichletfunc_ = NULL;
 
@@ -2866,12 +2872,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
 #endif
 
-    //#if 0
+#if 0
     localprojectionindices_.push_back(0);
     localprojectionindices_.push_back(1);
     localprojectionindices_.push_back(2);
     localprojectionindices_.push_back(3);
-    //#endif
+#endif
 
   }else if("quaternionphase" == paramList.get<std::string> (TusastestNameString)){
 

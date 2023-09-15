@@ -115,13 +115,16 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //comm_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   
   if( 0 == comm_->getRank()) {
+    std::cout<<"sizeof(Mesh::mesh_lint_t) = "<<sizeof(Mesh::mesh_lint_t)<<std::endl;
+    std::cout<<"sizeof(long long) =  "<<sizeof(long long)<<std::endl;
+    std::cout<<"sizeof(global_ordinal_type) =  "<<sizeof(global_ordinal_type)<<std::endl<<std::endl;
     if (sizeof(Mesh::mesh_lint_t) != sizeof(global_ordinal_type) ){
       std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
       std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
       std::cout<<" WARNING::  sizeof(Mesh::mesh_lint_t) != sizeof(global_ordinal_type)"<<std::endl;
       std::cout<<"sizeof(Mesh::mesh_lint_t) = "<<sizeof(Mesh::mesh_lint_t)<<std::endl;
       std::cout<<"sizeof(long long) =  "<<sizeof(long long)<<std::endl;
-      std::cout<<"<sizeof(global_ordinal_type) =  "<<sizeof(global_ordinal_type)<<std::endl<<std::endl;
+      std::cout<<"sizeof(global_ordinal_type) =  "<<sizeof(global_ordinal_type)<<std::endl<<std::endl;
       std::cout<<"This is due to incompatablility with global_ordinal_type in Trilinos"<<std::endl;
       std::cout<<"Mesh::mesh_lint_t in Tusas. Can be addressed via -DNO_MESH_64."<<std::endl;
       std::cout<<"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
@@ -609,46 +612,32 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     int testcase = -99;
 
 #ifdef TUSAS_CRUSHER
-#else
-#ifdef TUSAS_HAVE_CUDA
     //RESFUNC * d_rf;
     //cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
 
 
-    //better to use testname.compare("heat") > 0
+    //better to use testname.compare("heat") > 0 and probably an enum
     if("heat" == testname){
-      //cn this will need to be done for each equation
-      //gpuErrchk(cudaMemcpyFromSymbol( &h_rf[0], tpetra::heat::residual_heat_test_dp_, sizeof(RESFUNC)));
       testcase = 0;
     }else if("NLheatIMR" == testname){
-      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatimr_test_dp_, sizeof(RESFUNC));
       testcase = 1;
     }else if("NLheatCN" == testname){
-      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatcn_test_dp_, sizeof(RESFUNC));
       testcase = 2;
     }else if("heat2" == testname){
-      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::heat::residual_heat_test_dp_, sizeof(RESFUNC));
-      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::heat::residual_heat_test_dp_, sizeof(RESFUNC));
       testcase = 3;
     }else if("farzadi" == testname){
-      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
-      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
       testcase = 4;
     }else if("farzadi_test" == testname){
-      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
-      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
       testcase = 5;
     }else if("pfhub3" == testname){
-      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub3::residual_heat_pfhub3_dp_, sizeof(RESFUNC));
-      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub3::residual_phase_pfhub3_dp_, sizeof(RESFUNC));
       testcase = 6;
     }else if("pfhub2kks" == testname){
-      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub2::residual_c_kks_dp_, sizeof(RESFUNC));
-      //cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub2::residual_eta_kks_dp_, sizeof(RESFUNC));
       testcase = 7;
     }else if("goldak" == testname){
-      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::goldak::residual_test_dp_, sizeof(RESFUNC));
       testcase = 8;
+    }else if("fullycoupled" == testname){
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::goldak::residual_test_dp_, sizeof(RESFUNC));
+      testcase = 9;
 
     } else {
       if( 0 == comm_->getRank() ){
@@ -663,7 +652,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #else
     //it seems that evaluating the function via pointer ie h_rf[0] is way faster that evaluation via (*residualfunc_)[0]
     h_rf = &(*residualfunc_)[0];
-#endif
 #endif
 
     for(int c = 0; c < num_color; c++){
@@ -716,19 +704,26 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			     //for(int ne =0; ne<num_elem; ne++){
 
 #ifdef TUSAS_CRUSHER
-#else
+
         //new((RESFUNC*)rf) &tpetra::heat::residual_heat_test_dp_;
 	RESFUNC rf[TUSAS_MAX_NUMEQS];
 	if (testcase == 0){
 	  rf[0] = tpetra::heat::residual_heat_test_;
+	}else if (testcase == 3){
+	  rf[0] = tpetra::heat::residual_heat_test_;
+	  rf[1] = tpetra::heat::residual_heat_test_;
 	}else if (testcase == 4){
-	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
-	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
+	  //rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
+	  //rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
 	}else if (testcase == 8){
-	  rf[0] = tpetra::goldak::residual_test_;
-	  //rf[1] = tpetra::goldak::residual_test_;
+	  //rf[0] = tpetra::goldak::residual_test_;
+	}else if (testcase == 9){
+	  //rf[0] = tpetra::farzadi3d::residual_conc_farzadi_activated_;
+	  //rf[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_activated_;
+	  //rf[2] = tpetra::goldak::residual_coupled_test_;
 	}else{
-	  exit(0);
+	  //exit(0);
+	  return;//for now
 	}
 #endif
 
@@ -738,8 +733,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 #ifdef TUSAS3D	
 			     //GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-	//GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex()};
-	GPUBasisLHex B[1] = {GPUBasisLHex()};
+	GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex(), GPUBasisLHex()};
+	//GPUBasisLHex B[1] = {GPUBasisLHex()};
 #else
  	GPUBasisLQuad B[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
 #endif
@@ -812,7 +807,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    for( int neq = 0; neq < numeqs; neq++ ){
 
 #ifdef TUSAS_CRUSHER
-	      const double val = jacwt*(tpetra::heat::residual_heat_test_((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
+	      //const double val = jacwt*(tpetra::heat::residual_heat_test_((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
+	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);
               // printf("GPU: dt,dtold,t_theta,t_theta2,time = %f %f %f %f %f \n",dt,dtold,t_theta,t_theta2,time);
 
 	      //printf("val = %f \n",val);
@@ -1985,9 +1981,7 @@ template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 {
   paramfunc_.resize(0);
-#ifdef TUSAS_CRUSHER
-  if("heat" != paramList.get<std::string> (TusastestNameString)) exit(0);
-#endif
+
   if("heat" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
     numeqs_ = 1;
@@ -2004,20 +1998,18 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
-    
-#if 1    
+      
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
     
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
-#else
-    dirichletfunc_ = NULL;
-#endif
+    (*dirichletfunc_)[0][0] = &tpetra::heat::dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
+
+    //dirichletfunc_ = NULL;
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::heat::param_;
@@ -2144,7 +2136,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
 
-
+#endif
   }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
     
     numeqs_ = 2;
@@ -2173,17 +2165,17 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
-    (*dirichletfunc_)[1][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[1][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[1][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[1][3] = &dbc_zero_;
+    (*dirichletfunc_)[0][0] = &tpetra::heat::dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[1][0] = &tpetra::heat::dbc_zero_;							 
+    (*dirichletfunc_)[1][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[1][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[1][3] = &tpetra::heat::dbc_zero_;
 
     neumannfunc_ = NULL;
-
+#if 0
   }else if("cummins" == paramList.get<std::string> (TusastestNameString)){
 
 #ifdef TUSAS_CRUSHER
@@ -2217,7 +2209,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(1);
     paramfunc_[0] = &cummins::param_;
 #endif
-
+#endif
+#if 0
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
 
@@ -2248,7 +2241,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //paramfunc_ = &farzadi::param_;
 
     neumannfunc_ = NULL;
-
+#endif
+#if 0
   }else if("farzadiexp" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
 

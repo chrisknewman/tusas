@@ -336,6 +336,12 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   Elem_col = Teuchos::rcp(new elem_color(Comm,mesh,dorestart));
+
+  if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+    const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+    randomdistribution = Teuchos::rcp(new random_distribution(Comm, mesh_, LTP_quadrature_order));
+  }
+
   Kokkos::fence();
 
   init_nox();
@@ -565,7 +571,37 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       exit(0);
   }
 
-  // printf("CPU: dt,dtold,t_theta,t_theta2,time = %f %f %f %f %f \n",dt,dtold,t_theta,t_theta2,time);
+
+
+  const int num_elem1 = (*mesh_->get_elem_num_map()).size();
+  const int ngp1 = LTP_quadrature_order*LTP_quadrature_order*LTP_quadrature_order;//3d
+
+  Kokkos::View<double**,Kokkos::DefaultExecutionSpace> randomdistribution_2d("randomdistribution_2d", num_elem1, ngp1);
+
+  {
+    //Kokkos::View<double**,Kokkos::HostSpace> randomdistribution_2d_h("randomdistribution_2d_h", num_elem1, ngp1);
+    auto randomdistribution_2d_h = Kokkos::create_mirror_view(randomdistribution_2d);
+    if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+      //std::vector<std::vector<double> > vals(randomdistribution->get_gauss_vals());
+      for( int i=0; i<num_elem1; i++){
+	for(int ig=0;ig<ngp1;ig++){
+	  //randomdistribution_2d(i,ig) = vals[i][ig];
+	  randomdistribution_2d_h(i,ig) = randomdistribution->get_gauss_val(i,ig);
+	  //randomdistribution_2d(i,ig) = 0.;
+	}
+      }
+    }else{
+      for( int i=0; i<num_elem1; i++){
+	for(int ig=0;ig<ngp1;ig++){
+	  randomdistribution_2d_h(i,ig) = 0.;
+	}
+      }
+    }//if
+
+    Kokkos::deep_copy(randomdistribution_2d,randomdistribution_2d_h);
+
+    Kokkos::fence();
+  }
 
   const std::string testname = paramList.get<std::string> (TusastestNameString);
 
@@ -713,8 +749,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  rf[0] = tpetra::heat::residual_heat_test_;
 	  rf[1] = tpetra::heat::residual_heat_test_;
 	}else if (testcase == 4){
-	  //rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
-	  //rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
+	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
+	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
 	}else if (testcase == 8){
 	  //rf[0] = tpetra::goldak::residual_test_;
 	}else if (testcase == 9){
@@ -794,6 +830,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    //BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	    jacwt = B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	  }//neq
+	  
+	  const double vol = B[0].vol(); 
 	     
 	  // printf("jacwt = %f\n",jacwt);
 	//const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
@@ -804,11 +842,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    //const int lrow = numeqs*meshc[elemrow+i];
 	    const int lrow = numeqs*meshc_1dra(elemrow+i);
 
+	    const double rand = randomdistribution_2d(elem, gp);
+
 	    for( int neq = 0; neq < numeqs; neq++ ){
 
 #ifdef TUSAS_CRUSHER
 	      //const double val = jacwt*(tpetra::heat::residual_heat_test_((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
-	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);
+	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand);
               // printf("GPU: dt,dtold,t_theta,t_theta2,time = %f %f %f %f %f \n",dt,dtold,t_theta,t_theta2,time);
 
 	      //printf("val = %f \n",val);
@@ -816,11 +856,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #ifdef TUSAS_HAVE_CUDA
 	      //printf("%le\n",B[0].phi[0]);
 	      //const double val = jacwt*((d_rf[neq])((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
-	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq);// tpetra::heat::residual_heat_test_
+	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand);// tpetra::heat::residual_heat_test_
 #else
 	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
 	      //const double val = BGPU->jac*BGPU->wt*(tpetra::heat::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	      double val = jacwt*(h_rf[neq]((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
+	      double val = jacwt*(h_rf[neq]((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand));
 #endif
 #endif
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
@@ -1767,6 +1807,12 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 //   std::cout<<maxiter<<std::endl;
 //   exit(0);
 
+  if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+    randomdistribution->compute_random(numsteps_);
+    //randomdistribution->print();
+    //exit(0);
+  }
+
   double dtpred = dt_;
   int numit = 0;
   for(int iter = 0; iter<maxiter; iter++){
@@ -2175,6 +2221,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[1][3] = &tpetra::heat::dbc_zero_;
 
     neumannfunc_ = NULL;
+
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::heat::param_;
 #if 0
   }else if("cummins" == paramList.get<std::string> (TusastestNameString)){
 
@@ -2210,7 +2259,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[0] = &cummins::param_;
 #endif
 #endif
-#if 0
+
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
 
@@ -2241,7 +2290,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //paramfunc_ = &farzadi::param_;
 
     neumannfunc_ = NULL;
-#endif
+
 #if 0
   }else if("farzadiexp" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
@@ -2572,11 +2621,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   for( int k = 0; k <  paramfunc_.size(); k++ ){
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){
-      std::cout<<"Initial paranfunc evaluated for k = "<<k<<std::endl;
+      std::cout<<"Initial paramfunc evaluated for k = "<<k<<std::endl;
     }
     paramfunc_[k](problemList);
   }
-  
+
 }
 
 template<class scalar_type>

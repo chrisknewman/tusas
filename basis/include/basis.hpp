@@ -2666,6 +2666,8 @@ public:
   const double dphidy(const int &i) const {return dphidyp[i];};
   KOKKOS_INLINE_FUNCTION
   const double dphidz(const int &i) const {return dphidzp[i];};
+  KOKKOS_INLINE_FUNCTION
+  const double vol() const {return volp;};
 
 private:
   /// Access number of Gauss points.
@@ -2722,11 +2724,15 @@ private:
   /// difference in nodal coordinates
   double nodaldiff[36];//12 for lquad, 36 for lhex
 
+  double volp;
+  double canonical_vol;
+
 public:
   //TUSAS_CUDA_CALLABLE_MEMBER 
   KOKKOS_INLINE_FUNCTION
   GPUBasisLHex(int n = 2){
     //const int n = 2;
+    canonical_vol = 8.;
     sngp = n;
     if( 3 == n){
       abscissa[0] = -3.872983346207417/5.0;
@@ -2923,6 +2929,7 @@ public:
 //     jac = jac1;
     jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
       + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
+    volp = jac*canonical_vol;
     const double jaci = 1./jac;
     
     const double dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) * jaci;

@@ -21,12 +21,18 @@
 
 
 
-//#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
-#if 1
+#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA) || (KOKKOS_HAVE_HIP) || defined (KOKKOS_ENABLE_HIP)
 #define TUSAS_DEVICE __device__
-//#define TUSAS_HAVE_CUDA
 #else
 #define TUSAS_DEVICE /**/ 
+#endif
+
+#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
+#define TUSAS_HAVE_CUDA
+#endif
+
+#if defined(KOKKOS_HAVE_HIP) || defined (KOKKOS_ENABLE_HIP)
+#define TUSAS_HAVE_HIP
 #endif
 
 
@@ -194,7 +200,9 @@ PPR_FUNC(normu_)
 			            const double &t_theta_,\
 			            const double &t_theta2_,\
                                     const double &time,\
-				    const int &eqn_id)
+				    const int &eqn_id,\
+				    const double &vol,\
+				    const double &rand)
 #else
 #define RES_FUNC_TPETRA(NAME)  double NAME(GPUBasisLQuad * basis,\
                                     const int &i,\
@@ -203,7 +211,9 @@ PPR_FUNC(normu_)
 			            const double &t_theta_,\
 			            const double &t_theta2_,\
                                     const double &time,\
-				    const int &eqn_id)
+				    const int &eqn_id,\
+				    const double &vol,\
+				    const double &rand)
 #endif
 #ifdef TUSAS3D
 #define PRE_FUNC_TPETRA(NAME)  double NAME(const GPUBasisLHex *basis, \
@@ -338,24 +348,30 @@ PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
 PARAM_FUNC(param_)
 {
   double kk = plist->get<double>("k_",1.);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(k_d,&kk,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(k_d),&kk,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   k_d = kk;
 #endif
   k_h = kk;
 
   double rho = plist->get<double>("rho_",1.);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(rho_d,&rho,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(rho_d),&rho,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   rho_d = rho;
 #endif
   rho_h = rho;
 
   double cp = plist->get<double>("cp_",1.);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(cp_d,&cp,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(cp_d),&cp,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   cp_d = cp;
 #endif
@@ -560,62 +576,87 @@ namespace farzadi3d
   TUSAS_DEVICE
   double interface_noise_amplitude_d = 0.0;
 
-#if 0  
 PARAM_FUNC(param_)
 {
   double k_p = plist->get<double>("k", 0.14);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(k,&k_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(k),&k_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   k = k_p;
 #endif
   k_h = k_p;
+
   double eps_p = plist->get<double>("eps", 0.0);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(eps,&eps_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(eps),&eps_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   eps = eps_p;
 #endif
+  
   double lambda_p = plist->get<double>("lambda", 10.);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(lambda,&lambda_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(lambda),&lambda_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   lambda = lambda_p;
 #endif
+  
   double d0_p = plist->get<double>("d0", 5.e-9);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(d0,&d0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(d0),&d0_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   d0 = d0_p;
 #endif
+  
   double D_liquid_p = plist->get<double>("D_liquid", 3.e-9);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(D_liquid,&D_liquid_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(D_liquid),&D_liquid_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   D_liquid = D_liquid_p;
 #endif
+  
   double m_p = plist->get<double>("m", -2.6);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(m,&m_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(m),&m_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   m = m_p;
 #endif
+  
   double c_inf_p = plist->get<double>("c_inf", 3.);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(c_inf,&c_inf_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(c_inf),&c_inf_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   c_inf = c_inf_p;
 #endif
   c_inf_h = c_inf_p;
+  
   double G_p = plist->get<double>("G", 3.e5);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(G,&G_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(G),&G_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   G = G_p;
 #endif
+  
   double R_p = plist->get<double>("R", 0.003);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(R,&R_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(R),&R_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   R = R_p;
 #endif
@@ -623,21 +664,23 @@ PARAM_FUNC(param_)
 
 // added dT here
 double dT_p = plist->get<double>("dT", 0.0);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(dT,&dT_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(dT),&dT_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   dT = dT_p;
 #endif
   dT_h = dT_p;
 
   double base_height_p = plist->get<double>("base_height", 15.);
-// #ifdef TUSAS_HAVE_CUDA
+// #if defined(TUSAS_HAVE_CUDA)
 //   cudaMemcpyToSymbol(base_height,&base_height_p,sizeof(double));
 // #else
   base_height = base_height_p;
 // #endif
   double amplitude_p = plist->get<double>("amplitude", 0.2);
-// #ifdef TUSAS_HAVE_CUDA
+// #if defined(TUSAS_HAVE_CUDA)
 //   cudaMemcpyToSymbol(amplitude,&amplitude_p,sizeof(double));
 // #else
   amplitude = amplitude_p;
@@ -663,74 +706,88 @@ z0 = z0_p;
 
   //calculated values
   double w0_p = lambda_p*d0_p/0.8839;
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(w0,&w0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(w0),&w0_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   w0 = w0_p;
 #endif
   w0_h = w0_p;
+  
   double tau0_p = (lambda_p*0.6267*w0_p*w0_p)/D_liquid_p;
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(tau0,&tau0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(tau0),&tau0_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   tau0 = tau0_p;
 #endif
   tau0_h = tau0_p;
 
 //   double V_p = R_p;
-// #ifdef TUSAS_HAVE_CUDA
+// #if defined(TUSAS_HAVE_CUDA)
 //   cudaMemcpyToSymbol(V,&V_p,sizeof(double));
 // #else
 //   V = V_p;
 // #endif
 
 //   double Vp0_p = V_p*tau0_p/w0_p;
-// #ifdef TUSAS_HAVE_CUDA
+// #if defined(TUSAS_HAVE_CUDA)
 //   cudaMemcpyToSymbol(Vp0,&Vp0_p,sizeof(double));
 // #else
 //   Vp0 = Vp0_p;
 // #endif
 
   double delta_T0_p = abs(m_p)*c_inf_p*(1.-k_p)/k_p;
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(delta_T0,&delta_T0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(delta_T0),&delta_T0_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   delta_T0 = delta_T0_p;
 #endif
   delta_T0_h = delta_T0_p;
+  
   double l_T0_p = delta_T0_p/G_p;
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(l_T0,&l_T0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(l_T0),&l_T0_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   l_T0 = l_T0_p;
 #endif
   l_T0_h = l_T0_p;
+  
   double D_liquid__p = D_liquid_p*tau0_p/(w0_p*w0_p);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(D_liquid_,&D_liquid__p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(D_liquid_),&D_liquid__p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   D_liquid_ = D_liquid__p;
 #endif
 
 double t_activate_farzadi_p = plist->get<double>("t_activate_farzadi", 0.0);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(t_activate_farzadi_d,&t_activate_farzadi_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(t_activate_farzadi_d),&t_activate_farzadi_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   t_activate_farzadi_d = t_activate_farzadi_p;
 #endif
   t_activate_farzadi_h = t_activate_farzadi_p;
 
 double interface_noise_amplitude_p = plist->get<double>("interface_noise_amplitude", 0.0);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(interface_noise_amplitude_d,&interface_noise_amplitude_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(interface_noise_amplitude_d),&interface_noise_amplitude_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   interface_noise_amplitude_d = interface_noise_amplitude_p;
 #endif
 
-  //std::cout<<l_T0<<"   "<<G<<"  "<<Vp0<<"  "<<tau0<<"   "<<w0<<std::endl;
 }
-#endif
-#if 0  
   //see tpetra::pfhub3 for a possibly better implementation of a,ap
 KOKKOS_INLINE_FUNCTION 
 double a(const double &p,const double &px,const double &py,const double &pz, const double ep)
@@ -753,7 +810,7 @@ double ap(const double &p,const double &px,const double &py,const double &pz,con
 				    /(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)
     : 0.;
 }
-
+ 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_conc_farzadi_)
 {
@@ -1090,8 +1147,8 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
   const double divgrad = D_liquid_*(1.-basis[1].uu())/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
 
   const int phi_id = eqn_id+1;
-  const double phi = basis[phi_id].uu;
-  const double u_t = (1. + k - (1.0 - k) * phi) / 2. *basis[0].phi[j]  / dt_ * test;
+  const double phi = basis[phi_id].uu();
+  const double u_t = (1. + k - (1.0 - k) * phi) / 2. *basis[0].phi(j)  / dt_ * test;
 
   return u_t + t_theta_*(divgrad);
 
@@ -1194,7 +1251,7 @@ PPR_FUNC(postproc_sigmoid_)
   const double sigmoid = 0.5 * (1.0 + sigmoid_var / (std::sqrt(1.0 + sigmoid_var*sigmoid_var))); 
   return sigmoid;
 }
-#endif
+
 }//namespace farzadi3d
 
 #if 0
@@ -1632,13 +1689,13 @@ namespace pfhub2
   PARAM_FUNC(param_)
   {
     int N_p = plist->get<int>("N");
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
 #else
     N_ = N_p;
 #endif
     int eqn_off_p = plist->get<int>("OFFSET");
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
 #else
     eqn_off_ = eqn_off_p;
@@ -2152,18 +2209,27 @@ PARAM_FUNC(param_)
   ti = plist->get<double>("ti_",323.);
 }
 }//namespace radconvbc
+#endif
+
 
 namespace goldak{
 TUSAS_DEVICE
 const double pi_d = 3.141592653589793;
 const double pi_h = 3.141592653589793;
 
+TUSAS_DEVICE
+double te_d = 1641.;
 double te = 1641.;
+TUSAS_DEVICE
+double tl_d = 1706.;
 double tl = 1706.;
+TUSAS_DEVICE
+double Lf_d = 2.95e5;
 double Lf = 2.95e5;
 TUSAS_DEVICE
-double dfldt_d = 403.923e5;
-  //double dfldt_d = 8900.*Lf/(tl-te);//fl=(t-te)/(tl-te);
+double dfldu_mushy_d = 0.0;//fl=(t-te)/(tl-te);
+double dfldu_mushy_h = 0.0;
+
 
 TUSAS_DEVICE
 double eta_d = 0.3;
@@ -2199,38 +2265,134 @@ TUSAS_DEVICE
 double t_decay_d = 0.01;
 double t_decay_h = 0.01;
 
+TUSAS_DEVICE
+double tau0_d = 1.;
+double tau0_h = 1.;
+
+TUSAS_DEVICE
+double W0_d = 1.;
+double W0_h = 1.;
+
+TUSAS_DEVICE
+double uref_d = 1693.4;
+double uref_h = 1693.4;
+
+TUSAS_DEVICE
+double t0_d = 300.;
+double t0_h = 300.;
+TUSAS_DEVICE
+double scaling_constant_d = 1.;
+
+#if 0
+KOKKOS_INLINE_FUNCTION 
+void dfldt_uncoupled(GPUBasisLHex* basis, const int index, const double dt_, const double dtold_, double *a)
+{
+  //the latent heat term is zero outside of the mushy region (ie outside Te < T < Tl)
+
+  const double coef = 1./tau0_d;
+
+  const double tt[3] = {tpetra::heat::deltau_d*basis[index].uu()+uref_d,
+			tpetra::heat::deltau_d*basis[index].uuold()+uref_d,
+			tpetra::heat::deltau_d*basis[index].uuoldold()+uref_d};
+  const double dfldu_d[3] = {((tt[0] > te_d) && (tt[0] < tl_d)) ? coef*dfldu_mushy_d : 0.0,
+			     ((tt[1] > te_d) && (tt[1] < tl_d)) ? coef*dfldu_mushy_d : 0.0,
+			     ((tt[2] > te_d) && (tt[2] < tl_d)) ? coef*dfldu_mushy_d : 0.0};
+
+  a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index].uu()-dfldu_d[1]*basis[index].uuold())/dt_
+                                 -dt_/dtold_*(dfldu_d[0]*basis[index].uu()-dfldu_d[2]*basis[index].uuoldold())/(dt_+dtold_)
+                                 );
+  a[1] = (dtold_/dt_/(dt_+dtold_)*(dfldu_d[0]*basis[index].uu())
+                                 -(dtold_-dt_)/dt_/dtold_*(dfldu_d[1]*basis[index].uuold())
+                                 -dt_/dtold_/(dt_+dtold_)*(dfldu_d[2]*basis[index].uuoldold())
+                                 );
+  a[2] = (-(1.+dtold_/dt_)*(dfldu_d[2]*basis[index].uuoldold()-dfldu_d[1]*basis[index].uuold())/dtold_
+                                 +dtold_/dt_*(dfldu_d[2]*basis[index].uuoldold()-dfldu_d[0]*basis[index].uu())/(dtold_+dt_)
+                                 );
+  return;
+}
+
+KOKKOS_INLINE_FUNCTION 
+void dfldt_coupled(GPUBasisLHex* basis, const int index, const double dt_, const double dtold_, double *a)
+{
+  const double coef = tpetra::heat::rho_d*Lf_d/tau0_d;
+  const double dfldu_d[3] = {-.5*coef,-.5*coef,-.5*coef};
+
+  a[0] = ((1. + dt_/dtold_)*(dfldu_d[0]*basis[index].uu()-dfldu_d[1]*basis[index].uuold())/dt_
+                                 -dt_/dtold_*(dfldu_d[0]*basis[index].uu()-dfldu_d[2]*basis[index].uuoldold())/(dt_+dtold_)
+                                 );
+  a[1] = (dtold_/dt_/(dt_+dtold_)*(dfldu_d[0]*basis[index].uu())
+                                 -(dtold_-dt_)/dt_/dtold_*(dfldu_d[1]*basis[index].uuold())
+                                 -dt_/dtold_/(dt_+dtold_)*(dfldu_d[2]*basis[index].uuoldold())
+                                 );
+  a[2] = (-(1.+dtold_/dt_)*(dfldu_d[2]*basis[index].uuoldold()-dfldu_d[1]*basis[index].uuold())/dtold_
+                                 +dtold_/dt_*(dfldu_d[2]*basis[index].uuoldold()-dfldu_d[0]*basis[index].uu())/(dtold_+dt_)
+                                 );
+  return;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double power(const double t)
+{
+  // t is nondimensional
+  // t_hold, t_decay, and tt are dimensional
+  
+  const double t_hold = t_hold_d;
+  const double t_decay = t_decay_d;
+  const double tt = t*tau0_d;
+  return (tt < t_hold) ? P_d : 
+    ((tt<t_hold+t_decay) ? P_d*((t_hold+t_decay)-tt)/(t_decay)
+     :0.);
+}
+
 KOKKOS_INLINE_FUNCTION 
 const double qdot(const double &x, const double &y, const double &z, const double &t)
 {
-  const double P = (t < t_hold_d) ? P_d : 
-    ((t<t_hold_d+t_decay_d) ? P_d*(t-(t_hold_d+t_decay_d))/(-t_decay_d)
-     :0.);
-  //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
-  const double coef = eta_d*P*5.19615/r_d/r_d/d_d/gamma_d/pi_d;
+  // x, y, z, and t are nondimensional values
+  // r, d, and p and dimensional
+  // Qdot as a whole has dimensions, but that's ok since it's written in terms of non-dimensional (x,y,z,t)
 
-  const double f = exp(
-		       -3.*(
-			    ((x-x0_d)*(x-x0_d)+(y-y0_d)*(y-y0_d))/r_d/r_d+(z-z0_d)*(z-z0_d)/d_d/d_d
-			    )
-		       );
+  const double p = power(t);
+  const double r = r_d;
+  const double d = d_d;
+  
+  //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
+  const double coef = eta_d*p*5.19615/r/r/d/gamma_d/pi_d;
+  const double exparg = ((W0_d*x-x0_d)*(W0_d*x-x0_d)+(W0_d*y-y0_d)*(W0_d*y-y0_d))/r/r+(W0_d*z-z0_d)*(W0_d*z-z0_d)/d/d;
+  const double f = exp( -3.* exparg );
 
   return coef*f;
 }
 
+KOKKOS_INLINE_FUNCTION 
+const double power_h(const double t)
+{
+  // t is nondimensional
+  // t_hold, t_decay, and tt are dimensional
+  
+  const double t_hold = t_hold_h;
+  const double t_decay = t_decay_h;
+  const double tt = t*tau0_h;
+  return (tt < t_hold) ? P_h : 
+    ((tt<t_hold+t_decay) ? P_h*((t_hold+t_decay)-tt)/(t_decay)
+     :0.);
+}
+
+KOKKOS_INLINE_FUNCTION 
 const double qdot_h(const double &x, const double &y, const double &z, const double &t)
 {
-  const double P = (t < t_hold_h) ? P_h : 
-    ((t<t_hold_h+t_decay_h) ? P_h*(t-(t_hold_h+t_decay_h))/(-t_decay_h)
-     :0.);
-  //s_h = 2 below; we can simplify this expression 5.19615=3^1.5
-  const double coef = eta_h*P*5.19615/r_h/r_h/d_h/gamma_h/pi_h;
+  // x, y, z, and t are nondimensional values
+  // r, d, and p and dimensional
+  // Qdot as a whole has dimensions, but that's ok since it's written in terms of non-dimensional (x,y,z,t)
 
-  const double f = exp(
-		       -3.*(
-			    ((x-x0_h)*(x-x0_h)+(y-y0_h)*(y-y0_h))/r_h/r_h+(z-z0_h)*(z-z0_h)/d_h/d_h
-			    )
-		       );
-
+  const double p = power_h(t);
+  const double r = r_h;
+  const double d = d_h;
+  
+  //s_d = 2 below; we can simplify this expression 5.19615=3^1.5
+  const double coef = eta_h*p*5.19615/r/r/d/gamma_h/pi_h;
+  const double exparg = ((W0_h*x-x0_h)*(W0_d*x-x0_h)+(W0_h*y-y0_h)*(W0_d*y-y0_h))/r/r+(W0_h*z-z0_h)*(W0_h*z-z0_h)/d/d;
+  const double f = exp( -3.* exparg );
+  
   return coef*f;
 }
 
@@ -2246,7 +2408,22 @@ RES_FUNC_TPETRA(residual_test_)
 						    t_theta_,
 						    t_theta2_,
 						    time,
-						    eqn_id); 
+						 eqn_id,
+						 vol,
+						 rand); 
+
+  const double qd[3] = {-qdot(basis[eqn_id].xx(),basis[eqn_id].yy(),basis[eqn_id].zz(),time)*basis[eqn_id].phi(i),
+			-qdot(basis[eqn_id].xx(),basis[eqn_id].yy(),basis[eqn_id].zz(),time-dt_)*basis[eqn_id].phi(i),
+			-qdot(basis[eqn_id].xx(),basis[eqn_id].yy(),basis[eqn_id].zz(),time-dt_-dtold_)*basis[eqn_id].phi(i)};
+
+  const double rv = (val 
+		     + (1.-t_theta2_)*t_theta_*qd[0]
+		     + (1.-t_theta2_)*(1.-t_theta_)*qd[1]
+		     +.5*t_theta2_*((2.+dt_/dtold_)*qd[1]-dt_/dtold_*qd[2]));
+
+  return rv;
+	// SJD: This is different enough than the 'master' branch that I'm keeping it (but commented out)
+	/*						
 //   printf("%f \n",dfldt_d);
 //   exit(0);
   //better 3pt derivatives, see difference.nb and inspiration at
@@ -2277,6 +2454,7 @@ RES_FUNC_TPETRA(residual_test_)
 		     +.5*t_theta2_*((2.+dt_/dtold_)*ut[1]-dt_/dtold_*ut[2]));
   //const double d =tpetra::heat::rho_d*tpetra::heat::cp_d;
   return rv;///d;
+  */
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -2287,6 +2465,79 @@ RES_FUNC_TPETRA(residual_qdot_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_uncoupled_test_)
+{
+  //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
+
+  double val = tpetra::goldak::residual_test_(basis,
+						 i,
+						 dt_,
+						 dtold_,
+						 t_theta_,
+						 t_theta2_,
+						 time,
+					      eqn_id,
+					      vol,
+					      rand);
+
+  double dfldu_d[3];
+  dfldt_uncoupled(basis,eqn_id,dt_,dtold_,dfldu_d);
+
+  const double dfldt[3] = {dfldu_d[0]*basis[eqn_id].phi(i),
+			   dfldu_d[1]*basis[eqn_id].phi(i),
+			   dfldu_d[2]*basis[eqn_id].phi(i)};
+  
+  const double rv = (val 
+		     + (1.-t_theta2_)*t_theta_*dfldt[0]
+		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
+		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
+  
+  //cn hack  
+  //scaling_constant_d = 1./basis[eqn_id].uuold();
+  return rv * scaling_constant_d;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_uncoupled_test_dp_)) = residual_uncoupled_test_;
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_coupled_test_)
+{
+  //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
+
+  double val = tpetra::goldak::residual_test_(basis,
+						 i,
+						 dt_,
+						 dtold_,
+						 t_theta_,
+						 t_theta2_,
+						 time,
+					      eqn_id,
+					      vol,
+					      rand);
+
+  int phi_index = 1;
+  double dfldu_d[3];
+  dfldt_coupled(basis,phi_index,dt_,dtold_,dfldu_d);
+
+  const double dfldt[3] = {dfldu_d[0]*basis[eqn_id].phi(i),
+			   dfldu_d[1]*basis[eqn_id].phi(i),
+			   dfldu_d[2]*basis[eqn_id].phi(i)};
+  
+  const double rv = (val 
+		     + (1.-t_theta2_)*t_theta_*dfldt[0]
+		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
+		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
+  
+  //cn hack  
+  //scaling_constant_d = 1./basis[eqn_id].uuold();
+  return rv * scaling_constant_d;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_coupled_test_dp_)) = residual_coupled_test_;
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_test_)
@@ -2299,18 +2550,25 @@ PRE_FUNC_TPETRA(prec_test_)
 						      t_theta_,
 						      eqn_id);
 
-  //const double d =tpetra::heat::rho_d*tpetra::heat::cp_d;
-  return val;///d;
+  //cn hack  
+  //scaling_constant_d = 1./basis[eqn_id].uuold();
+  return val * scaling_constant_d;
 }
 
 INI_FUNC(init_heat_)
 {
-  return 300.;
+	const double t_preheat = t0_h;
+    const double val = (t_preheat-uref_h)/tpetra::heat::deltau_h;
+    return val;
 }
 
 DBC_FUNC(dbc_) 
 {
-  return 300.;
+	// The assumption here is that the desired Dirichlet BC is the initial temperature,
+    // that may not be true in the future.
+    const double t_preheat = t0_h;
+    const double val = (t_preheat-uref_h)/tpetra::heat::deltau_h;
+    return val;
 }
 
 PPR_FUNC(postproc_qdot_)
@@ -2325,17 +2583,12 @@ PPR_FUNC(postproc_qdot_)
 
 PPR_FUNC(postproc_u_)
 {
-  //const double uu = u[0];
-  //const double x = xyz[0];
-  //const double y = xyz[1];
-  //const double z = xyz[2];
-
-  //return u[0];
-  return u[0];
+  return u[0]*tpetra::heat::deltau_h + uref_h;
 }
 
 PARAM_FUNC(param_)
 {
+
   //std::cout<<"tpetra::goldak::param_"<<std::endl;
   //we need to set h, ep, sigma, ti in radconv params as follows:
   //h = 100 W/(m2*K)
@@ -2355,18 +2608,37 @@ PARAM_FUNC(param_)
   //here we need the rest..
   //and pull fro xml
   //te = 1635.;// K
-  te = plist->get<double>("te_",1641.);
-  //tl = 1706.;// K
-  tl = plist->get<double>("tl_",1706.);
-  //Lf = 17.2;// kJ/mol
-  Lf = plist->get<double>("Lf_",2.95e5);
-
-  double dfldt_p = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
-#ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(dfldt_d,&dfldt_p,sizeof(double));
+  double te_p = plist->get<double>("te_",1641.);
+  #ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(te_d,&te_p,sizeof(double));
 #else
-  dfldt_d = dfldt_p;
+  te_d = te_p;
 #endif
+  te = te_p;
+  //tl = 1706.;// K
+  double tl_p = plist->get<double>("tl_",1706.);
+  #ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(tl_d,&tl_p,sizeof(double));
+#else
+  tl_d = tl_p;
+#endif
+  tl = tl_p;
+  //Lf = 17.2;// kJ/mol
+  double Lf_p = plist->get<double>("Lf_",2.95e5);
+  #ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(Lf_d,&Lf_p,sizeof(double));
+#else
+  Lf_d = Lf_p;
+#endif
+  Lf = Lf_p; 
+  
+  double dfldu_mushy_p = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(dfldu_mushy_d,&dfldu_mushy_p,sizeof(double));
+#else
+  dfldu_mushy_d = dfldu_mushy_p;
+#endif
+  dfldu_mushy_h = dfldu_mushy_p;
 
   double eta_p = plist->get<double>("eta_",0.3);//dimensionless
 #ifdef TUSAS_HAVE_CUDA
@@ -2448,9 +2720,49 @@ PARAM_FUNC(param_)
   t_decay_d = t_decay_p;
 #endif
   t_decay_h = t_decay_p;
-}
-}//namespace goldak
+  
+  double tau0_p = plist->get<double>("tau0_",1.);
+  #ifdef TUSAS_HAVE_CUDA
+    cudaMemcpyToSymbol(tau0_d,&tau0_p,sizeof(double));
+  #else
+    tau0_d = tau0_p;
+  #endif
+  tau0_h = tau0_p;
+  
+  double W0_p = plist->get<double>("W0_",1.);
+  #ifdef TUSAS_HAVE_CUDA
+    cudaMemcpyToSymbol(W0_d,&W0_p,sizeof(double));
+  #else
+    W0_d = W0_p;
+  #endif
+  W0_h = W0_p;
+  
+  double t0_p = plist->get<double>("t0_",300.);
+  #ifdef TUSAS_HAVE_CUDA
+    cudaMemcpyToSymbol(t0_d,&t0_p,sizeof(double));
+  #else
+    t0_d = t0_p;
+  #endif
+  t0_h = t0_p;
+  
+  double scaling_constant_p = plist->get<double>("scaling_constant_",1.);
+  #ifdef TUSAS_HAVE_CUDA
+    cudaMemcpyToSymbol(scaling_constant_d,&scaling_constant_p,sizeof(double));
+  #else
+    scaling_constant_d = scaling_constant_p;
+  #endif
+  
+  double uref = plist->get<double>("uref_",0.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(uref_d,&uref,sizeof(double));
+#else
+  uref_d = uref;
 #endif
+  uref_h = uref;
+
+}
+#endif
+}//namespace goldak
 }//namespace tpetra
 
 

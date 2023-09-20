@@ -35,20 +35,18 @@
 #define TUSAS_HAVE_HIP
 #endif
 
-//this does not work exactly right yet
-#if 0
-const int tusasMemcpyToSymbol(void *dst, const void *symbolName, size_t sizeBytes, size_t offset=0)
+//see line 49 on how to call this...
+const int tusasMemcpyToSymbol(void **dst, const void *symbolName, size_t sizeBytes, size_t offset=0)
 {
   int err = -1;  //0 is success, cuda and hip errors are > 0
 #if defined(TUSAS_HAVE_CUDA)
-  err = cudaMemcpyToSymbol(dst,symbolName,sizeBytes,offset);
+  err = cudaMemcpyToSymbol(*dst,symbolName,sizeBytes,offset);
 #elif defined(TUSAS_HAVE_HIP)
-  err = hipMemcpyToSymbol(HIP_SYMBOL(dst),symbolName,sizeBytes,offset,hipMemcpyHostToDevice);
+  err = hipMemcpyToSymbol(HIP_SYMBOL(*dst),symbolName,sizeBytes,offset,hipMemcpyHostToDevice);
 #endif
-  //printf("%d\n",err);
+  printf("%d\n",err);
   return err;
 }
-#endif
 
 /** Definition for initialization function. Each initialization function is called at each node for each equation at the beginning of the simualtaion with this signature:
 - NAME:     name of function to call
@@ -348,14 +346,15 @@ PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
 PARAM_FUNC(param_)
 {
   double kk = plist->get<double>("k_",1.);
-#if defined(TUSAS_HAVE_CUDA)
-  cudaMemcpyToSymbol(k_d,&kk,sizeof(double));
-#elif defined(TUSAS_HAVE_HIP)
-  hipMemcpyToSymbol(HIP_SYMBOL(k_d),&kk,sizeof(double),0,hipMemcpyHostToDevice);
-#else
-  k_d = kk;
-#endif
-  //if (0 != tusasMemcpyToSymbol(&k_d,&kk,sizeof(double)))  k_d = kk;
+// #if defined(TUSAS_HAVE_CUDA)
+//   cudaMemcpyToSymbol(k_d,&kk,sizeof(double));
+// #elif defined(TUSAS_HAVE_HIP)
+//   int err = hipMemcpyToSymbol(HIP_SYMBOL(k_d),&kk,sizeof(double),0,hipMemcpyHostToDevice);
+//   printf("%d\n",err);
+// #else
+//   k_d = kk;
+// #endif
+  if (0 != tusasMemcpyToSymbol((void **)&k_d,&kk,sizeof(double)))  k_d = kk;
   k_h = kk;
 
   double rho = plist->get<double>("rho_",1.);

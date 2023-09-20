@@ -280,7 +280,7 @@ double W0_d = 1.;
 TUSAS_DEVICE
 double deltau_d = 1.;
 
-double k_h = 2.;
+double k_h = 1.;
 double rho_h = 1.;
 double cp_h = 1.;
 

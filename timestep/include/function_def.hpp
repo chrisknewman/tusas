@@ -35,7 +35,7 @@
 #define TUSAS_HAVE_HIP
 #endif
 
-//see line 49 on how to call this...
+//see line 49 on how to call this...  also:https://stackoverflow.com/questions/34572327/wrapper-function-for-cudamalloc-and-cudamemcpy
 const int tusasMemcpyToSymbol(void **dst, const void *symbolName, size_t sizeBytes, size_t offset=0)
 {
   int err = -1;  //0 is success, cuda and hip errors are > 0
@@ -44,7 +44,7 @@ const int tusasMemcpyToSymbol(void **dst, const void *symbolName, size_t sizeByt
 #elif defined(TUSAS_HAVE_HIP)
   err = hipMemcpyToSymbol(HIP_SYMBOL(*dst),symbolName,sizeBytes,offset,hipMemcpyHostToDevice);
 #endif
-  printf("%d\n",err);
+  //printf("%d\n",err);
   return err;
 }
 

@@ -35,6 +35,20 @@
 #define TUSAS_HAVE_HIP
 #endif
 
+//this does not work exactly right yet
+#if 0
+const int tusasMemcpyToSymbol(void *dst, const void *symbolName, size_t sizeBytes, size_t offset=0)
+{
+  int err = -1;  //0 is success, cuda and hip errors are > 0
+#if defined(TUSAS_HAVE_CUDA)
+  err = cudaMemcpyToSymbol(dst,symbolName,sizeBytes,offset);
+#elif defined(TUSAS_HAVE_HIP)
+  err = hipMemcpyToSymbol(HIP_SYMBOL(dst),symbolName,sizeBytes,offset,hipMemcpyHostToDevice);
+#endif
+  //printf("%d\n",err);
+  return err;
+}
+#endif
 
 /** Definition for initialization function. Each initialization function is called at each node for each equation at the beginning of the simualtaion with this signature:
 - NAME:     name of function to call
@@ -259,11 +273,24 @@ double rho_d = 1.;
 TUSAS_DEVICE
 double cp_d = 1.;
 
-double k_h = 1.;
+TUSAS_DEVICE
+double tau0_d = 1.;
+TUSAS_DEVICE
+double W0_d = 1.;
+TUSAS_DEVICE
+double deltau_d = 1.;
+
+double k_h = 2.;
 double rho_h = 1.;
 double cp_h = 1.;
 
-KOKKOS_INLINE_FUNCTION 
+double tau0_h = 1.;
+double W0_h = 1.;
+
+double deltau_h = 1.;
+
+
+  //KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
 {
   return 0.;
@@ -283,61 +310,34 @@ KOKKOS_INLINE_FUNCTION
 //TUSAS_DEVICE
 RES_FUNC_TPETRA(residual_heat_test_)
 {
+  //right now, it is probably best to handle nondimensionalization of temperature via:
+  // theta = (T-T_s)/(T_l-T_s) external to this module by multiplication of (T_l-T_s)=delta T
+
   //printf("here\n");
   //printf("%lf %lf %lf\n",rho_d,cp_d,k_d);
-   const double ut = rho_d*cp_d*(basis[eqn_id].uu()-basis[eqn_id].uuold())/dt_*basis[eqn_id].phi(i);
-   const double f[3] = {k_d*(basis[eqn_id].dudx()*basis[eqn_id].dphidx(i)
-			     + basis[eqn_id].dudy()*basis[eqn_id].dphidy(i)
-			     + basis[eqn_id].dudz()*basis[eqn_id].dphidz(i)),
-			k_d*(basis[eqn_id].duolddx()*basis[eqn_id].dphidx(i)
-			     + basis[eqn_id].duolddy()*basis[eqn_id].dphidy(i)
-			     + basis[eqn_id].duolddz()*basis[eqn_id].dphidz(i)),
-			k_d*(basis[eqn_id].duoldolddx()*basis[eqn_id].dphidx(i)
-			     + basis[eqn_id].duoldolddy()*basis[eqn_id].dphidy(i)
-			     + basis[eqn_id].duoldolddz()*basis[eqn_id].dphidz(i))};
-
+  const double ut = rho_d*cp_d/tau0_d*deltau_d*(basis[eqn_id].uu()-basis[eqn_id].uuold())/dt_*basis[eqn_id].phi(i);
+  const double f[3] = {k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].dudx()*basis[eqn_id].dphidx(i)
+			   + basis[eqn_id].dudy()*basis[eqn_id].dphidy(i)
+			   + basis[eqn_id].dudz()*basis[eqn_id].dphidz(i)),
+			  k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].duolddx()*basis[eqn_id].dphidx(i)
+			   + basis[eqn_id].duolddy()*basis[eqn_id].dphidy(i)
+			   + basis[eqn_id].duolddz()*basis[eqn_id].dphidz(i)),
+			  k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].duoldolddx()*basis[eqn_id].dphidx(i)
+			   + basis[eqn_id].duoldolddy()*basis[eqn_id].dphidy(i)
+			   + basis[eqn_id].duoldolddz()*basis[eqn_id].dphidz(i))};
   return ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-  //return 0.;
+   + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+   +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_heat_test_dp_)) = residual_heat_test_;
 
-TUSAS_DEVICE
-double residual_heat_test_p(GPUBasisLHex * basis,
-                                    const int &i,
-                                    const double &dt_,
-                                    const double &dtold_,
-			            const double &t_theta_,
-			            const double &t_theta2_,
-                                    const double &time,
-				    const int &eqn_id)
-{
-  //printf("here\n");
-   const double ut = rho_d*cp_d*(basis[eqn_id].uu()-basis[eqn_id].uuold())/dt_*basis[eqn_id].phi(i);
-   const double f[3] = {k_d*(basis[eqn_id].dudx()*basis[eqn_id].dphidx(i)
-			     + basis[eqn_id].dudy()*basis[eqn_id].dphidy(i)
-			     + basis[eqn_id].dudz()*basis[eqn_id].dphidz(i)),
-			k_d*(basis[eqn_id].duolddx()*basis[eqn_id].dphidx(i)
-			     + basis[eqn_id].duolddy()*basis[eqn_id].dphidy(i)
-			     + basis[eqn_id].duolddz()*basis[eqn_id].dphidz(i)),
-			k_d*(basis[eqn_id].duoldolddx()*basis[eqn_id].dphidx(i)
-			     + basis[eqn_id].duoldolddy()*basis[eqn_id].dphidy(i)
-			     + basis[eqn_id].duoldolddz()*basis[eqn_id].dphidz(i))};
-
-  return ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-  //return 0.;
-}
-
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
-  return rho_d*cp_d*basis[eqn_id].phi(j)/dt_*basis[eqn_id].phi(i)
-    + t_theta_*k_d*(basis[eqn_id].dphidx(j)*basis[eqn_id].dphidx(i)
+  return rho_d*cp_d/tau0_d*deltau_d*basis[eqn_id].phi(j)/dt_*basis[eqn_id].phi(i)
+    + t_theta_*k_d/W0_d/W0_d*deltau_d*(basis[eqn_id].dphidx(j)*basis[eqn_id].dphidx(i)
        + basis[eqn_id].dphidy(j)*basis[eqn_id].dphidy(i)
 		    + basis[eqn_id].dphidz(j)*basis[eqn_id].dphidz(i));
 }
@@ -355,6 +355,7 @@ PARAM_FUNC(param_)
 #else
   k_d = kk;
 #endif
+  //if (0 != tusasMemcpyToSymbol(&k_d,&kk,sizeof(double)))  k_d = kk;
   k_h = kk;
 
   double rho = plist->get<double>("rho_",1.);
@@ -376,6 +377,36 @@ PARAM_FUNC(param_)
   cp_d = cp;
 #endif
   cp_h = cp;
+  
+  double tau0 = plist->get<double>("tau0_",1.);
+#if defined(TUSAS_HAVE_CUDA)
+  cudaMemcpyToSymbol(tau0_d,&tau0,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(tau0_d),&tau0,sizeof(double),0,hipMemcpyHostToDevice);
+#else
+  tau0_d = tau0;
+#endif
+  tau0_h = tau0;
+
+  double W0 = plist->get<double>("W0_",1.);
+#if defined(TUSAS_HAVE_CUDA)
+  cudaMemcpyToSymbol(W0_d,&W0,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(W0_d),&W0,sizeof(double),0,hipMemcpyHostToDevice);
+#else
+  W0_d = W0;
+#endif
+  W0_h = W0;
+
+  double deltau = plist->get<double>("deltau_",1.);
+#if defined(TUSAS_HAVE_CUDA)
+  cudaMemcpyToSymbol(deltau_d,&deltau,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(deltau_d),&deltau,sizeof(double),0,hipMemcpyHostToDevice);
+#else
+  deltau_d = deltau;
+#endif
+  deltau_h = deltau;
 }
 //double postproc_c_(const double *u, const double *gradu, const double *xyz, const double &time)
 PPR_FUNC(postproc_)
@@ -392,104 +423,6 @@ PPR_FUNC(postproc_)
   return s-uu;
 }
 }//namespace heat
-
-// the above solution is also a solution to the nonlinear problem:
-// u_t - div ( u grad u) + 2 pi^2  (1-u) + u_x^2 + u_y^2
-// we replace u_x^2 + u_y^2 with a forcing term f2(x,y,t)
-
-#if 0
-KOKKOS_INLINE_FUNCTION 
-double f1(const double &u)
-{
-  const double pi = 3.141592653589793;
-  return 2.*pi*pi*u*(1.-u);
-}
-
-KOKKOS_INLINE_FUNCTION 
-double f2(const double &x, const double &y, const double &t)
-{
-  const double pi = 3.141592653589793;
-  const double pix = pi*x;
-  const double piy = pi*y;
-  const double pi2 = pi*pi;
-  return exp(-4.*pi2*t)*pi2*(cos(piy)*cos(piy)*sin(pix)*sin(pix) + cos(pix)*cos(pix)*sin(piy)*sin(piy));
-}
-
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_nlheatimr_test_)
-{
-  const double u_m = t_theta_*basis[eqn_id].uu() + (1. - t_theta_)*basis[eqn_id].uuold();
-  const double dudx_m = t_theta_*basis[eqn_id].dudx() + (1. - t_theta_)*basis[eqn_id].duolddx();
-  const double dudy_m = t_theta_*basis[eqn_id].dudy() + (1. - t_theta_)*basis[eqn_id].duolddy();
-  const double dudz_m = t_theta_*basis[eqn_id].dudz() + (1. - t_theta_)*basis[eqn_id].duolddz();
-  const double t_m = time + t_theta_*dt_;
-  const double x = basis[0].xx();
-  const double y = basis[0].yy();
-
-  const double divgrad = u_m*(dudx_m*basis[eqn_id].dphidx(i) 
-			      + dudy_m*basis[eqn_id].dphidy(i) 
-			      + dudz_m*basis[eqn_id].dphidz(i));
-
-  return (basis[eqn_id].uu()-basis[eqn_id].uuold())/dt_*basis[eqn_id].phi(i)
-    + divgrad
-    + f1(u_m)*basis[eqn_id].phi(i)
-    + f2(x,y,t_m)*basis[eqn_id].phi(i);
-}
-
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_nlheatimr_test_dp_)) = residual_nlheatimr_test_;
-
-
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_nlheatcn_test_)
-{
-  const double u[2] = {basis[eqn_id].uu(), basis[eqn_id].uuold()};
-  const double dudx[2] = {basis[eqn_id].dudx(), basis[eqn_id].duolddx()};
-  const double dudy[2] = {basis[eqn_id].dudy(), basis[eqn_id].duolddy()};
-  const double dudz[2] = {basis[eqn_id].dudz(), basis[eqn_id].duolddz()};
-  //const double dudz_m = t_theta_*basis[eqn_id].dudz + (1. - t_theta_)*basis[eqn_id].duolddz;
-  const double t[2] = {time, time+dt_};
-  const double x = basis[0].xx();
-  const double y = basis[0].yy();
-
-  const double divgrad = t_theta_*
-    u[0]*(dudx[0]*basis[eqn_id].dphidx(i) 
-	  + dudy[0]*basis[eqn_id].dphidy(i) 
-	  + dudz[0]*basis[eqn_id].dphidz(i))
-    + (1. - t_theta_)*
-    u[1]*(dudx[1]*basis[eqn_id].dphidx(i) 
-	  + dudy[1]*basis[eqn_id].dphidy(i) 
-	  + dudz[1]*basis[eqn_id].dphidz(i));
-
-  return (basis[eqn_id].uu()-basis[eqn_id].uuold())/dt_*basis[eqn_id].phi(i)
-    + divgrad
-    + (t_theta_*f1(u[0])
-       + (1. - t_theta_)*f1(u[1]))*basis[eqn_id].phi(i)
-    + (t_theta_*f2(x,y,t[0])
-       + (1. - t_theta_)*f2(x,y,t[1]))*basis[eqn_id].phi(i);
-}
-
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_nlheatcn_test_dp_)) = residual_nlheatcn_test_;
-
-
-KOKKOS_INLINE_FUNCTION 
-PRE_FUNC_TPETRA(prec_nlheatcn_test_)
-{
-  return basis[eqn_id].phi(j)/dt_*basis[eqn_id].phi(i)
-    + t_theta_*basis[eqn_id].uu()
-    *(basis[eqn_id].dphidx(j)*basis[eqn_id].dphidx(i)
-       + basis[eqn_id].dphidy(j)*basis[eqn_id].dphidy(i)
-      + basis[eqn_id].dphidz(j)*basis[eqn_id].dphidz(i));
-}
-
-TUSAS_DEVICE
-PRE_FUNC_TPETRA((*prec_nlheatcn_test_dp_)) = prec_nlheatcn_test_;
-
-
-//}//namespace heat
-
-#endif
 
 namespace farzadi3d
 {
@@ -1256,918 +1189,6 @@ PPR_FUNC(postproc_sigmoid_)
 
 #if 0
 
-namespace pfhub3
-{
-  const double R_ = 8.;// 8.;
-
-  TUSAS_DEVICE
-  double smalld_ = 0.;
-  TUSAS_DEVICE
-  const double delta_ = -.3;//-.3;
-  TUSAS_DEVICE
-  const double D_ = 10.;
-  TUSAS_DEVICE
-  const double eps_ = .05;
-  TUSAS_DEVICE
-  const double tau0_ = 1.;
-  TUSAS_DEVICE
-  const double W_ = 1.;
-  TUSAS_DEVICE
-  const double lambda_ = D_*tau0_/.6267/W_/W_;
-
-PARAM_FUNC(param_)
-{
-  //we will need to propgate this to device
-  double smalld_p = plist->get<double>("smalld", smalld_);
-  smalld_ = smalld_p;
-}
-
-KOKKOS_INLINE_FUNCTION 
-double a(const double &p,const double &px,const double &py,const double &pz, const double ep)
-{
-  double val = 1. + ep;
-  const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
-  val = (d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/d)
-    : 1. + ep;
-  //older version produced nicer dendrite
-//   const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
-//   val = (d > smalld_) ? (1.-3.*ep)*(1.+4.*ep/(1.-3.*ep)*(px*px*px*px+py*py*py*py+pz*pz*pz*pz)/d)
-//     : 1. + ep;
-
-  return val;
-}
-
-KOKKOS_INLINE_FUNCTION 
-double ap(const double &p,const double &px,const double &py,const double &pz,const double &pd, const double ep)
-{
-  //older version produced nicer dendrite  
-//   const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
-//   return (d > smalld_) ? 4.*ep*
-// 				    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
-// 				    /(px*px+py*py+pz*pz)/d
-//     : 0.;
-  const double d = (px*px+py*py+pz*pz)*(px*px+py*py+pz*pz);
-  return (d > smalld_) ? 4.*ep*
-    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
-    /((px*px+py*py+pz*pz)*d)
-    : 0.;
-}
-
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_heat_pfhub3_)
-{
-  const double ut = (basis[eqn_id].uu()-basis[eqn_id].uuold())/dt_*basis[eqn_id].phi(i);
-  double divgradu[3] = {D_*(basis[eqn_id].dudx()*basis[eqn_id].dphidx(i)
-			  + basis[eqn_id].dudy()*basis[eqn_id].dphidy(i)
-			    + basis[eqn_id].dudz()*basis[eqn_id].dphidz(i)),
-			D_*(basis[eqn_id].duolddx()*basis[eqn_id].dphidx(i)
-			  + basis[eqn_id].duolddy()*basis[eqn_id].dphidy(i)
-			    + basis[eqn_id].duolddz()*basis[eqn_id].dphidz(i)),
-			D_*(basis[eqn_id].duoldolddx()*basis[eqn_id].dphidx(i)
-			  + basis[eqn_id].duoldolddy()*basis[eqn_id].dphidy(i)
-			    + basis[eqn_id].duoldolddz()*basis[eqn_id].dphidz(i))};
-
-  const double phit[2] = {.5*(basis[1].uu()-basis[1].uuold())/dt_*basis[0].phi(i),
-			  .5*(basis[1].uuold()-basis[1].uuoldold())/dt_*basis[0].phi(i)};
-
-  double f[3];
-  f[0] = -divgradu[0] + phit[0];
-  f[1] = -divgradu[1] + phit[1];
-  f[2] = -divgradu[2] + phit[1];
-
-  return ut - (1.-t_theta2_)*t_theta_*f[0]
-    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_heat_pfhub3_dp_)) = residual_heat_pfhub3_;
-
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_phase_pfhub3_)
-{
-  const double test = basis[eqn_id].phi(i);
-  const double dtestdx = basis[eqn_id].dphidx(i);
-  const double dtestdy = basis[eqn_id].dphidy(i);
-  const double dtestdz = basis[eqn_id].dphidz(i);
-
-  const double phi[3] = {basis[eqn_id].uu(),basis[eqn_id].uuold(),basis[eqn_id].uuoldold()};
-  const double dphidx[3] = {basis[eqn_id].dudx(),basis[eqn_id].duolddx(),basis[eqn_id].duoldolddx()};
-  const double dphidy[3] = {basis[eqn_id].dudy(),basis[eqn_id].duolddy(),basis[eqn_id].duoldolddy()};
-  const double dphidz[3] = {basis[eqn_id].dudz(),basis[eqn_id].duolddz(),basis[eqn_id].duoldolddz()};
-
-  const double as[3] = {a(phi[0],
-			  dphidx[0],
-			  dphidy[0],
-			  dphidz[0],
-			  eps_),
-			a(phi[1],
-			  dphidx[1],
-			  dphidy[1],
-			  dphidz[1],
-			  eps_),
-			a(phi[2],
-			  dphidx[2],
-			  dphidy[2],
-			  dphidz[2],
-			  eps_)};
-
-  const double tau[3] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1],tau0_*as[2]*as[2]};
-
-  const double phit = (phi[0]-phi[1])/dt_*test;
-
-  const double w[3] = {W_*as[0],W_*as[1],W_*as[2]};
-
-//   const double divgradphi[3] = {w[0]*w[0]*(dphidx[0]*dtestdx
-// 					     + dphidy[0]*dtestdy
-// 					     + dphidz[0]*dtestdz),
-// 				w[1]*w[1]*(dphidx[1]*dtestdx
-// 					     + dphidy[1]*dtestdy
-// 					     + dphidz[1]*dtestdz),
-// 				w[2]*w[2]*(dphidx[2]*dtestdx
-// 					     + dphidy[2]*dtestdy
-// 					     + dphidz[2]*dtestdz)};
-  const double divgradphi[3] = {W_*W_*(dphidx[0]*dtestdx
-					     + dphidy[0]*dtestdy
-					     + dphidz[0]*dtestdz),
-				W_*W_*(dphidx[1]*dtestdx
-					     + dphidy[1]*dtestdy
-					     + dphidz[1]*dtestdz),
-				W_*W_*(dphidx[2]*dtestdx
-					     + dphidy[2]*dtestdy
-					     + dphidz[2]*dtestdz)};
-
-  const double wp[3] = {W_*(ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidx[0],eps_)*dtestdx 
-			    + ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidy[0],eps_)*dtestdy 
-			    + ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidz[0],eps_)*dtestdz),
-			W_*(ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidx[1],eps_)*dtestdx 
-			    + ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidy[1],eps_)*dtestdy 
-			    + ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps_)*dtestdz),
-			W_*(ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidx[2],eps_)*dtestdx 
-			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidy[2],eps_)*dtestdy 
-			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidz[2],eps_)*dtestdz)};
-
-  const double curlgrad[3] = {w[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])*wp[0],
-			      w[1]*(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1])*wp[1],
-			      w[2]*(dphidx[2]*dphidx[2] + dphidy[2]*dphidy[2] + dphidz[2]*dphidz[2])*wp[2]};
-
-  const double g[3] = {((phi[0]-lambda_*basis[0].uu()*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
-		       ((phi[1]-lambda_*basis[0].uuold()*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test,
-		       ((phi[2]-lambda_*basis[0].uuoldold()*(1.-phi[2]*phi[2]))*(1.-phi[2]*phi[2]))*test};
-
-  double f[3];
-  f[0] = -(divgradphi[0]/tau0_+curlgrad[0]/tau[0]-g[0]/tau[0]);
-  f[1] = -(divgradphi[1]/tau0_+curlgrad[1]/tau[1]-g[1]/tau[1]);
-  f[2] = -(divgradphi[2]/tau0_+curlgrad[2]/tau[2]-g[2]/tau[2]);
-
-  return phit - (1.-t_theta2_)*t_theta_*f[0]
-    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-#if 0
-RES_FUNC(residual_heat_pfhub3_n_)
-{
-  const double ut = (basis[eqn_id].uu-basis[eqn_id].uuold)/dt_*basis[eqn_id].phi[i];
-  const double divgradu[3] = {D_*(basis[eqn_id].dudx*basis[eqn_id].dphidx[i]
-				  + basis[eqn_id].dudy*basis[eqn_id].dphidy[i]
-				  + basis[eqn_id].dudz*basis[eqn_id].dphidz[i]),
-			      D_*(basis[eqn_id].duolddx*basis[eqn_id].dphidx[i]
-				  + basis[eqn_id].duolddy*basis[eqn_id].dphidy[i]
-				  + basis[eqn_id].duolddz*basis[eqn_id].dphidz[i]),
-			      D_*(basis[eqn_id].duoldolddx*basis[eqn_id].dphidx[i]
-				  + basis[eqn_id].duoldolddy*basis[eqn_id].dphidy[i]
-				  + basis[eqn_id].duoldolddz*basis[eqn_id].dphidz[i])};
-
-  const double phit[2] = {.5*(basis[1].uu-basis[1].uuold)/dt_*basis[0].phi[i],
-			  .5*(basis[1].uuold-basis[1].uuoldold)/dt_*basis[0].phi[i]};
-
-  double f[3];
-  f[0] = -divgradu[0] + phit[0];
-  f[1] = -divgradu[1] + phit[1];
-  f[2] = -divgradu[2] + phit[1];
-//   std::cout<<ut
-//     + t_theta_*divgradu[0] + (1. - t_theta_)*divgradu[1]
-//     - t_theta_*phit<<std::endl
-
-//   return ut - t_theta_*f[0]
-//     - (1.-t_theta_)*f[1];
-  return ut - (1.-t_theta2_)*t_theta_*f[0]
-    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-
-RES_FUNC(residual_phase_pfhub3_n_)
-{
-  const double test = basis[eqn_id].phi[i];
-  const double dtestdx = basis[eqn_id].dphidx[i];
-  const double dtestdy = basis[eqn_id].dphidy[i];
-  const double dtestdz = basis[eqn_id].dphidz[i];
-
-  const double phi[3] = {basis[eqn_id].uu,basis[eqn_id].uuold,basis[eqn_id].uuoldold};
-  const double dphidx[3] = {basis[eqn_id].dudx,basis[eqn_id].duolddx,basis[eqn_id].duoldolddx};
-  const double dphidy[3] = {basis[eqn_id].dudy,basis[eqn_id].duolddy,basis[eqn_id].duoldolddy};
-  const double dphidz[3] = {basis[eqn_id].dudz,basis[eqn_id].duolddz,basis[eqn_id].duoldolddz};
-
-  const double as[3] = {a(phi[0],
-			  dphidx[0],
-			  dphidy[0],
-			  dphidz[0],
-			  eps_),
-			a(phi[1],
-			  dphidx[1],
-			  dphidy[1],
-			  dphidz[1],
-			  eps_),
-			a(phi[2],
-			  dphidx[2],
-			  dphidy[2],
-			  dphidz[2],
-			  eps_)};
-
-  const double tau[3] = {tau0_*as[0]*as[0],tau0_*as[1]*as[1],tau0_*as[2]*as[2]};
-//   if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
-// 			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
-// 			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<std::endl;
-
-  const double phit = (phi[0]-phi[1])/dt_*test;
-
-  const double w[3] = {W_*as[0],W_*as[1],W_*as[2]};
-
-//   const double divgradphi[3] = {w[0]*w[0]*(dphidx[0]*dtestdx
-// 					     + dphidy[0]*dtestdy
-// 					     + dphidz[0]*dtestdz),
-// 				w[1]*w[1]*(dphidx[1]*dtestdx
-// 					     + dphidy[1]*dtestdy
-// 					     + dphidz[1]*dtestdz),
-// 				w[2]*w[2]*(dphidx[2]*dtestdx
-// 					     + dphidy[2]*dtestdy
-// 					     + dphidz[2]*dtestdz)};
-
-  const double divgradphi[3] = {W_*W_*(dphidx[0]*dtestdx
-					     + dphidy[0]*dtestdy
-					     + dphidz[0]*dtestdz),
-				W_*W_*(dphidx[1]*dtestdx
-					     + dphidy[1]*dtestdy
-					     + dphidz[1]*dtestdz),
-				W_*W_*(dphidx[2]*dtestdx
-					     + dphidy[2]*dtestdy
-					     + dphidz[2]*dtestdz)};
-
-  const double wp[3] = {W_*(ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidx[0],eps_)*dtestdx 
-			    + ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidy[0],eps_)*dtestdy 
-			    + ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidz[0],eps_)*dtestdz),
-			W_*(ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidx[1],eps_)*dtestdx 
-			    + ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidy[1],eps_)*dtestdy 
-			    + ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps_)*dtestdz),
-			W_*(ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidx[2],eps_)*dtestdx 
-			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidy[2],eps_)*dtestdy 
-			    + ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidz[2],eps_)*dtestdz)};
-
-  const double curlgrad[3] = {w[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])*wp[0],
-			      w[1]*(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1])*wp[1],
-			      w[2]*(dphidx[2]*dphidx[2] + dphidy[2]*dphidy[2] + dphidz[2]*dphidz[2])*wp[2]};
-
-  const double g[3] = {((phi[0]-lambda_*basis[0].uu*(1.-phi[0]*phi[0]))*(1.-phi[0]*phi[0]))*test,
-		       ((phi[1]-lambda_*basis[0].uuold*(1.-phi[1]*phi[1]))*(1.-phi[1]*phi[1]))*test,
-		       ((phi[2]-lambda_*basis[0].uuoldold*(1.-phi[2]*phi[2]))*(1.-phi[2]*phi[2]))*test};
-
-//   if(tau[0]!= tau[0]) std::cout<<tau[0]<<" "<<as[0]<<" "
-// 			       <<dphidx[0]<<" "<<dphidy[0]<<" "<<dphidz[0]
-// 			       <<" "<<phi[0]<<" "<<phi[0]*phi[0]<<" "<<g[0]<<" "<<divgradphi[0]
-// 			       <<" "<<curlgrad[0]<<std::endl;
-
-  double f[3];
-  f[0] = -(divgradphi[0]/tau0_+curlgrad[0]/tau[0]-g[0]/tau[0]);
-  f[1] = -(divgradphi[1]/tau0_+curlgrad[1]/tau[1]-g[1]/tau[1]);
-  f[2] = -(divgradphi[2]/tau0_+curlgrad[2]/tau[2]-g[2]/tau[2]);
-//   return phit - t_theta_*f[0]
-//     - (1.-t_theta_)*f[1];
-  return phit - (1.-t_theta2_)*t_theta_*f[0]
-    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-#endif
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_phase_pfhub3_dp_)) = residual_phase_pfhub3_;
-
-KOKKOS_INLINE_FUNCTION 
-PRE_FUNC_TPETRA(prec_heat_pfhub3_)
-{
-  const double ut = basis[eqn_id].phi(j)/dt_*basis[eqn_id].phi(i);
-  const double divgradu = D_*(basis[eqn_id].dphidx(j)*basis[eqn_id].dphidx(i)
-			  + basis[eqn_id].dphidy(j)*basis[eqn_id].dphidy(i)
-			      + basis[eqn_id].dphidz(j)*basis[eqn_id].dphidz(i));
-  return ut + t_theta_*divgradu;
-}
-#if 0
-PRE_FUNC(prec_heat_pfhub3_n_)
-{
-  const double ut = basis[eqn_id].phi[j]/dt_*basis[eqn_id].phi[i];
-  const double divgradu = D_*(basis[eqn_id].dphidx[j]*basis[eqn_id].dphidx[i]
-			  + basis[eqn_id].dphidy[j]*basis[eqn_id].dphidy[i]
-			      + basis[eqn_id].dphidz[j]*basis[eqn_id].dphidz[i]);
-  return ut + t_theta_*divgradu;
-}
-#endif
-
-TUSAS_DEVICE
-PRE_FUNC_TPETRA((*prec_heat_pfhub3_dp_)) = prec_heat_pfhub3_;
-
-KOKKOS_INLINE_FUNCTION 
-PRE_FUNC_TPETRA(prec_phase_pfhub3_)
-{
-  const double test = basis[eqn_id].phi(i);
-  const double dtestdx = basis[eqn_id].dphidx(i);
-  const double dtestdy = basis[eqn_id].dphidy(i);
-  const double dtestdz = basis[eqn_id].dphidz(i);
-
-  const double phi = basis[eqn_id].uu();
-  const double phit = basis[eqn_id].phi(j)/dt_*test;
-//   const double as = a(phi,
-// 		      basis[eqn_id].dudx(),
-// 		      basis[eqn_id].dudy,
-// 		      basis[eqn_id].dudz,
-// 		      eps_);
-  const double tau = tau0_;//*as*as;
-
-  const double divgradphi = W_*W_*(basis[eqn_id].dphidx(j)*dtestdx
-				   + basis[eqn_id].dphidy(j)*dtestdy
-				   + basis[eqn_id].dphidz(j)*dtestdz);
-
-  return phit
-    + t_theta_*divgradphi/tau;
-}
-#if 0
-PRE_FUNC(prec_phase_pfhub3_n_)
-{
-  const double test = basis[eqn_id].phi[i];
-  const double dtestdx = basis[eqn_id].dphidx[i];
-  const double dtestdy = basis[eqn_id].dphidy[i];
-  const double dtestdz = basis[eqn_id].dphidz[i];
-
-  const double phi = basis[eqn_id].uu;
-  const double phit = basis[eqn_id].phi[j]/dt_*test;
-//   const double as = tpetra::farzadi3d::a(phi,
-// 					     basis[eqn_id].dudx,
-// 					     basis[eqn_id].dudy,
-// 					     basis[eqn_id].dudz,
-// 					     eps_);
-//   const double tau = tau0_*as*as;
-  const double tau = tau0_;
-//   const double divgradphi = W_*as*W_*as*(basis[eqn_id].dphidx[j]*dtestdx
-// 					 + basis[eqn_id].dphidy[j]*dtestdy
-// 					 + basis[eqn_id].dphidz[j]*dtestdz);
-  const double divgradphi = W_*W_*(basis[eqn_id].dphidx[j]*dtestdx
-					 + basis[eqn_id].dphidy[j]*dtestdy
-					 + basis[eqn_id].dphidz[j]*dtestdz);
-  return phit
-    + t_theta_*divgradphi/tau;
-}
-#endif
-TUSAS_DEVICE
-PRE_FUNC_TPETRA((*prec_phase_pfhub3_dp_)) = prec_phase_pfhub3_;
-
-INI_FUNC(init_heat_pfhub3_)
-{
-  return delta_;
-}
-
-INI_FUNC(init_phase_pfhub3_)
-{
-  double val = -1.;
-  const double r = sqrt(x*x+y*y+z*z);
-  //if(x*x+y*y+z*z < R_*R_) val = 1.;
-  //see https://aip.scitation.org/doi/pdf/10.1063/1.5142353
-  //we should have a general function for this
-  //val = tanh((R_-r)/(sqrt(8.)*W_));
-  val = tanh((R_-r)/(sqrt(2.)*W_));
-
-
-  //should probably be:
-  //val = -tanh( (x*x+y*y+z*z - R_*R_)/(sqrt(2.)*W_) );
-  return val;
-}
-
-}//namespace pfhub3
-
-namespace pfhub2
-{
-  TUSAS_DEVICE
-  const int N_MAX = 1;
-  TUSAS_DEVICE
-  int N_ = 1;
-  TUSAS_DEVICE
-  int eqn_off_ = 1;
-  TUSAS_DEVICE
-  const double c0_ = .5;
-  TUSAS_DEVICE
-  const double eps_ = .05;
-  TUSAS_DEVICE
-  const double eps_eta_ = .1;
-  TUSAS_DEVICE
-  const double psi_ = 1.5;
-  TUSAS_DEVICE
-  const double rho_ = 1.414213562373095;//std::sqrt(2.);
-  TUSAS_DEVICE
-  const double c_alpha_ = .3;
-  TUSAS_DEVICE
-  const double c_beta_ = .7;
-  TUSAS_DEVICE
-  const double alpha_ = 5.;
-  TUSAS_DEVICE
-  const double k_c_ = 3.;
-  TUSAS_DEVICE
-  const double k_eta_ = 3.;
-  TUSAS_DEVICE
-  const double M_ = 5.;
-  TUSAS_DEVICE
-  const double L_ = 5.;
-  TUSAS_DEVICE
-  const double w_ = 1.;
-//   double c_a[2] = {0., 0.};
-//   double c_b[2] = {0., 0.};
-
-  PARAM_FUNC(param_)
-  {
-    int N_p = plist->get<int>("N");
-#if defined(TUSAS_HAVE_CUDA)
-  cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
-#else
-    N_ = N_p;
-#endif
-    int eqn_off_p = plist->get<int>("OFFSET");
-#if defined(TUSAS_HAVE_CUDA)
-  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
-#else
-    eqn_off_ = eqn_off_p;
-#endif
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-  double dhdeta(const double eta)
-  {
-    //return 30.*eta[eqn_id]*eta[eqn_id] - 60.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id] + 30.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
-    return 30.*eta*eta - 60.*eta*eta*eta + 30.*eta*eta*eta*eta;
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-  double h(const double *eta)
-  {
-    double val = 0.;
-    for (int i = 0; i < N_; i++){
-      val += eta[i]*eta[i]*eta[i]*(6.*eta[i]*eta[i] - 15.*eta[i] + 10.);
-    }
-    return val;
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-  double d2fdc2()
-  {
-    return 2.*rho_*rho_;
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-  double df_alphadc(const double c)
-  {
-    return 2.*rho_*rho_*(c - c_alpha_);
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-  double df_betadc(const double c)
-  {
-    return -2.*rho_*rho_*(c_beta_ - c);
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-  void solve_kks(const double c, double *phi, double &ca, double &cb)//const double phi
-  {
-    double delta_c_a = 0.;
-    double delta_c_b = 0.;
-    const int max_iter = 20;
-    const double tol = 1.e-8;
-    const double hh = h(phi);
-    //c_a[0] = (1.-hh)*c;
-    ca = c - hh*(c_beta_ - c_alpha_);
-
-    //c_b[0]=hh*c;
-    cb = c - (1.-hh)*(c_beta_ - c_alpha_);
-
-    //std::cout<<"-1"<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
-    for(int i = 0; i < max_iter; i++){
-      const double det = hh*d2fdc2() + (1.-hh)*d2fdc2();
-      const double f1 = hh*cb + (1.- hh)*ca - c;
-      const double f2 = df_betadc(cb) - df_alphadc(ca);
-      delta_c_b = (-d2fdc2()*f1 - (1-hh)*f2)/det;
-      delta_c_a = (-d2fdc2()*f1 + hh*f2)/det;
-      cb = delta_c_b + cb;
-      ca = delta_c_a + ca;
-      //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
-      if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return;
-    }
-//     std::cout<<"###################################  solve_kks falied to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
-// 	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
-    exit(0);
-    return;
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-  double f_alpha(const double c)
-  {
-    return rho_*rho_*(c - c_alpha_)*(c - c_alpha_);
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-  double f_beta(const double c)
-  {
-    return rho_*rho_*(c_beta_ - c)*(c_beta_ - c);
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-  double dgdeta(const double *eta, const int eqn_id)
-  {
-
-    double aval =0.;
-    for (int i = 0; i < N_; i++){
-      aval += eta[i]*eta[i];
-    }
-    return 2.*eta[eqn_id]*(1. - eta[eqn_id])*(1. - eta[eqn_id])  
-      - 2.* eta[eqn_id]* eta[eqn_id]* (1. - eta[eqn_id]) + 
-      4.*alpha_*eta[eqn_id] *aval - 4.*alpha_*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
-  }
-
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_c_kks_)
-{
-  //derivatives of the test function
-  const double dtestdx = basis[0].dphidx(i);
-  const double dtestdy = basis[0].dphidy(i);
-  //double dtestdz = basis[0].dphidz(i);
-  //test function
-  const double test = basis[0].phi(i);
-  //u, phi
-  const double c[2] = {basis[0].uu(), basis[0].uuold()};
-  const double dcdx[2] = {basis[0].dudx(), basis[0].duolddx()};
-  const double dcdy[2] = {basis[0].dudy(), basis[0].duolddy()};
-
-  double dhdx[2] = {0., 0.};
-  double dhdy[2] = {0., 0.};
-
-  double c_a[2] = {0., 0.};
-  double c_b[2] = {0., 0.};
-
-  for( int kk = 0; kk < N_; kk++){
-    int kk_off = kk + eqn_off_;
-    dhdx[0] += dhdeta(basis[kk_off].uu())*basis[kk_off].dudx();
-    dhdx[1] += dhdeta(basis[kk_off].uuold())*basis[kk_off].duolddx();
-    dhdy[0] += dhdeta(basis[kk_off].uu())*basis[kk_off].dudy();
-    dhdy[1] += dhdeta(basis[kk_off].uuold())*basis[kk_off].duolddy();
-  }
-
-  const double ct = (c[0]-c[1])/dt_*test;
-
-  double eta_array[N_MAX];
-  double eta_array_old[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
-    int kk_off = kk + eqn_off_;
-    eta_array[kk] = basis[kk_off].uu();
-    eta_array_old[kk] = basis[kk_off].uuold();
-  }
-
-  solve_kks(c[0],eta_array,c_a[0],c_b[0]);
-
-  const double DfDc[2] = {-c_b[0] + c_a[0],
- 		    -c_b[1] + c_a[1]};
-
-  const double D2fDc2 = 1.;
-  //double D2fDc2 = 1.*d2fdc2();
-
-  const double dfdx[2] = {DfDc[0]*dhdx[0] + D2fDc2*dcdx[0],
-		    DfDc[1]*dhdx[1] + D2fDc2*dcdx[1]};
-  const double dfdy[2] = {DfDc[0]*dhdy[0] + D2fDc2*dcdy[0],
-		    DfDc[1]*dhdy[1] + D2fDc2*dcdy[1]};
-
-  const double divgradc[2] = {M_*(dfdx[0]*dtestdx + dfdy[0]*dtestdy),
-			M_*(dfdx[1]*dtestdx + dfdy[1]*dtestdy)};
-
-  return ct + t_theta_*divgradc[0] + (1.-t_theta_)*divgradc[1];
-}
-
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_c_kks_dp_)) = residual_c_kks_;
-
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_eta_kks_)
-{
-
-  //derivatives of the test function
-  const double dtestdx = basis[eqn_id].dphidx(i);
-  const double dtestdy = basis[eqn_id].dphidy(i);
-  //double dtestdz = basis[0].dphidz(i);
-  //test function
-  const double test = basis[eqn_id].phi(i);
-  //u, phi
-  const double c[2] = {basis[0].uu(), basis[0].uuold()};
-
-  const double eta[2] = {basis[eqn_id].uu(), basis[eqn_id].uuold()};
-  const double detadx[2] = {basis[eqn_id].dudx(), basis[eqn_id].duolddx()};
-  const double detady[2] = {basis[eqn_id].dudy(), basis[eqn_id].duolddy()};
-
-  double c_a[2] = {0., 0.};
-  double c_b[2] = {0., 0.};
-
-  double eta_array[N_MAX];
-  double eta_array_old[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
-    int kk_off = kk + eqn_off_;
-    eta_array[kk] = basis[kk_off].uu();
-    eta_array_old[kk] = basis[kk_off].uuold();
-  }
-
-  solve_kks(c[0],eta_array,c_a[0],c_b[0]);
-
-  const double etat = (eta[0]-eta[1])/dt_*test;
-
-
-  const double F[2] = {f_beta(c_b[0]) - f_alpha(c_a[0]) 
-		 - (c_b[0] - c_a[0])*df_betadc(c_b[0]),
-		 f_beta(c_b[1]) - f_alpha(c_a[1]) 
-		 - (c_b[1] - c_a[1])*df_betadc(c_b[1])};
-
-  const int k = eqn_id - eqn_off_;
-  const double dfdeta[2] = {L_*(F[0]*dhdeta(eta[0]) 
-				    + w_*dgdeta(eta_array,k)    )*test,
-		      L_*(F[1]*dhdeta(eta[1]) 
-				    + w_*dgdeta(eta_array_old,k))*test};
-
-  const double divgradeta[2] = {L_*k_eta_
-			  *(detadx[0]*dtestdx + detady[0]*dtestdy), 
-			  L_*k_eta_
-			  *(detadx[1]*dtestdx + detady[1]*dtestdy)};//(grad u,grad phi)
- 
-  return etat + t_theta_*divgradeta[0] + t_theta_*dfdeta[0] + (1.-t_theta_)*divgradeta[1] + (1.-t_theta_)*dfdeta[1];
-}
-
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
-
-PPR_FUNC(postproc_c_a_)
-{
-
-  //cn will need eta_array here...
-  const double cc = u[0];
-  double phi = u[1];
-  double c_a = 0.;
-  double c_b = 0.;
-
-  solve_kks(cc,&phi,c_a,c_b);
-
-  return c_a;
-}
-
-PPR_FUNC(postproc_c_b_)
-{
-  //cn will need eta_array here...
-  const double cc = u[0];
-  double phi = u[1];
-  double c_a = 0.;
-  double c_b = 0.;
-
-  solve_kks(cc,&phi,c_a,c_b);
-
-  return c_b;
-}
-}//namespace pfhub2
-
-namespace robin
-{
-  //  http://ramanujan.math.trinity.edu/rdaileda/teach/s12/m3357/lectures/lecture_2_28_short.pdf
-  // 1-D robin bc test problem, time dependent
-  // Solve D[u, t] - c^2 D[u, x, x] == 0
-  // u(0,t) == 0
-  // D[u, x] /. x -> L == -kappa u(t,L)
-  // => du/dx + kappa u = g = 0
-  // u(x,t) = a E^(-mu^2 t) Sin[mu x]
-  // mu solution to: Tan[mu L] + mu/kappa == 0 && Pi/2 < mu < 3 Pi/2
-  const double mu = 2.028757838110434;
-  const double a = 10.;
-  const double c = 1.;
-  const double L = 1.;
-  const double kappa = 1.;
-
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_robin_test_)
-{
-  //1-D robin bc test problem, 
-
-  //derivatives of the test function
-  const double dtestdx = basis[0].dphidx(i);
-  const double dtestdy = basis[0].dphidy(i);
-  const double dtestdz = basis[0].dphidz(i);
-  //test function
-  const double test = basis[0].phi(i);
-  //u, phi
-  const double u = basis[0].uu();
-  const double uold = basis[0].uuold();
-
-  //double a =10.;
-
-  const double ut = (u-uold)/dt_*test;
-  const double divgradu = c*c*(basis[0].dudx()*dtestdx + basis[0].dudy()*dtestdy + basis[0].dudz()*dtestdz);//(grad u,grad phi)
-  //double divgradu_old = (basis[0].duolddx()*dtestdx + basis[0].duolddy()*dtestdy + basis[0].dolddz()*dtestdz);//(grad u,grad phi)
- 
-  const double f[3] = {c*c*(basis[0].dudx()*dtestdx + basis[0].dudy()*dtestdy + basis[0].dudz()*dtestdz),
-		       c*c*(basis[0].duolddx()*dtestdx + basis[0].duolddy()*dtestdy + basis[0].duolddz()*dtestdz),
-		       c*c*(basis[0].duoldolddx()*dtestdx + basis[0].duoldolddy()*dtestdy + basis[0].duoldolddz()*dtestdz)};
-  return ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_robin_test_dp_)) = residual_robin_test_;
-
-KOKKOS_INLINE_FUNCTION 
-PRE_FUNC_TPETRA(prec_robin_test_)
-{
-  //cn probably want to move each of these operations inside of getbasis
-  //derivatives of the test function
-  const double dtestdx = basis[0].dphidx(i);
-  const double dtestdy = basis[0].dphidy(i);
-  const double dtestdz = basis[0].dphidz(i);
-
-  const double dbasisdx = basis[0].dphidx(j);
-  const double dbasisdy = basis[0].dphidy(j);
-  const double dbasisdz = basis[0].dphidz(j);
-  const double test = basis[0].phi(i);
-  const double divgrad = c*c*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
-  //double a =10.;
-  const double u_t = (basis[0].phi(j))/dt_*test;
-  return u_t + t_theta_*divgrad;
-}
-
-TUSAS_DEVICE
-PRE_FUNC_TPETRA((*prec_robin_test_dp_)) = prec_robin_test_;
-
-NBC_FUNC_TPETRA(nbc_robin_test_)
-{
-
-  const double test = basis[0].phi[i];
-
-  //du/dn + kappa u = g = 0 on L
-  //(du,dv) - <du/dn,v> = (f,v)
-  //(du,dv) - <g - kappa u,v> = (f,v)
-  //(du,dv) - < - kappa u,v> = (f,v)
-  //          ^^^^^^^^^^^^^^ return this
-  const double f[3] = {-kappa*basis[0].uu*test,
-		       -kappa*basis[0].uuold*test,
-		       -kappa*basis[0].uuoldold*test};
-  return (1.-t_theta2_)*t_theta_*f[0]
-    +(1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-INI_FUNC(init_robin_test_)
-{
-  return a*sin(mu*x);
-}
-PPR_FUNC(postproc_robin_)
-{
-  const double uu = u[0];
-  const double x = xyz[0];
-  //const double y = xyz[1];
-  //const double z = xyz[2];
-
-  const double s= a*exp(-mu*mu*time)*sin(mu*x);//c?
-
-  return s-uu;
-}
-}//namespace robin
-
-namespace autocatalytic4
-{
-
-  //https://documen.site/download/math-3795-lecture-18-numerical-solution-of-ordinary-differential-equations-goals_pdf#
-  //https://media.gradebuddy.com/documents/2449908/0c88cf76-7605-4aec-b2ad-513ddbebefec.pdf
-
-const double k1 = .0001;
-const double k2 = 1.;
-const double k3 = .0008;
-
-RES_FUNC_TPETRA(residual_a_)
-{
-  const double test = basis[0].phi(i);
-  //u, phi
-  const double u = basis[0].uu();
-  const double uold = basis[0].uuold();
-  const double uoldold = basis[0].uuoldold();
-
-  const double ut = (u-uold)/dt_*test;
-  //std::cout<<ut<<" "<<dt_<<" "<<time<<std::endl;
- 
-  double f[3];
-  f[0] = (-k1*u       - k2*u*basis[1].uu())*test;
-  f[1] = (-k1*uold    - k2*u*basis[1].uuold())*test;
-  f[2] = (-k1*uoldold - k2*u*basis[1].uuoldold())*test;
-
-  return ut - (1.-t_theta2_)*t_theta_*f[0]
-    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-
-RES_FUNC_TPETRA(residual_b_)
-{
-  const double test = basis[1].phi(i);
-  //u, phi
-  const double u = basis[1].uu();
-  const double uold = basis[1].uuold();
-  //const double uoldold = basis[1].uuoldold;
-  const double a = basis[0].uu();
-  const double aold = basis[0].uuold();
-  const double aoldold = basis[0].uuoldold();
-
-  const double ut = (u-uold)/dt_*test;
-  double f[3];
-  f[0] = (k1*a       - k2*a*u                        + 2.*k3*basis[2].uu())*test;
-  f[1] = (k1*aold    - k2*aold*uold                  + 2.*k3*basis[2].uuold())*test;
-  f[2] = (k1*aoldold - k2*aoldold*basis[1].uuoldold() + 2.*k3*basis[2].uuoldold())*test;
-
-  return ut - (1.-t_theta2_)*t_theta_*f[0]
-    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-
-RES_FUNC_TPETRA(residual_ab_)
-{
-  const double test = basis[1].phi(i);
-  //u, phi
-  const double u = basis[2].uu();
-  const double uold = basis[2].uuold();
-  //const double uoldold = basis[1].uuoldold;
-  const double b = basis[1].uu();
-  const double bold = basis[1].uuold();
-  const double boldold = basis[1].uuoldold();
-
-  const double ut = (u-uold)/dt_*test;
-  double f[3];
-  f[0] = (k2*b*basis[0].uu()             - k3*u)*test;
-  f[1] = (k2*bold*basis[0].uuold()       - k3*uold)*test;
-  f[2] = (k2*boldold*basis[0].uuoldold() - k3*basis[2].uuoldold())*test;
-
-  return ut - (1.-t_theta2_)*t_theta_*f[0]
-    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-
-RES_FUNC_TPETRA(residual_c_)
-{
-  const double test = basis[1].phi(i);
-  //u, phi
-  const double u = basis[3].uu();
-  const double uold = basis[3].uuold();
-  //const double uoldold = basis[1].uuoldold;
-  const double a = basis[0].uu();
-  const double aold = basis[0].uuold();
-  const double aoldold = basis[0].uuoldold();
-
-  const double ut = (u-uold)/dt_*test;
-  double f[3];
-  f[0] = (k1*a       + k3*basis[2].uu())*test;
-  f[1] = (k1*aold    + k3*basis[2].uuold())*test;
-  f[2] = (k1*aoldold + k3*basis[2].uuoldold())*test;
-
-  return ut - (1.-t_theta2_)*t_theta_*f[0]
-    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-
-}//namespace autocatalytic4
-
-namespace timeonly
-{
-const double pi = 3.141592653589793;
-  //const double lambda = 10.;//pi*pi;
-const double lambda = pi*pi;
-
-const double ff(const double &u)
-{
-  return -lambda*u;
-}
-
-RES_FUNC_TPETRA(residual_test_)
-{
-  //test function
-  const double test = basis[0].phi(i);
-  //u, phi
-  const double u[3] = {basis[0].uu(),basis[0].uuold(),basis[0].uuoldold()};
-
-  const double ut = (u[0]-u[1])/dt_*test;
-
-  const double f[3] = {ff(u[0])*test,ff(u[1])*test,ff(u[2])*test};
-  //std::cout<<u[1]<<"  "<<u[2]<<std::endl;
-  return ut - (1.-t_theta2_)*t_theta_*f[0]
-    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
-}
-}//namespace timeonly
-
 namespace radconvbc
 {
   double h = 50.;
@@ -2283,7 +1304,6 @@ double t0_h = 300.;
 TUSAS_DEVICE
 double scaling_constant_d = 1.;
 
-#if 0
 KOKKOS_INLINE_FUNCTION 
 void dfldt_uncoupled(GPUBasisLHex* basis, const int index, const double dt_, const double dtold_, double *a)
 {
@@ -2609,159 +1629,210 @@ PARAM_FUNC(param_)
   //and pull fro xml
   //te = 1635.;// K
   double te_p = plist->get<double>("te_",1641.);
-  #ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(te_d,&te_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(te_d),&te_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   te_d = te_p;
 #endif
   te = te_p;
+
   //tl = 1706.;// K
   double tl_p = plist->get<double>("tl_",1706.);
-  #ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(tl_d,&tl_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(tl_d),&tl_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   tl_d = tl_p;
 #endif
   tl = tl_p;
+
   //Lf = 17.2;// kJ/mol
   double Lf_p = plist->get<double>("Lf_",2.95e5);
-  #ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(Lf_d,&Lf_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(Lf_d),&Lf_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   Lf_d = Lf_p;
 #endif
   Lf = Lf_p; 
   
   double dfldu_mushy_p = tpetra::heat::rho_h*Lf/(tl-te);//fl=(t-te)/(tl-te);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(dfldu_mushy_d,&dfldu_mushy_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(dfldu_mushy_d),&dfldu_mushy_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   dfldu_mushy_d = dfldu_mushy_p;
 #endif
   dfldu_mushy_h = dfldu_mushy_p;
 
   double eta_p = plist->get<double>("eta_",0.3);//dimensionless
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(eta_d,&eta_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(eta_d),&eta_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   eta_d = eta_p;
 #endif
   eta_h = eta_p;
+
   double P_p = plist->get<double>("P_",50.);// W
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(P_d,&P_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(P_d),&P_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   P_d = P_p;
 #endif
   P_h = P_p;
+
   double s_p = plist->get<double>("s_",2.);//dimensionless
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(s_d,&s_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(s_d),&s_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   s_d = s_p;
 #endif
   s_h = s_p;
+
   double r_p = plist->get<double>("r_",.00005);// 50 um
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(r_d,&r_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(r_d),&r_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   r_d = r_p;
 #endif
   r_h = r_p;
+
   double d_p = plist->get<double>("d_",.00001);// 10 um
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(d_d,&d_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(d_d),&d_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   d_d = d_p;
 #endif
   d_h = d_p;
+
   //gamma_d = is gamma function
   //gamma(3/s):
   //gamma(3/2) = sqrt(pi)/2
   double gamma_p = plist->get<double>("gamma_",0.886227);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(gamma_d,&gamma_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(gamma_d),&gamma_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   gamma_d = gamma_p;
 #endif
   gamma_h = gamma_p;
+
   double x0_p = plist->get<double>("x0_",0.);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(x0_d,&x0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(x0_d),&x0_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   x0_d = x0_p;
 #endif
   x0_h = x0_p;
+
   double y0_p = plist->get<double>("y0_",0.);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(y0_d,&y0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(y0_d),&y0_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   y0_d = y0_p;
 #endif
   y0_h = y0_p;
+
   double z0_p = plist->get<double>("z0_",0.);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(z0_d,&z0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(z0_d),&z0_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   z0_d = z0_p;
 #endif
   z0_h = z0_p;
+
   double t_hold_p = plist->get<double>("t_hold_",0.005);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(t_hold_d,&t_hold_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(t_hold_d),&t_hold_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   t_hold_d = t_hold_p;
 #endif
   t_hold_h = t_hold_p;
+
   double t_decay_p = plist->get<double>("t_decay_",0.01);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(t_decay_d,&t_decay_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(t_decay_d),&t_decay_p,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   t_decay_d = t_decay_p;
 #endif
   t_decay_h = t_decay_p;
   
   double tau0_p = plist->get<double>("tau0_",1.);
-  #ifdef TUSAS_HAVE_CUDA
-    cudaMemcpyToSymbol(tau0_d,&tau0_p,sizeof(double));
-  #else
-    tau0_d = tau0_p;
-  #endif
+#if defined(TUSAS_HAVE_CUDA)
+  cudaMemcpyToSymbol(tau0_d,&tau0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(tau0_d),&tau0_p,sizeof(double),0,hipMemcpyHostToDevice);
+#else
+  tau0_d = tau0_p;
+#endif
   tau0_h = tau0_p;
   
   double W0_p = plist->get<double>("W0_",1.);
-  #ifdef TUSAS_HAVE_CUDA
-    cudaMemcpyToSymbol(W0_d,&W0_p,sizeof(double));
-  #else
-    W0_d = W0_p;
-  #endif
+#if defined(TUSAS_HAVE_CUDA)
+  cudaMemcpyToSymbol(W0_d,&W0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(W0_d),&W0_p,sizeof(double),0,hipMemcpyHostToDevice);
+#else
+  W0_d = W0_p;
+#endif
   W0_h = W0_p;
   
   double t0_p = plist->get<double>("t0_",300.);
-  #ifdef TUSAS_HAVE_CUDA
-    cudaMemcpyToSymbol(t0_d,&t0_p,sizeof(double));
-  #else
-    t0_d = t0_p;
-  #endif
+#if defined(TUSAS_HAVE_CUDA)
+  cudaMemcpyToSymbol(t0_d,&t0_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(t0_d),&t0_p,sizeof(double),0,hipMemcpyHostToDevice);
+#else
+  t0_d = t0_p;
+#endif
   t0_h = t0_p;
   
   double scaling_constant_p = plist->get<double>("scaling_constant_",1.);
-  #ifdef TUSAS_HAVE_CUDA
-    cudaMemcpyToSymbol(scaling_constant_d,&scaling_constant_p,sizeof(double));
-  #else
-    scaling_constant_d = scaling_constant_p;
-  #endif
+#if defined(TUSAS_HAVE_CUDA)
+  cudaMemcpyToSymbol(scaling_constant_d,&scaling_constant_p,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(scaling_constant_d),&scaling_constant_p,sizeof(double),0,hipMemcpyHostToDevice);
+#else
+  scaling_constant_d = scaling_constant_p;
+#endif
   
   double uref = plist->get<double>("uref_",0.);
-#ifdef TUSAS_HAVE_CUDA
+#if defined(TUSAS_HAVE_CUDA)
   cudaMemcpyToSymbol(uref_d,&uref,sizeof(double));
+#elif defined(TUSAS_HAVE_HIP)
+  hipMemcpyToSymbol(HIP_SYMBOL(uref_d),&uref,sizeof(double),0,hipMemcpyHostToDevice);
 #else
   uref_d = uref;
 #endif
   uref_h = uref;
-
 }
-#endif
+
 }//namespace goldak
 }//namespace tpetra
 

@@ -501,9 +501,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Kokkos::fence();
   }
 
-  // auto x_view = x_->getLocalView<Kokkos::DefaultExecutionSpace>();
-  // auto y_view = y_->getLocalView<Kokkos::DefaultExecutionSpace>();
-  // auto z_view = z_->getLocalView<Kokkos::DefaultExecutionSpace>();
+  //moving xyz on device to scope below seems to slow down the code alot
+  //the solver time is doubled, but residualfill time is the same 
+  //also the coloring time is increased by 4
+  //is this something weird?
+  //Belos: Operation Op*x is the same but
+  //Belos::MVT::MvAddMv is 10 times greater
+  //we need to figure all this scoping out
+  //maybe we move this back here and redo the host scoping of xyz in the neumann loop???
+  //this may be a bad node on crusher, similar runs on frontier seem ok
+#if 0
   auto x_view = x_->getLocalViewDevice(Tpetra::Access::ReadOnly);
   auto y_view = y_->getLocalViewDevice(Tpetra::Access::ReadOnly);
   auto z_view = z_->getLocalViewDevice(Tpetra::Access::ReadOnly);
@@ -513,7 +520,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
-#if 0
   // auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
   auto u_view = u->getLocalViewDevice(Tpetra::Access::ReadOnly);
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
@@ -642,6 +648,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
       uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
+
+    auto x_view = x_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto y_view = y_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto z_view = z_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
+    //this will utilize texture memory not available on tesla or earlier gpus
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra = Kokkos::subview (x_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
     RESFUNC * h_rf;
     h_rf = (RESFUNC*)malloc(numeqs_*sizeof(RESFUNC));
@@ -944,6 +959,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       auto uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
       auto uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
 
+      auto x_view = x_->getLocalViewHost(Tpetra::Access::ReadOnly);
+      auto y_view = y_->getLocalViewHost(Tpetra::Access::ReadOnly);
+      auto z_view = z_->getLocalViewHost(Tpetra::Access::ReadOnly);
+      auto x_1dra = Kokkos::subview (x_view, Kokkos::ALL (), 0);
+      auto y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
+      auto z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
+
       GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
       //GPUBasis * BGPU = &Bq;
       const int num_node_per_side = 4;
@@ -972,13 +994,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      xx[ll] = x_1dra(lid);
 	      yy[ll] = y_1dra(lid);
 	      zz[ll] = z_1dra(lid);
-#if 0
 	      uu[ll] = u_1dra(numeqs_*lid+k);
 	      uu_old[ll] = uold_1dra(numeqs_*lid+k);
 	      uu_oldold[ll] = uoldold_1dra(numeqs_*lid+k);
-#endif
-	    }//ll
-#if 0      
+	    }//ll      
 	    
 	    //BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
 	    Bq.computeElemData(&xx[0], &yy[0], &zz[0]);
@@ -999,7 +1018,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		
 	      }//i
 	    }//gp
-#endif
 	  }//j
 	}//it
       }//k

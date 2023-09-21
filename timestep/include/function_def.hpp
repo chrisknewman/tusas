@@ -1186,8 +1186,6 @@ PPR_FUNC(postproc_sigmoid_)
 
 }//namespace farzadi3d
 
-#if 0
-
 namespace radconvbc
 {
   double h = 50.;
@@ -1229,7 +1227,6 @@ PARAM_FUNC(param_)
   ti = plist->get<double>("ti_",323.);
 }
 }//namespace radconvbc
-#endif
 
 
 namespace goldak{

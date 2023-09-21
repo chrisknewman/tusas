@@ -606,12 +606,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const std::string testname = paramList.get<std::string> (TusastestNameString);
 
   if (nonnull(outArgs.get_f())){
+    { // start scope for f_vec and f_overlap 
     // auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
     auto u_view = u->getLocalViewDevice(Tpetra::Access::ReadOnly);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
       u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
 
-    { // start scope for f_vec and f_overlap 
+    //{ // start scope for f_vec and f_overlap 
 
     const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
@@ -752,11 +753,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
 	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
 	}else if (testcase == 8){
-	  //rf[0] = tpetra::goldak::residual_test_;
+	  rf[0] = tpetra::goldak::residual_test_;
 	}else if (testcase == 9){
-	  //rf[0] = tpetra::farzadi3d::residual_conc_farzadi_activated_;
-	  //rf[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_activated_;
-	  //rf[2] = tpetra::goldak::residual_coupled_test_;
+	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_activated_;
+	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_activated_;
+	  rf[2] = tpetra::goldak::residual_coupled_test_;
 	}else{
 	  //exit(0);
 	  return;//for now
@@ -898,7 +899,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   }//get_f
 
-#if 0
   if (nonnull(outArgs.get_f())) {
     if (NULL != neumannfunc_) {
 
@@ -932,39 +932,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	Teuchos::TimeMonitor ImportTimer(*ts_time_import);
 	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
       }
+      //{
+      auto u_view = u->getLocalViewHost(Tpetra::Access::ReadOnly);
+      auto uold_view = uold->getLocalViewHost(Tpetra::Access::ReadOnly);
+      auto uoldold_view = uoldold->getLocalViewHost(Tpetra::Access::ReadOnly);
 
-      // auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>();
-      // auto uoldold_view = uoldold->getLocalView<Kokkos::DefaultExecutionSpace>();
-      // auto f_view = f_overlap->getLocalView<Kokkos::DefaultExecutionSpace>();
-      auto uold_view = uold->getLocalViewDevice(Tpetra::Access::ReadOnly);
-      auto uoldold_view = uoldold->getLocalViewDevice(Tpetra::Access::ReadOnly);
-      auto f_view = f_overlap->getLocalViewDevice(Tpetra::Access::ReadWrite);
+      auto f_view = f_overlap->getLocalViewHost(Tpetra::Access::ReadWrite);
       auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
-      Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
-	uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
-      Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
-	uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
 
-      auto f_1d_h = Kokkos::create_mirror_view(f_1d);
-      auto uold_1dra_h = Kokkos::create_mirror_view(uold_1dra);
-      auto uoldold_1dra_h = Kokkos::create_mirror_view(uoldold_1dra);
-      Kokkos::deep_copy(f_1d_h,f_1d);
-      Kokkos::deep_copy(uold_1dra_h,uold_1dra);
-      Kokkos::deep_copy(uoldold_1dra_h,uoldold_1dra);
-
-      Kokkos::fence();
-
-      auto x_1dra_h = Kokkos::create_mirror_view(x_1dra);
-      auto y_1dra_h = Kokkos::create_mirror_view(y_1dra);
-      auto z_1dra_h = Kokkos::create_mirror_view(z_1dra);
-      auto u_1dra_h = Kokkos::create_mirror_view(u_1dra);
-
-      Kokkos::deep_copy(x_1dra_h,x_1dra);
-      Kokkos::deep_copy(y_1dra_h,y_1dra);
-      Kokkos::deep_copy(z_1dra_h,z_1dra);
-      Kokkos::deep_copy(u_1dra_h,u_1dra);
-
-      Kokkos::fence();
+      auto u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+      auto uold_1dra = Kokkos::subview (uold_view, Kokkos::ALL (), 0);
+      auto uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
 
       GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
       //GPUBasis * BGPU = &Bq;
@@ -974,11 +952,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       const int ngp = Bq.ngp;
       
       std::map<int,NBCFUNC>::iterator it;
-
       for( int k = 0; k < numeqs_; k++ ){
 	for(it = (*neumannfunc_)[k].begin();it != (*neumannfunc_)[k].end(); ++it){
-	  const int ss_id = it->first;
-	  
+	  //if there are not as many sisesets as there are physical sides, we need to find the sideset id
+	  const int index = it->first;
+	  int ss_id = -99;
+	  mesh_->side_set_found(index, ss_id);
 	  //loop over element faces--this will be the parallel loop eventually
 	  //we would need toto know coloring on the sideset or switch to scattered mesh
 	  for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces--this will be the parallel loop
@@ -990,13 +969,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    double uu_oldold[BASIS_NODES_PER_ELEM];
 	    for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
 	      const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+ll];
-	      xx[ll] = x_1dra_h(lid);
-	      yy[ll] = y_1dra_h(lid);
-	      zz[ll] = z_1dra_h(lid);
-	      uu[ll] = u_1dra_h(numeqs_*lid+k);
-	      uu_old[ll] = uold_1dra_h(numeqs_*lid+k);
-	      uu_oldold[ll] = uoldold_1dra_h(numeqs_*lid+k);
+	      xx[ll] = x_1dra(lid);
+	      yy[ll] = y_1dra(lid);
+	      zz[ll] = z_1dra(lid);
+#if 0
+	      uu[ll] = u_1dra(numeqs_*lid+k);
+	      uu_old[ll] = uold_1dra(numeqs_*lid+k);
+	      uu_oldold[ll] = uoldold_1dra(numeqs_*lid+k);
+#endif
 	    }//ll
+#if 0      
 	    
 	    //BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
 	    Bq.computeElemData(&xx[0], &yy[0], &zz[0]);
@@ -1013,25 +995,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		//const double val = -jacwt*(it->second)(BGPU,i,dt,dtold,t_theta,t_theta2,time);
 		const double val = -jacwt*(it->second)(&Bq,i,dt,dtold,t_theta,t_theta2,time);
 		
-		f_1d_h[row] += val;
+		f_1d[row] += val;
 		
 	      }//i
 	    }//gp
+#endif
 	  }//j
 	}//it
       }//k
-
-      Kokkos::deep_copy(f_1d,f_1d_h);
-
-      Kokkos::fence();
-
+      //}
       {
 	Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
 	f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
       }
     }//neumann
   }//get_f
-#endif
+
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
 
@@ -1249,40 +1228,25 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     int testcase = -99;
 #ifdef TUSAS_CRUSHER
-#else
-#ifdef TUSAS_HAVE_CUDA
     //PREFUNC * d_pf;
     //cudaMalloc((double**)&d_pf,numeqs_*sizeof(PREFUNC));
 
 
     if("heat" == paramList.get<std::string> (TusastestNameString)){
-      //cn this will need to be done for each equation
-      //cudaMemcpyFromSymbol( &h_pf[0], tpetra::heat::prec_heat_test_dp_, sizeof(PREFUNC));
       testcase = 0;
     }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
-      //cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
       testcase = 1;
     }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
-      //cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
       testcase = 2;
     }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
-      //cudaMemcpyFromSymbol( &h_pf[0], tpetra::heat::prec_heat_test_dp_, sizeof(PREFUNC));
-      //cudaMemcpyFromSymbol( &h_pf[1], tpetra::heat::prec_heat_test_dp_, sizeof(PREFUNC));
       testcase = 3;
     }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
-      //cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
-      //cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
       testcase = 4;
     }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
-      //cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
-      //cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
       testcase = 5;
     }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
-      //cudaMemcpyFromSymbol( &h_pf[0], tpetra::pfhub3::prec_heat_pfhub3_dp_, sizeof(PREFUNC));
-      //cudaMemcpyFromSymbol( &h_pf[1], tpetra::pfhub3::prec_phase_pfhub3_dp_, sizeof(PREFUNC));
       testcase = 6;
     }else if("goldak" == paramList.get<std::string> (TusastestNameString)){
-      //cudaMemcpyFromSymbol( &h_pf[0], tpetra::heat::prec_heat_test_dp_, sizeof(PREFUNC));
       testcase = 8;
 
     } else {
@@ -1297,7 +1261,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 #else
     h_pf = &(*preconfunc_)[0];
-#endif
 #endif
 
     for(int c = 0; c < num_color; c++){
@@ -1331,7 +1294,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
 #ifdef TUSAS_CRUSHER
-#else
 	PREFUNC pf[TUSAS_MAX_NUMEQS];
 	if (testcase == 0){
 	  pf[0] = tpetra::heat::prec_heat_test_;
@@ -1340,9 +1302,14 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  pf[1] = tpetra::farzadi3d::prec_phase_farzadi_;
 	}else if (testcase == 8){
 	  pf[0] = tpetra::goldak::prec_test_;
+	}else if (testcase == 9){
+	  pf[0] = tpetra::farzadi3d::prec_conc_farzadi_;
+	  pf[1] = tpetra::farzadi3d::prec_phase_farzadi_;
+	  pf[2] = tpetra::goldak::prec_test_;
 	}else{
-	  exit(0);
+	  return;//exit(0);
 	}
+#else
 #endif
 #ifdef TUSAS3D	
 			     //GPUBasisLHex B[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
@@ -2066,7 +2033,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     // post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     // post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
 
-#if 0
   }else if("radconvbc" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
     numeqs_ = 1;
@@ -2110,6 +2076,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     //post_proc[0].postprocfunc_ = &tpetra::postproc_;
 
+#if 0
   }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
     numeqs_ = 1;
@@ -2550,6 +2517,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 #endif
 
+#endif //0
   }else if("goldak" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
     numeqs_ = 1;
@@ -2595,7 +2563,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
     post_proc[1]->postprocfunc_ = &tpetra::goldak::postproc_u_;
 
-#endif //0
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){

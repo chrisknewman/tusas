@@ -1192,6 +1192,14 @@ namespace radconvbc
   double ep = .7;
   double sigma = 5.67037e-9;
   double ti = 323.;
+  
+  double tau0_h = 1.;
+  double W0_h = 1.;
+  
+  double deltau_h = 1.;
+  double uref_h = 0.;
+
+  double scaling_constant = 1.0;
 
 DBC_FUNC(dbc_) 
 {
@@ -1203,15 +1211,25 @@ NBC_FUNC_TPETRA(nbc_)
   //https://reference.wolfram.com/language/PDEModels/tutorial/HeatTransfer/HeatTransfer.html#2048120463
   //h(t-ti)+\ep\sigma(t^4-ti^4)
   const double test = basis[0].phi[i];
-  const double u = basis[0].uu;
-  const double uold = basis[0].uuold;
-  const double uoldold = basis[0].uuoldold;
+  const double u = deltau_h*basis[0].uu+uref_h; // T=deltau_h*theta+uref_h
+  const double uold = deltau_h*basis[0].uuold+uref_h;
+  const double uoldold = deltau_h*basis[0].uuoldold+uref_h;
   const double f[3] = {(h*(ti-u)+ep*sigma*(ti*ti*ti*ti-u*u*u*u))*test,
 		       (h*(ti-uold)+ep*sigma*(ti*ti*ti*ti-uold*uold*uold*uold))*test,
 		       (h*(ti-uoldold)+ep*sigma*(ti*ti*ti*ti-uoldold*uoldold*uoldold*uoldold))*test};
-  return (1.-t_theta2_)*t_theta_*f[0]
+  
+  const double coef = deltau_h / W0_h;
+  
+  const double rv = (1.-t_theta2_)*t_theta_*f[0]
     +(1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+
+  //cn hack  
+  //scaling_constant = 1./basis[0].uuold;
+  //this is summit branch:
+  //return rv * coef * scaling_constant;
+  //this is master branch:
+  return f[0] * coef * scaling_constant;
 }
 
 INI_FUNC(init_heat_)
@@ -1225,6 +1243,13 @@ PARAM_FUNC(param_)
   ep = plist->get<double>("ep_",.7);
   sigma = plist->get<double>("sigma_",5.67037e-9);
   ti = plist->get<double>("ti_",323.);
+  
+  deltau_h = plist->get<double>("deltau_",1.);
+  uref_h = plist->get<double>("uref_",0.); 
+
+  W0_h = plist->get<double>("W0_",1.);
+
+  scaling_constant = plist->get<double>("scaling_constant_",1.);
 }
 }//namespace radconvbc
 
@@ -1473,14 +1498,14 @@ RES_FUNC_TPETRA(residual_test_)
   */
 }
 
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
+
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_qdot_)
 {
   return (basis[eqn_id].uu()-qdot(basis[eqn_id].xx(),basis[eqn_id].yy(),basis[eqn_id].zz(),time))*basis[eqn_id].phi(i);
 }
-
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
 
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_uncoupled_test_)
@@ -1510,8 +1535,6 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 		     + (1.-t_theta2_)*(1.-t_theta_)*dfldt[1]
 		     +.5*t_theta2_*((2.+dt_/dtold_)*dfldt[1]-dt_/dtold_*dfldt[2]));
   
-  //cn hack  
-  //scaling_constant_d = 1./basis[eqn_id].uuold();
   return rv * scaling_constant_d;
 }
 
@@ -1573,7 +1596,7 @@ PRE_FUNC_TPETRA(prec_test_)
 
 INI_FUNC(init_heat_)
 {
-	const double t_preheat = t0_h;
+    const double t_preheat = t0_h;
     const double val = (t_preheat-uref_h)/tpetra::heat::deltau_h;
     return val;
 }

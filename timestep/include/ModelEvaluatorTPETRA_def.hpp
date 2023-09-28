@@ -622,17 +622,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
+    f_vec->scale(0.);
 
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
-    f_vec->scale(0.);
     f_overlap->scale(0.);
     Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
 
-//     std::string elem_type=mesh_->get_blk_elem_type(blk);
-//     std::string * elem_type_p = &elem_type;
-
-    // auto uold_view = uold->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
-    // auto uoldold_view = uoldold->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadOnly);
     auto uold_view = uold->getLocalViewDevice(Tpetra::Access::ReadOnly);
     auto uoldold_view = uoldold->getLocalViewDevice(Tpetra::Access::ReadOnly);
     
@@ -652,8 +647,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     auto x_view = x_->getLocalViewDevice(Tpetra::Access::ReadOnly);
     auto y_view = y_->getLocalViewDevice(Tpetra::Access::ReadOnly);
     auto z_view = z_->getLocalViewDevice(Tpetra::Access::ReadOnly);
-    //using RandomAccess should give better memory performance on better than tesla gpus (guido is tesla and does not show performance increase)
-    //this will utilize texture memory not available on tesla or earlier gpus
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra = Kokkos::subview (x_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
@@ -737,21 +730,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       Kokkos::fence();
 
-      //std::cout<<"evalModelImpl() 1: "<<num_elem<<" "<<num_elem<<std::endl;
-
-
-
-
-//       const int num_elem1 = num_elem;
-//       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
-// 			     printf("%d %d\n",ne,num_elem1);	   
-// 			   });
-//       exit(0);
-
-
-
-
-
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
 
@@ -768,7 +746,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
 	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
 	}else if (testcase == 8){
-	  rf[0] = tpetra::goldak::residual_test_;
+	  rf[0] = tpetra::goldak::residual_uncoupled_test_;
 	}else if (testcase == 9){
 	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_activated_;
 	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_activated_;
@@ -791,9 +769,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
  	GPUBasisLQuad B[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
 #endif
 
-// 			     printf("evalModelImpl() 1: %d %d\n",ne,num_elem);
-// #if 0
-			     //const int ngp = B[0].ngp;
 	const int ngp = B[0].ngp();
 	//printf("ngp = %d\n",ngp);
 
@@ -818,18 +793,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  yy[k] = y_1dra(nodeid);
 	  zz[k] = z_1dra(nodeid);
 
-          // printf("First: nodeid, k, xx, yy, zz = %d %d %f %f %f \n",nodeid,k,xx[k],yy[k],zz[k]);
-
-	  //std::cout<<k<<"   "<<xx[k]<<"   "<<yy[k]<<"   "<<zz[k]<<"   "<<nodeid<<std::endl;
 	  for( int neq = 0; neq < numeqs; neq++ ){
-	    //std::cout<<numeqs*k+neq<<"           "<<n_nodes_per_elem*neq+k <<"      "<<nodeid<<"    "<<numeqs_*nodeid+neq<<std::endl;
 
 	    uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); 
 	    uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs*nodeid+neq);
 	    uu_oldold[n_nodes_per_elem*neq+k] = uoldold_1dra(numeqs*nodeid+neq);
-
-            // printf("uu, uu_old, uu_oldold = %f %f %f\n",
-            //           uu[n_nodes_per_elem*neq+k],uu_old[n_nodes_per_elem*neq+k],uu_oldold[n_nodes_per_elem*neq+k]);
 
 	  }//neq
 	}//k
@@ -842,17 +810,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	for(int gp=0; gp < ngp; gp++) {//gp
 	  double jacwt = 0.;
 	  for( int neq = 0; neq < numeqs; neq++ ){
-	    //we need a basis object that stores all equations here..
-	    //BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	    jacwt = B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
 	  }//neq
 	  
 	  const double vol = B[0].vol(); 
 	     
-	  // printf("jacwt = %f\n",jacwt);
-	//const double jacwt = BGPU[0]->jac*BGPU[0]->wt;
-			     //const double jacwt = B[0].jac*B[0].wt;
-
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 
 	    //const int lrow = numeqs*meshc[elemrow+i];
@@ -863,27 +825,19 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    for( int neq = 0; neq < numeqs; neq++ ){
 
 #ifdef TUSAS_CRUSHER
-	      //const double val = jacwt*(tpetra::heat::residual_heat_test_((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
 	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand);
-              // printf("GPU: dt,dtold,t_theta,t_theta2,time = %f %f %f %f %f \n",dt,dtold,t_theta,t_theta2,time);
-
-	      //printf("val = %f \n",val);
 #else
 #ifdef TUSAS_HAVE_CUDA
-	      //printf("%le\n",B[0].phi[0]);
-	      //const double val = jacwt*((d_rf[neq])((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq));
 	      const double val = jacwt*(rf[neq])(&B[0],i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand);// tpetra::heat::residual_heat_test_
 #else
-	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
-	      //const double val = BGPU->jac*BGPU->wt*(tpetra::heat::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
 	      double val = jacwt*(h_rf[neq]((&B[0]),i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand));
 #endif
 #endif
+// 	      printf("%f\n",val);
+// 	      abort();
 	      //cn this works because we are filling an overlap map and exporting to a node map below...
 	      const int lid = lrow+neq;
 	      f_1d[lid] += val;
-	      //printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
-              // printf("%d %le %d\n",lid,f_1d[lid],c);
 	    }//neq
 	  }//i
 	}//gp
@@ -891,8 +845,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       });//parallel_for
 		     //};//ne
       Kokkos::fence();
-      //std::cout<<"evalModelImpl() 2: "<<std::endl;
-    //exit(0);
     }//c 
 
 
@@ -947,7 +899,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	Teuchos::TimeMonitor ImportTimer(*ts_time_import);
 	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
       }
-      //{
+      {//scope for views
       auto u_view = u->getLocalViewHost(Tpetra::Access::ReadOnly);
       auto uold_view = uold->getLocalViewHost(Tpetra::Access::ReadOnly);
       auto uoldold_view = uoldold->getLocalViewHost(Tpetra::Access::ReadOnly);
@@ -967,11 +919,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       auto z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
       GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
-      //GPUBasis * BGPU = &Bq;
       const int num_node_per_side = 4;
       
-      //const int ngp = BGPU->ngp;
       const int ngp = Bq.ngp;
+
+
+      //the issue is that device and host views of f_vec are not synced, we either need a d=ualview or force a sync between the element fill
+      //and the face fill
+
+
       
       std::map<int,NBCFUNC>::iterator it;
       for( int k = 0; k < numeqs_; k++ ){
@@ -999,21 +955,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      uu_oldold[ll] = uoldold_1dra(numeqs_*lid+k);
 	    }//ll      
 	    
-	    //BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
 	    Bq.computeElemData(&xx[0], &yy[0], &zz[0]);
 	    for ( int gp = 0; gp < ngp; gp++){
-	      //BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0], &uu_oldold[0]);//we can add uu_old, uu_oldold
 	      Bq.getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0], &uu_oldold[0]);//we can add uu_old, uu_oldold
-	      //const double jacwt = BGPU->jac*BGPU->wt;
 	      const double jacwt = Bq.jac*Bq.wt;
 	      for( int i = 0; i < num_node_per_side; i++ ){  
 		
 		const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
 		const int row = numeqs_*lid + k;
 		
-		//const double val = -jacwt*(it->second)(BGPU,i,dt,dtold,t_theta,t_theta2,time);
 		const double val = -jacwt*(it->second)(&Bq,i,dt,dtold,t_theta,t_theta2,time);
-		
+
 		f_1d[row] += val;
 		
 	      }//i
@@ -1021,13 +973,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  }//j
 	}//it
       }//k
-      //}
+      }//scope for views
       {
 	Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
 	f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
+	Kokkos::fence();
       }
     }//neumann
   }//get_f
+//   Kokkos::fence();
 
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
@@ -2541,8 +2495,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 1;
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tpetra::goldak::residual_test_dp_;
+    (*residualfunc_)[0] = tpetra::goldak::residual_uncoupled_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;

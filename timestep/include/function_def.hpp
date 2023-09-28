@@ -623,17 +623,17 @@ double dT_p = plist->get<double>("dT", 0.0);
 
 // circle or sphere parameters
 
-double r_p = plist->get<double>("r", 0.5);
-r = r_p;
-double x0_p = plist->get<double>("x0", 20.0);
-x0 = x0_p;
-double y0_p = plist->get<double>("y0", 20.0);
-y0 = y0_p;
-double z0_p = plist->get<double>("z0", 20.0);
-z0 = z0_p;
-
+  double r_p = plist->get<double>("r", 0.5);
+  r = r_p;
+  double x0_p = plist->get<double>("x0", 20.0);
+  x0 = x0_p;
+  double y0_p = plist->get<double>("y0", 20.0);
+  y0 = y0_p;
+  double z0_p = plist->get<double>("z0", 20.0);
+  z0 = z0_p;
+  
 //double absphi_p = plist->get<double>("absphi", absphi);
-
+  
   //the calculated values need local vars to work....
 
   //calculated values
@@ -1853,6 +1853,91 @@ PARAM_FUNC(param_)
 }
 
 }//namespace goldak
+
+namespace fullycoupled
+{
+  double hemisphere_IC_rad = 1.0;
+  double hemispherical_IC_x0 = 0.0;
+  double hemispherical_IC_y0 = 0.0;
+  double hemispherical_IC_z0 = 0.0;
+  bool hemispherical_IC = false;	
+  
+INI_FUNC(init_conc_farzadi_)
+{
+  return -1.;
+}
+
+INI_FUNC(init_phase_farzadi_)
+{
+  if (hemispherical_IC){
+    const double w0 = tpetra::farzadi3d::w0_h;
+	  
+	const double dist = std::sqrt( (x-hemispherical_IC_x0/w0)*(x-hemispherical_IC_x0/w0) 
+	  	+ (y-hemispherical_IC_y0/w0)*(y-hemispherical_IC_y0/w0) 
+	  	+ (z-hemispherical_IC_z0/w0)*(z-hemispherical_IC_z0/w0));
+	const double r = hemisphere_IC_rad/w0 + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));
+	return std::tanh( (dist-r)/std::sqrt(2.));
+  }
+  else {
+    double h = tpetra::farzadi3d::base_height + tpetra::farzadi3d::amplitude*((double)rand()/(RAND_MAX));  
+	double c = (x-tpetra::farzadi3d::x0)*(x-tpetra::farzadi3d::x0) + (y-tpetra::farzadi3d::y0)*(y-tpetra::farzadi3d::y0) + (z-tpetra::farzadi3d::z0)*(z-tpetra::farzadi3d::z0);
+	return ((tpetra::farzadi3d::C == 0) ? (tanh((h-z)/sqrt(2.))) : (c < tpetra::farzadi3d::r*tpetra::farzadi3d::r) ? 1. : -1.);	
+  }
+}
+
+INI_FUNC(init_heat_)
+{
+  const double t_preheat = tpetra::goldak::t0_h;
+  const double val = (t_preheat-tpetra::goldak::uref_h)/tpetra::heat::deltau_h;
+  return val;
+}
+
+DBC_FUNC(dbc_) 
+{
+  // The assumption here is that the desired Dirichlet BC is the initial temperature,
+  // that may not be true in the future.
+  const double t_preheat = tpetra::goldak::t0_h;
+  const double val = (t_preheat-tpetra::goldak::uref_h)/tpetra::heat::deltau_h;
+  return val;
+}
+
+PPR_FUNC(postproc_t_)
+{
+  // return the physical temperature in K here
+  const double theta = u[2];
+  return theta * tpetra::heat::deltau_h + tpetra::goldak::uref_h;
+}
+
+PPR_FUNC(postproc_phi_)
+{
+  const double phi = u[1];
+  return phi+1.;
+}
+
+PPR_FUNC(postproc_theta_)
+{
+  const double theta = u[2];
+  return theta;
+}
+
+PARAM_FUNC(param_)
+{
+	hemispherical_IC = plist->get<bool>("hemispherical_IC", false);
+	hemisphere_IC_rad = plist->get<double>("hemisphere_IC_rad", 1.0);
+	hemispherical_IC_x0 = plist->get<double>("hemispherical_IC_x0", 0.0);
+	hemispherical_IC_y0 = plist->get<double>("hemispherical_IC_y0", 0.0);
+	hemispherical_IC_z0 = plist->get<double>("hemispherical_IC_z0", 0.0);
+}
+}//namespace fullycoupled
+
+NBC_FUNC_TPETRA(nbc_one_)
+{
+  
+  double phi = basis->phi[i];
+  
+  return 1.*phi;
+}
+
 }//namespace tpetra
 
 

@@ -2228,7 +2228,75 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[0] = &tpetra::farzadi3d::param_;
     //paramfunc_ = &farzadi::param_;
 
-    neumannfunc_ = NULL;
+    neumannfunc_ = NULL;  
+
+}else if("fullycoupled" == paramList.get<std::string> (TusastestNameString)){
+
+    if(paramList.get<double> (TusasthetaNameString) < .49) exit(0);
+
+    numeqs_ = 3;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::fullycoupled::init_conc_farzadi_;
+    (*initfunc_)[1] = &tpetra::fullycoupled::init_phase_farzadi_;
+    (*initfunc_)[2] = &tpetra::fullycoupled::init_heat_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_activated_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_coupled_activated_dp_;
+    (*residualfunc_)[2] = tpetra::goldak::residual_coupled_test_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
+    (*preconfunc_)[1] = tpetra::farzadi3d::prec_phase_farzadi_dp_;
+    (*preconfunc_)[2] = tpetra::goldak::prec_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+    (*varnames_)[2] = "theta";
+
+    dirichletfunc_ = NULL;
+
+    post_proc.push_back(new post_process(Comm,mesh_,
+					 (int)0, 
+					 post_process::NORM2,
+					 (int)0,
+					 (std::string)"pp",
+					 (double)16 ));
+    post_proc[0]->postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
+    post_proc[1]->postprocfunc_ = &tpetra::fullycoupled::postproc_t_;
+    post_proc.push_back(new post_process(Comm,mesh_,
+					 (int)2, 
+					 post_process::NORM2,
+					 (int)0,
+					 "pp",
+					 16 ));
+    post_proc[2]->postprocfunc_ = &tpetra::fullycoupled::postproc_phi_;
+    post_proc.push_back(new post_process(Comm,mesh_,
+					 (int)3, 
+					 post_process::NORM2,
+					 (int)0,
+					 "pp",
+					 16 ));
+    post_proc[3]->postprocfunc_ = &tpetra::fullycoupled::postproc_theta_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)4, post_process::MAXVALUE));
+    post_proc[4]->postprocfunc_ = &tpetra::farzadi3d::postproc_sigmoid_;
+
+    paramfunc_.resize(5);
+    paramfunc_[0] = &tpetra::farzadi3d::param_;
+    paramfunc_[1] = &tpetra::heat::param_;
+    paramfunc_[2] = &tpetra::radconvbc::param_;
+    paramfunc_[3] = &tpetra::goldak::param_;
+    paramfunc_[4] = &tpetra::fullycoupled::param_;
+
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    (*neumannfunc_)[2][4] = &tpetra::radconvbc::nbc_;
+
+    //master
+    //(*neumannfunc_)[2][4] = &tpetra::nbc_one_;
+
 
 #if 0
   }else if("farzadiexp" == paramList.get<std::string> (TusastestNameString)){

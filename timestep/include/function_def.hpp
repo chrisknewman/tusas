@@ -6453,8 +6453,8 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
   const double divgrad = D_liquid_*(1.-basis[1].uu())/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
 
   const int phi_id = eqn_id+1;
-  const double phi = basis[phi_id].uu;
-  const double u_t = (1. + k - (1.0 - k) * phi) / 2. *basis[0].phi[j]  / dt_ * test;
+  const double phi = basis[phi_id].uu();
+  const double u_t = (1. + k - (1.0 - k) * phi) / 2. *basis[0].phi(j)  / dt_ * test;
 
   return u_t + t_theta_*(divgrad);
 

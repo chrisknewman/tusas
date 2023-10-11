@@ -8665,9 +8665,11 @@ RES_FUNC_TPETRA(residual_)
   double normq[3] = {0., 0., 0.};
 
   for(int k = 0; k < N; k++){
+    //sum_k q_k grad q_k dot grad test
     pfu[0] = pfu[0] + basis[k]->uu*(basis[k]->dudx*dtestdx + basis[k]->dudy*dtestdy + basis[k]->dudz*dtestdz);
     pfu[1] = pfu[1] + basis[k]->uuold*(basis[k]->duolddx*dtestdx + basis[k]->duolddy*dtestdy + basis[k]->duolddz*dtestdz);
     pfu[2] = pfu[2] + basis[k]->uuoldold*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
+    //sum_k q_k^2 = norm q
     normq[0] = normq[0] + basis[k]->uu*basis[k]->uu;
     normq[1] = normq[1] + basis[k]->uuold*basis[k]->uuold;
     normq[2] = normq[2] + basis[k]->uuoldold*basis[k]->uuoldold;
@@ -8679,23 +8681,19 @@ RES_FUNC_TPETRA(residual_)
   normq[2] = (normq[2] > b2 ) ? normq[2] : b2;
 
   //DD is the diffusion term ep^ p + 2 H T p/normgradq
-  //const double DD[3] = {ep[0]*normgradq[0]+Dq[0],ep[1]*normgradq[1]+Dq[1],ep[2]*normgradq[2]+Dq[2]};
   const double DD[3] = {ep[0]+Dq[0]/normgradq[0],ep[1]+Dq[1]/normgradq[1],ep[2]+Dq[2]/normgradq[2]};
 
-  //const double ut = normgradq[1]*(u-uold)/dt_*test;
   const double ut = (u-uold)/dt_*test;
 
+  // - q_i / normq^2 (ep + Dq/normgrad q) M sum_k (q_k grad q_k, grad test)
   pfu[0] = -pfu[0]*u*M[0]*DD[0]/normq[0];
   pfu[1] = -pfu[1]*uold*M[1]*DD[1]/normq[1];
   pfu[2] = -pfu[2]*basis[eqn_id]->uuoldold*M[2]*DD[2]/normq[2];
-//   if(pfu[0] != pfu[0]) exit(0);
-//   if(pfu[1] != pfu[1]) exit(0);
-//   if(pfu[2] != pfu[2]) exit(0);
 
   const double divgradu[3] = {M[0]*DD[0]*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
 			      M[1]*DD[1]*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
 			      M[2]*DD[2]*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};
-  const double projcoeff = 1.;
+  const double projcoeff = 0.;
   const double f[3] = {divgradu[0]+ projcoeff*pfu[0], divgradu[1]+projcoeff*pfu[1], divgradu[2]+projcoeff*pfu[2]};
 
   double val= (ut + (1.-t_theta2_)*t_theta_*f[0]

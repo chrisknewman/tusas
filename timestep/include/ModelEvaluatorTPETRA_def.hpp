@@ -129,6 +129,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   mesh_(mesh),
   Comm(comm)
 {
+
+
   dt_ = paramList.get<double> (TusasdtNameString);
   dtold_ = dt_;
   t_theta_ = paramList.get<double> (TusasthetaNameString);
@@ -216,9 +218,14 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   importer_ = Teuchos::rcp(new import_type(x_owned_map_, x_overlap_map_));
   //exporter_ = Teuchos::rcp(new export_type(x_owned_map_, x_overlap_map_));
   exporter_ = Teuchos::rcp(new export_type(x_overlap_map_, x_owned_map_));
-  
+
+#if (TRILINOS_MAJOR_VERSION < 14) 
   num_owned_nodes_ = x_owned_map_->getNodeNumElements()/numeqs_;
   num_overlap_nodes_ = x_overlap_map_->getNodeNumElements()/numeqs_;
+#else
+  num_owned_nodes_ = x_owned_map_->getLocalNumElements()/numeqs_;
+  num_overlap_nodes_ = x_overlap_map_->getLocalNumElements()/numeqs_;
+#endif
 
   Teuchos::ArrayView<global_ordinal_type> NV(node_num_map);
   node_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
@@ -247,7 +254,11 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     auto xv = x_->get1dViewNonConst();
     auto yv = y_->get1dViewNonConst();
     auto zv = z_->get1dViewNonConst();
+#if (TRILINOS_MAJOR_VERSION < 14) 
     const size_t localLength = node_overlap_map_->getNodeNumElements();
+#else
+    const size_t localLength = node_overlap_map_->getLocalNumElements();
+#endif
     //for (size_t nn=0; nn < localLength; nn++) {
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
 			   xv[nn] = mesh_->get_x(nn);
@@ -286,7 +297,11 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
       auto xv = x_->get1dViewNonConst();
       auto yv = y_->get1dViewNonConst();
       auto zv = z_->get1dViewNonConst();
+#if (TRILINOS_MAJOR_VERSION < 14) 
       const size_t localLength = node_owned_map_->getNodeNumElements();
+#else
+      const size_t localLength = node_owned_map_->getLocalNumElements();
+#endif
       //for(int i = 0; i< localLength; i++){
       Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& i){
 	const global_ordinal_type gid = (node_owned_map_->getGlobalElement(i));
@@ -894,7 +909,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		const int row = numeqs_*lid + k;
 		
 		const double val = -jacwt*(it->second)(BGPU,i,dt,dtold,t_theta,t_theta2,time);
-		
+
 		f_1d[row] += val;
 		
 	      }//i
@@ -942,7 +957,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
 	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-	Kokkos::View <int*> node_set_view("nsv",ns_size);
+	Kokkos::View <int*> node_set_view("sv",ns_size);
 	for (size_t i = 0; i < ns_size; ++i) {
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
@@ -990,7 +1005,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     P->resumeFill();
     P->setAllToScalar((scalar_type)0.0); 
 
+#if (TRILINOS_MAJOR_VERSION < 14) 
     auto PV = P->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
+#else
+    auto PV = P->getLocalMatrixHost();
+#endif
 
 
     PREFUNC * h_pf;
@@ -1164,7 +1183,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     // local nodeset ids are on overlap
    
 #ifdef TUSAS_RUN_ON_CPU
+
+#if (TRILINOS_MAJOR_VERSION < 14) 
     auto PV = P->getLocalMatrix();
+#else
+    auto PV = P->getLocalMatrixHost();
+#endif
+
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     for( int k = 0; k < numeqs_; k++ ){
@@ -2872,12 +2897,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
 #endif
 
-#if 0
+    //#if 0
     localprojectionindices_.push_back(0);
     localprojectionindices_.push_back(1);
     localprojectionindices_.push_back(2);
     localprojectionindices_.push_back(3);
-#endif
+    //#endif
 
   }else if("quaternionphase" == paramList.get<std::string> (TusastestNameString)){
 
@@ -3795,7 +3820,11 @@ void ModelEvaluatorTPETRA<Scalar>::print_norms()
 
     std::vector<double> norms(numeqs_);
     Teuchos::RCP<vector_type > u = Teuchos::rcp(new vector_type(node_owned_map_));
+#if (TRILINOS_MAJOR_VERSION < 14) 
     const size_t localLength = node_owned_map_->getNodeNumElements();
+#else
+    const size_t localLength = node_owned_map_->getLocalNumElements();
+#endif
     //auto un_view = u->getLocalViewHost(Tpetra::Access::ReadWrite);
     auto un_view = u->getLocalView<Kokkos::DefaultExecutionSpace>(Tpetra::Access::ReadWrite);
     auto un_1d = Kokkos::subview (un_view, Kokkos::ALL (), 0);

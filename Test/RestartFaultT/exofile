@@ -1,0 +1,5 @@
+NODAL VARIABLES all
+	u floor 3.e-17
+	pp0 floor 1.e-17
+ELEMENT VARIABLES
+	color

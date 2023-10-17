@@ -2208,6 +2208,8 @@ void ModelEvaluatorNEMESIS<Scalar>::write_matlab()
           'results-cn-128-0.000008.dat']);	
   */
 }
+
+
 template<class Scalar>
 void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teuchos::RCP<Epetra_Vector> u_old)
 {
@@ -2249,8 +2251,26 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   }
   int step = -99;
   int error = mesh_->read_last_step_exodus(ex_id_,step);
-  if( 0 == mypid )
-    std::cout<<"  Reading restart last step = "<<step<<std::endl;
+
+  int min_step = INT_MAX;
+  comm_->MinAll(&step,
+		&min_step,
+		1);
+
+  int max_step = -INT_MAX;
+  comm_->MaxAll(&step,
+		&max_step,
+		1);
+
+  if( 0 == mypid ){
+    std::cout<<"  Reading restart exodus last min step = "<<min_step<<std::endl;
+    std::cout<<"  Reading restart exodus last max step = "<<max_step<<std::endl;
+  }
+
+  //this is probably fixed by setting time = min_time and reading that timestep.
+  //care may need to be taken when overwriting the max_time step, may need a clobber/noclobber
+  step = min_step;
+
   if( 0 > error ) {
     std::cout<<"Error obtaining restart last step"<<std::endl;
     exit(0);
@@ -2258,45 +2278,25 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
 
   double time = -99.99;
   error = mesh_->read_time_exodus(ex_id_, step, time);
-  if( 0 == mypid )
-    std::cout<<"  Reading restart last time = "<<time<<std::endl;
-  if( 0 > error ) {
-    std::cout<<"Error obtaining restart last time"<<std::endl;
-    exit(0);
-  }
 
   double min_time = 1.e12;
   comm_->MinAll(&time, &min_time, 1);
   double max_time = 1.e-12;
   comm_->MaxAll(&time, &max_time, 1);
-  if(fabs(max_time-min_time)>dt_/4.){
-    if( 0 == mypid ){
-      std::cout<<"  Error reading restart min and max time differ"<<std::endl;
-      std::cout<<"    Reading restart min time = "<<min_time<<std::endl;
-      std::cout<<"    Reading restart max time = "<<max_time<<std::endl;
-      std::cout<<"    Reading restart difference = "<<fabs(max_time-min_time)<<std::endl;
-    }
-    exit(0);
+
+  if( 0 == mypid ) {
+    std::cout<<"  Reading restart exodus last min time = "<<min_time<<std::endl;
+    std::cout<<"  Reading restart exodus last max time = "<<max_time<<std::endl;
   }
 
-#if 0
-  int step_old = step - 1;
-  double time_old = -99.99;
-  error = mesh_->read_time_exodus(ex_id_, step_old, time_old);
+  //this is probably fixed by setting time = min_time and reading that timestep.
+  //care may need to be taken when overwriting the max_time step, may need a clobber/noclobber
+  time = min_time;
+
   if( 0 > error ) {
-    std::cout<<"Error obtaining restart previous time"<<std::endl;
+    std::cout<<"Error obtaining restart last time"<<std::endl;
     exit(0);
   }
-  if( 0 == mypid ){
-    std::cout<<std::endl<<"  Restart last step found = "<<step<<"  time = "<<time<<std::endl;
-    std::cout<<"      previous step found = "<<step_old<<"  time = "<<time_old<<std::endl<<std::endl;
-  }
-
-  if( dt_ != (time - time_old) ){
-    std::cout<<"Error dt_ = "<<dt_<<"; time - time_old = "<<time - time_old<<std::endl;
-    //exit(0);
-  }
-#endif
 
   std::vector<std::vector<double>> inputu(numeqs_,std::vector<double>(num_nodes_));
 
@@ -2310,28 +2310,6 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
   }
 
   mesh_->close_exodus(ex_id_);
-
-  //cn for now just put current values into old values, 
-  //cn ie just start with an initial condition
-
-  //cn lets not worry about two different time steps for normal simulations
-#if 0
-  for (int nn=0; nn < num_nodes_; nn++) {
-    (*u)[numeqs_*nn] = inputu[nn];
-    (*u)[numeqs_*nn+1] = inputphi[nn];
-  }
-
-  error = mesh_->read_nodal_data_exodus(ex_id_,step_old,1,inputu);
-  if( 0 > error ) {
-    std::cout<<"Error reading u at step "<<step_old<<std::endl;
-    exit(0);
-  }
-  error = mesh_->read_nodal_data_exodus(ex_id_,step_old,2,inputphi);
-  if( 0 > error ) {
-    std::cout<<"Error reading phi at step "<<step_old<<std::endl;
-    exit(0);
-  }
-#endif
 
   Teuchos::RCP< Epetra_Vector> u_temp = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
   //Teuchos::RCP< Epetra_Vector> u_old_temp = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
@@ -2347,16 +2325,17 @@ void ModelEvaluatorNEMESIS<Scalar>::restart(Teuchos::RCP<Epetra_Vector> u,Teucho
 
   u->Export(*u_temp,*exporter, Insert);
   u_old->Export(*u_temp,*exporter, Insert);
+  step = step - 1;
   this->start_time = time;
   int ntstep = (int)(time/dt_);
   //this->start_step = step-1;//this corresponds to the output frequency, not the actual timestep
   this->start_step = ntstep+1;
   time_=time;
-  output_step_ = step+1;
+  output_step_ = step+2;
   //   u->Print(std::cout);
   //   exit(0);
   if( 0 == mypid ){
-    std::cout<<"Restarting at time = "<<time<<" and step = "<<step<<std::endl<<std::endl;
+    std::cout<<"Restarting at time = "<<time<<" and tusas step = "<<step<<std::endl<<std::endl;
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
 }

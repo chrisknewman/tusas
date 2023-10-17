@@ -2602,8 +2602,31 @@ template<class scalar_type>
   }
   int step = -99;
   int error = mesh_->read_last_step_exodus(ex_id_,step);
-  if( 0 == mypid )
-    std::cout<<"  Reading restart last step = "<<step<<std::endl;
+
+  int min_step = INT_MAX;
+  Teuchos::reduceAll<int,int>(*comm_,
+			      Teuchos::REDUCE_MIN,
+			      1,
+			      &step,
+			      &min_step);
+
+  int max_step = -INT_MAX;
+  Teuchos::reduceAll<int,int>(*comm_,
+			      Teuchos::REDUCE_MAX,
+			      1,
+			      &step,
+			      &max_step);
+
+
+  if( 0 == mypid ){
+    std::cout<<"  Reading restart exodus last min step = "<<min_step<<std::endl;
+    std::cout<<"  Reading restart exodus last max step = "<<max_step<<std::endl;
+  }
+
+  //this is probably fixed by setting time = min_time and reading that timestep.
+  //care may need to be taken when overwriting the max_time step, may need a clobber/noclobber
+  step = min_step;
+
   if( 0 > error ) {
     std::cout<<"Error obtaining restart last step"<<std::endl;
     exit(0);
@@ -2619,27 +2642,29 @@ template<class scalar_type>
   }
 
   double min_time = 1.e12;
-  Teuchos::reduceAll<int,double>(*comm_,Teuchos::REDUCE_MIN,
+  Teuchos::reduceAll<int,double>(*comm_,
+				 Teuchos::REDUCE_MIN,
 				 1,
 				 &time,
 				 &min_time);
   double max_time = 1.e-12;
-  Teuchos::reduceAll<int,double>(*comm_,Teuchos::REDUCE_MAX,
+  Teuchos::reduceAll<int,double>(*comm_,
+				 Teuchos::REDUCE_MAX,
 				 1,
 				 &time,
 				 &max_time);
 
+  if( 0 == mypid ) {
+    std::cout<<"  Reading restart exodus last min time = "<<min_time<<std::endl;
+    std::cout<<"  Reading restart exodus last max time = "<<max_time<<std::endl;
+  }
+
   //this is probably fixed by setting time = min_time and reading that timestep.
   //care may need to be taken when overwriting the max_time step, may need a clobber/noclobber
+  time = min_time;
 
-  //dt_/4 is arbitrary
-  if(fabs(max_time-min_time)>dt_/4.){
-    if( 0 == mypid ){
-      std::cout<<"  Error reading restart min and max time differ"<<std::endl;
-      std::cout<<"    Reading restart min time = "<<min_time<<std::endl;
-      std::cout<<"    Reading restart max time = "<<max_time<<std::endl;
-      std::cout<<"    Reading restart difference = "<<fabs(max_time-min_time)<<std::endl;
-    }
+  if( 0 > error ) {
+    std::cout<<"Error obtaining restart last time; mypid = "<<mypid<<"; time = "<<time<<std::endl;
     exit(0);
   }
 
@@ -2693,11 +2718,11 @@ template<class scalar_type>
   int ntstep = (int)(time/dt_);
   this->start_step = ntstep;
   time_=time;
-  output_step_ = step+1;
+  output_step_ = step+2;
   //   u->Print(std::cout);
   //   exit(0);
   if( 0 == mypid ){
-    std::cout<<"Restarting at time = "<<time<<" and step = "<<step<<std::endl<<std::endl;
+    std::cout<<"Restarting at time = "<<time<<" and tusas step = "<<step<<std::endl<<std::endl;
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
   //exit(0);

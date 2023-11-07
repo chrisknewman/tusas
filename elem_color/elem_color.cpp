@@ -88,8 +88,7 @@ void elem_color::compute_graph()
   //elem_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 
   #ifdef ELEM_COLOR_USE_ZOLTAN
-  //size_t ni = 27;//hex now; dont know what this would be for tri/tet
-  size_t ni = 81;//hex now; dont know what this would be for tri/tet
+  size_t ni = TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX;//hex now; dont know what this would be for tri/tet
   elem_graph_ = Teuchos::rcp(new crs_graph_type(elem_map_, ni));
   #else
   graph_ = rcp(new Epetra_CrsGraph(Copy, *map_, 0));

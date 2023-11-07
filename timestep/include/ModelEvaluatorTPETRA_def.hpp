@@ -402,11 +402,12 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 {
   Teuchos::RCP<crs_graph_type> W_graph;
 
-  int numind = 17*numeqs_;//this is an approximation 17 for lquad; 25?? for qquad; 81*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
-                         //this was causing problems with clang
-  if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
+  //81 is approx upper bound for unstructured lhex with directional refinement
+  const int numind = TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX*numeqs_;//this is an approximation 17 for lhex; 25?? for qquad; 81*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
 
-  size_t ni = numind;
+  //if(3 == mesh_->get_num_dim() ) numind = TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX*numeqs_;//81 for lhex
+
+  const size_t ni = numind;
 
   W_graph = Teuchos::rcp(new crs_graph_type(x_owned_map_, ni));
 
@@ -454,11 +455,9 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 
   Teuchos::RCP<crs_graph_type> W_graph;
 
-  int numind = 17*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
-                         //this was causing problems with clang
-  if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
+  const int numind = TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
 
-  size_t ni = numind;
+  const size_t ni = numind;
 
   W_graph = Teuchos::rcp(new crs_graph_type(x_overlap_map_, ni));
 

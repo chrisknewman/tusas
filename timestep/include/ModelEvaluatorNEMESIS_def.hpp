@@ -257,7 +257,7 @@ ModelEvaluatorNEMESIS<Scalar>::createGraph()
 
   int numind = 17*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
                          //this was causing problems with clang
-  if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
+  if(3 == mesh_->get_num_dim() ) numind = TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX*numeqs_;
 
   W_graph = Teuchos::rcp(new Epetra_FECrsGraph(Copy, *x_owned_map_, numind));
 

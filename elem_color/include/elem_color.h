@@ -54,6 +54,8 @@
 //revert to issoropia by commenting next line
 #define ELEM_COLOR_USE_ZOLTAN
 
+#define TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX 81
+
 //#define TUSAS_COLOR_CPU
 //#define TUSAS_COLOR_GPU
 

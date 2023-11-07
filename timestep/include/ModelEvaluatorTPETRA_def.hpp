@@ -368,7 +368,7 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
                          //this was causing problems with clang
   if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
 
-  size_t ni = numind;
+  const size_t ni = numind;
 
   W_graph = Teuchos::rcp(new crs_graph_type(x_owned_map_, ni));
 
@@ -420,7 +420,7 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
                          //this was causing problems with clang
   if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
 
-  size_t ni = numind;
+  const size_t ni = numind;
 
   W_graph = Teuchos::rcp(new crs_graph_type(x_overlap_map_, ni));
 

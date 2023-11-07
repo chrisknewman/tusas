@@ -351,9 +351,7 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 {
   Teuchos::RCP<crs_graph_type> W_graph;
 
-  int numind = 17*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
-                         //this was causing problems with clang
-  if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
+  int numind = TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX*numeqs_;
 
   size_t ni = numind;
 
@@ -403,9 +401,7 @@ Teuchos::RCP<Tpetra::CrsMatrix<>::crs_graph_type> ModelEvaluatorTPETRA<Scalar>::
 
   Teuchos::RCP<crs_graph_type> W_graph;
 
-  int numind = 17*numeqs_;//this is an approximation 9 for lquad; 25 for qquad; 9*3 for lhex; 25*3 for qhex; 6 ltris ??, tets ??
-                         //this was causing problems with clang
-  if(3 == mesh_->get_num_dim() ) numind = 81*numeqs_;
+  int numind = TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX*numeqs_;
 
   size_t ni = numind;
 

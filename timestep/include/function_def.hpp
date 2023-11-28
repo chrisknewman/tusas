@@ -6272,7 +6272,7 @@ z0 = z0_p;
 //   Vp0 = Vp0_p;
 // #endif
 
-  double delta_T0_p = abs(m_p)*c_inf_p*(1.-k_p)/k_p;
+  double delta_T0_p = abs(abs(m_p)*c_inf_p*(1.-k_p)/k_p);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(delta_T0,&delta_T0_p,sizeof(double));
 #else
@@ -6740,6 +6740,8 @@ PPR_FUNC(postproc_c_)
   const double phi = u[1];
 
   return -c_inf*(1.+k-phi+k*phi)*(-1.-uu+k*uu)/2./k;
+  //normalize, ie divide by c_inf
+  //return -(1.+k-phi+k*phi)*(-1.-uu+k*uu)/2./k;
 }
 
 PPR_FUNC(postproc_t_)

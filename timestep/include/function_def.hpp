@@ -6131,6 +6131,8 @@ namespace farzadi3d
   
   TUSAS_DEVICE
   double dT = 0.0;
+
+  double T_ref = 877.3;
   
 //   TUSAS_DEVICE
   double base_height = 15.;
@@ -6293,6 +6295,7 @@ z0 = z0_p;
 
 t_activate_farzadi = plist->get<double>("t_activate_farzadi", 0.0);
 
+ T_ref = plist->get<double>("T_ref",877.3);
 
   //std::cout<<l_T0<<"   "<<G<<"  "<<Vp0<<"  "<<tau0<<"   "<<w0<<std::endl;
 }
@@ -6752,7 +6755,7 @@ PPR_FUNC(postproc_t_)
   double xx = x*w0;
   double tt = time*tau0;
   //return ((dT < 0.001) ? 877.3 + (xx-R*tt)/l_T0*delta_T0 : 877.3);
-  return ((dT < 0.001) ? 877.3 + G*(xx-R*tt) : 877.3);
+  return ((dT < 0.001) ? T_ref + G*(xx-R*tt) : T_ref);
 }
 }//namespace farzadi3d
 

@@ -737,8 +737,8 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
   error = ex_put_time(ex_id,counter,&time);
   //std::cout<<error<<std::endl;
 
-  char * atr_name = new char[17];
-  strcpy(atr_name, "last_written_time");
+  char * atr_name = new char[17+4];
+  strcpy(atr_name, "\"last_written_time\"");
   ex_entity_id id;
 
   error = ex_put_double_attribute(ex_id, 
@@ -747,6 +747,7 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
 				  atr_name, 
 				  (int)1,
 				  &time);
+  delete [] atr_name;
   return error;
 
 }

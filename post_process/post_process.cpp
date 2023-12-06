@@ -98,7 +98,7 @@ void post_process::process(const int i,
 
 void post_process::update_mesh_data(){
 
-  Epetra_Vector *temp = new Epetra_Vector(*overlap_map_);
+  Teuchos::RCP<Epetra_Vector> temp = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
   temp->Import(*ppvar_, *importer_, Insert);
   int num_nodes = overlap_map_->NumMyElements();
   std::vector<double> ppvar(num_nodes,0.);
@@ -106,6 +106,7 @@ void post_process::update_mesh_data(){
   for (int nn=0; nn < num_nodes; nn++) {
       ppvar[nn]=(*temp)[nn];
   }
+
   std::string ystring=basename_+std::to_string(index_);
   mesh_->update_nodal_data(ystring, &ppvar[0]);
 
@@ -144,7 +145,7 @@ void post_process::scalar_reduction(){
     break;
 
   case NORMRMS:{
-    Epetra_Vector *temp = new Epetra_Vector(*ppvar_);
+    Teuchos::RCP<Epetra_Vector> temp = Teuchos::rcp(new Epetra_Vector(*ppvar_));
     temp->PutScalar((double)1.);
     ppvar_->NormWeighted(*temp,&scalar_val_);
     break;

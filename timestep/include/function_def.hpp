@@ -6097,10 +6097,10 @@ namespace farzadi3d
   double c_inf = 3.;				//1.
   
   TUSAS_DEVICE
-  double G = 3.e5;
-  TUSAS_DEVICE											//k/m
-  double R = 0.003;
-//   TUSAS_DEVICE											//m/s
+  double G = 3.e5; //k/m, temperature gradient
+  TUSAS_DEVICE	      
+  double R = 0.003;	//m/s, speed
+//   TUSAS_DEVICE										
 //   double V = 0.003;
 	
   TUSAS_DEVICE											//m/s

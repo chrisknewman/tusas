@@ -1768,7 +1768,8 @@ template<class scalar_type>
     if( 1 == numproc ){//cn for now
       //if( 0 == mypid ){
       outfilename = "results.e";
-      ex_id_ = mesh_->create_exodus(outfilename.c_str());//this calls ex_open
+      const char * c = outfilename.c_str();
+      ex_id_ = mesh_->create_exodus(c);//this calls ex_open
       
     }
     else{
@@ -3064,7 +3065,8 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
 
   //not sre what the bug is here...
   Teuchos::TimeMonitor IOWriteTimer(*ts_time_iowrite);
-  mesh_->open_exodus(outfilename.c_str(),Mesh::WRITE);
+  const char * c = outfilename.c_str();
+  mesh_->open_exodus(c,Mesh::WRITE);
   mesh_->write_exodus(ex_id_,output_step_,time_);
   mesh_->close_exodus(ex_id_);
   output_step_++;

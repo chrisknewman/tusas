@@ -737,8 +737,8 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
   error = ex_put_time(ex_id,counter,&time);
   //std::cout<<error<<std::endl;
 
-  char * atr_name = new char[17+4];
-  strcpy(atr_name, "\"last_written_time\"");
+  const std::string s ="last_written_time"; 
+  const char * atr_name = s.c_str();
   ex_entity_id id;
 
   error = ex_put_double_attribute(ex_id, 
@@ -747,7 +747,6 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
 				  atr_name, 
 				  (int)1,
 				  &time);
-  delete [] atr_name;
   return error;
 
 }
@@ -1463,9 +1462,8 @@ int Mesh::create_exodus(const char * filename, const bool use64output){
 	     <<" ex_err "<<ex_err<<std::endl
 	     <<" exodus_version "<<exodus_version<<std::endl;              
 
-  char * title = new char[16];
-
-  strcpy(title, "\"Exodus output\"");
+  const std::string s = "Exodus output";
+  const char * title = s.c_str();;
 
   ex_err = ex_put_init(ex_id, title, num_dim, 
 			   num_nodes, num_elem, num_elem_blk, 
@@ -1486,8 +1484,6 @@ int Mesh::create_exodus(const char * filename, const bool use64output){
   if(verbose)
 
     std::cout<<"=== End ExodusII Create Info ==="<<std::endl<<std::endl;
-
-  delete [] title;
 
   return ex_id;
 

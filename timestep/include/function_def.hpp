@@ -6090,9 +6090,6 @@ namespace farzadi3d
 
   TUSAS_DEVICE
   double lambda = 10.;
-
-  TUSAS_DEVICE
-  double D_liquid = 3.e-9;			//1.e-11				//m^2/s
   
   TUSAS_DEVICE
   double m = -2.6;
@@ -6128,9 +6125,14 @@ namespace farzadi3d
 
   TUSAS_DEVICE
   double D_liquid_ = 6.267;
+
+  TUSAS_DEVICE
+  double D_solid_ = 0.;      //m^2/s
   
   TUSAS_DEVICE
   double dT = 0.0;
+
+  double T_ref = 877.3;
   
 //   TUSAS_DEVICE
   double base_height = 15.;
@@ -6174,12 +6176,11 @@ PARAM_FUNC(param_)
 #else
   d0 = d0_p;
 #endif
+
   double D_liquid_p = plist->get<double>("D_liquid", 3.e-9);
-#ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(D_liquid,&D_liquid_p,sizeof(double));
-#else
-  D_liquid = D_liquid_p;
-#endif
+
+  double D_solid_p = plist->get<double>("D_solid", 0.);
+
   double m_p = plist->get<double>("m", -2.6);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(m,&m_p,sizeof(double));
@@ -6284,6 +6285,7 @@ z0 = z0_p;
 #else
   l_T0 = l_T0_p;
 #endif
+
   double D_liquid__p = D_liquid_p*tau0_p/(w0_p*w0_p);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(D_liquid_,&D_liquid__p,sizeof(double));
@@ -6291,8 +6293,17 @@ z0 = z0_p;
   D_liquid_ = D_liquid__p;
 #endif
 
+  double D_solid__p = D_solid_p*tau0_p/(w0_p*w0_p);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(D_solid_,&D_solid__p,sizeof(double));
+#else
+  D_solid_ = D_solid__p;
+#endif
+
+
 t_activate_farzadi = plist->get<double>("t_activate_farzadi", 0.0);
 
+ T_ref = plist->get<double>("T_ref",877.3);
 
   //std::cout<<l_T0<<"   "<<G<<"  "<<Vp0<<"  "<<tau0<<"   "<<w0<<std::endl;
 }
@@ -6340,9 +6351,13 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
 
   const double ut = (1. + k - (1.0 - k) * phi[0]) / 2. * (u[0] - u[1]) / dt_ * test;
 
-  const double divgradu[3] = {D_liquid_*(1.-phi[0])/2.*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
-			      D_liquid_*(1.-phi[1])/2.*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
-			      D_liquid_*(1.-phi[2])/2.*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};//(grad u,grad phi)
+  const double D[3] = {D_liquid_*(1.-phi[0])/2.+D_solid_*(1.+phi[0])/2.,
+		       D_liquid_*(1.-phi[1])/2.+D_solid_*(1.-phi[1])/2.,
+		       D_liquid_*(1.-phi[2])/2.+D_solid_*(1.-phi[2])/2.};
+
+  const double divgradu[3] = {D[0]*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz),
+			      D[1]*(basis[eqn_id]->duolddx*dtestdx + basis[eqn_id]->duolddy*dtestdy + basis[eqn_id]->duolddz*dtestdz),
+			      D[2]*(basis[eqn_id]->duoldolddx*dtestdx + basis[eqn_id]->duoldolddy*dtestdy + basis[eqn_id]->duoldolddz*dtestdz)};//(grad u,grad phi)
 
   const double normd[3] = {(phi[0]*phi[0] < absphi)&&(phi[0]*phi[0] > 0.) ? 1./sqrt(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0]) : 0.,
 			   (phi[1]*phi[1] < absphi)&&(phi[1]*phi[1] > 0.) ? 1./sqrt(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1]) : 0.,
@@ -6619,7 +6634,7 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
   const double dbasisdz = basis[eqn_id].dphidz[j];
 
   const double test = basis[0].phi[i];
-  const double divgrad = D_liquid_*(1.-basis[1].uu)/2.*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  const double divgrad = (D_liquid_*(1.-basis[1].uu)/2.+D_solid_*(1.+basis[1].uu)/2.)*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
 
   const int phi_id = eqn_id+1;
   const double phi = basis[phi_id].uu;
@@ -6752,7 +6767,7 @@ PPR_FUNC(postproc_t_)
   double xx = x*w0;
   double tt = time*tau0;
   //return ((dT < 0.001) ? 877.3 + (xx-R*tt)/l_T0*delta_T0 : 877.3);
-  return ((dT < 0.001) ? 877.3 + G*(xx-R*tt) : 877.3);
+  return ((dT < 0.001) ? T_ref + G*(xx-R*tt) : T_ref);
 }
 }//namespace farzadi3d
 

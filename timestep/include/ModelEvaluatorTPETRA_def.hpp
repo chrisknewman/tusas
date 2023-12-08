@@ -817,7 +817,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    const int lrow = numeqs*meshc_1dra(elemrow+i);
 
 	    const double rand = randomdistribution_2d(elem, gp);
-
+	    //printf("%f\n",rand);
 	    for( int neq = 0; neq < numeqs; neq++ ){
 
 #ifdef TUSAS_CRUSHER
@@ -1170,67 +1170,86 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   }//get_f
 
-
-#if 0      
+     
   if( nonnull(outArgs.get_W_prec() )){
 
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
-
-    P_->resumeFill();
-    P_->setAllToScalar((scalar_type)0.0); 
-
-    P->resumeFill();
-    P->setAllToScalar((scalar_type)0.0);
-
+    {
+      P_->resumeFill();
+      P_->setAllToScalar((scalar_type)0.0); 
+      //P->fillComplete();
+      
+      P->resumeFill();
+      P->setAllToScalar((scalar_type)0.0);
+      //P->fillComplete();
+    }
+    //#if 0
+    //Kokkos::fence();
     // auto PV = P->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
-    auto PV = P->getLocalMatrixDevice();
+    //auto PV = P->getLocalMatrixDevice();
+    //#endif
+
+    auto u_view = u->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+    
+    auto x_view = x_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto y_view = y_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto z_view = z_->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra = Kokkos::subview (x_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
+    Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
     PREFUNC * h_pf;
     h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
 
     int testcase = -99;
 #ifdef TUSAS_CRUSHER
-    //PREFUNC * d_pf;
-    //cudaMalloc((double**)&d_pf,numeqs_*sizeof(PREFUNC));
 
-
-    if("heat" == paramList.get<std::string> (TusastestNameString)){
+    //better to use testname.compare("heat") > 0 and probably an enum
+    if("heat" == testname){
       testcase = 0;
-    }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
+    }else if("NLheatIMR" == testname){
       testcase = 1;
-    }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
+    }else if("NLheatCN" == testname){
       testcase = 2;
-    }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
+    }else if("heat2" == testname){
       testcase = 3;
-    }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
+    }else if("farzadi" == testname){
       testcase = 4;
-    }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
+    }else if("farzadi_test" == testname){
       testcase = 5;
-    }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
+    }else if("pfhub3" == testname){
       testcase = 6;
-    }else if("goldak" == paramList.get<std::string> (TusastestNameString)){
+    }else if("pfhub2kks" == testname){
+      testcase = 7;
+    }else if("goldak" == testname){
       testcase = 8;
+    }else if("fullycoupled" == testname){
+      //cudaMemcpyFromSymbol( &h_rf[0], tpetra::goldak::residual_test_dp_, sizeof(RESFUNC));
+      testcase = 9;
 
     } else {
       if( 0 == comm_->getRank() ){
-	std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
-		 <<" precon function not found. (void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(...))" <<std::endl<<std::endl<<std::endl;
+	std::cout<<std::endl<<std::endl<<"Test case: "<<testname
+		 <<" residual function not found. (void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(...))" <<std::endl<<std::endl<<std::endl;
       }
       exit(0);
     }
+
 
     //cudaMemcpy(d_pf,h_pf,numeqs_*sizeof(PREFUNC),cudaMemcpyHostToDevice);
 
 #else
     h_pf = &(*preconfunc_)[0];
 #endif
-
+    {//scope PV
+    auto PV = P->getLocalMatrixDevice();
     for(int c = 0; c < num_color; c++){
+      //auto PV = P->getLocalMatrixDevice();
       //std::vector<int> elem_map = colors[c];
       std::vector<int> elem_map = Elem_col->get_color(c);
 
       const int num_elem = elem_map.size();
-
 
       Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
       //Kokkos::vector<int> elem_map_k(num_elem);
@@ -1253,7 +1272,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       //printf("%d\n",c);
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
-
 
 #ifdef TUSAS_CRUSHER
 	PREFUNC pf[TUSAS_MAX_NUMEQS];
@@ -1317,28 +1335,21 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    //jacwt = B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
 	    jacwt = B[neq].getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu[neq*n_nodes_per_elem],&uu[neq*n_nodes_per_elem]);//we can add uu_old, uu_oldold
 	  }
+
 	  for (int i=0; i< n_nodes_per_elem; i++) {//i
 	    const local_ordinal_type lrow = numeqs*meshc_1d(elemrow+i);
 	    for(int j=0;j < n_nodes_per_elem; j++) {
 	      local_ordinal_type lcol[1] = {numeqs*meshc_1d(elemrow+j)};
 	      
 	      for( int neq = 0; neq < numeqs; neq++ ){
-#ifdef TUSAS_CRUSHER
-		scalar_type val[1] = {jacwt*(tpetra::heat::prec_heat_test_)(&B[0],i,j,dt,t_theta,neq)};
-#else
-#ifdef TUSAS_HAVE_CUDA
+
+		//scalar_type val[1] = {jacwt*(tpetra::heat::prec_heat_test_)(&B[0],i,j,dt,t_theta,neq)};
 		scalar_type val[1] = {jacwt*(pf[neq])(&B[0],i,j,dt,t_theta,neq)};
-#else
-		scalar_type val[1] = {jacwt*h_pf[neq](&B[0],i,j,dt,t_theta,neq)};
-#endif
-#endif	
+	
 		//cn probably better to fill a view for val and lcol for each column
 		const local_ordinal_type row = lrow +neq; 
 		local_ordinal_type col[1] = {lcol[0] + neq};
 		
-		//cn this call seems to be what is crashing the cuda version
-		
-	      //P->sumIntoLocalValues(lrow,(local_ordinal_type)1,val,lcol,false);
 		PV.sumIntoValues (row, col,(local_ordinal_type)1,val);
 		
 	      }//neq
@@ -1348,10 +1359,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  }//i
 
 	}//gp
-
       });//parallel_for
 
     }//c
+    }//scope PV
 
 #ifdef TUSAS_HAVE_CUDA
     //cudaFree(d_pf);
@@ -1383,8 +1394,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     // local nodeset ids are on overlap
    
-#ifdef TUSAS_RUN_ON_CPU
-    // auto PV = P->getLocalMatrix();
+    {//scope PV
     auto PV = P->getLocalMatrixDevice();
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
@@ -1447,8 +1457,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       }//it
     }//k
-#else
-#endif
+    }//scope PV
 
     P->fillComplete();
     //P->fillComplete();
@@ -1466,14 +1475,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
   }//outArgs.get_W_prec() && dirichletfunc_
-  //#ifndef TUSASMUELU
+  
   if( nonnull(outArgs.get_W_prec() )){
 
     MueLu::ReuseTpetraPreconditioner( P_, *prec_  );
 
   }//outArgs.get_W_prec() 
-  //#endif
-#endif
 
   return;
 }
@@ -1882,8 +1889,9 @@ template<class scalar_type>
     
     if( 1 == numproc ){//cn for now
       //if( 0 == mypid ){
-      outfilename = "results.e";
-      ex_id_ = mesh_->create_exodus(outfilename.c_str());//this calls ex_open
+      outfilename = "results.e";      
+      const char * c = outfilename.c_str();
+      ex_id_ = mesh_->create_exodus(c);//this calls ex_open
       
     }
     else{
@@ -2632,7 +2640,8 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
 
   //not sre what the bug is here...
   Teuchos::TimeMonitor IOWriteTimer(*ts_time_iowrite);
-  mesh_->open_exodus(outfilename.c_str(),Mesh::WRITE);
+  const char * c = outfilename.c_str();
+  mesh_->open_exodus(c,Mesh::WRITE);
   mesh_->write_exodus(ex_id_,output_step_,time_);
   mesh_->close_exodus(ex_id_);
   output_step_++;
@@ -2806,7 +2815,8 @@ template<class scalar_type>
   if( 1 == numproc ){//cn for now
     //if( 0 == mypid ){
     outfilename = "results.e";
-    ex_id_ = mesh_->open_exodus(outfilename.c_str(),Mesh::READ);
+    const char * c = outfilename.c_str();
+    ex_id_ = mesh_->open_exodus(c,Mesh::READ);
 
     std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
     
@@ -2817,7 +2827,8 @@ template<class scalar_type>
     std::string mypidstring(getmypidstring(mypid,numproc));
 
     outfilename = decompPath+"results.e."+std::to_string(numproc)+"."+mypidstring;
-    ex_id_ = mesh_->open_exodus(outfilename.c_str(),Mesh::READ);
+    const char * c = outfilename.c_str();
+    ex_id_ = mesh_->open_exodus(c,Mesh::READ);
     
     std::cout<<"  Opening file for restart; ex_id_ = "<<ex_id_<<" filename = "<<outfilename<<std::endl;
 

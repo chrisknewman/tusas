@@ -1448,9 +1448,8 @@ int Mesh::create_exodus(const char * filename, const bool use64output){
 	     <<" ex_err "<<ex_err<<std::endl
 	     <<" exodus_version "<<exodus_version<<std::endl;              
 
-  char * title = new char[16];
-
-  strcpy(title, "\"Exodus output\"");
+  const std::string s = "Exodus output";
+  const char * title = s.c_str();
 
   ex_err = ex_put_init(ex_id, title, num_dim, 
 			   num_nodes, num_elem, num_elem_blk, 
@@ -1471,8 +1470,6 @@ int Mesh::create_exodus(const char * filename, const bool use64output){
   if(verbose)
 
     std::cout<<"=== End ExodusII Create Info ==="<<std::endl<<std::endl;
-
-  delete [] title;
 
   return ex_id;
 

@@ -967,6 +967,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
 
   
   const double noise_term[3] = {interface_noise_amplitude_d*std::sqrt(dt_/vol) * rand*test * (1.0 - phi[0]*phi[0]), 0.0, 0.0};
+  //printf("%e %e %e %e\n",rand,vol,interface_noise_amplitude_d,noise_term[0]);
 
   const double rv = val/mob[0]
     + (1.-t_theta2_)*t_theta_*(hp1g4[0]/mob[0] + noise_term[0])

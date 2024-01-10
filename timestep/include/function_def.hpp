@@ -9373,6 +9373,269 @@ NBC_FUNC_TPETRA(nbc_one_)
   return 1.*phi;
 }
 
+
+namespace uehara2
+{
+  const double phi_sol_ = 1.;
+  const double phi_liq_ = 0.;
+
+  double L = 3.e3;//J/m^3
+  double m = 2.5e5;
+  double a = 10.;//m^4
+  double r0 = 29.55;
+  double rho = 1.e3;//kg/m^3
+  double c = 5.e2;//J/kg/K
+  double k = 150.;//W/m/K
+
+  //plane stress
+  double giga = 1.e+9;
+  double E = 200.*giga;//GPa
+  //double E = 200.*1.e9;//Pa
+  double nu = .3;
+  double c0 = E/(1.-nu*nu);
+  double c1 = c0;
+  double c2 = c0*nu;
+  double c3 = c0*(1.-nu)/2.;//always confused about the 2 here
+
+  double alpha = 5.e-6;//1/K
+  double beta = 1.5e-3;
+
+//will need to smooth this
+INI_FUNC(init_phase_c_)
+{
+
+  double val = phi_sol_ ;  
+
+  //double r0 = uehara2::r0;
+  double dx = 1.e-2;
+  double x0 = 15.*dx;
+  double r = .9*r0*dx/2.;
+
+  double rr = sqrt((x-x0)*(x-x0)+(y-x0)*(y-x0));
+
+  val = phi_liq_;
+
+  if( rr > r0*sqrt(2.)*dx/2. ){
+    val = phi_sol_;
+  }
+  else {
+    val = phi_liq_;
+  }
+
+  return val;
+}
+
+INI_FUNC(init_heat_)
+{
+  const double val = 300.;  
+
+  return val;
+}
+
+RES_FUNC_TPETRA(residual_stress_x_dt_)
+{
+  double strain[3];//x,y,yx
+
+  strain[0] = (basis[2]->dudx-basis[2]->duolddx)/dt_;
+  strain[1] = (basis[3]->dudy-basis[3]->duolddy)/dt_;
+
+  const double stress = c1*strain[0] + c2*strain[1];
+
+  return stress;
+}
+
+RES_FUNC_TPETRA(residual_stress_y_dt_)
+{
+  double strain[3];//x,y,z,yx,zy,zx
+
+  strain[0] = (basis[2]->dudx-basis[2]->duolddx)/dt_;
+  strain[1] = (basis[3]->dudy-basis[3]->duolddy)/dt_;
+
+  const double stress = c2*strain[0] + c1*strain[1];
+
+  return stress;
+}
+
+RES_FUNC_TPETRA(residual_heat_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[eqn_id]->dphidx[i];
+  const double dtestdy = basis[eqn_id]->dphidy[i];
+  const double dtestdz = basis[eqn_id]->dphidz[i];
+  const double test = basis[eqn_id]->phi[i];
+
+  const int phi_id = 0;
+  const int u_id = 1;
+  const double phi[3] = {basis[phi_id]->uu,basis[phi_id]->uuold,basis[phi_id]->uuoldold};
+  const double u = basis[u_id]->uu;
+  const double uold = basis[u_id]->uuold;
+
+  const double dudx = basis[u_id]->dudx;
+  const double dudy = basis[u_id]->dudy;
+
+
+  const double ut = uehara2::rho*uehara2::c*(u-uold)/dt_*test;
+  const double divgradu = uehara2::k*(dudx*dtestdx + dudy*dtestdy);
+  const double h = phi[0]*phi[0]*(1.-phi[0])*(1.-phi[0]);
+  //double phitu = -30.*1e12*uehara::L*h*(phi-phioldold)/2./dt_*test; 
+  const double phitu = -30.*uehara2::L*h*(phi[0]-phi[1])/dt_*test; 
+  
+  //thermal term
+  const double stress = test*uehara2::alpha*u*(uehara2::residual_stress_x_dt_(basis, 
+									i, dt_, dtold_, t_theta_, t_theta2_,
+									time, eqn_id, vol, rand)
+					       +uehara2::residual_stress_y_dt_(basis, 
+									       i, dt_,  dtold_,t_theta_,t_theta2_,
+									       time, eqn_id, vol, rand));
+  
+
+  double rhs = divgradu + phitu + stress;
+
+  return (ut + rhs)/uehara2::rho/uehara2::c;
+}
+
+RES_FUNC_TPETRA(residual_phase_)
+{
+  const double dtestdx = basis[eqn_id]->dphidx[i];
+  const double dtestdy = basis[eqn_id]->dphidy[i];
+  const double dtestdz = basis[eqn_id]->dphidz[i];
+  const double test = basis[eqn_id]->phi[i];
+
+  const int phi_id = 0;
+  const int u_id = 1;
+  const double phi[3] = {basis[phi_id]->uu,basis[phi_id]->uuold,basis[phi_id]->uuoldold};
+  const double u = basis[u_id]->uu;
+  const double dphidx = basis[phi_id]->dudx;
+  const double dphidy = basis[phi_id]->dudy;
+  const double dphidz = basis[phi_id]->dudz;
+  
+  const double b = 5.e-5;//m^3/J
+  //b = 5.e-7;//m^3/J
+  const double f = 0.;
+  const double um = 400.;//K
+
+  const double phit = m*(phi[0]-phi[1])/dt_*test;
+  const double divgradphi = a*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);//(grad u,grad test)
+
+  //double M = b*phi*(1. - phi)*(L*(um - u)/um + f);
+  const double M = .66*150000000.*b*phi[0]*(1. - phi[0])*(L*(um - u)/um + f);
+  //double g = -phi*(1. - phi)*(phi - .5 + M)*test;
+  const double g = -(phi[0]*(1. - phi[0])*(phi[0] - .5)+phi[0]*(1. - phi[0])*M)*test;
+  const double rhs = divgradphi + g;
+
+  return (phit + rhs)/m;
+}
+
+RES_FUNC_TPETRA(residual_liniso_x_test_)
+{
+  //3-D isotropic x-displacement based solid mech, steady state
+  //strong form: sigma = stress  eps = strain
+  // d^T sigma = d^T B D eps == 0
+
+  double strain[3], stress[3];//x,y,yx
+
+  const double dtestdx = basis[eqn_id]->dphidx[i];
+  const double dtestdy = basis[eqn_id]->dphidy[i];
+  const double dtestdz = basis[eqn_id]->dphidz[i];
+  const double test = basis[eqn_id]->phi[i];
+
+  const int phi_id = 0;
+  const int u_id = 1;
+
+  //u, phi
+  //double u = basis[0].uu;
+
+  //double ut = (basis[1].uu - basis[1].uuoldold)/dt_/2;//thermal strain
+  const double ut = (basis[u_id]->uu - basis[u_id]->uuold)/dt_;//thermal strain
+
+  const double phi = basis[phi_id]->uu;
+  const double h = phi*phi*(1.-phi)*(1.-phi);
+  //double hp = 2.*(1.-phi)*(1.-phi)*phi-2.*(1.-phi)*phi*phi;//2 (1 - x)^2 x - 2 (1 - x) x^2
+  // h' p_t p_x +h p_t_x
+  const double strain_phi = 30.*beta*h*(phi-basis[phi_id]->uuold)/dt_;
+//   double strain_phi = 0.*2.*30.*beta*(c1+c2)*(hp*(phi-basis[0].uuold)/dt_*basis[0].dudx
+// 					   +h*(basis[0].dudx-basis[0].duolddx)/dt_
+// 					   )*test;
+  
+  const double ff =   alpha*ut + strain_phi;
+
+  strain[0] = (basis[2]->dudx-basis[2]->duolddx)/dt_- ff;
+  strain[1] = (basis[3]->dudy-basis[3]->duolddy)/dt_- ff;
+  strain[2] = (basis[2]->dudy-basis[2]->duolddy + basis[3]->dudx-basis[3]->duolddx)/dt_;// - alpha*ut - strain_phi;
+
+  stress[0] = c1*strain[0] + c2*strain[1];
+  // stress[1] = c2*strain[0] + c1*strain[1];
+  stress[2] = c3*strain[2];
+
+  const double divgradu = (stress[0]*dtestdx + stress[2]*dtestdy)/E;//(grad u,grad phi)
+ 
+  //std::cout<<"residual_liniso_x_test_"<<std::endl;
+ 
+  return divgradu;
+}
+
+RES_FUNC_TPETRA(residual_liniso_y_test_)
+{
+  //3-D isotropic x-displacement based solid mech, steady state
+  //strong form: sigma = stress  eps = strain
+  // d^T sigma = d^T B D eps == 0
+
+  double strain[3], stress[3];//x,y,yx
+
+  const double dtestdx = basis[eqn_id]->dphidx[i];
+  const double dtestdy = basis[eqn_id]->dphidy[i];
+  const double dtestdz = basis[eqn_id]->dphidz[i];
+  const double test = basis[eqn_id]->phi[i];
+
+  const int phi_id = 0;
+  const int u_id = 1;
+
+  //u, phi
+  //double u = basis[0].uu;
+
+  //double ut = (basis[1].uu - basis[1].uuoldold)/dt_/2;//thermal strain
+  const double ut = (basis[u_id]->uu - basis[u_id]->uuold)/dt_;//thermal strain
+
+  const double phi = basis[phi_id]->uu;
+
+  const double h = phi*phi*(1.-phi)*(1.-phi);
+  //double hp = 2.*(1.-phi)*(1.-phi)*phi-2.*(1.-phi)*phi*phi;//2 (1 - x)^2 x - 2 (1 - x) x^2
+  const double strain_phi = 30.*beta*h*(phi-basis[0]->uuold)/dt_;
+//   double strain_phi = 0.*2.*30.*beta*(c1+c2)*(hp*(phi-basis[0].uuold)/dt_*basis[0].dudy
+// 					+h*(basis[0].dudy-basis[0].duolddy)/dt_
+// 					)*test;
+
+  double ff =   alpha*ut + strain_phi;
+
+  strain[0] = (basis[2]->dudx-basis[2]->duolddx)/dt_- ff;
+  strain[1] = (basis[3]->dudy-basis[3]->duolddy)/dt_- ff;
+  strain[2] = (basis[2]->dudy-basis[2]->duolddy + basis[3]->dudx-basis[3]->duolddx)/dt_;// - alpha*ut - strain_phi;
+
+  //stress[0] = c1*strain[0] + c2*strain[1];
+  stress[1] = c2*strain[0] + c1*strain[1];
+  stress[2] = c3*strain[2];
+
+  double divgradu = (stress[1]*dtestdy + stress[2]*dtestdx)/E;//(grad u,grad phi)
+  
+  //std::cout<<"residual_liniso_y_test_"<<std::endl;
+
+  return divgradu;
+}
+
+NBC_FUNC_TPETRA(conv_bc_)
+{
+
+  const double test = basis[0].phi[i];
+  const double u = basis[0].uu;
+  const double uw = 300.;//K
+  const double h =1.e4;//W/m^2/K
+  std::cout<<h*(uw-u)*test/rho/c<<std::endl;
+  return h*(uw-u)*test/rho/c;
+}
+
+
+}//namespace uehara2
+
 }//namespace tpetra
 
 

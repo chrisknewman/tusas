@@ -835,12 +835,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       // 	|| (0==elem_type.compare("HEX")) 
       // 	|| (0==elem_type.compare("hex8")) 
       // 	|| (0==elem_type.compare("hex"))  ){ // linear hex
-      //     } 
-      if(8 == n_nodes_per_elem) { // linear hex-- we need to port the bar element for quads
-      }
-      else {
-	exit(0);
-      }   
+      //     }   
       
       const Teuchos::RCP<vector_type> f_vec =
 	ConverterT::getTpetraVector(outArgs.get_f());
@@ -867,8 +862,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
 
       GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
-      GPUBasis * BGPU = &Bq;
-      const int num_node_per_side = 4;
+      int num_node_per_side = 4;
+
+      GPUBasis * BGPU;
+      if(8 == n_nodes_per_elem) { // linear hex-- we need to port the bar element for quads
+	BGPU = &Bq;
+      }
+      else {
+	std::cout<<"Only quad4 elements implemented for neumann bc now"<<std::endl;
+	exit(0);
+      }
       
       const int ngp = BGPU->ngp();
       
@@ -2949,6 +2952,104 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
+  }else if("uehara2" == paramList.get<std::string> (TusastestNameString)){
+    const bool stress = false;
+    //const bool stress = true;
+
+    numeqs_ = 4;
+    if(stress) numeqs_ = 7;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::uehara2::residual_phase_;
+    (*residualfunc_)[1] = &tpetra::uehara2::residual_heat_;
+    (*residualfunc_)[2] = &tpetra::uehara2::residual_liniso_x_test_;
+    (*residualfunc_)[3] = &tpetra::uehara2::residual_liniso_y_test_;
+#if 0
+    if(stress)(*residualfunc_)[4] = &uehara::residual_stress_x_test_;
+    if(stress)(*residualfunc_)[5] = &uehara::residual_stress_y_test_;
+    if(stress)(*residualfunc_)[6] = &uehara::residual_stress_xy_test_;
+#endif
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::quaternion::precon_;;
+    (*preconfunc_)[1] = &tpetra::quaternion::precon_;;
+    (*preconfunc_)[2] = &tpetra::quaternion::precon_;;
+    (*preconfunc_)[3] = &tpetra::quaternion::precon_;;
+
+#if 0    
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &uehara::prec_phase_;
+    (*preconfunc_)[1] = &uehara::prec_heat_;
+    (*preconfunc_)[2] = &uehara::prec_liniso_x_test_;
+    (*preconfunc_)[3] = &uehara::prec_liniso_y_test_;
+    if(stress)(*preconfunc_)[4] = &uehara::prec_stress_test_;
+    if(stress)(*preconfunc_)[5] = &uehara::prec_stress_test_;
+    if(stress)(*preconfunc_)[6] = &uehara::prec_stress_test_;
+#endif  
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    //(*initfunc_)[0] = &uehara::init_phase_;
+    (*initfunc_)[0] = &tpetra::uehara2::init_phase_c_;
+    (*initfunc_)[1] = &tpetra::uehara2::init_heat_;
+    //(*initfunc_)[1] = &uehara::init_heat_seed_c_;
+    (*initfunc_)[2] = &init_zero_;
+    (*initfunc_)[3] = &init_zero_;
+#if 0  
+    if(stress)(*initfunc_)[4] = &init_zero_;
+    if(stress)(*initfunc_)[5] = &init_zero_;
+    if(stress)(*initfunc_)[6] = &init_zero_;
+#endif    
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "phi";
+    (*varnames_)[1] = "u";
+    (*varnames_)[2] = "dispx";
+    (*varnames_)[3] = "dispy";
+    if(stress)(*varnames_)[4] = "x_stress";
+    if(stress)(*varnames_)[5] = "y_stress";
+    if(stress)(*varnames_)[6] = "xy_stress";
+    
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    //dirichletfunc_ = NULL;
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]						 
+    (*dirichletfunc_)[2][1] = &dbc_zero_;
+    (*dirichletfunc_)[2][3] = &dbc_zero_;
+    (*dirichletfunc_)[3][0] = &dbc_zero_;
+    (*dirichletfunc_)[3][2] = &dbc_zero_;
+    //(*dirichletfunc_)[4][1] = &dbc_zero_;
+    
+
+    //right now, there is no 1-D basis ie BGPU implemented 
+
+    // [eqn_id][ss_id]
+    neumannfunc_ = NULL;
+//     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+//     (*neumannfunc_)[1][0] = &tpetra::uehara2::conv_bc_;
+//     (*neumannfunc_)[1][1] = &tpetra::uehara2::conv_bc_;
+//     (*neumannfunc_)[1][2] = &tpetra::uehara2::conv_bc_;
+//     (*neumannfunc_)[1][3] = &tpetra::uehara2::conv_bc_;
+
+#if 0    
+    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &uehara::postproc_stress_x_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+//     post_proc[1].postprocfunc_ = &uehara::postproc_stress_y_;
+    post_proc[1].postprocfunc_ = &uehara::postproc_stress_xd_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+//     post_proc[2].postprocfunc_ = &uehara::postproc_stress_xy_;
+    post_proc[2].postprocfunc_ = &uehara::postproc_stress_eq_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)3));
+    post_proc[3].postprocfunc_ = &uehara::postproc_stress_eqd_;
+//     post_proc.push_back(new post_process(comm_,mesh_,(int)4));
+//     post_proc[4].postprocfunc_ = &uehara::postproc_strain_;
+
+    //std::cout<<"uehara"<<std::endl;
+    //exit(0);
+#endif
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){

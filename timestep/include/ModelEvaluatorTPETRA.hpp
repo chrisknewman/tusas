@@ -237,7 +237,7 @@ private:
   std::vector<RESFUNC> *residualfunc_;
 
 
-  typedef double (*PREFUNC)(const GPUBasis *basis, 
+  typedef double (*PREFUNC)(GPUBasis *basis[], 
 			    const int &i,
 			    const int &j, 
 			    const double &dt_, 

@@ -1130,9 +1130,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      
 	      for( int neq = 0; neq < numeqs; neq++ ){
 #ifdef TUSAS_HAVE_CUDA
-		scalar_type val[1] = {jacwt*d_pf[neq](*BGPU,i,j,dt,t_theta,neq)};
+		scalar_type val[1] = {jacwt*d_pf[neq](BGPU,i,j,dt,t_theta,neq)};
 #else
-		scalar_type val[1] = {jacwt*h_pf[neq](*BGPU,i,j,dt,t_theta,neq)};
+		scalar_type val[1] = {jacwt*h_pf[neq](BGPU,i,j,dt,t_theta,neq)};
 #endif
 		
 		//cn probably better to fill a view for val and lcol for each column
@@ -2970,7 +2970,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     if(stress)(*residualfunc_)[6] = &uehara::residual_stress_xy_test_;
 #endif
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::quaternion::precon_;;
+    (*preconfunc_)[0] = &tpetra::uehara2::prec_phase_;
     (*preconfunc_)[1] = &tpetra::quaternion::precon_;;
     (*preconfunc_)[2] = &tpetra::quaternion::precon_;;
     (*preconfunc_)[3] = &tpetra::quaternion::precon_;;

@@ -2960,35 +2960,29 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     if(stress) numeqs_ = 7;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &tpetra::uehara2::residual_phase_;
-    (*residualfunc_)[1] = &tpetra::uehara2::residual_heat_;
-    (*residualfunc_)[2] = &tpetra::uehara2::residual_liniso_x_test_;
-    (*residualfunc_)[3] = &tpetra::uehara2::residual_liniso_y_test_;
+    (*residualfunc_)[0] = &tpetra::uehara::residual_phase_;
+    (*residualfunc_)[1] = &tpetra::uehara::residual_heat_;
+    (*residualfunc_)[2] = &tpetra::uehara::residual_liniso_x_test_;
+    (*residualfunc_)[3] = &tpetra::uehara::residual_liniso_y_test_;
 #if 0
     if(stress)(*residualfunc_)[4] = &uehara::residual_stress_x_test_;
     if(stress)(*residualfunc_)[5] = &uehara::residual_stress_y_test_;
     if(stress)(*residualfunc_)[6] = &uehara::residual_stress_xy_test_;
 #endif
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::uehara2::prec_phase_;
-    (*preconfunc_)[1] = &tpetra::quaternion::precon_;;
-    (*preconfunc_)[2] = &tpetra::quaternion::precon_;;
-    (*preconfunc_)[3] = &tpetra::quaternion::precon_;;
-
+    (*preconfunc_)[0] = &tpetra::uehara::prec_phase_;
+    (*preconfunc_)[1] = &tpetra::uehara::prec_heat_;
+    (*preconfunc_)[2] = &tpetra::uehara::prec_liniso_x_test_;
+    (*preconfunc_)[3] = &tpetra::uehara::prec_liniso_y_test_;
 #if 0    
-    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &uehara::prec_phase_;
-    (*preconfunc_)[1] = &uehara::prec_heat_;
-    (*preconfunc_)[2] = &uehara::prec_liniso_x_test_;
-    (*preconfunc_)[3] = &uehara::prec_liniso_y_test_;
     if(stress)(*preconfunc_)[4] = &uehara::prec_stress_test_;
     if(stress)(*preconfunc_)[5] = &uehara::prec_stress_test_;
     if(stress)(*preconfunc_)[6] = &uehara::prec_stress_test_;
 #endif  
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     //(*initfunc_)[0] = &uehara::init_phase_;
-    (*initfunc_)[0] = &tpetra::uehara2::init_phase_c_;
-    (*initfunc_)[1] = &tpetra::uehara2::init_heat_;
+    (*initfunc_)[0] = &tpetra::uehara::init_phase_c_2_;
+    (*initfunc_)[1] = &tpetra::uehara::init_heat_;
     //(*initfunc_)[1] = &uehara::init_heat_seed_c_;
     (*initfunc_)[2] = &init_zero_;
     (*initfunc_)[3] = &init_zero_;
@@ -3050,6 +3044,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //std::cout<<"uehara"<<std::endl;
     //exit(0);
 #endif
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::uehara::param_;
+
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
     if( 0 == comm_->getRank() ){

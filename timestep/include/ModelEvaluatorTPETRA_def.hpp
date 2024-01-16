@@ -862,11 +862,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
 
       GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
+      GPUBasisLBar Bb = GPUBasisLBar(LTP_quadrature_order);
       int num_node_per_side = 4;
 
       GPUBasis * BGPU;
       if(8 == n_nodes_per_elem) { // linear hex-- we need to port the bar element for quads
 	BGPU = &Bq;
+      }
+      else if(4 == n_nodes_per_elem) { // linear hex-- we need to port the bar element for quads
+	BGPU = &Bb;
+	num_node_per_side = 2;
       }
       else {
 	std::cout<<"Only quad4 elements implemented for neumann bc now"<<std::endl;
@@ -3017,12 +3022,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //right now, there is no 1-D basis ie BGPU implemented 
 
     // [eqn_id][ss_id]
-    neumannfunc_ = NULL;
-//     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
-//     (*neumannfunc_)[1][0] = &tpetra::uehara2::conv_bc_;
-//     (*neumannfunc_)[1][1] = &tpetra::uehara2::conv_bc_;
-//     (*neumannfunc_)[1][2] = &tpetra::uehara2::conv_bc_;
-//     (*neumannfunc_)[1][3] = &tpetra::uehara2::conv_bc_;
+    //neumannfunc_ = NULL;
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    (*neumannfunc_)[1][0] = &tpetra::uehara::conv_bc_;
+    (*neumannfunc_)[1][1] = &tpetra::uehara::conv_bc_;
+    (*neumannfunc_)[1][2] = &tpetra::uehara::conv_bc_;
+    (*neumannfunc_)[1][3] = &tpetra::uehara::conv_bc_;
 
 #if 0    
     post_proc.push_back(new post_process(comm_,mesh_,(int)0));

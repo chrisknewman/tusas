@@ -2959,5 +2959,150 @@ public:
   }
 };
 
+class GPUBasisLBar:public GPUBasis{
+public:
+
+  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLBar(int n = 2){
+    canonical_vol = 2.;
+    sngp = n;
+    if( 3 == n){
+      abscissa[0] = -3.872983346207417/5.0;
+      abscissa[1] =  0.0;
+      abscissa[2] =  3.872983346207417/5.0;
+      weight[0] = 5.0/9.0;
+      weight[1] = 8.0/9.0;
+      weight[2] = 5.0/9.0;
+    } else if ( 4 == n ) {
+      abscissa[0] =  -30.13977090579184/35.0;
+      abscissa[1] =  -11.89933652546997/35.0;
+      abscissa[2] =   11.89933652546997/35.0;
+      abscissa[3] =   30.13977090579184/35.0;
+      weight[0] = (18.0-5.477225575051661)/36.0;
+      weight[1] = (18.0+5.477225575051661)/36.0;
+      weight[2] = (18.0+5.477225575051661)/36.0;
+      weight[3] = (18.0-5.477225575051661)/36.0;
+    } else {
+      sngp = 2;
+      abscissa[0] = -1.0/1.732050807568877;
+      abscissa[1] =  1.0/1.732050807568877;
+      weight[0] = 1.0;
+      weight[1] = 1.0;
+    }
+    ngpp = sngp;
+    
+    for(int i = 0; i < sngp; i++){
+      xi[i] = abscissa[i];
+      nwt[i] = weight[i];
+    }
+    for(int gp = 0; gp < ngpp; gp++){
+      phinew[gp][0]=(1.0-xi[gp])/2.0;
+      phinew[gp][1]=(1.0+xi[gp])/2.0;
+
+      dphidxinew[gp][0]=-.5;
+      dphidxinew[gp][1]= .5;
+      dphidetanew[gp][0]= 0.;
+      dphidetanew[gp][1]= 0.;
+      dphidztanew[gp][0]= 0.;
+      dphidztanew[gp][1]= 0.;
+    }
+  }
+
+  TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLBar(){}
+
+  TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
+						   const double y[BASIS_NODES_PER_ELEM],  
+						   const double z[BASIS_NODES_PER_ELEM]) {
+    //std::cout<<"lbar 1"<<std::endl;
+    nodaldiff[0] = x[1]-x[0];
+    nodaldiff[1] = y[1]-x[0];
+    nodaldiff[2] = z[1]-z[0];
+    //std::cout<<"lbar 2"<<std::endl;
+}
+
+  TUSAS_CUDA_CALLABLE_MEMBER double getBasis(const int gp,
+					   const double x[BASIS_NODES_PER_ELEM], 
+					   const double y[BASIS_NODES_PER_ELEM],  
+					   const double z[BASIS_NODES_PER_ELEM],
+					   const double u[BASIS_NODES_PER_ELEM],
+					   const double uold[BASIS_NODES_PER_ELEM],
+					   const double uoldold[BASIS_NODES_PER_ELEM]) {
+
+  // Calculate basis function and derivatives at nodal pts
+//   phi[0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
+//   phi[1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
+//   phi[2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
+//   phi[3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
+
+    //phi=phinew[gp];
+    for (int i=0; i < 2; i++) {
+      phi[i]=phinew[gp][i];
+    }
+
+    const double dxdxi  = .5*nodaldiff[0];
+    const double dydxi  = .5*nodaldiff[1];
+    const double dzdxi  = .5*nodaldiff[2];
+
+    wt = nwt[gp];  
+
+    jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
+    volp = jac*canonical_vol;
+    dxidx = 1. / dxdxi;
+    dxidy = 1. / dydxi;
+    dxidz = 1. / dzdxi;
+    detadx = 0.;
+    detady = 0.;
+    detadz =0.;
+    dztadx =0.;
+    dztady =0.;
+    dztadz =0.;
+    // Caculate basis function and derivative at GP.
+    xx=0.0;
+    yy=0.0;
+    zz=0.0;
+    uu=0.0;
+    uuold=0.0;
+    uuoldold=0.0;
+    dudx=0.0;
+    dudy=0.0;
+    dudz=0.0;
+    duolddx = 0.;
+    duolddy = 0.;
+    duolddz = 0.;
+    duoldolddx = 0.;
+    duoldolddy = 0.;
+    duoldolddz = 0.;
+
+    for (int i=0; i < 2; i++) {
+      xx += x[i] * phinew[gp][i];
+      yy += y[i] * phinew[gp][i];
+      zz += z[i] * phinew[gp][i];
+      dphidx[i] = dphidxinew[gp][i]*dxidx;
+      dphidy[i] = dphidxinew[gp][i]*dxidy;
+      dphidz[i] = dphidxinew[gp][i]*dxidz;
+      if( u ){
+	uu += u[i] * phinew[gp][i];
+	dudx += u[i] * dphidx[i];
+	dudy += u[i]* dphidy[i];
+	dudz += u[i]* dphidz[i];
+      }
+      if( uold ){
+	uuold += uold[i] * phinew[gp][i];
+	duolddx += uold[i] * dphidx[i];
+	duolddy += uold[i]* dphidy[i];
+	duolddz += uold[i]* dphidz[i];
+      }
+      if( uoldold ){
+	uuoldold += uoldold[i] * phi[i];
+	duoldolddx += uoldold[i] * dphidx[i];
+	duoldolddy += uoldold[i]* dphidy[i];
+	duoldolddz += uoldold[i]* dphidz[i];
+      }
+    }
+  
+    return jac*wt;
+  }
+
+};
+
 #endif
 

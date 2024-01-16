@@ -9500,11 +9500,11 @@ RES_FUNC_TPETRA(residual_heat_)
   
   //thermal term
   const double stress = test*alpha*u*(residual_stress_x_dt_(basis, 
-									i, dt_, dtold_, t_theta_, t_theta2_,
-									time, eqn_id, vol, rand)
-					       +residual_stress_y_dt_(basis, 
-									       i, dt_,  dtold_,t_theta_,t_theta2_,
-									       time, eqn_id, vol, rand));
+							    i, dt_, dtold_, t_theta_, t_theta2_,
+							    time, eqn_id, vol, rand)
+				      +residual_stress_y_dt_(basis, 
+							     i, dt_,  dtold_,t_theta_,t_theta2_,
+							     time, eqn_id, vol, rand));
   
 
   double rhs = divgradu + phitu + stress;
@@ -9538,6 +9538,7 @@ RES_FUNC_TPETRA(residual_phase_)
   //double M = b*phi*(1. - phi)*(L*(um - u)/um + f);
   const double h = h_(phi[0]);
   const double M = .66*150000000.*b*h*(L*(um - u)/um + f);
+  //const double M = b*h*(L*(um - u)/um + f);
   //double g = -phi*(1. - phi)*(phi - .5 + M)*test;
 
   const double g = -(h*(phi[0] - .5)+h*M)*test;
@@ -9651,7 +9652,7 @@ NBC_FUNC_TPETRA(conv_bc_)
   const double u = basis[0].uu;
   const double uw = 300.;//K
   const double h =1.e4;//W/m^2/K
-  std::cout<<h*(uw-u)*test/rho/c<<std::endl;
+  //std::cout<<h*(uw-u)*test/rho/c<<std::endl;
   return h*(uw-u)*test/rho/c;
 }
 

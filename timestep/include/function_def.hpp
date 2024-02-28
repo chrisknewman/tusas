@@ -9393,9 +9393,14 @@ namespace uehara
   //double E = 200.*1.e9;//Pa
   double nu = .3;
   double c0 = E/(1.-nu*nu);
-  double c1 = c0;
-  double c2 = c0*nu;
-  double c3 = c0*(1.-nu)/2.;//always confused about the 2 here
+  //it seems c1=E (1-nu)/(1+nu)/(1-2 nu)
+  //double c1 = c0;
+  const double c1 = E*(1.-nu)/(1.+nu)/(1.-2.*nu);
+  //it seems c2 = E nu/(1+nu)/(1-2 nu)
+  //double c2 = c0*nu;
+  const double c2 = E*nu/(1.+nu)/(1.-2.*nu);
+  //double c3 = c0*(1.-nu)/2.;//always confused about the 2 here
+  const double c3 = E/(1.+nu)/2.;
 
   double alpha = 5.e-6;//1/K
   double beta = 1.5e-3;
@@ -9499,7 +9504,7 @@ RES_FUNC_TPETRA(residual_heat_)
   const double phitu = -30.*L*h*(phi[0]-phi[1])/dt_*test; 
   
   //thermal term
-  const double stress = test*alpha*u*(residual_stress_x_dt_(basis, 
+  const double stress = 0.*test*alpha*u*(residual_stress_x_dt_(basis, 
 							    i, dt_, dtold_, t_theta_, t_theta2_,
 							    time, eqn_id, vol, rand)
 				      +residual_stress_y_dt_(basis, 
@@ -9509,7 +9514,7 @@ RES_FUNC_TPETRA(residual_heat_)
 
   double rhs = divgradu + phitu + stress;
 
-  return (ut + rhs)/rho/c;
+  return (ut + rhs);// /rho/c;
 }
 
 RES_FUNC_TPETRA(residual_phase_)
@@ -9537,14 +9542,15 @@ RES_FUNC_TPETRA(residual_phase_)
 
   //double M = b*phi*(1. - phi)*(L*(um - u)/um + f);
   const double h = h_(phi[0]);
-  const double M = .66*150000000.*b*h*(L*(um - u)/um + f);
+  //const double M = 100000000.*b*h*(L*(um - u)/um + f);
+  const double M =   70000000.*b*h*(L*(um - u)/um + f);
   //const double M = b*h*(L*(um - u)/um + f);
   //double g = -phi*(1. - phi)*(phi - .5 + M)*test;
 
   const double g = -(h*(phi[0] - .5)+h*M)*test;
   const double rhs = divgradphi + g;
 
-  return (phit + rhs)/m;
+  return (phit + rhs);// /m;
 }
 
 RES_FUNC_TPETRA(residual_liniso_x_test_)
@@ -9581,10 +9587,12 @@ RES_FUNC_TPETRA(residual_liniso_x_test_)
   
   const double ff =   alpha*ut + strain_phi;
 
+  //strain = D displacement
   strain[0] = (basis[2]->dudx-basis[2]->duolddx)/dt_- ff;
   strain[1] = (basis[3]->dudy-basis[3]->duolddy)/dt_- ff;
   strain[2] = (basis[2]->dudy-basis[2]->duolddy + basis[3]->dudx-basis[3]->duolddx)/dt_;// - alpha*ut - strain_phi;
 
+  //stress =  C strain
   stress[0] = c1*strain[0] + c2*strain[1];
   // stress[1] = c2*strain[0] + c1*strain[1];
   stress[2] = c3*strain[2];
@@ -9669,7 +9677,7 @@ PRE_FUNC_TPETRA(prec_phase_)
   const double phit = m*(basis[phi_id]->phi[j])/dt_*test;
   const double divgrad = a*(basis[eqn_id]->dphidx[j] * dtestdx + basis[eqn_id]->dphidy[j] * dtestdy + basis[eqn_id]->dphidz[j] * dtestdz);
 
-  return (phit + t_theta_*divgrad)/m;
+  return (phit + t_theta_*divgrad);// /m;
 }
 
 PRE_FUNC_TPETRA(prec_heat_)
@@ -9693,7 +9701,7 @@ PRE_FUNC_TPETRA(prec_heat_)
   const double divgrad = k*(basis[eqn_id]->dphidx[j] * dtestdx + basis[eqn_id]->dphidy[j] * dtestdy + basis[eqn_id]->dphidz[j] * dtestdz);
   const double u_t =rho*c*basis[u_id]->phi[j]/dt_*test;
  
-  return (u_t + t_theta_*divgrad + stress)/rho/c;
+  return (u_t + t_theta_*divgrad + stress);// /rho/c;
 }
 
 PRE_FUNC_TPETRA(prec_liniso_x_test_)
@@ -9749,6 +9757,27 @@ PRE_FUNC_TPETRA(prec_liniso_y_test_)
   return divgradu;
 }
 
+PPR_FUNC(postproc_stress_eq_)
+{
+  //u is u0,u1,...
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+
+  double strain[3], stress[3];//x,y,z,yx,zy,zx
+
+  strain[0] = gradu[0];// - alpha*u[1] - 30.*beta*h*phi;//var 0 dx
+  strain[1] = gradu[4];// - alpha*u[1] - 30.*beta*h*phi;//var 1 dy
+  strain[2] = gradu[1] + gradu[3];// + gradu[2];// - alpha*u[1] - 30.*beta*h*phi;
+
+  stress[0] = c1*strain[0] + c2*strain[1];
+  stress[1] = c2*strain[0] + c1*strain[1];
+  stress[2] = c3*strain[2];
+
+  //von mises
+  return sqrt((stress[0]-stress[1])*(stress[0]-stress[1])
+	       + 3.*stress[2]*stress[2]
+	       );
+}
 
 
 }//namespace uehara

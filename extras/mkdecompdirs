@@ -1,4 +1,14 @@
 #!/bin/bash
+#
+# Creates the decomp directory structure
+#
+# The only argument is number of MPI domains
+#
+if [ "$#" -ne 1 ]; then
+    echo "Number of arguments must be 1"
+    exit
+fi
+#
 rm -rf decomp/
 mkdir decomp/
 for i in `eval echo {1..$1}`

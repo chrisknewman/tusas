@@ -1,0 +1,48 @@
+#!/bin/bash
+#
+# The environment variables TUSAS_DIR and TRILINOS_DIR must be defined
+# for example:
+#TUSAS_DIR=/Users/cnewman/work/tusas_git/extras/
+#TRILINOS_DIR=/Users/cnewman/src/Trilinos14/VOTD_KOKKOS/
+#
+# The first argument is number of MPI domains
+# The second argument is filename for undecomposed mesh
+# The third OPTIONAL argument can be -64 for 64-bit global indices
+# otherwise 32-bit global indices are assumed default
+#
+if [ "$#" -gt 3 ] || [ "$#" -lt 2 ]; then
+    echo "Number of arguments must be 2 or 3"
+    exit
+fi
+#
+rm -rf decomp/
+N=$1
+F=$2
+#
+M='INERTIAL '$F
+if [ "$#" -eq 3 ];then
+    if [ "$3" -ne "-64" ]; then
+	echo "third argument must be -64 for 64-bit global indices; or empty for 32-bit global indices"
+	exit
+    fi
+    M='LINEAR '$F
+    NS=$3
+fi
+#
+$TUSAS_DIR/mkdecompdirs $N
+#
+CMD1=($TRILINOS_DIR/bin/nem_slice $NS -e -o decomp/tusas_nemesis.nemI -m MESH=$N -l $M)
+echo ${CMD1[@]}
+#execute CMD1
+"${CMD1[@]}"
+#
+NF=nem_spread.inp
+rm $NF
+echo 'Input FEM file    = ' $F>>$NF
+echo 'LB file         	= decomp/tusas_nemesis.nemI'>>$NF
+echo 'Parallel Disk Info	= number=' $N >>$NF
+echo 'Parallel file location	= root=./decomp/, subdir=.'>>$NF
+#
+CMD2=($TRILINOS_DIR/bin/nem_spread $NS nem_spread.inp)
+echo ${CMD2[@]}
+"${CMD2[@]}"

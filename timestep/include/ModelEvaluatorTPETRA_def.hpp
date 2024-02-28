@@ -3028,11 +3028,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*neumannfunc_)[1][1] = &tpetra::uehara::conv_bc_;
     (*neumannfunc_)[1][2] = &tpetra::uehara::conv_bc_;
     (*neumannfunc_)[1][3] = &tpetra::uehara::conv_bc_;
+   
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::uehara::postproc_stress_eq_;
 
-#if 0    
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &uehara::postproc_stress_x_;
-
+#if 0 
     post_proc.push_back(new post_process(comm_,mesh_,(int)1));
 //     post_proc[1].postprocfunc_ = &uehara::postproc_stress_y_;
     post_proc[1].postprocfunc_ = &uehara::postproc_stress_xd_;

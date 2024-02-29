@@ -183,8 +183,9 @@ int main(int argc, char *argv[])
 	    << "  ( "<<(float)curTime/(float)endTime*100. <<" % )   t = "
 	    <<curTime<<"  t final = "<<endTime<< endl<<endl<<endl;
       }
-
-      if(0 == elapsedSteps%(paramList.get<int> (TusasoutputfreqNameString)) &&
+      int outputfreq = paramList.get<int> (TusasoutputfreqNameString);
+      if(0 == outputfreq ) outputfreq = numSteps;
+      if(0 == elapsedSteps%outputfreq &&
 	 curTime <= endTime &&
  	 elapsedSteps != numSteps){
 

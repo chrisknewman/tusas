@@ -117,6 +117,7 @@ int main(int argc, char *argv[])
 
     if(1 == numproc ){
       pfile = paramList.get<std::string> (TusasmeshNameString);
+      Teuchos::TimeMonitor DecompTimer(*ts_time_decomp);
     }
     else {
       Teuchos::TimeMonitor DecompTimer(*ts_time_decomp);

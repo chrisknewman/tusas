@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
   Kokkos::print_configuration( std::cout , false );
 #endif
   Teuchos::RCP<Teuchos::Time> ts_time_total = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Run Time");
+  Teuchos::RCP<Teuchos::Time> ts_time_decomp = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Decomp Time");
   Teuchos::ParameterList paramList;
 
   // Create a communicator for Epetra objects
@@ -118,6 +119,7 @@ int main(int argc, char *argv[])
       pfile = paramList.get<std::string> (TusasmeshNameString);
     }
     else {
+      Teuchos::TimeMonitor DecompTimer(*ts_time_decomp);
       Comm.Barrier();
       dval = decomp(mypid, 
 		    numproc, 
@@ -233,8 +235,6 @@ int decomp(const int mypid,
 
   std::string decompPath="decomp/";
   std::string nemStr = "tusas_nemesis";
-  Teuchos::RCP<Teuchos::Time> ts_time_decomp = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Decomp Time");
-  Teuchos::TimeMonitor DecompTimer(*ts_time_decomp);
   if( 0 == mypid ){
     if( !restart && !skipdecomp){
       std::cout<<"Entering decomp: PID "<<mypid<<" NumProcs "<<numproc<<"\n"<<"\n";

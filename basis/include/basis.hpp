@@ -2962,7 +2962,7 @@ public:
 class GPUBasisLBar:public GPUBasis{
 public:
 
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLBar(int n = 2){
+  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLBar(const int n = 2){
     canonical_vol = 2.;
     sngp = n;
     if( 3 == n){
@@ -3014,8 +3014,9 @@ public:
 						   const double z[BASIS_NODES_PER_ELEM]) {
     //std::cout<<"lbar 1"<<std::endl;
     nodaldiff[0] = x[1]-x[0];
-    nodaldiff[1] = y[1]-x[0];
+    nodaldiff[1] = y[1]-y[0];
     nodaldiff[2] = z[1]-z[0];
+    //std::cout<<nodaldiff[0]<<" "<<nodaldiff[1]<<" "<<nodaldiff[2]<<std::endl;
     //std::cout<<"lbar 2"<<std::endl;
 }
 
@@ -3045,6 +3046,7 @@ public:
     wt = nwt[gp];  
 
     jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
+    //std::cout<<jac<<" "<<wt<<std::endl;
     volp = jac*canonical_vol;
     dxidx = 1. / dxdxi;
     dxidy = 1. / dydxi;

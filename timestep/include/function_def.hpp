@@ -9410,6 +9410,7 @@ namespace uehara
 PARAM_FUNC(param_)
 {
   t0 = plist->get<double>("t0",300.);
+  alpha = plist->get<double>("alpha",5.e-6);
 }
 
 const double h_(const double &p)
@@ -9782,6 +9783,301 @@ PPR_FUNC(postproc_stress_eq_)
 
 }//namespace uehara
 
+namespace yang
+{
+#if 0
+  //uehara properties mesh is in m
+  const double m = 2.5e5;//2.5e5
+  const double a = 10;//m^4
+  const double L = 3.e3;//J/m^3
+  const double rho = 1.e3;//kg/m^3
+  const double c = 5.e2;//J/(kg K)
+  const double k = 150.;//W/(m K)
+#endif
+  //yang mesh is in um
+  const double m = 1.;//2.5e5
+  const double a = 10;//m^4
+
+  const double L = 0.;//2.1e9;//J/m^3
+  const double rho = 8084.;//kg/m^3
+  const double c = 770.;//J/(kg K)
+  const double k = 10.;//W/(m K)
+
+  const double um = 350;
+  const double uw = 300;
+
+  int N_ = 1;
+  int eqn_off_ = 2;
+
+  PARAM_FUNC(param_)
+  {
+    N_ = plist->get<int>("N",0);
+    eqn_off_ = plist->get<int>("OFFSET",2);
+  }
+
+RES_FUNC_TPETRA(residual_phase_)
+{
+  const double dtestdx = basis[eqn_id]->dphidx[i];
+  const double dtestdy = basis[eqn_id]->dphidy[i];
+  const double dtestdz = basis[eqn_id]->dphidz[i];
+  const double test = basis[eqn_id]->phi[i];
+
+  const int phi_id = 0;
+  const int u_id = 1;
+  const double phi[3] = {basis[phi_id]->uu,basis[phi_id]->uuold,basis[phi_id]->uuoldold};
+  const double u = basis[u_id]->uu;
+  const double dphidx = basis[phi_id]->dudx;
+  const double dphidy = basis[phi_id]->dudy;
+  const double dphidz = basis[phi_id]->dudz;
+  
+  const double b = 5.e-5;//m^3/J
+  //const double um = 350.;//K
+
+  const double phit = m*(phi[0]-phi[1])/dt_*test;
+  const double divgradphi = a*(dphidx*dtestdx + dphidy*dtestdy + dphidz*dtestdz);//(grad u,grad test)
+
+  const double h = tpetra::uehara::h_(phi[0]);
+
+  //const double g = -(h*(phi[0] - .5)+h*M)*test;
+  //const double gp = -(h*(phi[0] - .5))*test;
+  const double gp = (2*phi[0]*(1.-3.*phi[0]+2*phi[0]*phi[0])/4.)*test;
+
+  const double M =   -70000000.*b*h*h*(L*(um - u)/um);
+  //const double M =   70000000.*b*(6.*phi[0]-6*phi[0]*phi[0])*(L*(u - um)/um);
+  //const double M =   b*h*h*(L*(u - um)/um);
+  const double g = M*test;
+  const double rhs = divgradphi + gp + g;
+
+  return (phit + rhs);// /m;
+}
+
+RES_FUNC_TPETRA(residual_heat_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[eqn_id]->dphidx[i];
+  const double dtestdy = basis[eqn_id]->dphidy[i];
+  const double dtestdz = basis[eqn_id]->dphidz[i];
+  const double test = basis[eqn_id]->phi[i];
+
+  const int phi_id = 0;
+  const int u_id = 1;
+  const double phi[3] = {basis[phi_id]->uu,basis[phi_id]->uuold,basis[phi_id]->uuoldold};
+  const double u = basis[u_id]->uu;
+  const double uold = basis[u_id]->uuold;
+
+  const double dudx = basis[u_id]->dudx;
+  const double dudy = basis[u_id]->dudy;
+
+  const double ut = rho*c*(u-uold)/dt_*test;
+  const double divgradu = k*(dudx*dtestdx + dudy*dtestdy);
+  double h = tpetra::uehara::h_(phi[0]);
+  h = h *h;
+  const double phitu = -30.*L*h*(phi[0]-phi[1])/dt_*test; 
+  
+  double rhs = divgradu + phitu;
+
+  return (ut + rhs);// /rho/c;
+}
+
+RES_FUNC_TPETRA(residual_eta_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[0]->dphidx[i];
+  const double dtestdy = basis[0]->dphidy[i];
+  const double dtestdz = basis[0]->dphidz[i];
+  const double test = basis[0]->phi[i];
+
+  const int phi_id = 0;
+  const double eta = basis[eqn_id]->uu;
+  const double etaold = basis[eqn_id]->uuold;
+  const double phi = basis[phi_id]->uu;
+
+  const double kg =10.;
+  const double divgradu = kg*(basis[eqn_id]->dudx*dtestdx + basis[eqn_id]->dudy*dtestdy + basis[eqn_id]->dudz*dtestdz);
+
+#if 0
+  double s = 0.;
+  for(int k = 0; k < N; k++){
+    s = s + basis[k]->uu*basis[k]->uu;
+  }
+  s = s - u*u;
+
+  return (u-uold)/dt_*test + L* ((-alpha*u + beta*u*u*u +2.*gamma*u*s)*test +  divgradu); 
+#endif 
+  const double mg = 1.;
+  const double lg = .1/m;
+  const double val = (eta-etaold)/dt_*test + lg*divgradu + lg*mg*(eta*eta*eta-eta)*test + lg*mg*2.*(1.-phi)*(1.-phi)*eta*test;
+  return val/lg;
+  //return m*(basis[2]->uu-phi)*test;
+}
+PRE_FUNC_TPETRA(prec_eta_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[eqn_id]->dphidx[i];
+  const double dtestdy = basis[eqn_id]->dphidy[i];
+  const double dtestdz = basis[eqn_id]->dphidz[i];
+
+  double dbasisdx = basis[eqn_id]->dphidx[j];
+  double dbasisdy = basis[eqn_id]->dphidy[j];
+  double dbasisdz = basis[eqn_id]->dphidz[j];
+
+  const double kg =10.;
+  const double mg = 1.;
+  const double lg = 1./m;
+  
+  double test = basis[0]->phi[i];
+  double divgrad = lg*kg*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  double u_t =test * basis[eqn_id]->phi[j]/dt_;
+
+#if 0
+  double alphau = -test*L*alpha*basis[0].phi[j];
+  double betau = 3.*u*u*basis[0].phi[j]*test*L*beta;
+
+  double s = 0.;
+  for(int k = 0; k < N; k++){
+    s = s + basis[k].uu*basis[k].uu;
+  }
+  s = s - u*u;
+
+  double gammau = 2.*gamma*L*basis[0].phi[j]*s*test;
+
+  return u_t + divgrad + betau + gammau;// + alphau ;
+#endif
+  return (u_t + divgrad)*m;
+    //return 1.;
+}
+
+PRE_FUNC_TPETRA(prec_phase_)
+{
+  const double dtestdx = basis[eqn_id]->dphidx[i];
+  const double dtestdy = basis[eqn_id]->dphidy[i];
+  const double dtestdz = basis[eqn_id]->dphidz[i];
+  const double test = basis[eqn_id]->phi[i];
+
+  const int phi_id = 0;
+
+  const double phit = m*(basis[phi_id]->phi[j])/dt_*test;
+  const double divgrad = a*(basis[eqn_id]->dphidx[j] * dtestdx + basis[eqn_id]->dphidy[j] * dtestdy + basis[eqn_id]->dphidz[j] * dtestdz);
+
+  return (phit + t_theta_*divgrad);
+}
+
+PRE_FUNC_TPETRA(prec_heat_)
+{
+  const double dtestdx = basis[eqn_id]->dphidx[i];
+  const double dtestdy = basis[eqn_id]->dphidy[i];
+  const double dtestdz = basis[eqn_id]->dphidz[i];
+  const double test = basis[eqn_id]->phi[i];
+
+  const int u_id = 1;
+  
+  const double divgrad = k*(basis[eqn_id]->dphidx[j] * dtestdx + basis[eqn_id]->dphidy[j] * dtestdy + basis[eqn_id]->dphidz[j] * dtestdz);
+  const double u_t = rho*c*basis[u_id]->phi[j]/dt_*test;
+ 
+  return (u_t + t_theta_*divgrad);// /rho/c;
+}
+
+NBC_FUNC_TPETRA(conv_bc_)
+{
+
+  const double test = basis[0].phi[i];
+  const int u_id = 1;
+  const double u = basis[u_id].uu;
+  //const double uw = 300.;//K
+  const double h =1.e4;//W/m^2/K
+  //std::cout<<i<<" "<<test<<std::endl;
+  //return h*(uw-u)*test;
+  return 10.*test;
+}
+
+  const double euler_angles[4][3] = {{ 68.929, 36.059,277.170},
+				     {226.785, 41.003, 97.730},
+				     {317.524, 31.789, 79.010},
+				     {144.094, 23.823,222.160}};
+
+PPR_FUNC(postproc_ea1_)
+{
+  //u is u0,u1,...
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+  //right now, the background color is black, ie 0,0,0
+  //might be better id white, 1,1,1
+  //probably do not want an if or ternary or where
+  //we could probably take care of this as an extra step in paraview
+
+  const int col = 0;
+
+  double r = 0.;
+  for(int i = 0; i < N_; i++){
+    r = r + u[i+eqn_off_]*euler_angles[i][col]/360.;
+  }
+  return r;
+}
+
+PPR_FUNC(postproc_ea2_)
+{
+  //u is u0,u1,...
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+  const int col = 1;
+
+  double r = 0.;
+  for(int i = 0; i < N_; i++){
+    r = r + u[i+eqn_off_]*euler_angles[i][col]/360.;
+  }
+  return r;
+}
+
+PPR_FUNC(postproc_ea3_)
+{
+  //u is u0,u1,...
+  //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+  const int col = 2;
+
+  double r = 0.;
+  for(int i = 0; i < N_; i++){
+    r = r + u[i+eqn_off_]*euler_angles[i][col]/360.;
+  }
+  return r;
+}
+
+INI_FUNC(init_phase_)
+{
+  //this currently just puts solid on each of the corner nodes
+  //which it seems is done in the paper:
+  //Takuya UEHARA and Takahiro TSUJINO. Simulations on the stress evo-
+  //lution and residual stress in precipitated phase using a phase field model.
+  //Journal of Computational Science and Technology, 2(1):142–149, 2008.
+  //https://doi.org/10.1299/jcst.2.142
+
+  double val = 0.;  
+
+  //double r0 = uehara2::r0;
+  //double dx = 1.e-2;
+  double x0 = 0.;
+  //double r = .9*r0*dx/2.;
+
+  double rr = sqrt((x-x0)*(x-x0)+(y-x0)*(y-x0));
+
+  //val = phi_liq_;
+
+  if( rr > 5.e-6 ){
+    val = 0.;
+  }
+  else {
+    val = 1.;
+  }
+
+  return val;
+}
+
+INI_FUNC(init_heat_)
+{
+  return um;
+}
+
+}//namespace yang
 }//namespace tpetra
 
 

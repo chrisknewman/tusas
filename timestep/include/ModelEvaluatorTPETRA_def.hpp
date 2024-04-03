@@ -866,15 +866,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       int num_node_per_side = 4;
 
       GPUBasis * BGPU;
-      if(8 == n_nodes_per_elem) { // linear hex-- we need to port the bar element for quads
+      if(8 == n_nodes_per_elem) { // linear hex-- quad faces
 	BGPU = &Bq;
       }
-      else if(4 == n_nodes_per_elem) { // linear hex-- we need to port the bar element for quads
+      else if(4 == n_nodes_per_elem) { // linear quad-- bar faces
 	BGPU = &Bb;
 	num_node_per_side = 2;
       }
       else {
-	std::cout<<"Only quad4 elements implemented for neumann bc now"<<std::endl;
+	std::cout<<"Only quad4/bar2 elements implemented for neumann bc now"<<std::endl;
 	exit(0);
       }
       
@@ -890,7 +890,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  mesh_->side_set_found(index, ss_id);
 	  //loop over element faces--this will be the parallel loop eventually
 	  //we would need toto know coloring on the sideset or switch to scattered mesh
-	  for ( int j = 0; j < mesh_->get_side_set(ss_id).size(); j++ ){//loop over element faces--this will be the parallel loop
+
+	  for ( int ne = 0; ne < mesh_->get_side_set(ss_id).size(); ne++ ){//loop over element faces--this will be the parallel loop
 	    double xx[BASIS_NODES_PER_ELEM];
 	    double yy[BASIS_NODES_PER_ELEM];
 	    double zz[BASIS_NODES_PER_ELEM];
@@ -898,25 +899,24 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    double uu_old[BASIS_NODES_PER_ELEM];
 	    double uu_oldold[BASIS_NODES_PER_ELEM];
 	    for ( int ll = 0; ll < num_node_per_side; ll++){//loop over nodes in each face
-	      const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+ll];
+	      const int lid = mesh_->get_side_set_node_list(ss_id)[ne*num_node_per_side+ll];
 	      xx[ll] = x_1dra(lid);
 	      yy[ll] = y_1dra(lid);
 	      zz[ll] = z_1dra(lid);
 	      uu[ll] = u_1dra(numeqs_*lid+k);
 	      uu_old[ll] = uold_1dra(numeqs_*lid+k);
-	      uu_oldold[ll] = uoldold_1dra(numeqs_*lid+k);
+	      //std::cout<<lid<<" "<<xx[ll]<<" "<<yy[ll]<<" "<<zz[ll]<<std::endl;
 	    }//ll
-	    
 	    BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
 	    for ( int gp = 0; gp < ngp; gp++){
 	      const double jacwt = BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0], &uu_oldold[0]);
 	      for( int i = 0; i < num_node_per_side; i++ ){  
 		
-		const int lid = mesh_->get_side_set_node_list(ss_id)[j*num_node_per_side+i];
+		const int lid = mesh_->get_side_set_node_list(ss_id)[ne*num_node_per_side+i];
 		const int row = numeqs_*lid + k;
 		
 		const double val = -jacwt*(it->second)(BGPU,i,dt,dtold,t_theta,t_theta2,time);
-
+		//std::cout<<row<<" "<<val<<" "<<jacwt<<std::endl;
 		f_1d[row] += val;
 		
 	      }//i
@@ -924,6 +924,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  }//j
 	}//it
       }//k
+      
       {
 	Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
 	f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
@@ -2961,7 +2962,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     const bool stress = false;
     //const bool stress = true;
 
-    numeqs_ = 4;
+    numeqs_ = 2;
     if(stress) numeqs_ = 7;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
@@ -3051,6 +3052,90 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 #endif
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::uehara::param_;
+
+  }else if("yang1" == paramList.get<std::string> (TusastestNameString)){
+
+    //Teuchos::ParameterList *problemList;
+    //problemList = &paramList.sublist ( "ProblemParams", false );
+
+    int numeta = 1;//problemList->get<int>("N",0);
+    int eqn_off_ = 2;//problemList->get<int>("OFFSET",2);
+
+    numeqs_ = 3;//numeta+eqn_off_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::yang::residual_phase_;
+    (*residualfunc_)[1] = &tpetra::yang::residual_heat_;
+    (*residualfunc_)[2] = &tpetra::yang::residual_eta_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::yang::prec_phase_;
+    (*preconfunc_)[1] = &tpetra::yang::prec_heat_;
+    (*preconfunc_)[2] = &tpetra::yang::prec_eta_;
+ 
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::yang::init_phase_;
+    (*initfunc_)[1] = &tpetra::yang::init_heat_;
+    (*initfunc_)[2] = &tpetra::yang::init_phase_;
+  
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "phi";
+    (*varnames_)[1] = "u";
+    (*varnames_)[2] = "eta0";
+
+    // numeqs_ number of variables(equations) 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    dirichletfunc_ = NULL;
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]						 
+    //(*dirichletfunc_)[2][1] = &dbc_zero_;
+    //(*dirichletfunc_)[2][3] = &dbc_zero_;
+    //(*dirichletfunc_)[3][0] = &dbc_zero_;
+    //(*dirichletfunc_)[3][2] = &dbc_zero_;
+    //(*dirichletfunc_)[4][1] = &dbc_zero_;
+    
+
+    //right now, there is no 1-D basis ie BGPU implemented 
+
+    // [eqn_id][ss_id]
+    //neumannfunc_ = NULL;
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    (*neumannfunc_)[1][0] = &tpetra::yang::conv_bc_;
+    //(*neumannfunc_)[1][1] = &tpetra::yang::conv_bc_;
+    //(*neumannfunc_)[1][2] = &tpetra::yang::conv_bc_;
+    //(*neumannfunc_)[1][3] = &tpetra::yang::conv_bc_;
+   
+    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::yang::postproc_ea1_;
+   
+    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::yang::postproc_ea2_;
+   
+    post_proc.push_back(new post_process(Comm,mesh_,(int)2));
+    post_proc[2].postprocfunc_ = &tpetra::yang::postproc_ea3_;
+
+#if 0 
+    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+//     post_proc[1].postprocfunc_ = &uehara::postproc_stress_y_;
+    post_proc[1].postprocfunc_ = &uehara::postproc_stress_xd_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+//     post_proc[2].postprocfunc_ = &uehara::postproc_stress_xy_;
+    post_proc[2].postprocfunc_ = &uehara::postproc_stress_eq_;
+
+    post_proc.push_back(new post_process(comm_,mesh_,(int)3));
+    post_proc[3].postprocfunc_ = &uehara::postproc_stress_eqd_;
+//     post_proc.push_back(new post_process(comm_,mesh_,(int)4));
+//     post_proc[4].postprocfunc_ = &uehara::postproc_strain_;
+
+    //std::cout<<"uehara"<<std::endl;
+    //exit(0);
+#endif
+    paramfunc_.resize(2);
+    paramfunc_[0] = &tpetra::yang::param_;
+    paramfunc_[1] = &tpetra::uehara::param_;
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

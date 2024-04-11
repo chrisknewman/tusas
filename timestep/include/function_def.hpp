@@ -9795,16 +9795,26 @@ namespace yang
   const double k = 150.;//W/(m K)
 #endif
   //yang mesh is in um
-  const double m = 1.;//2.5e5
-  const double a = 10;//m^4
+  const double m = 1.;
+  const double a = 10.;
 
-  const double L = 0.;//2.1e9;//J/m^3
-  const double rho = 8084.;//kg/m^3
+  double L = 2.1e9;//J/m^3
+  //const double rho = 8084.;//kg/m^3
+  const double rho = 8.084e-15;//kg/um^3
   const double c = 770.;//J/(kg K)
-  const double k = 10.;//W/(m K)
+  //const double k = 10.;//W/(m K) = J/(K m s)
+  const double k = 0.00001;//J/(K um s)
+  //const double h =1.e4;//W/m^2/K
+  const double h =1.e-8;//W/um^2/K
 
-  const double um = 350;
-  const double uw = 300;
+  const double ul = 1723;
+  const double us = 1650;
+
+  const double um = us;
+  const double uw = 1650;
+
+  double du = 1./rho/c;//rho*c;
+  double dm = 1.;
 
   int N_ = 1;
   int eqn_off_ = 2;
@@ -9842,13 +9852,14 @@ RES_FUNC_TPETRA(residual_phase_)
   //const double gp = -(h*(phi[0] - .5))*test;
   const double gp = (2*phi[0]*(1.-3.*phi[0]+2*phi[0]*phi[0])/4.)*test;
 
-  const double M =   -70000000.*b*h*h*(L*(um - u)/um);
+  //const double M =   -70000000.*b*h*h*(L*(um - u)/um);
   //const double M =   70000000.*b*(6.*phi[0]-6*phi[0]*phi[0])*(L*(u - um)/um);
   //const double M =   b*h*h*(L*(u - um)/um);
+  const double M =   h*h*(L*(u - um)/um);
   const double g = M*test;
   const double rhs = divgradphi + gp + g;
 
-  return (phit + rhs);// /m;
+  return (phit + rhs)/dm;// /m;
 }
 
 RES_FUNC_TPETRA(residual_heat_)
@@ -9872,11 +9883,11 @@ RES_FUNC_TPETRA(residual_heat_)
   const double divgradu = k*(dudx*dtestdx + dudy*dtestdy);
   double h = tpetra::uehara::h_(phi[0]);
   h = h *h;
-  const double phitu = -30.*L*h*(phi[0]-phi[1])/dt_*test; 
+  const double phitu = -0.*30.*L*h*(phi[0]-phi[1])/dt_*test; 
   
   double rhs = divgradu + phitu;
 
-  return (ut + rhs);// /rho/c;
+  return (ut + rhs)/du;// /rho/c;
 }
 
 RES_FUNC_TPETRA(residual_eta_)
@@ -9959,7 +9970,7 @@ PRE_FUNC_TPETRA(prec_phase_)
   const double phit = m*(basis[phi_id]->phi[j])/dt_*test;
   const double divgrad = a*(basis[eqn_id]->dphidx[j] * dtestdx + basis[eqn_id]->dphidy[j] * dtestdy + basis[eqn_id]->dphidz[j] * dtestdz);
 
-  return (phit + t_theta_*divgrad);
+  return (phit + t_theta_*divgrad)/dm;
 }
 
 PRE_FUNC_TPETRA(prec_heat_)
@@ -9974,7 +9985,7 @@ PRE_FUNC_TPETRA(prec_heat_)
   const double divgrad = k*(basis[eqn_id]->dphidx[j] * dtestdx + basis[eqn_id]->dphidy[j] * dtestdy + basis[eqn_id]->dphidz[j] * dtestdz);
   const double u_t = rho*c*basis[u_id]->phi[j]/dt_*test;
  
-  return (u_t + t_theta_*divgrad);// /rho/c;
+  return (u_t + t_theta_*divgrad)/du;// /rho/c;
 }
 
 NBC_FUNC_TPETRA(conv_bc_)
@@ -9984,10 +9995,7 @@ NBC_FUNC_TPETRA(conv_bc_)
   const int u_id = 1;
   const double u = basis[u_id].uu;
   //const double uw = 300.;//K
-  const double h =1.e4;//W/m^2/K
-  //std::cout<<i<<" "<<test<<std::endl;
-  //return h*(uw-u)*test;
-  return 10.*test;
+  return h*(u-uw)*test/du;
 }
 
   const double euler_angles[4][3] = {{ 68.929, 36.059,277.170},
@@ -10018,6 +10026,8 @@ PPR_FUNC(postproc_ea2_)
 {
   //u is u0,u1,...
   //gradu is dee0/dx,dee0/dy,dee0/dz,dee1/dx,dee1/dy,dee1/dz...
+
+  //in some refs this component is normailized by 180 rather than 360
 
   const int col = 1;
 
@@ -10062,7 +10072,7 @@ INI_FUNC(init_phase_)
 
   //val = phi_liq_;
 
-  if( rr > 5.e-6 ){
+  if( rr > 3.e-6 ){
     val = 0.;
   }
   else {
@@ -10074,7 +10084,8 @@ INI_FUNC(init_phase_)
 
 INI_FUNC(init_heat_)
 {
-  return um;
+  //return um;
+  return uw;
 }
 
 }//namespace yang

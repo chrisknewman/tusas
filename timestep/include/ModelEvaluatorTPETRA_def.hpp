@@ -3105,7 +3105,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*neumannfunc_)[1][0] = &tpetra::yang::conv_bc_;
     //(*neumannfunc_)[1][1] = &tpetra::yang::conv_bc_;
     //(*neumannfunc_)[1][2] = &tpetra::yang::conv_bc_;
-    //(*neumannfunc_)[1][3] = &tpetra::yang::conv_bc_;
+    (*neumannfunc_)[1][3] = &tpetra::yang::conv_bc_;
    
     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::yang::postproc_ea1_;

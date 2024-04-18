@@ -74,9 +74,12 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
 	     <<elem_type<<" not supported."<<std::endl;
     exit(0);
   }
-
+  //this is probably one of the problems
+  //we can get the bounday nodes from nemesis::node_mapb, then use this to get boundary elements
+  //note that elem_mapb only provides boundary elements with a face, so it does not give elems in
+  //a reentrent corner, which is needed for the patch
+  //we could then communicate the boundary elems and their nodal connectivity to create the maps
   mesh_->compute_nodal_patch_overlap();
-
 
   std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
 
@@ -155,9 +158,9 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in)
 
 void error_estimator::estimate_gradient(const double * uvec ){
   //according to the ainsworth book, for bilinear quads it is better to sample
-  //at centroids, rather than guass pts as is done here. This is due to
+  //at centroids, rather than gauss pts as is done here. This is due to
   //superconvergence at centroids. Guass pts are used for biquadratic quads.
-  //There is a mechanism in the basis class where one guass point at the centroid could
+  //There is a mechanism in the basis class where one gauss point at the centroid could
   //be used. p would then be [x y 1] rather than [y*x x y 1].
 
   //Also alot of cleaning up could be done another time.  The changes above

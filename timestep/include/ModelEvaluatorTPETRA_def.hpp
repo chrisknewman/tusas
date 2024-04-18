@@ -172,7 +172,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     //std::cout<<*min<<"   "<<*max<<"   "<<LLONG_MAX<<"   "<<node_num_int.max_size()<<std::endl;
     exit(0);
   }
-  if( 0 == comm_->getRank()) std::cout<<"node_num_int constructed"<<std::endl;
+  //if( 0 == comm_->getRank()) std::cout<<"node_num_int constructed"<<std::endl;
 
   //std::vector<global_ordinal_type> node_num_map(node_num_int.begin(),node_num_int.end());
   std::vector<global_ordinal_type> node_num_map(node_num_int.size());
@@ -188,7 +188,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     //std::cout<<*min<<"   "<<*max<<"   "<<LLONG_MAX<<"   "<<node_num_int.max_size()<<std::endl;
     exit(0);
   }
-  if( 0 == comm_->getRank()) std::cout<<"node_num_map constructed"<<std::endl;
+  //if( 0 == comm_->getRank()) std::cout<<"node_num_map constructed"<<std::endl;
   
   std::vector<global_ordinal_type> my_global_nodes(numeqs_*node_num_map.size());
   for(int i = 0; i < node_num_map.size(); i++){    
@@ -204,6 +204,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   const Teuchos::ArrayView<global_ordinal_type> AV(my_global_nodes);
 
+  //the overla
   x_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
 					     AV,
 					     indexBase,

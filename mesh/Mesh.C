@@ -1462,10 +1462,9 @@ int Mesh::create_exodus(const char * filename, const bool use64output){
 	     <<" ex_err "<<ex_err<<std::endl
 	     <<" exodus_version "<<exodus_version<<std::endl;              
 
-  const std::string s = "Exodus output";
-  const char * title = s.c_str();;
+  char _title[TUSAS_MAX_LINE_LENGTH] = "Exodus output";
 
-  ex_err = ex_put_init(ex_id, title, num_dim, 
+  ex_err = ex_put_init(ex_id, _title, num_dim, 
 			   num_nodes, num_elem, num_elem_blk, 
 			   num_node_sets, num_side_sets);
 
@@ -1473,7 +1472,7 @@ int Mesh::create_exodus(const char * filename, const bool use64output){
 
   if(verbose)
 
-    std::cout<<" Title "<<title<<std::endl
+    std::cout<<" Title "<<_title<<std::endl
 	     <<" num_dim "<<num_dim<<std::endl
 	     <<" num_nodes "<<num_nodes<<std::endl
 	     <<" num_elem "<<num_elem<<std::endl

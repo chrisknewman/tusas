@@ -3255,7 +3255,7 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
   //not sre what the bug is here...
   Teuchos::TimeMonitor IOWriteTimer(*ts_time_iowrite);
   const char * c = outfilename.c_str();
-  mesh_->open_exodus(c,Mesh::WRITE);
+  ex_id_ = mesh_->open_exodus(c,Mesh::WRITE);
   mesh_->write_exodus(ex_id_,output_step_,time_);
   mesh_->close_exodus(ex_id_);
   output_step_++;

@@ -6482,13 +6482,13 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
 
   const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
 
-  const double x = basis[eqn_id]->xx;
+  const double x = basis[eqn_id]->xx;//non dimensional x from mesh
   
   // frozen temperature approximation: linear pulling of the temperature field
-  const double xx = x*w0;
+  const double xx = x*w0;// dimensional x
 
   //cn this should probablly be: (time+dt_)*tau
-  const double tt[3] = {(time+dt_)*tau0,time*tau0,(time-dtold_)*tau0};
+  const double tt[3] = {(time+dt_)*tau0,time*tau0,(time-dtold_)*tau0};//dimensional time
 
   const double g4[3] = {((dT < 0.001) ? G*(xx-R*tt[0])/delta_T0 : dT),
 			     ((dT < 0.001) ? G*(xx-R*tt[1])/delta_T0 : dT),

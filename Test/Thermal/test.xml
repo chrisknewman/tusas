@@ -4,7 +4,7 @@
 
 <!--   <Parameter name="dt" type="double" value=".00625"/> -->
   <Parameter name="dt" type="double" value="1.e-7"/>
-  <Parameter name="nt" type="int" value = "5"/>
+  <Parameter name="nt" type="int" value = "1"/>
 <!--   <Parameter name="nt" type="int" value = "200000"/> -->
   <Parameter name="meshfile" type="string" value="./thermal.e"/>
   <Parameter name="method" type="string" value="tpetra"/>

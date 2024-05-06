@@ -2850,33 +2850,33 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 5;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = &tpetra::quaternion::residual_;
+    (*residualfunc_)[0] = &tpetra::quaternion::residual_phi_;
     (*residualfunc_)[1] = &tpetra::quaternion::residual_;
     (*residualfunc_)[2] = &tpetra::quaternion::residual_;
     (*residualfunc_)[3] = &tpetra::quaternion::residual_;
-    (*residualfunc_)[4] = &tpetra::quaternion::residual_phi_;
+    (*residualfunc_)[4] = &tpetra::quaternion::residual_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::quaternion::precon_;
+    (*preconfunc_)[0] = &tpetra::quaternion::precon_phi_;
     (*preconfunc_)[1] = &tpetra::quaternion::precon_;
     (*preconfunc_)[2] = &tpetra::quaternion::precon_;
     (*preconfunc_)[3] = &tpetra::quaternion::precon_;
-    (*preconfunc_)[4] = &tpetra::quaternion::precon_phi_;
+    (*preconfunc_)[4] = &tpetra::quaternion::precon_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::quaternion::initq0s_;
-    (*initfunc_)[1] = &tpetra::quaternion::initq1s_;
-    (*initfunc_)[2] = &tpetra::quaternion::initq2_;
-    (*initfunc_)[3] = &tpetra::quaternion::initq3_;
-    //(*initfunc_)[4] = &tpetra::quaternion::initphi_;
-    (*initfunc_)[4] = &tpetra::quaternion::initphis_;
+    //(*initfunc_)[0] = &tpetra::quaternion::initphi_;
+    (*initfunc_)[0] = &tpetra::quaternion::initphi_;
+    (*initfunc_)[1] = &tpetra::quaternion::initq0s_;
+    (*initfunc_)[2] = &tpetra::quaternion::initq1s_;
+    (*initfunc_)[3] = &tpetra::quaternion::initq2_;
+    (*initfunc_)[4] = &tpetra::quaternion::initq3_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
-    (*varnames_)[0] = "q0";
-    (*varnames_)[1] = "q1";
-    (*varnames_)[2] = "q2";
-    (*varnames_)[3] = "q3";
-    (*varnames_)[4] = "phi";
+    (*varnames_)[0] = "phi";
+    (*varnames_)[1] = "q0";
+    (*varnames_)[2] = "q1";
+    (*varnames_)[3] = "q2";
+    (*varnames_)[4] = "q3";
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::quaternion::param_;
@@ -2908,10 +2908,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 #endif
 
     //#if 0
-    localprojectionindices_.push_back(0);
     localprojectionindices_.push_back(1);
     localprojectionindices_.push_back(2);
     localprojectionindices_.push_back(3);
+    localprojectionindices_.push_back(4);
     //#endif
 
   }else if("quaternionphase" == paramList.get<std::string> (TusastestNameString)){

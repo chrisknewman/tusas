@@ -2896,16 +2896,14 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_rgb_g_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)4));
     post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_rgb_b_;
-#if 0
-    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::NORM2));
-    post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc_normphi_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)3));
-    post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_ea0_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)4));
-    post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_ea1_;
+    //#if 0
     post_proc.push_back(new post_process(Comm,mesh_,(int)5));
-    post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
-#endif
+    post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea0_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)6));
+    post_proc[6].postprocfunc_ = &tpetra::quaternion::postproc_ea1_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)7));
+    post_proc[7].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
+    //#endif
 
     //#if 0
     localprojectionindices_.push_back(1);

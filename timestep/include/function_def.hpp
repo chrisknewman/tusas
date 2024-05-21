@@ -8561,13 +8561,15 @@ namespace quaternion
   //[2] LLNL-JRNL-636233 Phase-field modeling of coring during solidification of Au-Ni alloy using quaternions and CALPHAD input
   //J. L. Fattebert, M. E. Wickett, P. E. A. Turchi May 7, 2013
 
-  const double beta = 1.e-10;
-  const double ff = 0.e-0;
+  const double beta = 1.e-16;
+  const double ff = 1.e-0;
+  const double cc = 1.;
 
   const double r0 = .064;
   const double halfdx = .001;
 
-  const double Mq = 1.;//1/sec/pJ
+  //const double Mq = 1.;//1/sec/pJ
+  const double Mq = 3.;//1/sec/pJ
   const double Mphi = 1.;//1/sec/pJ
   //const double Mmax = .64;//1/sec/pJ
   //const double Mmin= 1.e-6;
@@ -8579,7 +8581,8 @@ namespace quaternion
   //                          const double L = 2.e9;//J/m^3   =======>
   const double L = 2000.;//pJ/um^3
   const double omega = 31.25;//pJ/um^3
-  const double H = .884e-3;//pJ/K/um^2
+  //const double H = .884e-3;//pJ/K/um^2
+  double H = .884e-3;//pJ/K/um^2
   //const double T = 1000.;//K
   const double T = 925.;//K
   const double Tm = 1025.;//K
@@ -8596,19 +8599,6 @@ namespace quaternion
     const double c = (x-x0)*(x-x0) + (y-y0)*(y-y0) + (z-z0)*(z-z0);
     return r-sqrt(c);
   }
-#if 0
-  const double getphi(const double &x, const double &y, const double &z,
-	   const double &x0, const double &y0, const double &z0,
-		      const double &r, const double &t)
-  {
-    double rnew = r + t*.003125*1.e5;
-    double d = dist(x,y,z,x0,y0,0,rnew);
-    const double scale = (1-0)/2.;
-    const double shift = (1+0)/2.;
-    double val = shift + scale*tanh(d/sqrt(2.)/.01);
-    return val;
-  }
-#endif
   const double p(const double &phi)
   {
     return phi*phi;
@@ -8658,7 +8648,7 @@ RES_FUNC_TPETRA(residual_)
 
   const double phi[3] = {basis[phid]->uu,basis[phid]->uuold,basis[phid]->uuoldold};
   const double m[3] = {1.-h(phi[0]),1.-h(phi[1]),1.-h(phi[2])};
-  double M[3] = {m[0]*(Mq+1e-6)+1e-6,m[1]*(Mq+1e-6)+1e-6,m[2]*(Mq+1e-6)+1e-6};
+  double M[3] = {m[0]*(Mq-1e-6)+1e-6,m[1]*(Mq-1e-6)+1e-6,m[2]*(Mq-1e-6)+1e-6};
   //double M[3] = {Mq,Mq,Mq};
 
   const double ep2[3] = {epq*epq,epq*epq,epq*epq};
@@ -8676,7 +8666,7 @@ RES_FUNC_TPETRA(residual_)
     //sum_k q_k grad q_k dot grad test
     divgraduk[0] = divgraduk[0] + basis[k]->uu*(basis[k]->dudx*dtestdx + basis[k]->dudy*dtestdy + basis[k]->dudz*dtestdz);
     divgraduk[1] = divgraduk[1] + basis[k]->uuold*(basis[k]->duolddx*dtestdx + basis[k]->duolddy*dtestdy + basis[k]->duolddz*dtestdz);
-    divgraduk[2] = divgraduk[2] +  basis[k]->uuoldold*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
+    divgraduk[2] = divgraduk[2] + basis[k]->uuoldold*(basis[k]->duoldolddx*dtestdx + basis[k]->duoldolddy*dtestdy + basis[k]->duoldolddz*dtestdz);
     //sum_k q_k^2 = norm q
     normq2[0] = normq2[0] + basis[k]->uu*basis[k]->uu;
     normq2[1] = normq2[1] + basis[k]->uuold*basis[k]->uuold;
@@ -8691,7 +8681,7 @@ RES_FUNC_TPETRA(residual_)
   //   - q/normq^2 sum q_k ep^2 grad q_k grad test
   divgraduk[0] = u[0]*divgraduk[0]/normq2[0];
   divgraduk[1] = u[1]*divgraduk[1]/normq2[1];
-  divgraduk[2] = u[2]*ep2[2]*divgraduk[2]/normq2[2];
+  divgraduk[2] = u[2]*divgraduk[2]/normq2[2];
 
   //we need norm grad q here
   //grad q is nonzero only within interfaces
@@ -8718,7 +8708,7 @@ RES_FUNC_TPETRA(residual_)
 
   double val= (ut + (1.-t_theta2_)*t_theta_*f[0]
 	       + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-	       +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]))/1.;//*normgradq[0];
+	       +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
 //   if(val!=val){
 //     std::cout<<divgradu[0]<<" "<<divgradu[1]<<" "<<divgradu[2]<<std::endl;
 //   }
@@ -8844,9 +8834,9 @@ RES_FUNC_TPETRA(residual_phi_)
   normgradq[1] = sqrt(b2 + normgradq[1]);
   normgradq[2] = sqrt(b2 + normgradq[2]);
 
-  const double pq[3] = {Mphi*2.*H*T*pp(phi[0])*normgradq[0]*test,
-			Mphi*2.*H*T*pp(phi[1])*normgradq[1]*test,
-			Mphi*2.*H*T*pp(phi[2])*normgradq[2]*test};
+  const double pq[3] = {cc*Mphi*2.*H*T*pp(phi[0])*normgradq[0]*test,
+			cc*Mphi*2.*H*T*pp(phi[1])*normgradq[1]*test,
+			cc*Mphi*2.*H*T*pp(phi[2])*normgradq[2]*test};
 
   const double epqq[3] = {0.,0.,0.};
 
@@ -8876,8 +8866,8 @@ INI_FUNC(initphi_)
   double val = 0.;
   const double x0 = 0.;
   const double x1 = .128;
-  const double s = .001;
-  const double den = sqrt(2)*s;
+  const double w = .0005;
+  const double den = sqrt(2)*w;
   //if( x*x + y*y <= r0*r0 ) val = 1.;
 
   val = .5*(tanh((r0-sqrt(x*x + y*y))/den) + 1.);
@@ -8932,11 +8922,17 @@ INI_FUNC(initq0s_)
   const double s = r0 + halfdx;
 
   if (x > s && y < s) val = -.5;
-  val = val * initphisharp_(x,
+
+  val = val * initphi_(x,
 			    y,
 			    z,
-			    eqn_id); 
-  if ( val*val < .5*.5) val = 1.;
+		       eqn_id);
+//   val = (val - 1.) * initphi_(x,
+// 			    y,
+// 			    z,
+// 			    eqn_id)
+//     + 1.; 
+
   return val;
 }
 
@@ -8960,7 +8956,7 @@ INI_FUNC(initq1s_)
   const double s = r0 + halfdx;
 
   if (x > s && y > s) val = -.5;
-  val = val * initphisharp_(x,
+  val = val * initphi_(x,
 			    y,
 			    z,
 			    eqn_id); 
@@ -8972,10 +8968,11 @@ INI_FUNC(initq1s_)
 INI_FUNC(initq2_)
 {
   double val = .5;
-  val = val * initphisharp_(x,
+  const double alpha = 1./sqrt(2.);
+  val = (val - alpha) * initphi_(x,
 			    y,
 			    z,
-			    eqn_id); 
+			    eqn_id) + alpha; 
   return val;
 }
 
@@ -9134,6 +9131,22 @@ PPR_FUNC(postproc_rgb_b_)
 {
   return (1.-u[4])*bgcolor[2]+u[4]*u[3];
 }
+
+PPR_FUNC(postproc_mq_)
+{
+  const double phi = u[0];
+  const double m = 1.-h(phi);
+  return (m*(Mq-1e-6)+1e-6)*epq*epq;
+}
+
+PPR_FUNC(postproc_md_)
+{
+  const double phi = u[0];
+  const double m = 1.-h(phi);
+  //return (m*(Mq-1e-6)+1e-6)*2.*T*H*p(phi);
+  return 2.*T*H*p(phi);
+}
+
 
 //other code suggests:
 // // converts vec3 color to vec4 quaternion

@@ -2864,8 +2864,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*preconfunc_)[4] = &tpetra::quaternion::precon_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    //(*initfunc_)[0] = &tpetra::quaternion::initphi_;
-    (*initfunc_)[0] = &tpetra::quaternion::initphisharp_;
+    (*initfunc_)[0] = &tpetra::quaternion::initphi_;
+    //(*initfunc_)[0] = &tpetra::quaternion::initphisharp_;
     (*initfunc_)[1] = &tpetra::quaternion::initq0s_;
     (*initfunc_)[2] = &tpetra::quaternion::initq1s_;
     (*initfunc_)[3] = &tpetra::quaternion::initq2_;
@@ -2890,20 +2890,16 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[0].postprocfunc_ = &tpetra::quaternion::postproc_normq_;
     post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
     post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc_qdotqt_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)2));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::NONE, false, (int)0, "rgb"));
     post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc_rgb_r_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)3));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)3, post_process::NONE, false, (int)0, "rgb"));
     post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_rgb_g_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)4));
+    post_proc.push_back(new post_process(Comm,mesh_,(int)4, post_process::NONE, false, (int)0, "rgb"));
     post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_rgb_b_;
-#if 0
-    post_proc.push_back(new post_process(Comm,mesh_,(int)5));
-    post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_ea0_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)6));
-    post_proc[6].postprocfunc_ = &tpetra::quaternion::postproc_ea1_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)7));
-    post_proc[7].postprocfunc_ = &tpetra::quaternion::postproc_ea2_;
-#endif
+    post_proc.push_back(new post_process(Comm,mesh_,(int)5, post_process::NONE, false, (int)0, "mq"));
+    post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_mq_;
+    post_proc.push_back(new post_process(Comm,mesh_,(int)6, post_process::NONE, false, (int)0, "dq"));
+    post_proc[6].postprocfunc_ = &tpetra::quaternion::postproc_md_;
 
     //#if 0
     localprojectionindices_.push_back(1);

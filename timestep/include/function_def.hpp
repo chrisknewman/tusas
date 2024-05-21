@@ -6097,7 +6097,9 @@ namespace farzadi3d
   double c_inf = 3.;				//1.
   
   TUSAS_DEVICE
-  double G = 3.e5; //k/m, temperature gradient
+  double G_solid_ = 3.e5; //k/m, temperature gradient in solid
+  TUSAS_DEVICE
+  double G_liquid_ = 3.e5; //k/m, temperature gradient in liquid
   TUSAS_DEVICE	      
   double R = 0.003;	//m/s, speed
 //   TUSAS_DEVICE										
@@ -6193,12 +6195,22 @@ PARAM_FUNC(param_)
 #else
   c_inf = c_inf_p;
 #endif
+
   double G_p = plist->get<double>("G", 3.e5);
 #ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(G,&G_p,sizeof(double));
+  cudaMemcpyToSymbol(G_solid_,&G_p,sizeof(double));
 #else
-  G = G_p;
+  G_solid_ = G_p;
 #endif
+
+  double Gl_p = plist->get<double>("Gl", G_solid_);//we default this to G_solid_
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(G_liquid_,&Gl_p,sizeof(double));
+#else
+  G_liquid_ = Gl_p;
+#endif
+
+
   double R_p = plist->get<double>("R", 0.003);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(R,&R_p,sizeof(double));
@@ -6462,6 +6474,11 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_phase_farzadi_dp_)) = residual_phase_farzadi_;
 
+TUSAS_DEVICE
+const double gradT(const double &phi){
+  return .5*(G_solid_ + G_liquid_ - G_solid_*phi + G_solid_*phi);
+}
+
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
 {
@@ -6490,9 +6507,9 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
   //cn this should probablly be: (time+dt_)*tau
   const double tt[3] = {(time+dt_)*tau0,time*tau0,(time-dtold_)*tau0};//dimensional time
 
-  const double g4[3] = {((dT < 0.001) ? G*(xx-R*tt[0])/delta_T0 : dT),
-			     ((dT < 0.001) ? G*(xx-R*tt[1])/delta_T0 : dT),
-			     ((dT < 0.001) ? G*(xx-R*tt[2])/delta_T0 : dT)};
+  const double g4[3] = {((dT < 0.001) ? gradT(phi[0])*(xx-R*tt[0])/delta_T0 : dT),
+			     ((dT < 0.001) ? gradT(phi[1])*(xx-R*tt[1])/delta_T0 : dT),
+			     ((dT < 0.001) ? gradT(phi[2])*(xx-R*tt[2])/delta_T0 : dT)};
   
   const double hp1g4[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(g4[0])*test,
 			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(g4[1])*test,
@@ -6762,12 +6779,13 @@ PPR_FUNC(postproc_c_)
 PPR_FUNC(postproc_t_)
 {
   // return the physical temperature in K here
-  double x = xyz[0];
+  const double x = xyz[0];
+  const double phi = u[1];
 
-  double xx = x*w0;
-  double tt = time*tau0;
+  const double xx = x*w0;
+  const double tt = time*tau0;
   //return ((dT < 0.001) ? 877.3 + (xx-R*tt)/l_T0*delta_T0 : 877.3);
-  return ((dT < 0.001) ? T_ref + G*(xx-R*tt) : T_ref);
+  return ((dT < 0.001) ? T_ref + gradT(phi)*(xx-R*tt) : T_ref);
 }
 }//namespace farzadi3d
 

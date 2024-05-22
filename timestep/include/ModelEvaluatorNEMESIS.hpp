@@ -225,7 +225,8 @@ private: // data members
   typedef double (*INITFUNC)(const double &x,
 			     const double &y,
 			     const double &z,
-			     const int &eqn_id);
+			     const int &eqn_id,
+			     const int &lid);
 
   std::vector<INITFUNC> *initfunc_;
 

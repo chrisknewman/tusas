@@ -82,7 +82,8 @@
 #define INI_FUNC(NAME)  double NAME(const double &x,\
 			            const double &y,\
 			            const double &z,\
-				    const int &eqn_id) 
+				    const int &eqn_id,\
+				    const int &lid) 
 
 
 /** Definition for Dirichlet function. Each Dirichlet function is called at each node for each equation with this signature:
@@ -5414,12 +5415,12 @@ PRE_FUNC(prec_c_beta_)
 
 INI_FUNC(init_c_alpha_)
 {
-   double c = init_c_(x,y,z,0);
+  double c = init_c_(x,y,z,0,lid);
 
   double eta_array[N_];
   for( int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
-    eta_array[kk] = init_eta_(x,y,z,kk_off);
+    eta_array[kk] = init_eta_(x,y,z,kk_off,lid);
   }
 
   return c-h(eta_array)*(c_beta_ - c_alpha_);
@@ -5427,12 +5428,12 @@ INI_FUNC(init_c_alpha_)
 
 INI_FUNC(init_c_beta_)
 {
-  double c = init_c_(x,y,z,0);
+  double c = init_c_(x,y,z,0,lid);
 
   double eta_array[N_];
   for( int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
-    eta_array[kk] = init_eta_(x,y,z,kk_off);
+    eta_array[kk] = init_eta_(x,y,z,kk_off,lid);
   }
 
   return c+(1-h(eta_array))*(c_beta_ - c_alpha_);
@@ -7698,14 +7699,14 @@ PPR_FUNC(postproc_c_b_)
 INI_FUNC(init_mu_)
 {
   //this will need the eta_array version
-  const double c = ::pfhub2::init_c_(x,y,z,eqn_id);
-  const double eta = ::pfhub2::init_eta_(x,y,z,2);
+  const double c = ::pfhub2::init_c_(x,y,z,eqn_id,lid);
+  const double eta = ::pfhub2::init_eta_(x,y,z,2,lid);
   return dfdc(c,&eta);
 //   return 0.;
 }
 INI_FUNC(init_eta_)
 {
-  return ::pfhub2::init_eta_(x,y,z,eqn_id-1);
+  return ::pfhub2::init_eta_(x,y,z,eqn_id-1,lid);
 }
 
 }//namespace pfhub2
@@ -8579,12 +8580,18 @@ namespace quaternion
   //[2] LLNL-JRNL-636233 Phase-field modeling of coring during solidification of Au-Ni alloy using quaternions and CALPHAD input
   //J. L. Fattebert, M. E. Wickett, P. E. A. Turchi May 7, 2013
 
-  const double beta = 1.e-16;
-  const double ff = 1.e-0;
+  //cn open question on how to choose beta, needs study
+  const double beta = 1.e-90;
+  const double ff = 0.e-0;
   const double cc = 1.;
 
-  const double r0 = .064;
+  //cn seems it is critical that initial q boundaries are ahead of the front given by 2 H T p'(phi)/grad q
+  //this term, in conjunction with beta is used to keep the q evolution flat as discussed in refs
+  //right now we put the grain boundary at .064 and phi at .064 - sqrt(2)*dx
   const double halfdx = .001;
+  const double dx = .002;
+  double r0 = .064 - sqrt(2.)*dx;
+  //double r0 = .064 - 2.*dx;
 
   //const double Mq = 1.;//1/sec/pJ
   const double Mq = 3.;//1/sec/pJ
@@ -8593,8 +8600,8 @@ namespace quaternion
   //const double Mmin= 1.e-6;
   const double Dmax = 1000.;
   //const double Dmin = 1.e-6;
-  const double epq = .0477;//(pJ/um)^1/2
-  //const double epq = .0;//(pJ/um)^1/2
+  //const double epq = .0477;//(pJ/um)^1/2
+  const double epq = .0;//(pJ/um)^1/2
   const double epphi = .083852;//(pJ/um)^1/2
   //                          const double L = 2.e9;//J/m^3   =======>
   const double L = 2000.;//pJ/um^3
@@ -8847,7 +8854,6 @@ RES_FUNC_TPETRA(residual_phi_)
     normgradq[2] = normgradq[2] + basis[k]->duoldolddx*basis[k]->duoldolddx + basis[k]->duoldolddy*basis[k]->duoldolddy + basis[k]->duoldolddz*basis[k]->duoldolddz;
   }
   double b2 = 0.*beta;
-  b2 = beta;
   normgradq[0] = sqrt(b2 + normgradq[0]);
   normgradq[1] = sqrt(b2 + normgradq[1]);
   normgradq[2] = sqrt(b2 + normgradq[2]);
@@ -8921,6 +8927,57 @@ INI_FUNC(initphisharp_)
   return val;
 }
 
+const double qr[50][4]=  {{  -0.576287725136916,   0.333505408602186,  -0.361632934649101,   0.652601119265578},
+			  {  -0.343986940785772,   0.682277345495660,  -0.573018177692459,  -0.296345704248021},
+			  {  -0.232647440127303,   0.937205535917663,  -0.031637110694253,   0.257914802356164},
+			  {   0.018242774740360,   0.178106722707921,  -0.372611279703857,  -0.910552596357547},
+			  {  -0.517542850695652,  -0.395916678894981,   0.563925275224169,   0.507333879245149},
+			  {  -0.356107794974079,  -0.389917100062351,   0.630199242877875,   0.569210688334135},
+			  {   0.409223435595249,   0.525455340662819,  -0.608126788477899,   0.431989205726369},
+			  {  -0.630453117516449,  -0.631184470746428,   0.318531939032296,  -0.320425395870346},
+			  {   0.864255096566982,  -0.020351386737651,  -0.465285732524850,   0.190152928519825},
+			  {   0.365432754153649,  -0.526852095410034,  -0.122425598464415,  -0.757560390064294},
+			  {  -0.023391493919690,   0.982971622791350,   0.098302986525391,  -0.153480127832022},
+			  {   0.147741536299811,   0.400175531209581,   0.832990657776059,  -0.352361386548965},
+			  {  -0.602112968970399,   0.001080903203019,  -0.188520159958563,  -0.775834359599467},
+			  {  -0.070671422382090,  -0.049651701376410,   0.829575523143495,  -0.551674460175670},
+			  {   0.687470613929105,  -0.653760699701202,  -0.294746850163215,  -0.114478805151857},
+			  {   0.095463229772612,   0.371143231339357,   0.410153657689132,  -0.827594979852216},
+			  {   0.042511119781260,  -0.920321746623667,   0.334562237442024,   0.198163560384581},
+			  {  -0.528344360485014,  -0.843590300373634,   0.077018684138540,  -0.057234291755664},
+			  {  -0.039692982495951,   0.077402900076849,   0.708270363097808,   0.700561454090623},
+			  {   0.250279759012911,  -0.813559892230614,   0.335954670425274,   0.403255258368191},
+			  {   0.353980275179600,   0.628676543465058,  -0.636025446497738,   0.273743310215892},
+			  {  -0.152788863914545,   0.464351434025763,  -0.543957262514449,  -0.682014519889208},
+			  {  -0.187087542711502,   0.313930481394199,   0.704355492269799,  -0.608546830345165},
+			  {   0.689128595718498,  -0.494460316926392,  -0.464443106989173,  -0.254761405865069},
+			  {  -0.682625906147194,   0.235690765317176,  -0.690213312597345,   0.045577609791715},
+			  {   0.917329187803420,   0.044286345561380,   0.145755501351447,   0.367833134215127},
+			  {   0.557850641655030,   0.638416569840060,   0.515439781907479,  -0.124694731989341},
+			  {   0.603412787722204,   0.303539051185344,   0.344659352608143,   0.651894916898847},
+			  {  -0.638702974525255,   0.478016200385605,  -0.492716777886467,   0.347547405817794},
+			  {  -0.437944726422717,  -0.084971025937098,  -0.241076692463062,   0.861896960025268},
+			  {  -0.890255128091356,  -0.365571278185609,  -0.212361908912582,   0.169428058820809},
+			  {   0.283933477549684,   0.513929394485025,   0.760889651782191,  -0.276234131891003},
+			  {  -0.477568098812240,  -0.547319427022375,  -0.451482872991269,  -0.518202056341261},
+			  {   0.389733113033568,  -0.646237045904149,   0.626319109355931,   0.195474178248271},
+			  {  -0.655398087317474,  -0.544353299842224,   0.241274666195507,   0.464671246736578},
+			  {   0.645697924708023,  -0.458002399972834,  -0.519589975656267,  -0.321456449374400},
+			  {  -0.009541949679743,   0.542735057151925,  -0.506206397811392,  -0.670151245428538},
+			  {   0.582391235211232,   0.633132670526536,  -0.149738649013156,  -0.487382609099655},
+			  {   0.358542858356779,  -0.732849985326541,  -0.029975582224899,  -0.577476737365686},
+			  {   0.668212350540457,  -0.166742069822322,  -0.627939298650339,  -0.362465962466941},
+			  {   0.961964726495685,   0.066134849382783,   0.220256040724483,  -0.147435827394747},
+			  {  -0.499712621263083,  -0.250706230771231,  -0.825072304715864,   0.081788593298288},
+			  {   0.706077234730690,   0.557270543778255,  -0.409909524385984,  -0.151256938517897},
+			  {  -0.597855494383301,   0.253183533691461,   0.164180933948266,   0.742638220825645},
+			  {  -0.822741088328489,  -0.364554146085352,  -0.434967223033053,   0.031636861964273},
+			  {   0.441977920540021,  -0.123768371147922,  -0.379477128367265,   0.803326843261598},
+			  {   0.000043384544043,  -0.936920756221932,   0.226423044168647,   0.266293258922767},
+			  {  -0.028414345444403,   0.685050830453213,  -0.332176322165211,   0.647732101768257},
+			  {   0.605325332554190,  -0.497801637772663,   0.485155380746398,  -0.387813135068723},
+			  {   0.167327436725344,  -0.599734410519205,   0.735098691333444,   0.268235120291818}};
+
 //q0 is -.5 lower right
 INI_FUNC(initq0_)
 {
@@ -8935,6 +8992,7 @@ INI_FUNC(initq0_)
 
 INI_FUNC(initq0s_)
 {
+  r0 = .064;
   double val = .5;
 
   const double s = r0 + halfdx;
@@ -8944,12 +9002,8 @@ INI_FUNC(initq0s_)
   val = val * initphi_(x,
 			    y,
 			    z,
-		       eqn_id);
-//   val = (val - 1.) * initphi_(x,
-// 			    y,
-// 			    z,
-// 			    eqn_id)
-//     + 1.; 
+		       eqn_id,
+		       lid);
 
   return val;
 }
@@ -8977,7 +9031,8 @@ INI_FUNC(initq1s_)
   val = val * initphi_(x,
 			    y,
 			    z,
-			    eqn_id); 
+		       eqn_id,
+		       lid); 
   return val;
 
 }
@@ -8990,7 +9045,8 @@ INI_FUNC(initq2_)
   val = (val - alpha) * initphi_(x,
 			    y,
 			    z,
-			    eqn_id) + alpha; 
+				 eqn_id,
+				 lid) + alpha; 
   return val;
 }
 
@@ -8999,7 +9055,8 @@ INI_FUNC(initq3_)
   return initq2_(x,
 		 y,
 		 z,
-		 eqn_id); 
+		 eqn_id,
+		 lid); 
 }
 
 INI_FUNC(init_)

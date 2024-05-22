@@ -1886,10 +1886,10 @@ void ModelEvaluatorNEMESIS<Scalar>::init(Teuchos::RCP<Epetra_Vector> u)
 	(*u)[numeqs_*nn+k] = val;
       }
       else{
-	(*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+	(*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,lid_overlap);
       }
 #else
-      (*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+      (*u)[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,lid_overlap);
 #endif
     }
   }

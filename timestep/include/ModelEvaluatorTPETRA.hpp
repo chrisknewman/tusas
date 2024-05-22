@@ -257,7 +257,8 @@ private:
   typedef double (*INITFUNC)(const double &x,
 			     const double &y,
 			     const double &z,
-			     const int &eqn_id);
+			     const int &eqn_id,
+			     const int &lid);
 
   typedef double (*NBCFUNC)(const GPUBasis *basis,
 			    const int &i, 

@@ -1877,7 +1877,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
       const double y = mesh_->get_y(lid_overlap);
       const double z = mesh_->get_z(lid_overlap);
 #ifdef TUSAS_RUN_ON_CPU
-      u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k);
+      u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,(int)lid_overlap);
 #else
       u_1d[numeqs_*nn+k] = tusastpetra::init_heat_test_(x,y,z,k);
 #endif

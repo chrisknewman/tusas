@@ -1858,6 +1858,8 @@ template<class scalar_type>
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 {
+  auto comm_ = Teuchos::DefaultComm<int>::getComm();
+  const int mypid = comm_->getRank();
   //ArrayRCP<scalar_type> uv = u->get1dViewNonConst();
 
   //on host only now
@@ -1876,11 +1878,9 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
       const double x = mesh_->get_x(lid_overlap);
       const double y = mesh_->get_y(lid_overlap);
       const double z = mesh_->get_z(lid_overlap);
-#ifdef TUSAS_RUN_ON_CPU
-      u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,(int)lid_overlap);
-#else
-      u_1d[numeqs_*nn+k] = tusastpetra::init_heat_test_(x,y,z,k);
-#endif
+      //u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,(int)lid_overlap);
+      //cn quaternion hack, as an alternative we could send lid and mypid
+      u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,(int)(lid_overlap)*(mypid+1));
     }
 			 );//parallel_for
 
@@ -1888,8 +1888,6 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 
   if(localprojectionindices_.size() > 0 ){
     
-    auto comm_ = Teuchos::DefaultComm<int>::getComm();
-    const int mypid = comm_->getRank();
     if( 0 == mypid)std::cout<<" Performing local projection "<<std::endl;
     
     

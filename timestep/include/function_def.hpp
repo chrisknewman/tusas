@@ -8582,7 +8582,7 @@ namespace quaternion
 
   //cn open question on how to choose beta, needs study
   const double beta = 1.e-90;
-  const double ff = 0.e-0;
+  const double ff = 1.e-0;
   const double cc = 1.;
 
   //cn seems it is critical that initial q boundaries are ahead of the front given by 2 H T p'(phi)/grad q
@@ -8590,8 +8590,8 @@ namespace quaternion
   //right now we put the grain boundary at .064 and phi at .064 - sqrt(2)*dx
   const double halfdx = .001;
   const double dx = .002;
-  double r0 = .064 - sqrt(2.)*dx;
-  //double r0 = .064 - 2.*dx;
+  //double r0 = .064 - sqrt(2.)*dx;
+  double r0 = .064 - 2.*sqrt(2.)*dx;
 
   //const double Mq = 1.;//1/sec/pJ
   const double Mq = 3.;//1/sec/pJ
@@ -8600,8 +8600,8 @@ namespace quaternion
   //const double Mmin= 1.e-6;
   const double Dmax = 1000.;
   //const double Dmin = 1.e-6;
-  //const double epq = .0477;//(pJ/um)^1/2
-  const double epq = .0;//(pJ/um)^1/2
+  const double epq = .0477;//(pJ/um)^1/2
+  //const double epq = .0;//(pJ/um)^1/2
   const double epphi = .083852;//(pJ/um)^1/2
   //                          const double L = 2.e9;//J/m^3   =======>
   const double L = 2000.;//pJ/um^3
@@ -8927,6 +8927,7 @@ INI_FUNC(initphisharp_)
   return val;
 }
 
+const int nqr = 50;
 const double qr[50][4]=  {{  -0.576287725136916,   0.333505408602186,  -0.361632934649101,   0.652601119265578},
 			  {  -0.343986940785772,   0.682277345495660,  -0.573018177692459,  -0.296345704248021},
 			  {  -0.232647440127303,   0.937205535917663,  -0.031637110694253,   0.257914802356164},
@@ -8990,6 +8991,8 @@ INI_FUNC(initq0_)
   return val;
 }
 
+const double s = 1.e-4;
+
 INI_FUNC(initq0s_)
 {
   r0 = .064;
@@ -9004,6 +9007,14 @@ INI_FUNC(initq0s_)
 			    z,
 		       eqn_id,
 		       lid);
+  //cn we could further perturb here by adding a multiple of proc_id to lid in these functions if needed...
+  //as a hack, we could do (pid+1)*lid in the calling code...
+
+  //it actually seems like we do a normalization of the initial condition, so we can probably just put a random number in here for now
+  //for reproducibility we can leave it for now
+  //however, if we do not run with local projection on and the qs are not normalized, we will have issues
+
+  if (val*val < s*s ) val = qr[lid%nqr][eqn_id-qid];
 
   return val;
 }
@@ -9033,6 +9044,8 @@ INI_FUNC(initq1s_)
 			    z,
 		       eqn_id,
 		       lid); 
+  if (val*val < s*s ) val = qr[(lid)%nqr][eqn_id-qid];
+
   return val;
 
 }
@@ -9047,6 +9060,8 @@ INI_FUNC(initq2_)
 			    z,
 				 eqn_id,
 				 lid) + alpha; 
+
+  if ((val-alpha)*(val-alpha) < s*s ) val = qr[(lid)%nqr][eqn_id-qid];
   return val;
 }
 

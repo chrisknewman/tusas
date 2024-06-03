@@ -1878,9 +1878,9 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
       const double x = mesh_->get_x(lid_overlap);
       const double y = mesh_->get_y(lid_overlap);
       const double z = mesh_->get_z(lid_overlap);
-      //u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,(int)lid_overlap);
+      u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,(int)lid_overlap);
       //cn quaternion hack, as an alternative we could send lid and mypid
-      u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,(int)(lid_overlap)*(mypid+1));
+      //u_1d[numeqs_*nn+k] = (*initfunc_)[k](x,y,z,k,(int)(lid_overlap)*(mypid+1));
     }
 			 );//parallel_for
 

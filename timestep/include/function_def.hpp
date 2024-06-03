@@ -8581,8 +8581,8 @@ namespace quaternion
   //J. L. Fattebert, M. E. Wickett, P. E. A. Turchi May 7, 2013
 
   //cn open question on how to choose beta, needs study
-  const double beta = 1.e-90;
-  const double ff = 1.e-0;
+  const double beta = 1.e-32;
+  const double ff = 1.;
   const double cc = 1.;
 
   //cn seems it is critical that initial q boundaries are ahead of the front given by 2 H T p'(phi)/grad q
@@ -8591,7 +8591,7 @@ namespace quaternion
   const double halfdx = .001;
   const double dx = .002;
   //double r0 = .064 - sqrt(2.)*dx;
-  double r0 = .064 - 2.*sqrt(2.)*dx;
+  double r0 = .064 - 1.*sqrt(2.)*dx;
 
   //const double Mq = 1.;//1/sec/pJ
   const double Mq = 3.;//1/sec/pJ
@@ -8991,8 +8991,8 @@ INI_FUNC(initq0_)
   return val;
 }
 
-const double s = 1.e-4;
-
+const double s = 1.e-5;
+  //could there be threading issues with r0?
 INI_FUNC(initq0s_)
 {
   r0 = .064;
@@ -9001,7 +9001,7 @@ INI_FUNC(initq0s_)
   const double s = r0 + halfdx;
 
   if (x > s && y < s) val = -.5;
-
+#if 0
   val = val * initphi_(x,
 			    y,
 			    z,
@@ -9015,7 +9015,7 @@ INI_FUNC(initq0s_)
   //however, if we do not run with local projection on and the qs are not normalized, we will have issues
 
   if (val*val < s*s ) val = qr[lid%nqr][eqn_id-qid];
-
+#endif
   return val;
 }
 
@@ -9039,13 +9039,14 @@ INI_FUNC(initq1s_)
   const double s = r0 + halfdx;
 
   if (x > s && y > s) val = -.5;
+#if 0
   val = val * initphi_(x,
 			    y,
 			    z,
 		       eqn_id,
 		       lid); 
   if (val*val < s*s ) val = qr[(lid)%nqr][eqn_id-qid];
-
+#endif
   return val;
 
 }
@@ -9054,6 +9055,7 @@ INI_FUNC(initq1s_)
 INI_FUNC(initq2_)
 {
   double val = .5;
+#if 0
   const double alpha = 1./sqrt(2.);
   val = (val - alpha) * initphi_(x,
 			    y,
@@ -9062,6 +9064,7 @@ INI_FUNC(initq2_)
 				 lid) + alpha; 
 
   if ((val-alpha)*(val-alpha) < s*s ) val = qr[(lid)%nqr][eqn_id-qid];
+#endif
   return val;
 }
 
@@ -9205,21 +9208,30 @@ PPR_FUNC(postproc_ea2_)
 //  Target.B = ((1 - Source.A) * BGColor.B) + (Source.A * Source.B)
 //
 //note that in our example problem, q0 and q1 can have values in [-.5 .5]
-//but paraview does not seem to care about negative values
+//we should probably normalize these anyway, with the convention that q_i \in [-1 1]
+//and should be normalized to [0 1] via q->(q+1)/2
+//https://stackoverflow.com/questions/2049230/convert-rgba-color-to-rgb
+
 
 const double bgcolor[3] = {1.,1.,1.};
 
 PPR_FUNC(postproc_rgb_r_)
 {
-  return (1.-u[4])*bgcolor[0]+u[4]*u[1];
+  const double u4 = (u[qid+3]+1.)/2.;
+  const double u1 = (u[qid]+1.)/2.;
+  return (1.-u4)*bgcolor[0]+u4*u1;
 }
 PPR_FUNC(postproc_rgb_g_)
 {
-  return (1.-u[4])*bgcolor[1]+u[4]*u[2];
+  const double u4 = (u[qid+3]+1.)/2.;
+  const double u2 = (u[qid+1]+1.)/2.;
+  return (1.-u4)*bgcolor[1]+u4*u2;
 }
 PPR_FUNC(postproc_rgb_b_)
 {
-  return (1.-u[4])*bgcolor[2]+u[4]*u[3];
+  const double u4 = (u[qid+3]+1.)/2.;
+  const double u3 = (u[qid+2]+1.)/2.;
+  return (1.-u4)*bgcolor[2]+u4*u3;
 }
 
 PPR_FUNC(postproc_mq_)

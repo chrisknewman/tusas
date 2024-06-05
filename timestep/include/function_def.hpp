@@ -1303,6 +1303,7 @@ double z0_d = 0.0005;
 double z0_h = 0.0005;
 TUSAS_DEVICE
 double t_hold_d = 0.005;
+
 double t_hold_h = 0.005;
 TUSAS_DEVICE
 double t_decay_d = 0.01;
@@ -1405,7 +1406,7 @@ const double qdot(const double &x, const double &y, const double &z, const doubl
   return coef*f;
 }
 
-KOKKOS_INLINE_FUNCTION 
+//KOKKOS_INLINE_FUNCTION 
 const double power_h(const double t)
 {
   // t is nondimensional
@@ -1419,7 +1420,7 @@ const double power_h(const double t)
      :0.);
 }
 
-KOKKOS_INLINE_FUNCTION 
+//KOKKOS_INLINE_FUNCTION 
 const double qdot_h(const double &x, const double &y, const double &z, const double &t)
 {
   // x, y, z, and t are nondimensional values

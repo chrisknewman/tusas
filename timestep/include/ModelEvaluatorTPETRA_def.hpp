@@ -1861,7 +1861,7 @@ template<class scalar_type>
   void ModelEvaluatorTPETRA<scalar_type>::initialize()
 {
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
-  if( 0 == comm_->getRank()) std::cout<<std::endl<<"inititialize started"<<std::endl<<std::endl;
+  if( 0 == comm_->getRank()) std::cout<<std::endl<<"initialize started"<<std::endl<<std::endl;
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   if (!dorestart){ 
     init(u_old_); 
@@ -1884,8 +1884,8 @@ template<class scalar_type>
       initialsolve();
     }//if
 
-    int mypid = comm_->getRank();
-    int numproc = comm_->getSize();
+    const int mypid = comm_->getRank();
+    const int numproc = comm_->getSize();
     
     if( 1 == numproc ){//cn for now
       //if( 0 == mypid ){
@@ -1918,7 +1918,9 @@ template<class scalar_type>
     write_exodus();
   }//if !dorestart
   else{
+    
     restart(u_old_);//,u_old_old_);
+    
 //     if(1==comm_->MyPID())
 //       std::cout<<"Restart unavailable"<<std::endl<<std::endl;
 //     exit(0);
@@ -1929,6 +1931,7 @@ template<class scalar_type>
    
   if( 0 == comm_->getRank()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
 }
+
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 {
@@ -2937,21 +2940,22 @@ template<class scalar_type>
 
   Teuchos::RCP< vector_type> u_temp = Teuchos::rcp(new vector_type(x_overlap_map_));
   //Teuchos::RCP< Epetra_Vector> u_old_temp = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
-
-  auto u_view = u_temp->getLocalViewHost(Tpetra::Access::ReadWrite);
-  auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
-
-  for( int k = 0; k < numeqs_; k++ ){
-    for (int nn=0; nn < num_overlap_nodes_; nn++) {
-      u_1d[numeqs_*nn+k] = inputu[k][nn];
-      //(*u_old_temp)[numeqs_*nn+k] = inputu[k][nn];
-      //std::cout<<u_1d[numeqs_*nn+k]<<"   "<<inputu[k][nn]<<"  "<<k<<"  "<<nn<<std::endl;
+  {//scope
+    auto u_view = u_temp->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
+    
+    for( int k = 0; k < numeqs_; k++ ){
+      for (int nn=0; nn < num_overlap_nodes_; nn++) {
+	u_1d[numeqs_*nn+k] = inputu[k][nn];
+	//(*u_old_temp)[numeqs_*nn+k] = inputu[k][nn];
+	//std::cout<<u_1d[numeqs_*nn+k]<<"   "<<inputu[k][nn]<<"  "<<k<<"  "<<nn<<std::endl;
+      }
     }
-  }
-
+  }//scope
   Kokkos::fence();
-
+  
   u->doExport(*u_temp,*exporter_, Tpetra::INSERT);
+  Kokkos::fence();
   //u_old->doExport(*u_temp,*exporter_, Tpetra::INSERT);
 
   step = step - 1;

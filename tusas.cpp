@@ -86,6 +86,12 @@ int main(int argc, char *argv[])
   Epetra_SerialComm Comm;
 #endif
   
+  if( 0 == Comm.MyPID() ){
+    std::cout<<"*****************************************************************************"<<std::endl;
+    std::cout<<"               SUMMIT BRANCH IS DEPRECATED"<<std::endl;
+    std::cout<<"*****************************************************************************"<<std::endl;
+  }
+  exit(0);
   int mypid;
   int numproc;
     

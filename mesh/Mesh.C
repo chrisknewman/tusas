@@ -1431,7 +1431,9 @@ int Mesh::create_exodus(const char * filename, const bool use64output){
   //currently 8.07 version exdus. i would rather not hack it like this
 
 // #if EXODUS_VERSION_MAJOR < 8
-    //ex_id = 
+#ifdef TUSAS_ROCINANTE
+  ex_id = 
+#endif
     ex_open(filename,
 			  EX_WRITE,
 			  &comp_ws,

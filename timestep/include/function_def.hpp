@@ -8590,8 +8590,8 @@ namespace quaternion
   //right now we put the grain boundary at .064 and phi at .064 - sqrt(2)*dx
   const double halfdx = .001;
   const double dx = .002;
-  //double r0 = .064 - sqrt(2.)*dx;
-  double r0 = .064 - 1.*sqrt(2.)*dx;
+  //double r0 = .064 - 1.*sqrt(2.)*dx;
+  double r0 = .064 + 0.*sqrt(2.)*dx;
 
   //const double Mq = 1.;//1/sec/pJ
   const double Mq = 3.;//1/sec/pJ
@@ -8608,7 +8608,7 @@ namespace quaternion
   const double omega = 31.25;//pJ/um^3
   //const double H = .884e-3;//pJ/K/um^2
   double H = .884e-3;//pJ/K/um^2
-  //const double T = 1000.;//K
+  //const double T = 975.;//K
   const double T = 925.;//K
   const double Tm = 1025.;//K
 

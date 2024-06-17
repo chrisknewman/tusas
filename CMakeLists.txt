@@ -1,6 +1,12 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.23.0)
 
-SET(Trilinos_DIR ${TRILINOS_DIR}lib/cmake/Trilinos)
+if (EXISTS ${TRILINOS_DIR}/lib/cmake/Trilinos)
+    SET(Trilinos_DIR ${TRILINOS_DIR}/lib/cmake/Trilinos)
+elseif (EXISTS ${TRILINOS_DIR}/lib64/cmake/Trilinos)
+    SET(Trilinos_DIR ${TRILINOS_DIR}/lib64/cmake/Trilinos)
+else()
+    message(SEND_ERROR "Could not find Trilinos cmake library")
+endif()
 
 PROJECT( TUSAS NONE)
 

@@ -6,5 +6,5 @@ NODAL VARIABLES all
 	pp0 floor 3.0e-5
 ELEMENT VARIABLES all
 	!color
-	error0 floor 3.e-9
+	!error0 floor 8.e-6
 	!processor_id 

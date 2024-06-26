@@ -6131,7 +6131,10 @@ namespace farzadi3d
 
   TUSAS_DEVICE
   double D_solid_ = 0.;      //m^2/s
-  
+
+  TUSAS_DEVICE
+  double at_coef_ = 1;
+
   TUSAS_DEVICE
   double dT = 0.0;
 
@@ -6313,6 +6316,13 @@ z0 = z0_p;
   D_solid_ = D_solid__p;
 #endif
 
+double at_coef_p = plist->get<double>("at_coef", 1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(at_coef_,&at_coef_p,sizeof(double));
+#else
+  at_coef_ = at_coef_p;
+#endif
+
 
 t_activate_farzadi = plist->get<double>("t_activate_farzadi", 0.0);
 
@@ -6381,9 +6391,9 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   const double j_coef[3] = {(1.+(1.-k)*u[0])/sqrt(8.)*normd[0]*phit,
 			    (1.+(1.-k)*u[1])/sqrt(8.)*normd[1]*phit,
 			    (1.+(1.-k)*u[2])/sqrt(8.)*normd[2]*phit};
-  const double divj[3] = {j_coef[0]*(dphidx[0]*dtestdx + dphidy[0]*dtestdy + dphidz[0]*dtestdz),
-			  j_coef[1]*(dphidx[1]*dtestdx + dphidy[1]*dtestdy + dphidz[1]*dtestdz),
-			  j_coef[2]*(dphidx[2]*dtestdx + dphidy[2]*dtestdy + dphidz[2]*dtestdz)};
+  const double divj[3] = {at_coef_*j_coef[0]*(dphidx[0]*dtestdx + dphidy[0]*dtestdy + dphidz[0]*dtestdz),
+			  at_coef_*j_coef[1]*(dphidx[1]*dtestdx + dphidy[1]*dtestdy + dphidz[1]*dtestdz),
+			  at_coef_*j_coef[2]*(dphidx[2]*dtestdx + dphidy[2]*dtestdy + dphidz[2]*dtestdz)};
 
   double phitu[3] = {-.5*phit*(1.+(1.-k)*u[0])*test,
 		     -.5*phit*(1.+(1.-k)*u[1])*test,

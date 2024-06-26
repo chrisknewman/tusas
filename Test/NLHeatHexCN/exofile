@@ -4,6 +4,7 @@ NODAL VARIABLES all
 	grad0z absolute 3.e-8 floor 3.e-8
 	u absolute 7.e-6 floor 1.e-17
 	pp0 absolute 1.e-6 floor 1.e-17
-ELEMENT VARIABLES
-	color
-	error0 floor 3.e-9
+ELEMENT VARIABLES all
+	!color
+	error0 floor 3.e-7
+	!processor_id

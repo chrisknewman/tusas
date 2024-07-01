@@ -2,11 +2,11 @@
 rm -rf results.e
 rm -rf decomp
 cp -r decomp_gold decomp
-mpirun -np 4 $1/tusas --input-file=tusas.xml --writedecomp
-mpirun -np 4 $1/tusas --input-file=tusas.xml --restart --skipdecomp
-bash epuscript
+$2 -n 4 $1/tusas --input-file=tusas.xml --writedecomp
+$2 -n 4 $1/tusas --input-file=tusas.xml --restart --skipdecomp
+$2 -n 1 bash epuscript
 ###if [[ $OSTYPE == "darwin15" ]]; then
-$1/exodiff -f exofile Gold.e results.e
+$2 -n 1 $1/exodiff -f exofile Gold.e results.e
 ###else
 ###    ../exodiff Gold.e results.e
 ###fi

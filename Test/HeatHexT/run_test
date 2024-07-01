@@ -4,8 +4,8 @@ rm -rf decomp
 rm -rf decompscript
 rm -rf epuscript
 rm -rf nem_spread.inp
-mpirun -np 2 $1/tusas --input-file=test.xml --writedecomp
-bash decompscript
-mpirun -np 2 $1/tusas --kokkos-threads=1 --input-file=test.xml --skipdecomp
-bash epuscript
-$1/exodiff -file exofile Gold.e results.e
+$2 -n 2 $1/tusas --input-file=test.xml --writedecomp
+$2 -n 1 bash decompscript
+$2 -n 2 $1/tusas --kokkos-threads=1 --input-file=test.xml --skipdecomp
+$2 -n 1 bash epuscript
+$2 -n 1 $1/exodiff -file exofile Gold.e results.e

@@ -4,12 +4,12 @@ rm -rf decomp
 rm -rf decompscript
 rm -rf nem_spread.inp
 ###../../tusas --input-file=tusas.xml
-mpirun -np 4 $1/tusas --input-file=tusas.xml --writedecomp
-bash decompscript
-mpirun -np 4 $1/tusas --input-file=tusas.xml --skipdecomp
-bash epuscript
+$2 -n 4 $1/tusas --input-file=tusas.xml --writedecomp
+$2 -n 1 bash decompscript
+$2 -n 4 $1/tusas --input-file=tusas.xml --skipdecomp
+$2 -n 1 bash epuscript
 ###if [[ $OSTYPE == "darwin15" ]]; then
 ###    ../exodiff -file exofile Gold.e results.e
 ###else
-$1/exodiff Gold.e results.e
+$2 -n 1 $1/exodiff Gold.e results.e
 ###fi

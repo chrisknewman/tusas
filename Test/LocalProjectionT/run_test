@@ -1,9 +1,9 @@
 #!/bin/bash
 rm -rf results.e
 ###../../tusas --input-file=tusas.xml
-$1/tusas --kokkos-threads=1 --input-file=tpetra.xml
+$2 -n 1 $1/tusas --kokkos-threads=1 --input-file=tpetra.xml
 ###if [[ $OSTYPE == "darwin15" ]]; then
 ###    $1/exodiff -file exofile Gold.e results.e
 ###else
-$1/exodiff -quiet -file exofile Gold.e results.e
+$2 -n 1 $1/exodiff -quiet -file exofile Gold.e results.e
 ###fi

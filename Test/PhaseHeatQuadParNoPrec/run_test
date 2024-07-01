@@ -3,8 +3,8 @@ rm -rf results.e
 rm -rf decomp
 rm -rf decompscript
 rm -rf nem_spread.inp
-mpirun -np 4 $1/tusas --input-file=tusas.xml --writedecomp
-bash decompscript
-mpirun -np 4 $1/tusas --input-file=tusas.xml --skipdecomp
-bash epuscript
-$1/exodiff -Floor=1e-17 Gold.e results.e
+$2 -n 4 $1/tusas --input-file=tusas.xml --writedecomp
+$2 -n 1 bash decompscript
+$2 -n 4 $1/tusas --input-file=tusas.xml --skipdecomp
+$2 -n 1 bash epuscript
+$2 -n 1 $1/exodiff -Floor=1e-17 Gold.e results.e

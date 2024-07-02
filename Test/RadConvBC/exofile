@@ -1,5 +1,2 @@
 NODAL VARIABLES all
 	u floor 1.e-17
-ELEMENT VARIABLES all
-	!color
-	!processor_id

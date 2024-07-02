@@ -5,7 +5,7 @@
 //  in the LICENSE file found in the top-level directory of this distribution.
 //
 //////////////////////////////////////////////////////////////////////////////
-
+#if 0
 
 
 #ifndef NOX_THYRA_MODEL_EVALUATOR_HEAT_DECL_HPP
@@ -116,4 +116,5 @@ private: // data members
 #include "ModelEvaluatorHEAT_def.hpp"
 //==================================================================
 
+#endif
 #endif

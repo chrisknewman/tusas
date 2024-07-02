@@ -5,7 +5,7 @@
 //  in the LICENSE file found in the top-level directory of this distribution.
 //
 //////////////////////////////////////////////////////////////////////////////
-
+#if 0
 
 
 #ifndef NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_Exp_DEF_HPP
@@ -982,4 +982,5 @@ double ModelEvaluatorPHASE_HEAT_Exp<Scalar>::theta(double &x,double &y) const
 
   return t;
 }
+#endif
 #endif

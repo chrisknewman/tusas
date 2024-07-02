@@ -5,7 +5,7 @@
 //  in the LICENSE file found in the top-level directory of this distribution.
 //
 //////////////////////////////////////////////////////////////////////////////
-
+#if 0
 
 
 #ifndef NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_DEF_HPP
@@ -1606,4 +1606,5 @@ void ModelEvaluatorPHASE_HEAT<Scalar>::find_vtip_x()
   }
   //exit(0);
 }
+#endif
 #endif

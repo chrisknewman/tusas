@@ -5,7 +5,7 @@
 //  in the LICENSE file found in the top-level directory of this distribution.
 //
 //////////////////////////////////////////////////////////////////////////////
-
+#if 0
 
 
 #ifndef NOX_THYRA_MODEL_EVALUATOR_PHASE_HEAT_Exp_DECL_HPP
@@ -125,4 +125,5 @@ private: // data members
 #include "ModelEvaluatorPHASE_HEAT_Exp_def.hpp"
 //==================================================================
 
+#endif
 #endif

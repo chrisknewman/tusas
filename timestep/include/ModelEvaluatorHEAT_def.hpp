@@ -5,7 +5,7 @@
 //  in the LICENSE file found in the top-level directory of this distribution.
 //
 //////////////////////////////////////////////////////////////////////////////
-
+#if 0
 
 
 #ifndef NOX_THYRA_MODEL_EVALUATOR_HEAT_DEF_HPP
@@ -804,4 +804,5 @@ void ModelEvaluatorHEAT<Scalar>::compute_error( double *u)
 }
 
 
+#endif
 #endif

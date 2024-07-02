@@ -1,0 +1,3 @@
+NODAL VARIABLES all
+	u floor 1.e-17
+	phi floor 1.e-17

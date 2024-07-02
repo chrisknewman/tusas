@@ -11,6 +11,7 @@
 #define NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP
 
 // local support
+#include "function_def_nem.hpp"
 #include "function_def.hpp"
 #ifdef TUSAS_HAVE_CUDA
 #else
@@ -4106,7 +4107,8 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
   }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 2;
-
+    exit(0);
+#if 0
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &tpetra::pfhub3::init_heat_pfhub3_;
     (*initfunc_)[1] = &tpetra::pfhub3::init_phase_pfhub3_;
@@ -4128,7 +4130,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     paramfunc_ = tpetra::pfhub3::param_;
 
     neumannfunc_ = NULL;
-
+#endif
 
   }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
     

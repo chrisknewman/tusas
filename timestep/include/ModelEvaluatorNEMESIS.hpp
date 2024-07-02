@@ -10,7 +10,6 @@
 #ifndef NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DECL_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DECL_HPP
 
-#include "function_def.hpp"
 #ifdef TUSAS_HAVE_CUDA
 #else
 

@@ -9,14 +9,21 @@
 
 #include "random_distribution.h"
 
-#include <random>
+#include <Tpetra_Map_decl.hpp>
 
-random_distribution::random_distribution(const Teuchos::RCP<const Epetra_Comm>& comm,
-					 Mesh *mesh,
+#include <Teuchos_DefaultComm.hpp>
+#include <Teuchos_ArrayViewDecl.hpp>
+#include <Teuchos_RCP.hpp>
+
+#include <random>
+#include <iostream>
+#include <fstream>
+
+random_distribution::random_distribution(Mesh *mesh,
 					 const int ltpquadorder
-					 ):  
-  comm_(comm)
+					 )
 {
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
   const int blk = 0;
   std::string elem_type = mesh->get_blk_elem_type(blk);
   bool quad_type = (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) 
@@ -37,19 +44,31 @@ random_distribution::random_distribution(const Teuchos::RCP<const Epetra_Comm>& 
     ngp = ltpquadorder*ltpquadorder*ltpquadorder;;
   }
   else{
-    if( 0 == comm_->MyPID() )std::cout<<"random distribution only supports bilinear and quadratic quad and hex element types at this time."<<std::endl
+    if( 0 == comm_->getRank() )std::cout<<"random distribution only supports bilinear and quadratic quad and hex element types at this time."<<std::endl
 	     <<elem_type<<" not supported."<<std::endl;
     exit(0);
-  }
+  } 
 
   //cn this is the map of elements belonging to this processor
   std::vector<Mesh::mesh_lint_t> elem_num_map(*(mesh->get_elem_num_map()));
-  elem_map_ = Teuchos::rcp(new Epetra_Map(-1,
-				      elem_num_map.size(),
-				      &elem_num_map[0],
-				      0,
-				      *comm_));
-  const int num_elem = elem_map_->NumMyElements();
+
+  const Tpetra::global_size_t numGlobalEntries = Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid();
+  const Tpetra::Map<>::global_ordinal_type indexBase = 0;
+
+  std::vector<Tpetra::Map<>::global_ordinal_type> my_global_elems(elem_num_map.size());
+  for(int i = 0; i < elem_num_map.size(); i++){
+    my_global_elems[i] = elem_num_map[i];
+  }
+
+  const Teuchos::ArrayView<Tpetra::Map<>::global_ordinal_type> AV(my_global_elems);
+  
+  Teuchos::RCP<Tpetra::Map<> > elem_map_;
+  elem_map_ = Teuchos::rcp(new Tpetra::Map<>(numGlobalEntries,
+					     AV,
+					     indexBase,
+					     comm_));
+  num_elem = elem_map_->getLocalNumElements();
+
   gauss_val.resize(num_elem, std::vector<double>(ngp,0));
   compute_random(0);
   //std::cout<<comm_->MyPID()<<"   "<<elem_num_map.size()<<std::endl;
@@ -62,12 +81,12 @@ random_distribution::~random_distribution()
 
 void random_distribution::compute_random(const int nt)
 {
-  const int mypid = comm_->MyPID();
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+  const int mypid = comm_->getRank();
   int initial_seed = 12345*(nt+1)*(mypid+1);
   //int initial_seed = 12345*(nt+1);
   std::mt19937 gen(initial_seed); 
   std::uniform_int_distribution<> udist(1,10000); 
-  const int num_elem = elem_map_->NumMyElements();
   //std::cout<<mypid<<"   "<<udist(gen)<<std::endl;
 
   for( int i=0; i<num_elem; i++){
@@ -80,29 +99,37 @@ void random_distribution::compute_random(const int nt)
     for(int ig=0;ig<ngp;ig++){
       gauss_val[i][ig]=normal_dist(mt);
     }
-  }   
+  }
+//   print();
+//   exit(0); 
+  
   return;
 }
 
 void random_distribution::print() const
 {
-  const int mypid = comm_->MyPID();
-  comm_->Barrier();
+  auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
+  const int mypid = comm_->getRank();
+  comm_->barrier();
 
-  const int num_elem = elem_map_->NumMyElements();
+  std::ofstream outfile;
+  outfile.open("rand.txt", std::ios::out );
+
   for( int i=0; i<num_elem; i++){
     for(int ig=0;ig<ngp;ig++){
       std::cout<<mypid<<" "<<" "<<i<<" "<<ig<<" "<<gauss_val[i][ig]<<std::endl;
+      outfile<<mypid<<" "<<" "<<i<<" "<<ig<<" "<<gauss_val[i][ig]<<std::endl;
     }
   }
-  comm_->Barrier();   
+  outfile.close();
+
+  comm_->barrier();   
   return;
 }
 
 void random_distribution::compute_correlation() const 
 {
    // verify suite of numbers in each element are uncorrelated
-  const int num_elem = elem_map_->NumMyElements();
   double max_dot=0.;
   for(int i=0;i<num_elem;i++)
     {

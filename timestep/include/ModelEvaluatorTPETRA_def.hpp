@@ -369,7 +369,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
-    randomdistribution = Teuchos::rcp(new random_distribution(Comm, mesh_, LTP_quadrature_order));
+    //randomdistribution = Teuchos::rcp(new random_distribution(Comm, mesh_, LTP_quadrature_order));
+    randomdistribution = Teuchos::rcp(new random_distribution(mesh_, LTP_quadrature_order));
   }
 
   std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,

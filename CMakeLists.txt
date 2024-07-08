@@ -29,6 +29,7 @@ SET( DIR_10 "elem_color/include" )
 SET( DIR_11 "periodic_bc/include" )
 SET( DIR_12 "projection/include" )
 SET( DIR_13 "random_distribution/include" )
+SET( DIR_14 "utilities/include" )
 #SET( DIR_6 ${TRILINOS_DIR}lib )
 SET( DIR_7 ${CMAKE_CURRENT_SOURCE_DIR} )
 
@@ -44,9 +45,9 @@ LIST( REMOVE_DUPLICATES Trilinos_TPL_LIBRARIES )
 #---------------------------------------------------------------------------------
 
 INCLUDE_DIRECTORIES( ${Trilinos_TPL_INCLUDE_DIRS} ${DIR_1} ${DIR_2} ${DIR_3} 
-  ${DIR_4} ${DIR_5} ${DIR_8} ${DIR_9} ${DIR_10} ${DIR_11} ${DIR_12} ${DIR_13} 
+  ${DIR_4} ${DIR_5} ${DIR_8} ${DIR_9} ${DIR_10} ${DIR_11} ${DIR_12} ${DIR_13} ${DIR_14}
   ${DIR_1}/.. ${DIR_2}/.. ${DIR_3}/.. ${DIR_4}/.. ${DIR_5}/.. ${DIR_8}/.. 
-  ${DIR_10}/.. ${DIR_11}/.. ${DIR_12}/.. ${DIR_13}/.. )
+  ${DIR_10}/.. ${DIR_11}/.. ${DIR_12}/.. ${DIR_13}/.. ${DIR_14}/.. )
 
 #---------------------------------------------------------------------------------
 # Change compiler. This must be done before PROJECT() specification
@@ -100,6 +101,7 @@ ${DIR_7}/projection/include/interpflux.h
 ${DIR_7}/projection/interpflux.cpp 
 ${DIR_7}/random_distribution/random_distribution.cpp
 ${DIR_7}/random_distribution/include/random_distribution.h
+${DIR_7}/utilities/include/greedy_tie_break.hpp
 )
 
 ADD_EXECUTABLE( tusas ${SOURCES} )

@@ -60,36 +60,6 @@
 //#define TUSAS_COLOR_CPU
 //#define TUSAS_COLOR_GPU
 
-template <typename LocalOrdinal,typename GlobalOrdinal>
-class GreedyTieBreak : public Tpetra::Details::TieBreak<LocalOrdinal,GlobalOrdinal> 
-{
-  
-public:
-  GreedyTieBreak() { }
-  
-  virtual bool mayHaveSideEffects() const {
-    return true;
-  }
-  
-  virtual std::size_t selectedIndex(GlobalOrdinal /* GID */,
-				    const std::vector<std::pair<int,LocalOrdinal> > & pid_and_lid) const
-  {
-    // always choose index of pair with smallest pid
-    const std::size_t numLids = pid_and_lid.size();
-    std::size_t idx = 0;
-    int minpid = pid_and_lid[0].first;
-    std::size_t minidx = 0;
-    for (idx = 0; idx < numLids; ++idx) {
-      if (pid_and_lid[idx].first < minpid) {
-	minpid = pid_and_lid[idx].first;
-	minidx = idx;
-      }
-    }
-    return minidx;
-  }
-};
-
-
 /// Element coloring for residual and preconditioner fill with OpenMP.
 /** To enable <code>\#define TUSAS_COLOR_CPU</code>. */
 class elem_color

@@ -24,6 +24,8 @@
 
 //#include <MatrixMarket_Tpetra.hpp>
 
+#include "greedy_tie_break.hpp"
+
 std::string getmypidstring(const int mypid, const int numproc);
 
 elem_color::elem_color(const Teuchos::RCP<const Epetra_Comm>& comm, 

@@ -2560,8 +2560,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
+    post_proc.push_back(new post_process( mesh_,
 					 (int)0,
 					 post_process::NORMRMS,
 					 dorestart,
@@ -2570,8 +2569,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 16));
     post_proc[0].postprocfunc_ = &timeadapt::postproc1_;
 
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
+    post_proc.push_back(new post_process( mesh_,
 					 (int)1,
 					 post_process::MAXVALUE,
 					 dorestart,
@@ -2580,8 +2578,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 					 16));
     post_proc[1].postprocfunc_ = &timeadapt::normu_;
 
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
+    post_proc.push_back(new post_process( mesh_,
 					 (int)2,
 					 post_process::MAXVALUE,
 					 dorestart,
@@ -2612,8 +2609,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(comm_,
-					 mesh_,
+    post_proc.push_back(new post_process( mesh_,
 					 (int)0,
 					 post_process::MAXVALUE,
 					 dorestart,
@@ -3066,18 +3062,18 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*neumannfunc_)[1][1] = &uehara::conv_bc_;
     (*neumannfunc_)[1][2] = &uehara::conv_bc_;
     
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &uehara::postproc_stress_x_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
 //     post_proc[1].postprocfunc_ = &uehara::postproc_stress_y_;
     post_proc[1].postprocfunc_ = &uehara::postproc_stress_xd_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc.push_back(new post_process(mesh_,(int)2));
 //     post_proc[2].postprocfunc_ = &uehara::postproc_stress_xy_;
     post_proc[2].postprocfunc_ = &uehara::postproc_stress_eq_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)3));
+    post_proc.push_back(new post_process(mesh_,(int)3));
     post_proc[3].postprocfunc_ = &uehara::postproc_stress_eqd_;
 //     post_proc.push_back(new post_process(comm_,mesh_,(int)4));
 //     post_proc[4].postprocfunc_ = &uehara::postproc_strain_;
@@ -3158,18 +3154,18 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     (*neumannfunc_)[1][2] = &uehara::conv_bc_;
     (*neumannfunc_)[1][3] = &uehara::conv_bc_;
     
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &uehara::postproc_stress_x_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
 //     post_proc[1].postprocfunc_ = &uehara::postproc_stress_y_;
     post_proc[1].postprocfunc_ = &uehara::postproc_stress_xd_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc.push_back(new post_process(mesh_,(int)2));
 //     post_proc[2].postprocfunc_ = &uehara::postproc_stress_xy_;
     post_proc[2].postprocfunc_ = &uehara::postproc_stress_eq_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)3));
+    post_proc.push_back(new post_process(mesh_,(int)3));
     post_proc[3].postprocfunc_ = &uehara::postproc_stress_eqd_;
 //     post_proc.push_back(new post_process(comm_,mesh_,(int)4));
 //     post_proc[4].postprocfunc_ = &uehara::postproc_strain_;
@@ -3266,11 +3262,11 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
 
     //cn this needs to be better...
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0,post_process::SCALAR_OP::NORM1,dorestart));
+    post_proc.push_back(new post_process(mesh_,(int)0,post_process::SCALAR_OP::NORM1,dorestart));
     post_proc[0].postprocfunc_ = &coupledstress::postproc_stress_x_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1,post_process::SCALAR_OP::MEANVALUE,dorestart,(int)5));
+    post_proc.push_back(new post_process(mesh_,(int)1,post_process::SCALAR_OP::MEANVALUE,dorestart,(int)5));
     post_proc[1].postprocfunc_ = &coupledstress::postproc_stress_y_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc.push_back(new post_process(mesh_,(int)2));
     post_proc[2].postprocfunc_ = &coupledstress::postproc_stress_xy_;
 
 
@@ -3309,9 +3305,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &farzadi::postproc_c_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &farzadi::postproc_t_;
 
     paramfunc_ = farzadi::param_;
@@ -3386,7 +3382,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &grain::postproc_;
 
     paramfunc_ = grain::param_;
@@ -3428,7 +3424,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &grain::postproc_;
 
     paramfunc_ = grain::param_;
@@ -3477,7 +3473,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &quaternion::postproc_;
 
     //paramfunc_ = grain::param_;
@@ -3652,7 +3648,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 //     periodic_bc_[5].push_back(new periodic_bc(1,3,5,numeqs_,mesh_,comm_));
 #else
 #endif
-     post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+     post_proc.push_back(new post_process(mesh_,(int)0));
      post_proc[0].postprocfunc_ = &kundin::postproc_;
 
 
@@ -3820,9 +3816,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     exit(0);
 #endif
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &allencahn::postproc_;
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1,post_process::SCALAR_OP::NORM2,dorestart));
+    post_proc.push_back(new post_process(mesh_,(int)1,post_process::SCALAR_OP::NORM2,dorestart));
     post_proc[1].postprocfunc_ = &allencahn::postproc_error;
 
     //paramfunc_ = farzadi::param_;
@@ -3885,13 +3881,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     paramfunc_ = pfhub2::param_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_a_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc.push_back(new post_process(mesh_,(int)2));
     post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
 
   }else if("pfhub2wbmkks_g" == paramList.get<std::string> (TusastestNameString)){
@@ -3957,13 +3953,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     paramfunc_ = pfhub2::param_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_a_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc.push_back(new post_process(mesh_,(int)2));
     post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
 
 }else if("pfhub2wbmkks_l" == paramList.get<std::string> (TusastestNameString)){
@@ -4030,13 +4026,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     paramfunc_ = pfhub2::param_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_a_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc.push_back(new post_process(mesh_,(int)2));
     post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
 
   }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
@@ -4095,13 +4091,13 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     paramfunc_ = pfhub2::param_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_a_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-    post_proc.push_back(new post_process(comm_,mesh_,(int)2));
+    post_proc.push_back(new post_process(mesh_,(int)2));
     post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
 
   }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
@@ -4800,8 +4796,7 @@ void ModelEvaluatorNEMESIS<Scalar>::setadaptivetimestep()
       Teuchos::ParameterList *atsList;
       atsList = &paramList.sublist (TusasatslistNameString, false );
       for( int k = 0; k < numeqs_; k++ ){
-	temporal_est.push_back(new post_process(comm_,
-						mesh_,
+	temporal_est.push_back(new post_process(mesh_,
 						k, 
 						post_process::NORMRMS, 
 						dorestart,
@@ -4828,8 +4823,7 @@ void ModelEvaluatorNEMESIS<Scalar>::setadaptivetimestep()
 	//see https://www.cs.princeton.edu/courses/archive/fall11/cos323/notes/cos323_f11_lecture17_ode2.pdf
 	//we would utilize t_theta2_ similarly
 
-	temporal_norm.push_back(new post_process(comm_,
-						 mesh_,
+	temporal_norm.push_back(new post_process(mesh_,
 						 k, 
 						 post_process::NORMRMS, 
 						 dorestart,

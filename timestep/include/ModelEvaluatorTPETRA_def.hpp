@@ -1973,7 +1973,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
 
   }else if("radconvbc" == paramList.get<std::string> (TusastestNameString)){
@@ -2012,7 +2012,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //neumannfunc_ = NULL;						 
     (*neumannfunc_)[0][2] = &tpetra::radconvbc::nbc_;
 
-    //post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    //post_proc.push_back(new post_process(mesh_,(int)0));
     //post_proc[0].postprocfunc_ = &tpetra::postproc_;
 
   }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
@@ -2048,7 +2048,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
 
   }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
@@ -2084,7 +2084,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
 
 
@@ -2183,9 +2183,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
 
     paramfunc_.resize(1);
@@ -2222,9 +2222,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::fullycoupled::postproc_t_;
 
     paramfunc_.resize(5);
@@ -2292,9 +2292,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
 
     paramfunc_.resize(1);
@@ -2415,10 +2415,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::pfhub2::param_;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
   }else if("pfhub2" == paramList.get<std::string> (TusastestNameString)){
@@ -2482,10 +2482,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::pfhub2::param_;
 
-//     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+//     post_proc.push_back(new post_process(mesh_,(int)0));
 //     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-//     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+//     post_proc.push_back(new post_process(mesh_,(int)1));
 //     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
   }else if("pfhub2trans" == paramList.get<std::string> (TusastestNameString)){
@@ -2549,10 +2549,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::pfhub2::param_trans_;
 
-//     post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+//     post_proc.push_back(new post_process(mesh_,(int)0));
 //     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-//     post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+//     post_proc.push_back(new post_process(mesh_,(int)1));
 //     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
 
@@ -2666,7 +2666,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //(*neumannfunc_)[0][2] = &nbc_zero_;						 
     //(*neumannfunc_)[0][3] = &nbc_zero_;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::robin::postproc_robin_;
 
   }else if("timeonly" == paramList.get<std::string> (TusastestNameString)){
@@ -2748,15 +2748,15 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::NORMINF,dorestart));
+    post_proc.push_back(new post_process(mesh_,(int)0, post_process::NORMINF,dorestart));
     post_proc[0].postprocfunc_ = &tpetra::localprojection::postproc_u1_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::NORMINF,dorestart));
+    post_proc.push_back(new post_process(mesh_,(int)1, post_process::NORMINF,dorestart));
     post_proc[1].postprocfunc_ = &tpetra::localprojection::postproc_u2_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::NORMINF,dorestart));
+    post_proc.push_back(new post_process(mesh_,(int)2, post_process::NORMINF,dorestart));
     post_proc[2].postprocfunc_ = &tpetra::localprojection::postproc_norm_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)3, post_process::NORMINF,dorestart));
+    post_proc.push_back(new post_process(mesh_,(int)3, post_process::NORMINF,dorestart));
     post_proc[3].postprocfunc_ = &tpetra::localprojection::postproc_u1err_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)4, post_process::NORMINF,dorestart));
+    post_proc.push_back(new post_process(mesh_,(int)4, post_process::NORMINF,dorestart));
     post_proc[4].postprocfunc_ = &tpetra::localprojection::postproc_u2err_;
 
     localprojectionindices_.push_back(0);
@@ -2800,9 +2800,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
     (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE,dorestart));
+    post_proc.push_back(new post_process(mesh_,(int)0, post_process::MAXVALUE,dorestart));
     post_proc[0].postprocfunc_ = &tpetra::goldak::postproc_qdot_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE,dorestart));
+    post_proc.push_back(new post_process(mesh_,(int)1, post_process::MAXVALUE,dorestart));
     post_proc[1].postprocfunc_ = &tpetra::goldak::postproc_u_;
 
   }else if("randomtest" == paramList.get<std::string> (TusastestNameString)){
@@ -2885,19 +2885,19 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
+    post_proc.push_back(new post_process(mesh_,(int)0, post_process::MAXVALUE));
     post_proc[0].postprocfunc_ = &tpetra::quaternion::postproc_normq_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
+    post_proc.push_back(new post_process(mesh_,(int)1, post_process::MAXVALUE));
     post_proc[1].postprocfunc_ = &tpetra::quaternion::postproc_qdotqt_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)2, post_process::NONE, false, (int)0, "rgb"));
+    post_proc.push_back(new post_process(mesh_,(int)2, post_process::NONE, false, (int)0, "rgb"));
     post_proc[2].postprocfunc_ = &tpetra::quaternion::postproc_rgb_r_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)3, post_process::NONE, false, (int)0, "rgb"));
+    post_proc.push_back(new post_process(mesh_,(int)3, post_process::NONE, false, (int)0, "rgb"));
     post_proc[3].postprocfunc_ = &tpetra::quaternion::postproc_rgb_g_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)4, post_process::NONE, false, (int)0, "rgb"));
+    post_proc.push_back(new post_process(mesh_,(int)4, post_process::NONE, false, (int)0, "rgb"));
     post_proc[4].postprocfunc_ = &tpetra::quaternion::postproc_rgb_b_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)5, post_process::NONE, false, (int)0, "mq"));
+    post_proc.push_back(new post_process(mesh_,(int)5, post_process::NONE, false, (int)0, "mq"));
     post_proc[5].postprocfunc_ = &tpetra::quaternion::postproc_mq_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)6, post_process::NONE, false, (int)0, "dq"));
+    post_proc.push_back(new post_process(mesh_,(int)6, post_process::NONE, false, (int)0, "dq"));
     post_proc[6].postprocfunc_ = &tpetra::quaternion::postproc_md_;
 
     //#if 0
@@ -3024,7 +3024,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*neumannfunc_)[1][2] = &tpetra::uehara::conv_bc_;
     (*neumannfunc_)[1][3] = &tpetra::uehara::conv_bc_;
    
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::uehara::postproc_stress_eq_;
 
 #if 0 
@@ -3101,13 +3101,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //(*neumannfunc_)[1][2] = &tpetra::yang::conv_bc_;
     (*neumannfunc_)[1][3] = &tpetra::yang::conv_bc_;
    
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::yang::postproc_ea1_;
    
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1));
+    post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::yang::postproc_ea2_;
    
-    post_proc.push_back(new post_process(Comm,mesh_,(int)2));
+    post_proc.push_back(new post_process(mesh_,(int)2));
     post_proc[2].postprocfunc_ = &tpetra::yang::postproc_ea3_;
 
 #if 0 
@@ -3924,7 +3924,7 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
     Teuchos::ParameterList *atsList;
     atsList = &paramList.sublist (TusasatslistNameString, false );
     for( int k = 0; k < numeqs_; k++ ){
-      temporal_est.push_back(new post_process(Comm,
+      temporal_est.push_back(new post_process(
 					      mesh_,
 					      k, 
 					      norm,
@@ -3952,7 +3952,7 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
       //see https://www.cs.princeton.edu/courses/archive/fall11/cos323/notes/cos323_f11_lecture17_ode2.pdf
       //we would utilize t_theta2_ similarly
       
-      temporal_norm.push_back(new post_process(Comm,
+      temporal_norm.push_back(new post_process(
 					       mesh_,
 					       k, 
 					       norm, 
@@ -3962,7 +3962,7 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 					       16));
       temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
 
-      temporal_dyn.push_back(new post_process(Comm,
+      temporal_dyn.push_back(new post_process(
 					       mesh_,
 					       k, 
 					       post_process::NORMINF,

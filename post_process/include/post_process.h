@@ -17,24 +17,11 @@
 #include <Teuchos_RCP.hpp>
 
 // Epetra support
-#include "Epetra_Vector.h"
-#include "Epetra_Map.h"
-#include "Epetra_Import.h"
-#include <Epetra_Comm.h>
+#include <Tpetra_Vector.hpp>
+#include <Tpetra_Map_decl.hpp>
+#include <Tpetra_Import.hpp>
 
 #include <Teuchos_TimeMonitor.hpp>
-
-
-
-
-//needed for create_onetoone hack below
-#include "Epetra_Comm.h"
-#include "Epetra_Directory.h"
-
-
-
-
-
 
 //template<class Scalar>
 /// Creates a nodal post process variable as a function of the solution and gradient. 
@@ -57,7 +44,7 @@ public:
   /** Creates a nodal post process variable with name <CODE>"pp"+index_</CODE>.
       Optionally a scalar operation performed on the variable and written to the text
       file <CODE>"pp"+index_+".dat"</CODE> at each timestep with precision \p precision.*/
-  post_process(const Teuchos::RCP<const Epetra_Comm>& comm,  ///< MPI communicator
+  post_process(//const Teuchos::RCP<const Epetra_Comm>& comm,  ///< MPI communicator
 	       Mesh *mesh, ///< mesh object
 	       const int index, ///< index of this post process variable
 	       SCALAR_OP s_op = NONE, ///< scalar operation to perform
@@ -72,7 +59,7 @@ public:
   void update_mesh_data();
   /// Write the scalar op value to a data file.
   /// This should be preceded by a call to scalar_reduction()
-  void update_scalar_data(double time///< time to be written 
+  void update_scalar_data(const double &time///< time to be written 
 			  );
   /// Compute the post process variable at node index \p i
   void process(const int i,///< index of vector entry
@@ -104,20 +91,28 @@ public:
   //double (*postprocfunc_)(const double *u, const double *gradu);
 
 private:
+
+  typedef Tpetra::Map<>::global_ordinal_type global_ordinal_type;
+  typedef Tpetra::Map<>::local_ordinal_type local_ordinal_type;
+  typedef Tpetra::Map<>::node_type node_type;
+  typedef Tpetra::Map<local_ordinal_type, global_ordinal_type, node_type> map_type;
+  typedef Tpetra::Import<local_ordinal_type, global_ordinal_type,
+                         node_type> import_type;
+  typedef Tpetra::Vector<>::scalar_type scalar_type;
+  typedef Tpetra::Vector<scalar_type, local_ordinal_type,
+			 global_ordinal_type, node_type> vector_type;
   /// Mesh object.
   Mesh *mesh_;
   /// This post process variable index.
   int index_;
-  /// MPI comm object.
-  const Teuchos::RCP<const Epetra_Comm>  comm_;
   /// Node map object.
-  Teuchos::RCP<const Epetra_Map>   node_map_;
+  Teuchos::RCP<const map_type > node_map_;
   /// Node overlap map object.
-  Teuchos::RCP<const Epetra_Map>   overlap_map_;
+  Teuchos::RCP<const map_type > overlap_map_;
   /// Import object.
-  Teuchos::RCP<const Epetra_Import> importer_;
+  Teuchos::RCP<const import_type > importer_;
   /// Vector of the nodal values.
-  Teuchos::RCP<Epetra_Vector> ppvar_;
+  Teuchos::RCP<vector_type> ppvar_;
   /// Scalar operator
   SCALAR_OP s_op_;
   /// Output precision 
@@ -134,56 +129,6 @@ private:
   bool restart_;
   /// write files boolean
   //bool write_files_;
-
-
-
-
-  //we need these in some static public utility class...
-Epetra_Map Create_OneToOne_Map64(const Epetra_Map& usermap,
-         bool high_rank_proc_owns_shared=false)
-{
-  //if usermap is already 1-to-1 then we'll just return a copy of it.
-  if (usermap.IsOneToOne()) {
-    Epetra_Map newmap(usermap);
-    return(newmap);
-  }
-
-  int myPID = usermap.Comm().MyPID();
-  Epetra_Directory* directory = usermap.Comm().CreateDirectory(usermap);
-
-  int numMyElems = usermap.NumMyElements();
-  const long long* myElems = usermap.MyGlobalElements64();
-
-  int* owner_procs = new int[numMyElems];
-
-  directory->GetDirectoryEntries(usermap, numMyElems, myElems, owner_procs,
-         0, 0, high_rank_proc_owns_shared);
-
-  //we'll fill a list of map-elements which belong on this processor
-
-  long long* myOwnedElems = new long long[numMyElems];
-  int numMyOwnedElems = 0;
-
-  for(int i=0; i<numMyElems; ++i) {
-    long long GID = myElems[i];
-    int owner = owner_procs[i];
-
-    if (myPID == owner) {
-      myOwnedElems[numMyOwnedElems++] = GID;
-    }
-  }
-
-  Epetra_Map one_to_one_map((long long)-1, numMyOwnedElems, myOwnedElems,
-       usermap.IndexBase(), usermap.Comm()); // CJ TODO FIXME long long
-
-  delete [] myOwnedElems;
-  delete [] owner_procs;
-  delete directory;
-
-  return(one_to_one_map);
-};
-
-
 
 };
 

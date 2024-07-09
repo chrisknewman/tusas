@@ -26,7 +26,7 @@ post_process::post_process(//const Teuchos::RCP<const Epetra_Comm>& comm,
 			   bool restart,
 			   const int eqn_id,
 			   const std::string basename,
-			   double precision):  
+			   const int precision):  
   mesh_(mesh),
   index_(index),
   s_op_(s_op),

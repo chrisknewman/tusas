@@ -3,8 +3,8 @@ rm -rf results.e
 rm -rf decomp
 rm -rf decompscript
 rm -rf nem_spread.inp
-$2 -n 4 $1/tusas --input-file=tusas.xml --writedecomp
+$2 -n 4 $1/tusas --kokkos-num-threads=1 --input-file=tusas.xml --writedecomp
 $2 -n 1 bash decompscript
-$2 -n 4 $1/tusas --input-file=tusas.xml --skipdecomp
+$2 -n 4 $1/tusas --kokkos-num-threads=1 --input-file=tusas.xml --skipdecomp
 $2 -n 1 bash epuscript
 $2 -n 1 $1/exodiff -Floor 2.4e-15 Gold.e results.e

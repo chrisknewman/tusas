@@ -2,5 +2,5 @@
 rm -rf results.e
 rm -rf decomp
 rm -rf decompscript
-OMP_NUM_THREADS=4 $2 -n 1 $1/tusas --kokkos-threads=4 --input-file=goldak.xml 
+OMP_NUM_THREADS=4 $2 -n 1 $1/tusas --kokkos-num-threads=4 --input-file=goldak.xml 
 $2 -n 1 $1/exodiff -file exofile Gold.e results.e

@@ -2,8 +2,8 @@
 rm -rf results.e
 rm -rf decomp
 cp -r decomp_gold decomp
-$2 -n 4 $1/tusas --input-file=tusas.xml --writedecomp
-$2 -n 4 $1/tusas --input-file=tusas.xml --restart --skipdecomp
+$2 -n 4 $1/tusas --kokkos-num-threads=1 --input-file=tusas.xml --writedecomp
+$2 -n 4 $1/tusas --kokkos-num-threads=1 --input-file=tusas.xml --restart --skipdecomp
 $2 -n 1 bash epuscript
 ###if [[ $OSTYPE == "darwin15" ]]; then
 $2 -n 1 $1/exodiff -f exofile Gold.e results.e

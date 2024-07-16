@@ -1,7 +1,7 @@
 #!/bin/bash
 rm -rf results.e
 ###../../tusas --input-file=tusas.xml
-$2 -n 1 $1/tusas --input-file=tusas.xml
+$2 -n 1 $1/tusas --kokkos-num-threads=1 --input-file=tusas.xml
 #if [[ $OSTYPE == "darwin15" ]]; then
 #    ../exodiff -file exofile Gold.e results.e
 #else

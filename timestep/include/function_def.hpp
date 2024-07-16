@@ -40,16 +40,16 @@
 
 */
 
-#define RES_FUNC_TPETRA(NAME)  double NAME(GPUBasis * basis[],	\
-                                    const int &i,\
-                                    const double &dt_,\
-                                    const double &dtold_,\
-			            const double &t_theta_,\
-			            const double &t_theta2_,\
-                                    const double &time,\
-				    const int &eqn_id,	\
-                                    const double &vol,	\
-                                    const double &rand)
+#define RES_FUNC_TPETRA(NAME)  const double NAME(GPUBasis * basis[],	\
+						 const int &i,		\
+						 const double &dt_,	\
+						 const double &dtold_,	\
+						 const double &t_theta_, \
+						 const double &t_theta2_, \
+						 const double &time,	\
+						 const int &eqn_id,	\
+						 const double &vol,	\
+						 const double &rand)
 
 
 /** Definition for precondition function. Each precondition function is called at each Gauss point for each equation with this signature:
@@ -65,12 +65,12 @@
 
 */
 
-#define PRE_FUNC_TPETRA(NAME)  double NAME(GPUBasis *basis[], \
-                                    const int &i,\
-				    const int &j,\
-				    const double &dt_,\
-				    const double &t_theta_,\
-				    const int &eqn_id)
+#define PRE_FUNC_TPETRA(NAME)  const double NAME(GPUBasis *basis[], \
+						 const int &i,	    \
+						 const int &j,	    \
+						 const double &dt_, \
+						 const double &t_theta_, \
+						 const int &eqn_id)
 
 
 /** Definition for initialization function. Each initialization function is called at each node for each equation at the beginning of the simualtaion with this signature:
@@ -82,11 +82,11 @@
 
 */
 
-#define INI_FUNC(NAME)  double NAME(const double &x,\
-			            const double &y,\
-			            const double &z,\
-				    const int &eqn_id,\
-				    const int &lid) 
+#define INI_FUNC(NAME)  const double NAME(const double &x,\
+					  const double &y,	\
+					  const double &z,	\
+					  const int &eqn_id,	\
+					  const int &lid) 
 
 
 /** Definition for Dirichlet function. Each Dirichlet function is called at each node for each equation with this signature:
@@ -99,10 +99,10 @@
 
 */
 
-#define DBC_FUNC(NAME)  double NAME(const double &x,\
-			            const double &y,\
-			            const double &z,\
-			            const double &t) 
+#define DBC_FUNC(NAME)  const double NAME(const double &x,\
+					  const double &y,	\
+					  const double &z,	\
+					  const double &t) 
 
 /** Definition for Neumann function. Each Neumann function is called at each Gauss point for the current equation with this signature:
 - NAME:     name of function to call
@@ -115,13 +115,13 @@
 
 */
 
-#define NBC_FUNC_TPETRA(NAME)  double NAME(const GPUBasis *basis,\
-				    const int &i,\
-				    const double &dt_,\
-                                    const double &dtold_,\
-				    const double &t_theta_,\
-			            const double &t_theta2_,\
-				    const double &time)
+#define NBC_FUNC_TPETRA(NAME)  const double NAME(const GPUBasis *basis,\
+						 const int &i,	       \
+						 const double &dt_,    \
+						 const double &dtold_, \
+						 const double &t_theta_, \
+						 const double &t_theta2_, \
+						 const double &time)
 
 /** Definition for post-process function. Each post-process function is called at each node for each equation at the end of each timestep with this signature:
 - NAME:     name of function to call
@@ -2107,17 +2107,32 @@ PPR_FUNC(postproc_c_b_)
   return c_b;
 }
 
+INI_FUNC(init_c_)
+{
+  return c0_ + eps_*(cos(0.105*x)*cos(0.11*y)
+		     + cos(0.13*x)*cos(0.087*y)*cos(0.13*x)*cos(0.087*y)
+		     + cos(0.025*x-0.15*y)*cos(0.07*x-0.02*y)
+		     );
+}
+
+INI_FUNC(init_eta_)
+{
+  const double i = (double)(eqn_id - eqn_off_ + 1);
+  return eps_eta_*std::pow(cos((0.01*i)*x-4.)*cos((0.007+0.01*i)*y)
+			   + cos((0.11+0.01*i)*x)*cos((0.11+0.01*i)*y)		   
+			   + psi_*std::pow(cos((0.046+0.001*i)*x+(0.0405+0.001*i)*y)
+					   *cos((0.031+0.001*i)*x-(0.004+0.001*i)*y),2
+					   ),2
+			   );
+}
+
 INI_FUNC(init_mu_)
 {
   //this will need the eta_array version
-  const double c = ::pfhub2::init_c_(x,y,z,eqn_id,lid);
-  const double eta = ::pfhub2::init_eta_(x,y,z,2,lid);
+  const double c = init_c_(x,y,z,eqn_id,lid);
+  const double eta = init_eta_(x,y,z,2,lid);
   return dfdc(c,&eta);
 //   return 0.;
-}
-INI_FUNC(init_eta_)
-{
-  return ::pfhub2::init_eta_(x,y,z,eqn_id-1,lid);
 }
 
 }//namespace pfhub2

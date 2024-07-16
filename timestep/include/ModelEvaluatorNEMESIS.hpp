@@ -201,48 +201,48 @@ private: // data members
   double (*dgs2_2dtheta_)(const double &theta,const double &M, const double &eps, const double &psi);
   double (*dgs2_2dpsi_)(const double &theta,const double &M, const double &eps, const double &psi);
 
-  typedef double (*RESFUNC)(const boost::ptr_vector<Basis> &basis, 
-			    const int &i, 
-			    const double &dt_, 
-			    const double &dtold_, 
-			    const double &t_theta_, 
-			    const double &t_theta2_,
-			    const double &time,
-			    const int &eqn_id);
+  typedef const double (*RESFUNC)(const boost::ptr_vector<Basis> &basis, 
+				  const int &i, 
+				  const double &dt_, 
+				  const double &dtold_, 
+				  const double &t_theta_, 
+				  const double &t_theta2_,
+				  const double &time,
+				  const int &eqn_id);
 
   std::vector<RESFUNC> *residualfunc_;
 
-  typedef double (*PREFUNC)(const boost::ptr_vector<Basis> &basis, 
-			    const int &i,  
-			    const int &j,
-			    const double &dt_, 
-			    const double &t_theta_,
-			    const int &eqn_id);
+  typedef const double (*PREFUNC)(const boost::ptr_vector<Basis> &basis, 
+				  const int &i,  
+				  const int &j,
+				  const double &dt_, 
+				  const double &t_theta_,
+				  const int &eqn_id);
 
   std::vector<PREFUNC> *preconfunc_;
 
-  typedef double (*INITFUNC)(const double &x,
-			     const double &y,
-			     const double &z,
-			     const int &eqn_id,
-			     const int &lid);
+  typedef const double (*INITFUNC)(const double &x,
+				   const double &y,
+				   const double &z,
+				   const int &eqn_id,
+				   const int &lid);
 
   std::vector<INITFUNC> *initfunc_;
 
   std::vector<std::string> *varnames_;
 
-  typedef double (*DBCFUNC)(const double &x,
-			    const double &y,
-			    const double &z,
-			    const double &t);
-
+  typedef const double (*DBCFUNC)(const double &x,
+				  const double &y,
+				  const double &z,
+				  const double &t);
+  
   std::vector<std::map<int,DBCFUNC>> *dirichletfunc_;
 
-  typedef double (*NBCFUNC)(const Basis *basis,
-			    const int &i, 
-			    const double &dt_, 
-			    const double &t_theta_,
-			    const double &time);
+  typedef const double (*NBCFUNC)(const Basis *basis,
+				  const int &i, 
+				  const double &dt_, 
+				  const double &t_theta_,
+				  const double &time);
 
   std::vector<std::map<int,NBCFUNC>> *neumannfunc_;
 

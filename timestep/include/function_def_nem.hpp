@@ -31,14 +31,14 @@
 */
 
 
-#define RES_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
-                                    const int &i,\
-                                    const double &dt_,\
-                                    const double &dtold_,\
-			            const double &t_theta_,\
-			            const double &t_theta2_,\
-                                    const double &time,\
-				    const int &eqn_id)
+#define RES_FUNC(NAME)  const double NAME(const boost::ptr_vector<Basis> &basis,\
+					  const int &i,			\
+					  const double &dt_,		\
+					  const double &dtold_,		\
+					  const double &t_theta_,	\
+					  const double &t_theta2_,	\
+					  const double &time,		\
+					  const int &eqn_id)
 
 /** Definition for precondition function. Each precondition function is called at each Gauss point for each equation with this signature:
 - NAME:     name of function to call
@@ -53,12 +53,12 @@
 
 */
 
-#define PRE_FUNC(NAME)  double NAME(const boost::ptr_vector<Basis> &basis,\
-                                    const int &i,\
-				    const int &j,\
-				    const double &dt_,\
-				    const double &t_theta_,\
-				    const int &eqn_id)
+#define PRE_FUNC(NAME)  const double NAME(const boost::ptr_vector<Basis> &basis,\
+					  const int &i,			\
+					  const int &j,			\
+					  const double &dt_,		\
+					  const double &t_theta_,	\
+					  const int &eqn_id)
 
 /** Definition for initialization function. Each initialization function is called at each node for each equation at the beginning of the simualtaion with this signature:
 - NAME:     name of function to call
@@ -69,11 +69,11 @@
 
 */
 
-#define INI_FUNC(NAME)  double NAME(const double &x,\
-			            const double &y,\
-			            const double &z,\
-				    const int &eqn_id,\
-				    const int &lid) 
+#define INI_FUNC(NAME)  const double NAME(const double &x,\
+					  const double &y,	\
+					  const double &z,	\
+					  const int &eqn_id,	\
+					  const int &lid) 
 
 
 /** Definition for Dirichlet function. Each Dirichlet function is called at each node for each equation with this signature:
@@ -86,10 +86,10 @@
 
 */
 
-#define DBC_FUNC(NAME)  double NAME(const double &x,\
-			            const double &y,\
-			            const double &z,\
-			            const double &t) 
+#define DBC_FUNC(NAME)  const double NAME(const double &x,\
+					  const double &y,	\
+					  const double &z,	\
+					  const double &t) 
 
 /** Definition for Neumann function. Each Neumann function is called at each Gauss point for the current equation with this signature:
 - NAME:     name of function to call
@@ -102,11 +102,11 @@
 
 */
 
-#define NBC_FUNC(NAME)  double NAME(const Basis *basis,\
-				    const int &i,\
-				    const double &dt_,\
-				    const double &t_theta_,\
-				    const double &time)
+#define NBC_FUNC(NAME)  const double NAME(const Basis *basis,\
+					  const int &i,	     \
+					  const double &dt_, \
+					  const double &t_theta_,	\
+					  const double &time)
 
 /** Definition for post-process function. Each post-process function is called at each node for each equation at the end of each timestep with this signature:
 - NAME:     name of function to call
@@ -2339,11 +2339,8 @@ DBC_FUNC(dbc_)
 {  
   return 300.;
 }
-double conv_bc_(const Basis *basis,
-		 const int &i, 
-		 const double &dt_, 
-		 const double &t_theta_,
-		 const double &time)
+
+NBC_FUNC(conv_bc_)
 {
 
   double test = basis->phi[i];

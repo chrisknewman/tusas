@@ -1963,10 +1963,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
+    (*dirichletfunc_)[0][0] = &tpetra::heat::dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::heat::param_;
@@ -2038,10 +2038,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
+    (*dirichletfunc_)[0][0] = &tpetra::heat::dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::heat::param_;
@@ -2074,10 +2074,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
+    (*dirichletfunc_)[0][0] = &tpetra::heat::dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::heat::param_;
@@ -2116,14 +2116,14 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
-    (*dirichletfunc_)[1][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[1][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[1][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[1][3] = &dbc_zero_;
+    (*dirichletfunc_)[0][0] = &tpetra::heat::dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[1][0] = &tpetra::heat::dbc_zero_;							 
+    (*dirichletfunc_)[1][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[1][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[1][3] = &tpetra::heat::dbc_zero_;
 
     neumannfunc_ = NULL;
 
@@ -2389,12 +2389,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 #endif
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &pfhub2::init_c_;
-    (*initfunc_)[1] = &pfhub2::init_eta_;
+    (*initfunc_)[0] = &tpetra::pfhub2::init_c_;
+    (*initfunc_)[1] = &tpetra::pfhub2::init_eta_;
     if( 4 == numeta){
-      (*initfunc_)[2] = &pfhub2::init_eta_;
-      (*initfunc_)[3] = &pfhub2::init_eta_;
-      (*initfunc_)[4] = &pfhub2::init_eta_;
+      (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
     }
 
     varnames_ = new std::vector<std::string>(numeqs_);
@@ -2454,7 +2454,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     }
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &::pfhub2::init_c_;
+    (*initfunc_)[0] = &tpetra::pfhub2::init_c_;
     (*initfunc_)[1] = &tpetra::pfhub2::init_mu_;
     (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
     if( 4 == numeta){
@@ -2522,7 +2522,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &tpetra::pfhub2::init_mu_;
-    (*initfunc_)[1] = &::pfhub2::init_c_;
+    (*initfunc_)[1] = &tpetra::pfhub2::init_c_;
     (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
     if( 4 == numeta){
       (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
@@ -2580,10 +2580,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][1] = &dbc_zero_;
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
-    (*dirichletfunc_)[1][1] = &dbc_zero_;
-    (*dirichletfunc_)[1][3] = &dbc_zero_;
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[1][1] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[1][3] = &tpetra::heat::dbc_zero_;
 
     neumannfunc_ = NULL;
     paramfunc_.resize(1);
@@ -2618,10 +2618,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
 //               [numeq][nodeset id]
 //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][1] = &dbc_zero_;
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
-    (*dirichletfunc_)[1][1] = &dbc_zero_;
-    (*dirichletfunc_)[1][3] = &dbc_zero_;
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[1][1] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[1][3] = &tpetra::heat::dbc_zero_;
 
     neumannfunc_ = NULL;
     paramfunc_.resize(1);
@@ -2655,7 +2655,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //(*dirichletfunc_)[0][0] = &dbc_zero_;							 
     //(*dirichletfunc_)[0][1] = &dbc_zero_;						 
     //(*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
 
     // numeqs_ number of variables(equations) 
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
@@ -2828,10 +2828,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
+    (*dirichletfunc_)[0][0] = &tpetra::heat::dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::heat::param_;
@@ -3007,10 +3007,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
     //               [numeq][nodeset id]
     //  [variable index][nodeset index]						 
-    (*dirichletfunc_)[2][1] = &dbc_zero_;
-    (*dirichletfunc_)[2][3] = &dbc_zero_;
-    (*dirichletfunc_)[3][0] = &dbc_zero_;
-    (*dirichletfunc_)[3][2] = &dbc_zero_;
+    (*dirichletfunc_)[2][1] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[2][3] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[3][0] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[3][2] = &tpetra::heat::dbc_zero_;
     //(*dirichletfunc_)[4][1] = &dbc_zero_;
     
 

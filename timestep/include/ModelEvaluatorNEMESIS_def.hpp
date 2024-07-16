@@ -2531,6 +2531,38 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     neumannfunc_ = NULL;
 
+  }else if("heaterror" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &heat::residual_heat_test_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &heat::prec_heat_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &heat::init_heat_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
+    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &dbc_zero_;
+
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(mesh_,(int)0, post_process::NORM2));
+    post_proc[0].postprocfunc_ = &heat::postproc_;
+
   }else if("timeadapt" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;

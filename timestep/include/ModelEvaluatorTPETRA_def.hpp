@@ -57,7 +57,7 @@
 #define TUSAS_RUN_ON_CPU
 
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
-#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 40
+#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 135 // 5 * 27 for HexQ
 
 std::string getmypidstring(const int mypid, const int numproc);
 
@@ -370,6 +370,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+    // GAW TODO // need to set this up for other quadrature orders
+    std::cout<<"Using Random distribution memory access; currently assumes linear tensor product elements!"<<std::endl;
     randomdistribution = Teuchos::rcp(new random_distribution(mesh_, LTP_quadrature_order));
   }
 
@@ -547,6 +549,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
     u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
 
+  Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
+
+  for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
+    meshc_1d(i)=(mesh_->connect)[0][i];
+  }
+  Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
+
   const double dt = dt_; //cuda 8 lambdas dont capture private data
   const double dtold = dtold_; //cuda 8 lambdas dont capture private data
   const double t_theta = t_theta_; //cuda 8 lambdas dont capture private data
@@ -554,9 +563,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const double time = time_; //cuda 8 lambdas dont capture private data
   const int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
   const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
-  if (4 <  LTP_quadrature_order ){
+  const int QTP_quadrature_order = paramList.get<int> (TusasqtpquadordNameString);
+  if (4 <  LTP_quadrature_order || 4 <  QTP_quadrature_order){
       if( 0 == comm_->getRank() ){
-	std::cout<<std::endl<<std::endl<<"4 <  LTP_quadrature_order" <<std::endl<<std::endl<<std::endl;
+	std::cout<<std::endl<<std::endl<<"4 <  TP_quadrature_order" <<std::endl<<std::endl<<std::endl;
       }
       exit(0);
   }
@@ -596,24 +606,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     h_rf = &(*residualfunc_)[0];
 
     const int num_elem = (*mesh_->get_elem_num_map()).size();
-
+    
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
       const int num_color = Elem_col->get_num_color();
     
-      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[blk]).size());
-      for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
-	meshc_1d(i)=(mesh_->connect)[blk][i];
-      }
-      Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
-
       int ngp = 0;
       //LTP_quadrature_order;
-      if(4 == n_nodes_per_elem)  {
-	ngp = LTP_quadrature_order*LTP_quadrature_order;
-      }else{
-	ngp = LTP_quadrature_order*LTP_quadrature_order*LTP_quadrature_order;
-      }
+      if (4 == n_nodes_per_elem)  {
+    ngp = LTP_quadrature_order*LTP_quadrature_order;
+  }else if(9 == n_nodes_per_elem) {
+    ngp = QTP_quadrature_order*QTP_quadrature_order;
+  }else if(8 == n_nodes_per_elem) {
+    ngp = LTP_quadrature_order*LTP_quadrature_order*LTP_quadrature_order;
+  }else if(27 == n_nodes_per_elem) {
+    ngp = QTP_quadrature_order*QTP_quadrature_order*QTP_quadrature_order;
+  }
       //cn not sure how this will work with multiple element types
       Kokkos::View<double**,Kokkos::DefaultExecutionSpace> randomdistribution_2d("randomdistribution_2d", num_elem, ngp);
       if( paramList.get<bool>(TusasrandomDistributionNameString) ){
@@ -633,9 +641,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}
       }//if
       
-      for(int color = 0; color < num_color; color++){
+      for(int c = 0; c < num_color; c++){
 	//std::vector<int> elem_map = colors[c];
-	const std::vector<int> elem_map = Elem_col->get_color(color);//local
+	const std::vector<int> elem_map = Elem_col->get_color(c);//local
 	
 	const int num_elem = elem_map.size();
 	
@@ -679,18 +687,28 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    const int elem = elem_map_1d(ne);
 #endif
 
-	    GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
-	    //IMPORTANT: if TUSAS_MAX_NUMEQS is increased the following lines (and below in prec fill)
-	    //need to be adjusted
-	    GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	    GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-	    if(4 == n_nodes_per_elem)  {
-	      for( int neq = 0; neq < numeqs; neq++ )
-		BGPU[neq] = &Bq[neq];
-	    }else{
-	      for( int neq = 0; neq < numeqs; neq++ )
-		BGPU[neq] = &Bh[neq];
-	    }
+	//GPUBasisLHex * dummy = new (bh_view) GPUBasisLHex(LTP_quadrature_order);
+	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+	//IMPORTANT: if TUSAS_MAX_NUMEQS is increased the following lines (and below in prec fill)
+	//need to be adjusted
+	GPUBasisLQuad Bql[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+  GPUBasisQQuad Bqq[TUSAS_MAX_NUMEQS] = {GPUBasisQQuad(QTP_quadrature_order), GPUBasisQQuad(QTP_quadrature_order), GPUBasisQQuad(QTP_quadrature_order), GPUBasisQQuad(QTP_quadrature_order), GPUBasisQQuad(QTP_quadrature_order)};
+	GPUBasisLHex Bhl[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+  GPUBasisQHex Bhq[TUSAS_MAX_NUMEQS] = {GPUBasisQHex(QTP_quadrature_order), GPUBasisQHex(QTP_quadrature_order), GPUBasisQHex(QTP_quadrature_order), GPUBasisQHex(QTP_quadrature_order), GPUBasisQHex(QTP_quadrature_order)};
+
+	if(4 == n_nodes_per_elem)  {
+	  for( int neq = 0; neq < numeqs; neq++ )
+	    BGPU[neq] = &Bql[neq];
+	} else if (9 == n_nodes_per_elem) {
+    for( int neq = 0; neq < numeqs; neq++ )
+      BGPU[neq] = &Bqq[neq];
+  } else if (8 == n_nodes_per_elem) {
+    for( int neq = 0; neq < numeqs; neq++ )
+	    BGPU[neq] = &Bhl[neq];
+  } else if (27 == n_nodes_per_elem) {
+    for( int neq = 0; neq < numeqs; neq++ )
+	    BGPU[neq] = &Bhq[neq];
+	}
 	    
 	    const int ngp = BGPU[0]->ngp();
 	    
@@ -711,6 +729,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      xx[k] = x_1dra(nodeid);
 	      yy[k] = y_1dra(nodeid);
 	      zz[k] = z_1dra(nodeid);
+	      //zz[k] =  z_view(nodeid,0);
 	      
 	      //std::cout<<k<<"   "<<xx[k]<<"   "<<yy[k]<<"   "<<zz[k]<<"   "<<nodeid<<std::endl;
 	      for( int neq = 0; neq < numeqs; neq++ ){
@@ -760,7 +779,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
         });//parallel_for
 	  //};//ne
 
-      }//color
+      }//c 
     }//blk
 
 			    //exit(0);
@@ -771,7 +790,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }
   }//get_f
 
-      //not sure what to do about blocks here
   if (nonnull(outArgs.get_f())) {
     if (NULL != neumannfunc_) {
 
@@ -812,25 +830,32 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
 	uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
 
-      GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
-      GPUBasisLBar Bb = GPUBasisLBar(LTP_quadrature_order);
-      int num_node_per_side = 4;
+      GPUBasisLQuad Bql = GPUBasisLQuad(LTP_quadrature_order);
+      GPUBasisQQuad Bqq = GPUBasisQQuad(QTP_quadrature_order);
+      GPUBasisLBar Bbl = GPUBasisLBar(LTP_quadrature_order);
+      GPUBasisQBar Bbq = GPUBasisQBar(QTP_quadrature_order);
+      int num_node_per_side = 9;
 
-
-    
       const int blk = 0;
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
-    
+
       GPUBasis * BGPU;
-      if(8 == n_nodes_per_elem) { // linear hex-- quad faces
-	BGPU = &Bq;
+      if(27 == n_nodes_per_elem) { // quadratic hex-- quad faces
+	BGPU = &Bqq;
+      } else if(8 == n_nodes_per_elem) { // linear hex-- quad faces
+	BGPU = &Bql;
+  num_node_per_side = 4;
       }
       else if(4 == n_nodes_per_elem) { // linear quad-- bar faces
-	BGPU = &Bb;
+	BGPU = &Bbl;
 	num_node_per_side = 2;
       }
+      else if(9 == n_nodes_per_elem) { // quadratic quad-- bar faces
+	BGPU = &Bbq;
+	num_node_per_side = 3;
+      }
       else {
-	std::cout<<"Only quad4/bar2 elements implemented for neumann bc now"<<std::endl;
+	std::cout<<"Only quad9/quad4/bar2/bar3 elements implemented for neumann bc now"<<std::endl;
 	exit(0);
       }
       
@@ -988,15 +1013,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
       const int num_color = Elem_col->get_num_color();
       
-      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[blk]).size());
-      for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
-	meshc_1d(i)=(mesh_->connect)[blk][i];
-      }
-      Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
-
-      for(int color = 0; color < num_color; color++){
+      for(int c = 0; c < num_color; c++){
 	//std::vector<int> elem_map = colors[c];
-	std::vector<int> elem_map = Elem_col->get_color(color);
+	std::vector<int> elem_map = Elem_col->get_color(c);
 	
 	const int num_elem = elem_map.size();
 	
@@ -1015,16 +1034,24 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 			     //an array of pointers to GPUBasis
 	  GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
-	  GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	  GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+  	GPUBasisLQuad Bql[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+    GPUBasisQQuad Bqq[TUSAS_MAX_NUMEQS] = {GPUBasisQQuad(QTP_quadrature_order), GPUBasisQQuad(QTP_quadrature_order), GPUBasisQQuad(QTP_quadrature_order), GPUBasisQQuad(QTP_quadrature_order), GPUBasisQQuad(QTP_quadrature_order)};
+	  GPUBasisLHex Bhl[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+    GPUBasisQHex Bhq[TUSAS_MAX_NUMEQS] = {GPUBasisQHex(QTP_quadrature_order), GPUBasisQHex(QTP_quadrature_order), GPUBasisQHex(QTP_quadrature_order), GPUBasisQHex(QTP_quadrature_order), GPUBasisQHex(QTP_quadrature_order)};
 
 	  if(4 == n_nodes_per_elem)  {
 	    for( int neq = 0; neq < numeqs; neq++ )
-	      BGPU[neq] = &Bq[neq];
-	  }else{
-	    for( int neq = 0; neq < numeqs; neq++ )
-	      BGPU[neq] = &Bh[neq];
-	  }
+	      BGPU[neq] = &Bql[neq];
+	  } else if (9 == n_nodes_per_elem) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = &Bqq[neq];
+    } else if (8 == n_nodes_per_elem) {
+      for( int neq = 0; neq < numeqs; neq++ )
+	      BGPU[neq] = &Bhl[neq];
+    } else if (27 == n_nodes_per_elem) {
+      for( int neq = 0; neq < numeqs; neq++ )
+	      BGPU[neq] = &Bhq[neq];
+  	}
 	
 	  const int ngp = BGPU[0]->ngp();
 	  
@@ -2554,7 +2581,37 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     //exit(0);
 
-  }else if("robin" == paramList.get<std::string> (TusastestNameString)){
+  }else if("neumann" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    //(*initfunc_)[0] = &init_neumann_test_;
+    (*initfunc_)[0] = &tpetra::init_zero_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]				 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
+
+    // numeqs_ number of variables(equations) 
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    (*neumannfunc_)[0][1] = &tpetra::nbc_one_;
+    //(*neumannfunc_)[0][2] = &nbc_zero_;						 
+    //(*neumannfunc_)[0][3] = &nbc_zero_;
+}else if("robin" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;
 

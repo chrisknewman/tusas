@@ -13,6 +13,9 @@
 	
 #include <Kokkos_Core.hpp>
 
+// gaw // KOKKOS_INLINE_FUNCTION is defined as __host__ __device__ inline
+// Use KOKKOS_INLINE_FUNCTION instead of TUSAS_CUDA_CALLABLE_MEMBER, want
+// to inline functions defined in header
 #ifdef KOKKOS_HAVE_CUDA
 #define TUSAS_CUDA_CALLABLE_MEMBER __host__ __device__
 #else
@@ -2296,10 +2299,14 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
 
 };
 
-//#define BASIS_NODES_PER_ELEM 27
-#define BASIS_NODES_PER_ELEM 8
+
+// Current max element: QHex
+#define BASIS_NODES_PER_ELEM 27
+#define BASIS_SNODES_PER_ELEM 3
+// NGP = Total number of Gauss points in element
+// SNGP = Total number of Gauss points in tensor product element per dimension
+// Current max quadrature degree 3
 #define BASIS_NGP_PER_ELEM 64
-//#define BASIS_NGP_PER_ELEM 8
 #define BASIS_SNGP_PER_ELEM 4
 
 class Unified {
@@ -2336,11 +2343,14 @@ class GPUBasis{
 
 public:
 
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasis(){//printf("GPUBasis()\n");
+  KOKKOS_INLINE_FUNCTION
+  GPUBasis(){//printf("GPUBasis()\n");
   };
-  TUSAS_CUDA_CALLABLE_MEMBER virtual ~GPUBasis(){//printf("~GPUBasis()\n");
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPUBasis(){//printf("~GPUBasis()\n");
   };
-  TUSAS_CUDA_CALLABLE_MEMBER virtual double getBasis(const int gp,
+  KOKKOS_INLINE_FUNCTION
+  virtual double getBasis(const int gp,
 						   const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM],
@@ -2348,83 +2358,83 @@ public:
 						   const double uold[BASIS_NODES_PER_ELEM],
 						   const double uoldold[BASIS_NODES_PER_ELEM]) {};
   //we could compute and return jac here
-  TUSAS_CUDA_CALLABLE_MEMBER virtual void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
+  // Function to compute data related to element's vertices' coordinates
+  KOKKOS_INLINE_FUNCTION
+  virtual void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM]) {};
 
   
-    /// Access number of Gauss points.
+  /// Access number of Gauss points.
   KOKKOS_INLINE_FUNCTION
   const int ngp() const {return ngpp;};
 
-  double phi[BASIS_NODES_PER_ELEM];
+  /// Access value of the basis function at the current Gauss point
+  KOKKOS_INLINE_FUNCTION
+  const double phi(const int i) const {return phip[i];};
+  /// Access value of the derivative of the basis function wrt to x at the current Gauss point.
+  KOKKOS_INLINE_FUNCTION
+  const double dphidx(const int i) const {return dphidxp[i];};
+  /// Access value of the derivative of the basis function wrt to y at the current Gauss point.
+  KOKKOS_INLINE_FUNCTION
+  const double dphidy(const int i) const {return dphidyp[i];};
+  /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
+  KOKKOS_INLINE_FUNCTION
+  const double dphidz(const int i) const {return dphidzp[i];};
 
   /// Access value of u at the current Gauss point.
-  double uu;
-  /// Access value of u_old at the current Gauss point.
-  double uuold;
+  KOKKOS_INLINE_FUNCTION
+  const double uu() const {return uup;};
   /// Access value of du / dx at the current Gauss point.
-  double dudx;
+  KOKKOS_INLINE_FUNCTION
+  const double duudx() const {return duudxp;};
   /// Access value of du / dy at the current Gauss point.
-  double dudy;
-  /// Access value of the derivative of the basis function wrt to x at the current Gauss point.
-  double dphidx[BASIS_NODES_PER_ELEM];
-  /// Access value of the derivative of the basis function wrt to y at the current Gauss point.
-  double dphidy[BASIS_NODES_PER_ELEM];
-
-  // Variables that are calculated at the gauss point
-  /// Access value of dphi / dzta  at the current Gauss point.
-  double dphidzta[BASIS_NODES_PER_ELEM];
-  
+  KOKKOS_INLINE_FUNCTION
+  const double duudy() const {return duudyp;};
   /// Access value of du / dz at the current Gauss point.
-  double dudz;
+  KOKKOS_INLINE_FUNCTION
+  const double duudz() const {return duudzp;};
 
+  /// Access value of u_old at the current Gauss point.
+  KOKKOS_INLINE_FUNCTION
+  const double uuold() const {return uuoldp;};
   /// Access value of du_old / dx at the current Gauss point.
-  double duolddx;
+  KOKKOS_INLINE_FUNCTION
+  const double duuolddx() const {return duuolddxp;};
   /// Access value of du_old / dy at the current Gauss point.
-  double duolddy;
+  KOKKOS_INLINE_FUNCTION
+  const double duuolddy() const {return duuolddyp;};
   /// Access value of du_old / dz at the current Gauss point.
-  double duolddz;
+  KOKKOS_INLINE_FUNCTION
+  const double duuolddz() const {return duuolddzp;};
 
   /// Access value of u_old_old at the current Gauss point.
-  double uuoldold;
+  KOKKOS_INLINE_FUNCTION
+  const double uuoldold() const {return uuoldoldp;};
   /// Access value of du_old_old / dx at the current Gauss point.
-  double duoldolddx;
+  KOKKOS_INLINE_FUNCTION
+  const double duuoldolddx() const {return duuoldolddxp;};
   /// Access value of du_old_old / dy at the current Gauss point.
-  double duoldolddy;
+  KOKKOS_INLINE_FUNCTION
+  const double duuoldolddy() const {return duuoldolddyp;};
   /// Access value of du_old_old / dz at the current Gauss point.
-  double duoldolddz;
+  KOKKOS_INLINE_FUNCTION
+  const double duuoldolddz() const {return duuoldolddzp;};
 
   /// Access value of x coordinate in real space at the current Gauss point.
-  double xx;
+  KOKKOS_INLINE_FUNCTION
+  const double xx() const {return xxp;};
   /// Access value of y coordinate in real space at the current Gauss point.
-  double yy;
+  KOKKOS_INLINE_FUNCTION
+  const double yy() const {return yyp;};
   /// Access value of z coordinate in real space at the current Gauss point.
-  double zz;
-
-  /// Access value of the derivative of the basis function wrt to z at the current Gauss point.
-  double dphidz[BASIS_NODES_PER_ELEM];
-
-  double phinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidxinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidetanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  KOKKOS_INLINE_FUNCTION
+  const double zz() const {return zzp;};
 
   /// Access volume of current element.  
   KOKKOS_INLINE_FUNCTION const double vol() const {return volp;};
 
-  //we could also do phi[BASIS_NODES_PER_ELEM] and set each element explicity below...
-  //double *phi;
-  
-
-  //also looks like abscissa[2], wt[2], xi[4],...,nwt[4]
-  //for linear quad.  need to change this below
-  //in general probably want abscissa[3] (or more) and xi[3*3*3], etc
 protected:
-  /// Access a pointer to the coordinates of the Gauss points in canonical space.
-  double abscissa[BASIS_SNGP_PER_ELEM];
-  /// Access a pointer to the Gauss weights.
-  double weight[BASIS_SNGP_PER_ELEM];
   /// Access a pointer to the xi coordinate at each Gauss point.
   double xi[BASIS_NGP_PER_ELEM];
   /// Access a pointer to the eta coordinate at each Gauss point.
@@ -2434,20 +2444,41 @@ protected:
   /// Access the number of Gauss weights.
   double nwt[BASIS_NGP_PER_ELEM];
 
-  /// difference in nodal coordinates
-  double nodaldiff[36];//12 for lquad, 36 for lhex
-
   double volp;
   double canonical_vol;
 
-  /// Access value of the Gauss weight  at the current Gauss point.
-  double wt;
   /// Access value of the mapping Jacobian.
   double jac;
   
   /// Access number of Gauss points.
-  int sngp;
   int ngpp;
+  /// Internal values
+  double phip[BASIS_NODES_PER_ELEM];
+  double dphidxp[BASIS_NODES_PER_ELEM];
+  double dphidyp[BASIS_NODES_PER_ELEM];
+  double dphidzp[BASIS_NODES_PER_ELEM];
+
+  double uup;
+  double duudxp;
+  double duudyp;
+  double duudzp;
+  double uuoldp;
+  double duuolddxp;
+  double duuolddyp;
+  double duuolddzp;
+  double uuoldoldp;
+  double duuoldolddxp;
+  double duuoldolddyp;
+  double duuoldolddzp;
+  double xxp;
+  double yyp;
+  double zzp;
+
+  double phinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidxinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidetanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+
   /// Access value of dxi / dx  at the current Gauss point.
   double dxidx;
   /// Access value of dxi / dy  at the current Gauss point.
@@ -2469,13 +2500,95 @@ protected:
 
 };
 
-//note that quadrature is exact for polynomials of degree 2*sngp - 1
-
-class GPUBasisLQuad:public GPUBasis{
+class GPUTensorProductBasis:public GPUBasis{
 public:
+  KOKKOS_INLINE_FUNCTION
+  GPUTensorProductBasis(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPUTensorProductBasis(){
+  };
 
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLQuad(const int n = 2){
-    canonical_vol = 4.;
+protected:
+  /// Access a pointer to the coordinates of the Gauss points per dimension
+  double abscissa[BASIS_SNGP_PER_ELEM];
+  /// Access a pointer to the Gauss weights.
+  double weight[BASIS_SNGP_PER_ELEM];
+  /// Access number of Gauss points per dimension
+  //note that quadrature is exact for polynomials of degree 2*sngp - 1
+  int sngp;
+  /// Access number of basis nodes (determined by dimension, function space order)
+  int nbnp;
+  KOKKOS_INLINE_FUNCTION
+  const int nbn() const {return nbnp;};
+  /// Access polynomial degree
+  int pdp;
+  KOKKOS_INLINE_FUNCTION
+  const int pd() const {return pdp;};
+ 
+  /// 1D basis functions and their derivatives (currently up to quadratic)
+  double xibasisatqp[BASIS_SNODES_PER_ELEM];
+  double etabasisatqp[BASIS_SNODES_PER_ELEM];
+  double ztabasisatqp[BASIS_SNODES_PER_ELEM];
+  double dxibasisatqp[BASIS_SNODES_PER_ELEM];
+  double detabasisatqp[BASIS_SNODES_PER_ELEM];
+  double dztabasisatqp[BASIS_SNODES_PER_ELEM];
+
+  // Functions to evaluate 1D coordinates at Gauss points
+  KOKKOS_INLINE_FUNCTION
+  void xibasisFunctions1D(const int gp){
+    if (pd() == 1){
+      xibasisatqp[0] = (1 - xi[gp])/2.;
+      xibasisatqp[1] = (1 + xi[gp])/2.;
+      dxibasisatqp[0] = -1/2.;
+      dxibasisatqp[1] = 1/2.;
+    }else if (pd() == 2){
+      xibasisatqp[0] = -xi[gp]*(1 - xi[gp])/2.;
+      xibasisatqp[1] = xi[gp]*(1 + xi[gp])/2.;
+      xibasisatqp[2] = 1 - xi[gp]*xi[gp];
+      dxibasisatqp[0] = xi[gp] - 1/2.;
+      dxibasisatqp[1] = xi[gp] + 1/2.;
+      dxibasisatqp[2] = -2*xi[gp];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void etabasisFunctions1D(const int gp){
+    if (pd() == 1){
+      etabasisatqp[0] = (1 - eta[gp])/2.;
+      etabasisatqp[1] = (1 + eta[gp])/2.;
+      detabasisatqp[0] = -1/2.;
+      detabasisatqp[1] = 1/2.;
+    }else if (pd() == 2){
+      etabasisatqp[0] = -eta[gp]*(1 - eta[gp])/2.;
+      etabasisatqp[1] = eta[gp]*(1 + eta[gp])/2.;
+      etabasisatqp[2] = 1 - eta[gp]*eta[gp];
+      detabasisatqp[0] = eta[gp] - 1/2.;
+      detabasisatqp[1] = eta[gp] + 1/2.;
+      detabasisatqp[2] = -2*eta[gp];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void ztabasisFunctions1D(const int gp){
+    if (pd() == 1){
+      ztabasisatqp[0] = (1 - zta[gp])/2.;
+      ztabasisatqp[1] = (1 + zta[gp])/2.;
+      dztabasisatqp[0] = -1/2.;
+      dztabasisatqp[1] = 1/2.;
+    }else if (pd() == 2){
+      ztabasisatqp[0] = -zta[gp]*(1 - zta[gp])/2.;
+      ztabasisatqp[1] = zta[gp]*(1 + zta[gp])/2.;
+      ztabasisatqp[2] = 1 - zta[gp]*zta[gp];
+      dztabasisatqp[0] = zta[gp] - 1/2.;
+      dztabasisatqp[1] = zta[gp] + 1/2.;
+      dztabasisatqp[2] = -2*zta[gp];
+    }
+  }
+
+  /// 1D quadrature rule
+  KOKKOS_INLINE_FUNCTION
+  int computeQuadratureData(const int n){
     sngp = n;
     if( 3 == n){
       abscissa[0] = -3.872983346207417/5.0;
@@ -2495,46 +2608,198 @@ public:
       weight[3] = (18.0-5.477225575051661)/36.0;
     } else {
       sngp = 2;
+      if ( 2 != n ) {
+        std::cout<<"WARNING: only 1 < N < 5 gauss points supported at this time, defaulting to N = 2"<<std::endl;
+      }
       abscissa[0] = -1.0/1.732050807568877;
       abscissa[1] =  1.0/1.732050807568877;
       weight[0] = 1.0;
       weight[1] = 1.0;
     }
-    ngpp = sngp*sngp;
-    
-    int c = 0;
-    for( int i = 0; i < sngp; i++ ){
-      for( int j = 0; j < sngp; j++ ){
-	//std::cout<<i+j+c<<"   "<<i<<"   "<<j<<std::endl;
-	xi[i+j+c]  = abscissa[i];
-	eta[i+j+c] = abscissa[j];
-	nwt[i+j+c]  = weight[i] * weight[j];
-      }
-      c = c + sngp - 1;
+    return sngp;
+  }
+
+  /// difference in nodal coordinates
+  double nodaldiff[36];//12 for lquad and qquad, 36 for lhex
+};
+
+class GPUBasisBar:public GPUTensorProductBasis{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisBar(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPUBasisBar(){
+  };
+
+  KOKKOS_INLINE_FUNCTION
+  void computeElemData(const double x[BASIS_NODES_PER_ELEM], 
+						           const double y[BASIS_NODES_PER_ELEM],  
+						           const double z[BASIS_NODES_PER_ELEM]) {
+    //std::cout<<"lbar 1"<<std::endl;
+    nodaldiff[0] = x[1]-x[0];
+    nodaldiff[1] = y[1]-y[0];
+    nodaldiff[2] = z[1]-z[0];
+    //std::cout<<nodaldiff[0]<<" "<<nodaldiff[1]<<" "<<nodaldiff[2]<<std::endl;
+    //std::cout<<"lbar 2"<<std::endl;
+}
+
+  KOKKOS_INLINE_FUNCTION
+  double getBasis(const int gp,
+					        const double x[BASIS_NODES_PER_ELEM], 
+					        const double y[BASIS_NODES_PER_ELEM],  
+					        const double z[BASIS_NODES_PER_ELEM],
+					        const double u[BASIS_NODES_PER_ELEM],
+					        const double uold[BASIS_NODES_PER_ELEM],
+					        const double uoldold[BASIS_NODES_PER_ELEM]) {
+
+    for (int i=0; i < nbn(); i++) {
+      phip[i]=phinew[gp][i];
     }
+
+    const double dxdxi  = .5*nodaldiff[0];
+    const double dydxi  = .5*nodaldiff[1];
+    const double dzdxi  = .5*nodaldiff[2];
+
+    jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
+    //std::cout<<jac<<" "<<wt<<std::endl;
+    volp = jac*canonical_vol;
+    dxidx = 1. / dxdxi;
+    dxidy = 1. / dydxi;
+    dxidz = 1. / dzdxi;
+    detadx = 0.;
+    detady = 0.;
+    detadz =0.;
+    dztadx =0.;
+    dztady =0.;
+    dztadz =0.;
+    // Caculate basis function and derivative at GP.
+    xxp=0.0;
+    yyp=0.0;
+    zzp=0.0;
+    uup=0.0;
+    uuoldp=0.0;
+    uuoldoldp=0.0;
+    duudxp=0.0;
+    duudyp=0.0;
+    duudzp=0.0;
+    duuolddxp = 0.;
+    duuolddyp = 0.;
+    duuolddzp = 0.;
+    duuoldolddxp = 0.;
+    duuoldolddyp = 0.;
+    duuoldolddzp = 0.;
+
+    for (int i=0; i < nbn(); i++) {
+      xxp += x[i] * phinew[gp][i];
+      yyp += y[i] * phinew[gp][i];
+      zzp += z[i] * phinew[gp][i];
+      dphidxp[i] = dphidxinew[gp][i]*dxidx;
+      dphidyp[i] = dphidxinew[gp][i]*dxidy;
+      dphidzp[i] = dphidxinew[gp][i]*dxidz;
+      if( u ){
+	uup += u[i] * phinew[gp][i];
+	duudxp += u[i] * dphidxp[i];
+	duudyp += u[i]* dphidyp[i];
+	duudzp += u[i]* dphidzp[i];
+      }
+      if( uold ){
+	uuoldp += uold[i] * phinew[gp][i];
+	duuolddxp += uold[i] * dphidxp[i];
+	duuolddyp += uold[i]* dphidyp[i];
+	duuolddzp += uold[i]* dphidzp[i];
+      }
+      if( uoldold ){
+	uuoldoldp += uoldold[i] * phinew[gp][i];
+	duuoldolddxp += uoldold[i] * dphidxp[i];
+	duuoldolddyp += uoldold[i]* dphidyp[i];
+	duuoldolddzp += uoldold[i]* dphidzp[i];
+      }
+    }
+  
+    return jac*nwt[gp];
+  }
+
+protected:
+  // Set up reference element coordinate values at quadrature points
+  KOKKOS_INLINE_FUNCTION
+  void computeCoordinateData(const int sngp){
+    for(int i = 0; i < sngp; i++){
+      xi[i] = abscissa[i];
+      nwt[i] = weight[i];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void computeBasisFunctions(const int ngpp, const int nbnp){
     for(int gp = 0; gp < ngpp; gp++){
-      phinew[gp][0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
-      phinew[gp][1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
-      phinew[gp][2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
-      phinew[gp][3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
-      
-      dphidxinew[gp][0]=-(1.0-eta[gp])/4.0;
-      dphidxinew[gp][1]= (1.0-eta[gp])/4.0;
-      dphidxinew[gp][2]= (1.0+eta[gp])/4.0;
-      dphidxinew[gp][3]=-(1.0+eta[gp])/4.0;
-      
-      dphidetanew[gp][0]=-(1.0-xi[gp])/4.0;
-      dphidetanew[gp][1]=-(1.0+xi[gp])/4.0;
-      dphidetanew[gp][2]= (1.0+xi[gp])/4.0;
-      dphidetanew[gp][3]= (1.0-xi[gp])/4.0;
-    }  
+      // Compute basis function evaluations at coordinate
+      xibasisFunctions1D(gp);
+      for(int bn = 0; bn < nbnp; bn++){
+          phinew[gp][bn] = xibasisatqp[bn];
+          dphidxinew[gp][bn] = dxibasisatqp[bn];
+          dphidetanew[gp][bn] = 0;
+          dphidztanew[gp][bn] = 0;
+      }
+    }
+  }
+};
+
+class GPUBasisLBar:public GPUBasisBar{
+public:
+
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisLBar(const int n = 2){
+    pdp = 1;
+    nbnp = pdp + 1;
+    canonical_vol = 2.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp;
+    computeBasisFunctions(ngpp, nbnp);
   }
   
-  TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLQuad(){}
+  KOKKOS_INLINE_FUNCTION
+  ~GPUBasisLBar(){}
+};
 
-  TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
-						   const double y[BASIS_NODES_PER_ELEM],  
-						   const double z[BASIS_NODES_PER_ELEM]) {
+class GPUBasisQBar:public GPUBasisBar{
+public:
+
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisQBar(const int n = 3){
+    pdp = 2;
+    nbnp = pdp + 1;
+    canonical_vol = 2.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp;
+    computeBasisFunctions(ngpp, nbnp);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPUBasisQBar(){}
+};
+
+class GPUBasisQuad:public GPUTensorProductBasis{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisQuad(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPUBasisQuad(){
+  };
+
+  KOKKOS_INLINE_FUNCTION
+  void computeElemData(const double x[BASIS_NODES_PER_ELEM], 
+						           const double y[BASIS_NODES_PER_ELEM],  
+						           const double z[BASIS_NODES_PER_ELEM]) {
+    // Compute differences between the corners; needed for partial derivatives and Jacobian
+    // First four nodes are always the corners in exo ordering, regardless of polynomial degree
     //std::cout<<"lquad 1"<<std::endl;
     nodaldiff[0] = x[1]-x[0];
     nodaldiff[1] = x[3]-x[0];
@@ -2550,58 +2815,30 @@ public:
     nodaldiff[10] = z[2]-z[3];
     nodaldiff[11] = z[2]-z[1];
     //std::cout<<"lquad 2"<<std::endl;
-
-}
-
-  TUSAS_CUDA_CALLABLE_MEMBER double getBasis(const int gp,
-					   const double x[BASIS_NODES_PER_ELEM], 
-					   const double y[BASIS_NODES_PER_ELEM],  
-					   const double z[BASIS_NODES_PER_ELEM],
-					   const double u[BASIS_NODES_PER_ELEM],
-					   const double uold[BASIS_NODES_PER_ELEM],
-					   const double uoldold[BASIS_NODES_PER_ELEM]) {
-
-  // Calculate basis function and derivatives at nodal pts
-//   phi[0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
-//   phi[1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
-//   phi[2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
-//   phi[3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
-
-    //phi=phinew[gp];
-  for (int i=0; i < 4; i++) {
-    phi[i]=phinew[gp][i];
   }
 
-//   dphidxi[0]=-(1.0-eta[gp])/4.0;
-//   dphidxi[1]= (1.0-eta[gp])/4.0;
-//   dphidxi[2]= (1.0+eta[gp])/4.0;
-//   dphidxi[3]=-(1.0+eta[gp])/4.0;
+  KOKKOS_INLINE_FUNCTION
+  double getBasis(const int gp,
+		      		    const double x[BASIS_NODES_PER_ELEM], 
+					        const double y[BASIS_NODES_PER_ELEM],  
+					        const double z[BASIS_NODES_PER_ELEM],
+					        const double u[BASIS_NODES_PER_ELEM],
+					        const double uold[BASIS_NODES_PER_ELEM],
+					        const double uoldold[BASIS_NODES_PER_ELEM]) {
 
-//   dphideta[0]=-(1.0-xi[gp])/4.0;
-//   dphideta[1]=-(1.0+xi[gp])/4.0;
-//   dphideta[2]= (1.0+xi[gp])/4.0;
-//   dphideta[3]= (1.0-xi[gp])/4.0;
-  
-  // Caculate basis function and derivative at GP.
-  //std::cout<<x[0]<<" "<<x[1]<<" "<<x[2]<<" "<<x[3]<<std::endl;
-//   double dxdxi  = .25*( (x[1]-x[0])*(1.-eta[gp])+(x[2]-x[3])*(1.+eta[gp]) );
-//   double dxdeta = .25*( (x[3]-x[0])*(1.- xi[gp])+(x[2]-x[1])*(1.+ xi[gp]) );
-//   double dydxi  = .25*( (y[1]-y[0])*(1.-eta[gp])+(y[2]-y[3])*(1.+eta[gp]) );
-//   double dydeta = .25*( (y[3]-y[0])*(1.- xi[gp])+(y[2]-y[1])*(1.+ xi[gp]) );
-//   double dzdxi  = .25*( (z[1]-z[0])*(1.-eta[gp])+(z[2]-z[3])*(1.+eta[gp]) );
-//   double dzdeta = .25*( (z[3]-z[0])*(1.- xi[gp])+(z[2]-z[1])*(1.+ xi[gp]) );
+  // Calculate basis function and derivatives at nodal pts
+  for (int i=0; i < nbn(); i++) {
+    phip[i]=phinew[gp][i];
+  }
 
-//we could make these protected, ove this jac and volp to computeElemData as an optimization
+  // Calculate partial coordinate derivatives for Jacobian and phi derivatives
+  // we could make these protected, ove this jac and volp to computeElemData as an optimization
   double dxdxi  = .25*( (nodaldiff[0])*(1.-eta[gp])+(nodaldiff[6])*(1.+eta[gp]) );
   double dxdeta = .25*( (nodaldiff[1])*(1.- xi[gp])+(nodaldiff[7])*(1.+ xi[gp]) );
   double dydxi  = .25*( (nodaldiff[2])*(1.-eta[gp])+(nodaldiff[8])*(1.+eta[gp]) );
   double dydeta = .25*( (nodaldiff[3])*(1.- xi[gp])+(nodaldiff[9])*(1.+ xi[gp]) );
   double dzdxi  = .25*( (nodaldiff[4])*(1.-eta[gp])+(nodaldiff[10])*(1.+eta[gp]) );
   double dzdeta = .25*( (nodaldiff[5])*(1.- xi[gp])+(nodaldiff[11])*(1.+ xi[gp]) );
-
-
-
-  wt = nwt[gp];
 
   //jac = dxdxi * dydeta - dxdeta * dydxi;
   jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
@@ -2618,185 +2855,138 @@ public:
   dztady =0.;
   dztadz =0.;
   // Caculate basis function and derivative at GP.
-  xx=0.0;
-  yy=0.0;
-  zz=0.0;
-  uu=0.0;
-  uuold=0.0;
-  uuoldold=0.0;
-  dudx=0.0;
-  dudy=0.0;
-  dudz=0.0;
-  duolddx = 0.;
-  duolddy = 0.;
-  duolddz = 0.;
-  duoldolddx = 0.;
-  duoldolddy = 0.;
-  duoldolddz = 0.;
+  xxp=0.0;
+  yyp=0.0;
+  zzp=0.0;
+  uup=0.0;
+  uuoldp=0.0;
+  uuoldoldp=0.0;
+  duudxp=0.0;
+  duudyp=0.0;
+  duudzp=0.0;
+  duuolddxp = 0.;
+  duuolddyp = 0.;
+  duuolddzp = 0.;
+  duuoldolddxp = 0.;
+  duuoldolddyp = 0.;
+  duuoldolddzp = 0.;
   // x[i] is a vector of node coords, x(j, k) 
-  for (int i=0; i < 4; i++) {
-    xx += x[i] * phinew[gp][i];
-    yy += y[i] * phinew[gp][i];
-    zz += z[i] * phi[i];
-    dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx;
-    dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady;
-    dphidz[i] = 0.0;
-    dphidzta[i]= 0.0;
+  for (int i=0; i < nbn(); i++) {
+    xxp += x[i] * phinew[gp][i];
+    yyp += y[i] * phinew[gp][i];
+    zzp += z[i] * phinew[gp][i];
+    dphidxp[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx;
+    dphidyp[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady;
+    dphidzp[i] = 0.0;
     if( u ){
-      uu += u[i] * phinew[gp][i];
-      dudx += u[i] * dphidx[i];
-      dudy += u[i]* dphidy[i];
+      uup += u[i] * phinew[gp][i];
+      duudxp += u[i] * dphidxp[i];
+      duudyp += u[i]* dphidyp[i];
     }
     if( uold ){
-      uuold += uold[i] * phinew[gp][i];
-      duolddx += uold[i] * dphidx[i];
-      duolddy += uold[i]* dphidy[i];
+      uuoldp += uold[i] * phinew[gp][i];
+      duuolddxp += uold[i] * dphidxp[i];
+      duuolddyp += uold[i]* dphidyp[i];
     }
     if( uoldold ){
-      uuoldold += uoldold[i] * phi[i];
-      duoldolddx += uoldold[i] * dphidx[i];
-      duoldolddy += uoldold[i]* dphidy[i];
+      uuoldoldp += uoldold[i] * phinew[gp][i];
+      duuoldolddxp += uoldold[i] * dphidxp[i];
+      duuoldolddyp += uoldold[i]* dphidyp[i];
     }
   }
-  
-  return jac*wt;
+
+  return jac*nwt[gp];
   }
-};
 
-class GPUBasisLHex:public GPUBasis{
-public:
-
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLHex(const int n = 2){
-    canonical_vol = 8.;
-    sngp = n;
-    if( 3 == n){
-      abscissa[0] = -3.872983346207417/5.0;
-      abscissa[1] =  0.0;
-      abscissa[2] =  3.872983346207417/5.0;
-      weight[0] = 5.0/9.0;
-      weight[1] = 8.0/9.0;
-      weight[2] = 5.0/9.0;
-    } else if ( 4 == n ) {
-      abscissa[0] =  -30.13977090579184/35.0;
-      abscissa[1] =  -11.89933652546997/35.0;
-      abscissa[2] =   11.89933652546997/35.0;
-      abscissa[3] =   30.13977090579184/35.0;
-      weight[0] = (18.0-5.477225575051661)/36.0;
-      weight[1] = (18.0+5.477225575051661)/36.0;
-      weight[2] = (18.0+5.477225575051661)/36.0;
-      weight[3] = (18.0-5.477225575051661)/36.0;
-    } else {
-      sngp = 2;
-      abscissa[0] = -1.0/1.732050807568877;
-      abscissa[1] =  1.0/1.732050807568877;
-      weight[0] = 1.0;
-      weight[1] = 1.0;
-    }
-    ngpp = sngp*sngp*sngp;
-
-#if 0
-    xi[0] = abscissa[0];  // 0, 0, 0
-    eta[0] = abscissa[0];
-    zta[0] = abscissa[0];
-    nwt[0] = weight[0] * weight[0] * weight[0];
-
-    xi[1] = abscissa[1]; // 1, 0, 0
-    eta[1] = abscissa[0];
-    zta[1] = abscissa[0];
-    nwt[1] = weight[0] * weight[1] * weight[0];
-
-    xi[2] = abscissa[1]; // 1, 1, 0
-    eta[2] = abscissa[1];
-    zta[2] = abscissa[0];
-    nwt[2] = weight[1] * weight[1] * weight[0];
-
-    xi[3] = abscissa[0];  //0, 1, 0
-    eta[3] = abscissa[1];
-    zta[3] = abscissa[0];
-    nwt[3] = weight[0] * weight[1] * weight[0];
-
-    xi[4] = abscissa[0];  // 0, 0, 1
-    eta[4] = abscissa[0];
-    zta[4] = abscissa[1];
-    nwt[4] = weight[0] * weight[0] * weight[1];
-
-    xi[5] = abscissa[1]; // 1, 0, 1
-    eta[5] = abscissa[0];
-    zta[5] = abscissa[1];
-    nwt[5] = weight[0] * weight[1] * weight[1];
-
-    xi[6] = abscissa[1]; // 1, 1, 1
-    eta[6] = abscissa[1];
-    zta[6] = abscissa[1];
-    nwt[6] = weight[1] * weight[1] * weight[1];
-
-    xi[7] = abscissa[0];  //0, 1, 1
-    eta[7] = abscissa[1];
-    zta[7] = abscissa[1];
-    nwt[7] = weight[0] * weight[1] * weight[1];
-#endif
+protected:
+  // Set up reference element coordinate values at quadrature points
+  KOKKOS_INLINE_FUNCTION
+  void computeCoordinateData(const int sngp){
     int c = 0;
     for( int i = 0; i < sngp; i++ ){
       for( int j = 0; j < sngp; j++ ){
-	for( int k = 0; k < sngp; k++ ){
-	  //std::cout<<i+j+k+c<<"   "<<i<<"   "<<j<<"   "<<k<<std::endl;
-	  xi[i+j+k+c]  = abscissa[i];
-	  eta[i+j+k+c] = abscissa[j];
-	  zta[i+j+k+c] = abscissa[k];
-	  nwt[i+j+k+c]  = weight[i] * weight[j] * weight[k]; 
-	}   
-	c = c + sngp - 1;
+	      //std::cout<<i+j+c<<"   "<<i<<"   "<<j<<std::endl;
+	      xi[i+j+c]  = abscissa[i];
+	      eta[i+j+c] = abscissa[j];
+	      nwt[i+j+c]  = weight[i] * weight[j];
       }
       c = c + sngp - 1;
     }
-    //exit(0);
+  }
 
+  KOKKOS_INLINE_FUNCTION
+  void computeBasisFunctions(const int ngpp, const int nbnp, const int nl[2][9]){
     for(int gp = 0; gp < ngpp; gp++){
-      phinew[gp][0]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
-      phinew[gp][1]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 - zta[gp]);
-      phinew[gp][2]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
-      phinew[gp][3]   =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]) * (1.0 - zta[gp]);
-      phinew[gp][4]   =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]) * (1.0 + zta[gp]);
-      phinew[gp][5]   =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]) * (1.0 + zta[gp]);
-      phinew[gp][6]   =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]) * (1.0 + zta[gp]);
-      phinew[gp][7]   =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]) * (1.0 + zta[gp]);
-   
-      dphidxinew[gp][0] = -0.125 * (1.0 - eta[gp]) * (1.0 - zta[gp]);
-      dphidxinew[gp][1] =  0.125 * (1.0 - eta[gp]) * (1.0 - zta[gp]);
-      dphidxinew[gp][2] =  0.125 * (1.0 + eta[gp]) * (1.0 - zta[gp]);
-      dphidxinew[gp][3] = -0.125 * (1.0 + eta[gp]) * (1.0 - zta[gp]);
-      dphidxinew[gp][4] = -0.125 * (1.0 - eta[gp]) * (1.0 + zta[gp]);
-      dphidxinew[gp][5] =  0.125 * (1.0 - eta[gp]) * (1.0 + zta[gp]);
-      dphidxinew[gp][6] =  0.125 * (1.0 + eta[gp]) * (1.0 + zta[gp]);
-      dphidxinew[gp][7] = -0.125 * (1.0 + eta[gp]) * (1.0 + zta[gp]);
-      
-      dphidetanew[gp][0] = -0.125 * (1.0 - xi[gp]) * (1.0 - zta[gp]);
-      dphidetanew[gp][1] = -0.125 * (1.0 + xi[gp]) * (1.0 - zta[gp]);
-      dphidetanew[gp][2] =  0.125 * (1.0 + xi[gp]) * (1.0 - zta[gp]);
-      dphidetanew[gp][3] =  0.125 * (1.0 - xi[gp]) * (1.0 - zta[gp]);
-      dphidetanew[gp][4] = -0.125 * (1.0 - xi[gp]) * (1.0 + zta[gp]);
-      dphidetanew[gp][5] = -0.125 * (1.0 + xi[gp]) * (1.0 + zta[gp]);
-      dphidetanew[gp][6] =  0.125 * (1.0 + xi[gp]) * (1.0 + zta[gp]);
-      dphidetanew[gp][7] =  0.125 * (1.0 - xi[gp]) * (1.0 + zta[gp]);
-      
-      dphidztanew[gp][0] = -0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]);
-      dphidztanew[gp][1] = -0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]);
-      dphidztanew[gp][2] = -0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]);
-      dphidztanew[gp][3] = -0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]);
-      dphidztanew[gp][4] =  0.125 * (1.0 - xi[gp]) * (1.0 - eta[gp]);
-      dphidztanew[gp][5] =  0.125 * (1.0 + xi[gp]) * (1.0 - eta[gp]);
-      dphidztanew[gp][6] =  0.125 * (1.0 + xi[gp]) * (1.0 + eta[gp]);
-      dphidztanew[gp][7] =  0.125 * (1.0 - xi[gp]) * (1.0 + eta[gp]);
+      // Compute basis function evaluations at gauss point coordinate
+      xibasisFunctions1D(gp);
+      etabasisFunctions1D(gp);
+      for(int bn = 0; bn < nbnp; bn++){
+          phinew[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]];
+          dphidxinew[gp][bn] = dxibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]];
+          dphidetanew[gp][bn] = xibasisatqp[nl[0][bn]]*detabasisatqp[nl[1][bn]];
+          dphidztanew[gp][bn] = 0;
+      }
     }
-    //printf("GPUBasisLHex()\n");
+  }
+};
+
+class GPUBasisLQuad:public GPUBasisQuad{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisLQuad(const int n = 2){
+    pdp = 1;
+    nbnp = (pdp+1)*(pdp+1);
+    canonical_vol = 4.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp*sngp;
+    // Follow exodus node numbering
+    // (first row for xi, second for eta basis functions)
+    int nl[2][9] = {{0, 1, 1, 0}, {0, 0, 1, 1}};
+    computeBasisFunctions(ngpp, nbnp, nl);
   }
   
-  TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLHex(){//printf("~GPUBasisLHex()\n");
-  }
+  KOKKOS_INLINE_FUNCTION
+  ~GPUBasisLQuad(){}
+};
 
-  TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
-						   const double y[BASIS_NODES_PER_ELEM],  
-						   const double z[BASIS_NODES_PER_ELEM]) {
+class GPUBasisQQuad:public GPUBasisQuad{
+public:
+
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisQQuad(const int n = 3){
+    pdp = 2;
+    nbnp = (pdp+1)*(pdp+1);
+    canonical_vol = 4.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp*sngp;
+    int nl[2][9] = {{0, 1, 1, 0, 2, 1, 2, 0, 2},
+                    {0, 0, 1, 1, 0, 2, 1, 2, 2}};
+    computeBasisFunctions(ngpp, nbnp, nl);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPUBasisQQuad(){}
+};
+
+class GPUBasisHex:public GPUTensorProductBasis{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisHex(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPUBasisHex(){
+  };
+
+  KOKKOS_INLINE_FUNCTION
+  void computeElemData(const double x[BASIS_NODES_PER_ELEM], 
+						           const double y[BASIS_NODES_PER_ELEM],  
+						           const double z[BASIS_NODES_PER_ELEM]) {
     nodaldiff[0] = x[1]-x[0];
     nodaldiff[1] = x[3]-x[0];
     nodaldiff[2] = x[4]-x[0];
@@ -2837,274 +3027,182 @@ public:
     nodaldiff[34] = z[6]-z[5];
     nodaldiff[35] = z[7]-z[3];
     //std::cout<<"lhex"<<std::endl;
-
 }
-  
-  TUSAS_CUDA_CALLABLE_MEMBER virtual double getBasis(const int gp,
-						   const double x[BASIS_NODES_PER_ELEM], 
-						   const double y[BASIS_NODES_PER_ELEM],  
-						   const double z[BASIS_NODES_PER_ELEM],
-						   const double u[BASIS_NODES_PER_ELEM],
-						   const double uold[BASIS_NODES_PER_ELEM],
-						   const double uoldold[BASIS_NODES_PER_ELEM]) {
-  
-    for (int i=0; i < 8; i++) {
-      phi[i]=phinew[gp][i];
-    }  
-    // Caculate basis function and derivative at GP.
-//     double dxdxi  = 0.125*( (x[1]-x[0])*(1.-eta[gp])*(1.-zta[gp]) + (x[2]-x[3])*(1.+eta[gp])*(1.-zta[gp]) 
-// 			    + (x[5]-x[4])*(1.-eta[gp])*(1.+zta[gp]) + (x[6]-x[7])*(1.+eta[gp])*(1.+zta[gp]) );
-//     double dxdeta = 0.125*( (x[3]-x[0])*(1.- xi[gp])*(1.-zta[gp]) + (x[2]-x[1])*(1.+ xi[gp])*(1.-zta[gp]) 
-// 			    + (x[7]-x[4])*(1.- xi[gp])*(1.+zta[gp]) + (x[6]-x[5])*(1.+ xi[gp])*(1.+zta[gp]) );
-//     double dxdzta = 0.125*( (x[4]-x[0])*(1.- xi[gp])*(1.-eta[gp]) + (x[5]-x[1])*(1.+ xi[gp])*(1.-eta[gp])
-// 			    + (x[6]-x[2])*(1.+ xi[gp])*(1.+eta[gp]) + (x[7]-x[3])*(1.- xi[gp])*(1.+eta[gp]) );
-    
-//     double dydxi  = 0.125*( (y[1]-y[0])*(1.-eta[gp])*(1.-zta[gp]) + (y[2]-y[3])*(1.+eta[gp])*(1.-zta[gp])
-// 			    + (y[5]-y[4])*(1.-eta[gp])*(1.+zta[gp]) + (y[6]-y[7])*(1.+eta[gp])*(1.+zta[gp]) );
-//     double dydeta = 0.125*( (y[3]-y[0])*(1.- xi[gp])*(1.-zta[gp]) + (y[2]-y[1])*(1.+ xi[gp])*(1.-zta[gp]) 
-// 			    + (y[7]-y[4])*(1.- xi[gp])*(1.+zta[gp]) + (y[6]-y[5])*(1.+ xi[gp])*(1.+zta[gp]) );
-//     double dydzta = 0.125*( (y[4]-y[0])*(1.- xi[gp])*(1.-eta[gp]) + (y[5]-y[1])*(1.+ xi[gp])*(1.-eta[gp])
-// 			    + (y[6]-y[2])*(1.+ xi[gp])*(1.+eta[gp]) + (y[7]-y[3])*(1.- xi[gp])*(1.+eta[gp]) );
-    
-//     double dzdxi  = 0.125*( (z[1]-z[0])*(1.-eta[gp])*(1.-zta[gp]) + (z[2]-z[3])*(1.+eta[gp])*(1.-zta[gp])
-// 			    + (z[5]-z[4])*(1.-eta[gp])*(1.+zta[gp]) + (z[6]-z[7])*(1.+eta[gp])*(1.+zta[gp]) );
-//     double dzdeta = 0.125*( (z[3]-z[0])*(1.- xi[gp])*(1.-zta[gp]) + (z[2]-z[1])*(1.+ xi[gp])*(1.-zta[gp]) 
-// 			    + (z[7]-z[4])*(1.- xi[gp])*(1.+zta[gp]) + (z[6]-z[5])*(1.+ xi[gp])*(1.+zta[gp]) );
-//     double dzdzta = 0.125*( (z[4]-z[0])*(1.- xi[gp])*(1.-eta[gp]) + (z[5]-z[1])*(1.+ xi[gp])*(1.-eta[gp])
-// 			    + (z[6]-z[2])*(1.+ xi[gp])*(1.+eta[gp]) + (z[7]-z[3])*(1.- xi[gp])*(1.+eta[gp]) );
 
-    double dxdxi  = 0.125*( (nodaldiff[0])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[9])*(1.+eta[gp])*(1.-zta[gp]) 
-			    + (nodaldiff[18])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[27])*(1.+eta[gp])*(1.+zta[gp]) );
-    double dxdeta = 0.125*( (nodaldiff[1])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[10])*(1.+ xi[gp])*(1.-zta[gp]) 
-			    + (nodaldiff[19])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[28])*(1.+ xi[gp])*(1.+zta[gp]) );
-    double dxdzta = 0.125*( (nodaldiff[2])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[11])*(1.+ xi[gp])*(1.-eta[gp])
-			    + (nodaldiff[20])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[29])*(1.- xi[gp])*(1.+eta[gp]) );
+  KOKKOS_INLINE_FUNCTION
+  double getBasis(const int gp,
+						      const double x[BASIS_NODES_PER_ELEM], 
+						      const double y[BASIS_NODES_PER_ELEM],  
+						      const double z[BASIS_NODES_PER_ELEM],
+					 	      const double u[BASIS_NODES_PER_ELEM],
+					 	      const double uold[BASIS_NODES_PER_ELEM],
+						      const double uoldold[BASIS_NODES_PER_ELEM]) {
+  
+  for (int i=0; i < nbn(); i++) {
+    phip[i]=phinew[gp][i];
+  }  
+  // Caculate basis function and derivative at GP.
+  double dxdxi  = 0.125*( (nodaldiff[0])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[9])*(1.+eta[gp])*(1.-zta[gp]) 
+	    + (nodaldiff[18])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[27])*(1.+eta[gp])*(1.+zta[gp]) );
+  double dxdeta = 0.125*( (nodaldiff[1])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[10])*(1.+ xi[gp])*(1.-zta[gp]) 
+	    + (nodaldiff[19])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[28])*(1.+ xi[gp])*(1.+zta[gp]) );
+  double dxdzta = 0.125*( (nodaldiff[2])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[11])*(1.+ xi[gp])*(1.-eta[gp])
+	    + (nodaldiff[20])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[29])*(1.- xi[gp])*(1.+eta[gp]) );
+  double dydxi  = 0.125*( (nodaldiff[3])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[12])*(1.+eta[gp])*(1.-zta[gp])
+	    + (nodaldiff[21])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[30])*(1.+eta[gp])*(1.+zta[gp]) );
+  double dydeta = 0.125*( (nodaldiff[4])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[13])*(1.+ xi[gp])*(1.-zta[gp]) 
+	    + (nodaldiff[22])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[31])*(1.+ xi[gp])*(1.+zta[gp]) );
+  double dydzta = 0.125*( (nodaldiff[5])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[14])*(1.+ xi[gp])*(1.-eta[gp])
+	    + (nodaldiff[23])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[32])*(1.- xi[gp])*(1.+eta[gp]) );
+  double dzdxi  = 0.125*( (nodaldiff[6])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[15])*(1.+eta[gp])*(1.-zta[gp])
+	    + (nodaldiff[24])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[33])*(1.+eta[gp])*(1.+zta[gp]) );
+  double dzdeta = 0.125*( (nodaldiff[7])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[16])*(1.+ xi[gp])*(1.-zta[gp]) 
+	    + (nodaldiff[25])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[34])*(1.+ xi[gp])*(1.+zta[gp]) );
+  double dzdzta = 0.125*( (nodaldiff[8])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[17])*(1.+ xi[gp])*(1.-eta[gp])
+	    + (nodaldiff[26])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[35])*(1.- xi[gp])*(1.+eta[gp]) );
+  
+  jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
+    + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
+  //std::cout<<jac<<" "<<wt<<" "<<gp<<std::endl;
+  volp = jac*canonical_vol;
+  dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
+  dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
+  dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;
     
-    double dydxi  = 0.125*( (nodaldiff[3])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[12])*(1.+eta[gp])*(1.-zta[gp])
-			    + (nodaldiff[21])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[30])*(1.+eta[gp])*(1.+zta[gp]) );
-    double dydeta = 0.125*( (nodaldiff[4])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[13])*(1.+ xi[gp])*(1.-zta[gp]) 
-			    + (nodaldiff[22])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[31])*(1.+ xi[gp])*(1.+zta[gp]) );
-    double dydzta = 0.125*( (nodaldiff[5])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[14])*(1.+ xi[gp])*(1.-eta[gp])
-			    + (nodaldiff[23])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[32])*(1.- xi[gp])*(1.+eta[gp]) );
+  detadx =  ( dydzta*dzdxi - dydxi*dzdzta) / jac;
+  detady =  (-dxdzta*dzdxi + dxdxi*dzdzta) / jac;
+  detadz =  ( dxdzta*dydxi - dxdxi*dydzta) / jac;
     
-    double dzdxi  = 0.125*( (nodaldiff[6])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[15])*(1.+eta[gp])*(1.-zta[gp])
-			    + (nodaldiff[24])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[33])*(1.+eta[gp])*(1.+zta[gp]) );
-    double dzdeta = 0.125*( (nodaldiff[7])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[16])*(1.+ xi[gp])*(1.-zta[gp]) 
-			    + (nodaldiff[25])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[34])*(1.+ xi[gp])*(1.+zta[gp]) );
-    double dzdzta = 0.125*( (nodaldiff[8])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[17])*(1.+ xi[gp])*(1.-eta[gp])
-			    + (nodaldiff[26])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[35])*(1.- xi[gp])*(1.+eta[gp]) );
-    
-    wt = nwt[gp];
-    
-    jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
-      + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
-    //std::cout<<jac<<" "<<wt<<" "<<gp<<std::endl;
-    volp = jac*canonical_vol;
-    dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
-    dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
-    dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;
-    
-    detadx =  ( dydzta*dzdxi - dydxi*dzdzta) / jac;
-    detady =  (-dxdzta*dzdxi + dxdxi*dzdzta) / jac;
-    detadz =  ( dxdzta*dydxi - dxdxi*dydzta) / jac;
-    
-    dztadx =  ( dydxi*dzdeta - dydeta*dzdxi) / jac;
-    dztady =  (-dxdxi*dzdeta + dxdeta*dzdxi) / jac;
-    dztadz =  ( dxdxi*dydeta - dxdeta*dydxi) / jac;
-    // Caculate basis function and derivative at GP.
-    xx=0.0;
-    yy=0.0;
-    zz=0.0;
-    uu=0.0;
-    uuold=0.0;
-    uuoldold=0.0;
-    dudx=0.0;
-    dudy=0.0;
-    dudz=0.0;
-    duolddx = 0.;
-    duolddy = 0.;
-    duolddz = 0.;
-    duoldolddx = 0.;
-    duoldolddy = 0.;
-    duoldolddz = 0.;
-    // x[i] is a vector of node coords, x(j, k) 
-    for (int i=0; i < 8; i++) {
-      xx += x[i] * phinew[gp][i];
-      yy += y[i] * phinew[gp][i];
-      zz += z[i] * phinew[gp][i];
-      dphidx[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx+dphidztanew[gp][i]*dztadx;
-      dphidy[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady+dphidztanew[gp][i]*dztady;
-      dphidz[i] = dphidxinew[gp][i]*dxidz+dphidetanew[gp][i]*detadz+dphidztanew[gp][i]*dztadz;
-      if( u ){
-	uu += u[i] * phinew[gp][i];
-	dudx += u[i] * dphidx[i];
-	dudy += u[i] * dphidy[i];
-	dudz += u[i] * dphidz[i];
+  dztadx =  ( dydxi*dzdeta - dydeta*dzdxi) / jac;
+  dztady =  (-dxdxi*dzdeta + dxdeta*dzdxi) / jac;
+  dztadz =  ( dxdxi*dydeta - dxdeta*dydxi) / jac;
+  // Caculate basis function and derivative at GP.
+  xxp=0.0;
+  yyp=0.0;
+  zzp=0.0;
+  uup=0.0;
+  uuoldp=0.0;
+  uuoldoldp=0.0;
+  duudxp=0.0;
+  duudyp=0.0;
+  duudzp=0.0;
+  duuolddxp = 0.;
+  duuolddyp = 0.;
+  duuolddzp = 0.;
+  duuoldolddxp = 0.;
+  duuoldolddyp = 0.;
+  duuoldolddzp = 0.;
+  // x[i] is a vector of node coords, x(j, k) 
+  for (int i=0; i < nbn(); i++) {
+    xxp += x[i] * phinew[gp][i];
+    yyp += y[i] * phinew[gp][i];
+    zzp += z[i] * phinew[gp][i];
+    dphidxp[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx+dphidztanew[gp][i]*dztadx;
+    dphidyp[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady+dphidztanew[gp][i]*dztady;
+    dphidzp[i] = dphidxinew[gp][i]*dxidz+dphidetanew[gp][i]*detadz+dphidztanew[gp][i]*dztadz;
+    if( u ){
+	    uup += u[i] * phinew[gp][i];
+	    duudxp += u[i] * dphidxp[i];
+	    duudyp += u[i] * dphidyp[i];
+	    duudzp += u[i] * dphidzp[i];
+    }
+    if( uold ){
+    	uuoldp += uold[i] * phinew[gp][i];
+	    duuolddxp += uold[i] * dphidxp[i];
+	    duuolddyp += uold[i] * dphidyp[i];
+	    duuolddzp += uold[i] * dphidzp[i];
+    }
+    if( uoldold ){
+	    uuoldoldp += uoldold[i] * phinew[gp][i];
+	    duuoldolddxp += uoldold[i] * dphidxp[i];
+    	duuoldolddyp += uoldold[i] * dphidyp[i];
+	    duuoldolddzp += uoldold[i] * dphidzp[i];
+    }
+  }
+  return jac*nwt[gp];
+  }
+
+protected:
+  // Set up reference element coordinate values at quadrature points
+  KOKKOS_INLINE_FUNCTION
+  void computeCoordinateData(const int sngp){
+    int c = 0;
+    for( int i = 0; i < sngp; i++ ){
+      for( int j = 0; j < sngp; j++ ){
+	      for( int k = 0; k < sngp; k++ ){
+	        //std::cout<<i+j+k+c<<"   "<<i<<"   "<<j<<"   "<<k<<std::endl;
+	        xi[i+j+k+c]  = abscissa[i];
+	        eta[i+j+k+c] = abscissa[j];
+	        zta[i+j+k+c] = abscissa[k];
+	        nwt[i+j+k+c]  = weight[i] * weight[j] * weight[k]; 
+	      }   
+	      c = c + sngp - 1;
       }
-      if( uold ){
-	uuold += uold[i] * phinew[gp][i];
-	duolddx += uold[i] * dphidx[i];
-	duolddy += uold[i] * dphidy[i];
-	duolddz += uold[i] * dphidz[i];
-	//exit(0);
-      }
-      if( uoldold ){
-	uuoldold += uoldold[i] * phinew[gp][i];
-	duoldolddx += uoldold[i] * dphidx[i];
-	duoldolddy += uoldold[i] * dphidy[i];
-	duoldolddz += uoldold[i] * dphidz[i];
+      c = c + sngp - 1;
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void computeBasisFunctions(const int ngpp, const int nbnp, const int nl[3][27]){
+    for(int gp = 0; gp < ngpp; gp++){
+      // Compute basis function evaluations at coordinate
+      xibasisFunctions1D(gp);
+      etabasisFunctions1D(gp);
+      ztabasisFunctions1D(gp);
+      for(int bn = 0; bn < nbnp; bn++){
+        phinew[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*ztabasisatqp[nl[2][bn]];
+        dphidxinew[gp][bn] = dxibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*ztabasisatqp[nl[2][bn]];
+        dphidetanew[gp][bn] = xibasisatqp[nl[0][bn]]*detabasisatqp[nl[1][bn]]*ztabasisatqp[nl[2][bn]];
+        dphidztanew[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*dztabasisatqp[nl[2][bn]];
       }
     }
-    return jac*wt;
   }
+
 };
 
-class GPUBasisLBar:public GPUBasis{
+class GPUBasisLHex:public GPUBasisHex{
 public:
-
-  TUSAS_CUDA_CALLABLE_MEMBER GPUBasisLBar(const int n = 2){
-    canonical_vol = 2.;
-    sngp = n;
-    if( 3 == n){
-      abscissa[0] = -3.872983346207417/5.0;
-      abscissa[1] =  0.0;
-      abscissa[2] =  3.872983346207417/5.0;
-      weight[0] = 5.0/9.0;
-      weight[1] = 8.0/9.0;
-      weight[2] = 5.0/9.0;
-    } else if ( 4 == n ) {
-      abscissa[0] =  -30.13977090579184/35.0;
-      abscissa[1] =  -11.89933652546997/35.0;
-      abscissa[2] =   11.89933652546997/35.0;
-      abscissa[3] =   30.13977090579184/35.0;
-      weight[0] = (18.0-5.477225575051661)/36.0;
-      weight[1] = (18.0+5.477225575051661)/36.0;
-      weight[2] = (18.0+5.477225575051661)/36.0;
-      weight[3] = (18.0-5.477225575051661)/36.0;
-    } else {
-      sngp = 2;
-      abscissa[0] = -1.0/1.732050807568877;
-      abscissa[1] =  1.0/1.732050807568877;
-      weight[0] = 1.0;
-      weight[1] = 1.0;
-    }
-    ngpp = sngp;
-    
-    for(int i = 0; i < sngp; i++){
-      xi[i] = abscissa[i];
-      nwt[i] = weight[i];
-    }
-    for(int gp = 0; gp < ngpp; gp++){
-      phinew[gp][0]=(1.0-xi[gp])/2.0;
-      phinew[gp][1]=(1.0+xi[gp])/2.0;
-
-      dphidxinew[gp][0]=-.5;
-      dphidxinew[gp][1]= .5;
-      dphidetanew[gp][0]= 0.;
-      dphidetanew[gp][1]= 0.;
-      dphidztanew[gp][0]= 0.;
-      dphidztanew[gp][1]= 0.;
-    }
-  }
-
-  TUSAS_CUDA_CALLABLE_MEMBER ~GPUBasisLBar(){}
-
-  TUSAS_CUDA_CALLABLE_MEMBER void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
-						   const double y[BASIS_NODES_PER_ELEM],  
-						   const double z[BASIS_NODES_PER_ELEM]) {
-    //std::cout<<"lbar 1"<<std::endl;
-    nodaldiff[0] = x[1]-x[0];
-    nodaldiff[1] = y[1]-y[0];
-    nodaldiff[2] = z[1]-z[0];
-    //std::cout<<nodaldiff[0]<<" "<<nodaldiff[1]<<" "<<nodaldiff[2]<<std::endl;
-    //std::cout<<"lbar 2"<<std::endl;
-}
-
-  TUSAS_CUDA_CALLABLE_MEMBER double getBasis(const int gp,
-					   const double x[BASIS_NODES_PER_ELEM], 
-					   const double y[BASIS_NODES_PER_ELEM],  
-					   const double z[BASIS_NODES_PER_ELEM],
-					   const double u[BASIS_NODES_PER_ELEM],
-					   const double uold[BASIS_NODES_PER_ELEM],
-					   const double uoldold[BASIS_NODES_PER_ELEM]) {
-
-  // Calculate basis function and derivatives at nodal pts
-//   phi[0]=(1.0-xi[gp])*(1.0-eta[gp])/4.0;
-//   phi[1]=(1.0+xi[gp])*(1.0-eta[gp])/4.0;
-//   phi[2]=(1.0+xi[gp])*(1.0+eta[gp])/4.0;
-//   phi[3]=(1.0-xi[gp])*(1.0+eta[gp])/4.0;
-
-    //phi=phinew[gp];
-    for (int i=0; i < 2; i++) {
-      phi[i]=phinew[gp][i];
-    }
-
-    const double dxdxi  = .5*nodaldiff[0];
-    const double dydxi  = .5*nodaldiff[1];
-    const double dzdxi  = .5*nodaldiff[2];
-
-    wt = nwt[gp];  
-
-    jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
-    //std::cout<<jac<<" "<<wt<<std::endl;
-    volp = jac*canonical_vol;
-    dxidx = 1. / dxdxi;
-    dxidy = 1. / dydxi;
-    dxidz = 1. / dzdxi;
-    detadx = 0.;
-    detady = 0.;
-    detadz =0.;
-    dztadx =0.;
-    dztady =0.;
-    dztadz =0.;
-    // Caculate basis function and derivative at GP.
-    xx=0.0;
-    yy=0.0;
-    zz=0.0;
-    uu=0.0;
-    uuold=0.0;
-    uuoldold=0.0;
-    dudx=0.0;
-    dudy=0.0;
-    dudz=0.0;
-    duolddx = 0.;
-    duolddy = 0.;
-    duolddz = 0.;
-    duoldolddx = 0.;
-    duoldolddy = 0.;
-    duoldolddz = 0.;
-
-    for (int i=0; i < 2; i++) {
-      xx += x[i] * phinew[gp][i];
-      yy += y[i] * phinew[gp][i];
-      zz += z[i] * phinew[gp][i];
-      dphidx[i] = dphidxinew[gp][i]*dxidx;
-      dphidy[i] = dphidxinew[gp][i]*dxidy;
-      dphidz[i] = dphidxinew[gp][i]*dxidz;
-      if( u ){
-	uu += u[i] * phinew[gp][i];
-	dudx += u[i] * dphidx[i];
-	dudy += u[i]* dphidy[i];
-	dudz += u[i]* dphidz[i];
-      }
-      if( uold ){
-	uuold += uold[i] * phinew[gp][i];
-	duolddx += uold[i] * dphidx[i];
-	duolddy += uold[i]* dphidy[i];
-	duolddz += uold[i]* dphidz[i];
-      }
-      if( uoldold ){
-	uuoldold += uoldold[i] * phi[i];
-	duoldolddx += uoldold[i] * dphidx[i];
-	duoldolddy += uoldold[i]* dphidy[i];
-	duoldolddz += uoldold[i]* dphidz[i];
-      }
-    }
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisLHex(const int n = 2){
+    pdp = 1;
+    nbnp = (pdp+1)*(pdp+1)*(pdp+1);
+    canonical_vol = 8.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
   
-    return jac*wt;
+   // Set up reference element basis function values at quadrature points
+    ngpp = sngp*sngp*sngp;
+    int nl[3][27] = {{0, 1, 1, 0, 0, 1, 1, 0},
+                    {0, 0, 1, 1, 0, 0, 1, 1},
+                    {0, 0, 0, 0, 1, 1, 1, 1}};
+    computeBasisFunctions(ngpp, nbnp, nl);
   }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPUBasisLHex(){}
+};
 
+class GPUBasisQHex:public GPUBasisHex{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPUBasisQHex(const int n = 3){
+    pdp = 2;
+    nbnp = (pdp+1)*(pdp+1)*(pdp+1);
+    canonical_vol = 8.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+  
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp*sngp*sngp;
+    // Check https://sandialabs.github.io/seacas-docs/exodusII-new.pdf, Figure 4.14
+    int nl[3][27] = {{0, 1, 1, 0, 0, 1, 1, 0, 2, 1, 2, 0, 0, 1, 1, 0, 2, 1, 2, 0, 2, 2, 2, 0, 1, 2, 2},
+                     {0, 0, 1, 1, 0, 0, 1, 1, 0, 2, 1, 2, 0, 0, 1, 1, 0, 2, 1, 2, 2, 2, 2, 2, 2, 0, 1},
+                     {0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 2, 2, 2, 2, 1, 1, 1, 1, 2, 0, 1, 2, 2, 2, 2}};
+    computeBasisFunctions(ngpp, nbnp, nl);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPUBasisQHex(){}
 };
 
 #endif
-

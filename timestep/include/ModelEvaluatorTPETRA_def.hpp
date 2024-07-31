@@ -547,13 +547,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
     u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
 
-  Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
-
-  for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
-    meshc_1d(i)=(mesh_->connect)[0][i];
-  }
-  Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
-
   const double dt = dt_; //cuda 8 lambdas dont capture private data
   const double dtold = dtold_; //cuda 8 lambdas dont capture private data
   const double t_theta = t_theta_; //cuda 8 lambdas dont capture private data
@@ -603,11 +596,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     h_rf = &(*residualfunc_)[0];
 
     const int num_elem = (*mesh_->get_elem_num_map()).size();
-    
+
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
       const int num_color = Elem_col->get_num_color();
     
+      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[blk]).size());
+      for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
+	meshc_1d(i)=(mesh_->connect)[blk][i];
+      }
+      Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
+
       int ngp = 0;
       //LTP_quadrature_order;
       if(4 == n_nodes_per_elem)  {
@@ -634,9 +633,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}
       }//if
       
-      for(int c = 0; c < num_color; c++){
+      for(int color = 0; color < num_color; color++){
 	//std::vector<int> elem_map = colors[c];
-	const std::vector<int> elem_map = Elem_col->get_color(c);//local
+	const std::vector<int> elem_map = Elem_col->get_color(color);//local
 	
 	const int num_elem = elem_map.size();
 	
@@ -680,7 +679,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    const int elem = elem_map_1d(ne);
 #endif
 
-	    //GPUBasisLHex * dummy = new (bh_view) GPUBasisLHex(LTP_quadrature_order);
 	    GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	    //IMPORTANT: if TUSAS_MAX_NUMEQS is increased the following lines (and below in prec fill)
 	    //need to be adjusted
@@ -713,7 +711,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      xx[k] = x_1dra(nodeid);
 	      yy[k] = y_1dra(nodeid);
 	      zz[k] = z_1dra(nodeid);
-	      //zz[k] =  z_view(nodeid,0);
 	      
 	      //std::cout<<k<<"   "<<xx[k]<<"   "<<yy[k]<<"   "<<zz[k]<<"   "<<nodeid<<std::endl;
 	      for( int neq = 0; neq < numeqs; neq++ ){
@@ -763,7 +760,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
         });//parallel_for
 	  //};//ne
 
-      }//c 
+      }//color
     }//blk
 
 			    //exit(0);
@@ -774,6 +771,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }
   }//get_f
 
+      //not sure what to do about blocks here
   if (nonnull(outArgs.get_f())) {
     if (NULL != neumannfunc_) {
 
@@ -990,9 +988,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
       const int num_color = Elem_col->get_num_color();
       
-      for(int c = 0; c < num_color; c++){
+      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[blk]).size());
+      for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
+	meshc_1d(i)=(mesh_->connect)[blk][i];
+      }
+      Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
+
+      for(int color = 0; color < num_color; color++){
 	//std::vector<int> elem_map = colors[c];
-	std::vector<int> elem_map = Elem_col->get_color(c);
+	std::vector<int> elem_map = Elem_col->get_color(color);
 	
 	const int num_elem = elem_map.size();
 	

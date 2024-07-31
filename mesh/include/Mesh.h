@@ -150,7 +150,7 @@ class Mesh
   /// Return my_node_num_map, a list of global node ids on this processor.
   std::vector<mesh_lint_t> get_my_node_num_map(){ return my_node_num_map; }
   /// Return global element_connect for element i, by local id
-  std::vector<mesh_lint_t> get_elem_connect(int i){return elem_connect[i];};
+  std::vector<mesh_lint_t> get_elem_connect(int i) const {return elem_connect[i];};
   /// Return the x coord of node i
   double get_x(int i){return x[i];}    
   /// Return the y coord of node i

@@ -56,7 +56,7 @@ public:
   /// Destructor
   ~post_process();
   /// Write the post process variable to exodus.
-  void update_mesh_data();
+  void update_mesh_data() const;
   /// Write the scalar op value to a data file.
   /// This should be preceded by a call to scalar_reduction()
   void update_scalar_data(const double &time///< time to be written 
@@ -83,7 +83,7 @@ public:
 			   const int &eqn_id ///< equation this postprocess is associated with
 			   );
   /// Return scalar reduction value
-  double get_scalar_val();
+  double get_scalar_val() const;
   /// Perform scalar reduction.
   void scalar_reduction();
   /// Pointer to the post process function.

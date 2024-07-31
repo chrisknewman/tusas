@@ -25,7 +25,7 @@ random_distribution::random_distribution(Mesh *mesh,
 {
   auto comm_ = Teuchos::DefaultComm<int>::getComm(); 
   const int blk = 0;
-  std::string elem_type = mesh->get_blk_elem_type(blk);
+  const std::string elem_type = mesh->get_blk_elem_type(blk);
   bool quad_type = (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) 
     || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) 
     || (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9"));

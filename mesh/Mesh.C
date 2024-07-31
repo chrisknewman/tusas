@@ -259,6 +259,7 @@ int Mesh::read_exodus(const char * filename){
     }
     //#endif
 
+    //connect is of dim int connect[num_elem_this_blk,num_nodes_per_elem]
     for(a = connect[i].begin(); a != connect[i].end(); a++) (*a)--;  // fix FORTRAN indexing
 
   }
@@ -1347,7 +1348,6 @@ int Mesh::update_nodal_data(const std::string name, const double *data){
 }
 
 int Mesh::update_elem_data(const std::string name, const double *data){
-
   for (int i = 0; i < num_elem_fields; i++){
     if(name == elem_field_names[i]){
       //std::cout<<"found"<<std::endl;
@@ -1661,14 +1661,14 @@ void Mesh::compute_nodal_patch_overlap(){
       for(int k = 0; k < n_nodes_per_elem; k++){
 	
 	//this is tusas local id (exid -1)
-	int nodeid = get_node_id(blk, ne, k);
+	const int nodeid = get_node_id(blk, ne, k);
 	//std::cout<<proc_id<<" "<<get_global_elem_id(ne)<<" "<<nodeid<<" "<<node_num_map[nodeid]<<" "<<num_my_nodes<<std::endl;
 	//we check here if the node lives on this proc
 	if(nodeid < num_nodes){
 	  //int elemid = get_global_elem_id(ne+c);
 	  //there is not really a way to get elem id with multiple blocks
 	  //this is tusas local id (exid -1) not sure what this is in parallel
-	  int elemid = ne+c;
+	  const int elemid = ne+c;
 	  nodal_patch_overlap[nodeid].push_back(elemid);
 	  //std::cout<<nodeid<<"  "<<node_num_map[nodeid]<<": "<<elemid<<" "<<get_global_elem_id(ne+c)<<std::endl;
 	}//nodeid
@@ -1866,34 +1866,14 @@ void Mesh::compute_elem_adj(){
       }
       std::cout<<std::endl;
 
-      for(auto i : elem_connect){
-	for (auto it : i){
-	  std::cout<<it<<" ";
-	}
-	std::cout<<std::endl;
-      }
+//       for(auto i : elem_connect){
+// 	for (auto it : i){
+// 	  std::cout<<it<<" ";
+// 	}
+// 	std::cout<<std::endl;
+//       }
     }
   }
-#if 0
-  elem_connect.clear();
-  elem_connect.resize(num_elem);
-  //std::vector<std::vector<int> > ec(4) ;
-  for (auto npit :nodal_patch_overlap ){
-    for (auto elito : npit ){
-      for (auto eliti : npit ){
-	elem_connect[elito].push_back(eliti);
-      }
-    }
-  }
-  for (auto i : elem_connect ){
-    sort(i.begin(), i.end());
-    i.erase( unique(i.begin(),i.end() ), i.end() );
-    for( auto it : i ){
-      std::cout<<it<<" ";
-    }
-    std::cout<<std::endl;
-  }
-#endif
 }
 
 #if MESH_REFACTOR

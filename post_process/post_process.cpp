@@ -37,7 +37,7 @@ post_process::post_process(//const Teuchos::RCP<const Epetra_Comm>& comm,
 {
   scalar_val_ =  0.;
 
-  std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
+  const std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
 
   auto comm_ = Teuchos::DefaultComm<int>::getComm();
 
@@ -65,7 +65,7 @@ post_process::post_process(//const Teuchos::RCP<const Epetra_Comm>& comm,
 
   ppvar_ = Teuchos::rcp(new vector_type(node_map_));
 
-  std::string ystring=basename_+std::to_string(index_);
+  const std::string ystring=basename_+std::to_string(index_);
   mesh_->add_nodal_field(ystring);
 
   if ( (0 == comm_->getRank()) && (s_op_ != NONE) ){
@@ -108,7 +108,7 @@ void post_process::process(const int i,
   }
 };
 
-void post_process::update_mesh_data(){
+void post_process::update_mesh_data() const {
 
   const int num_nodes = overlap_map_->getLocalNumElements();
 
@@ -121,7 +121,7 @@ void post_process::update_mesh_data(){
       ppvar[nn]=tv[nn];
   }
 
-  std::string ystring=basename_+std::to_string(index_);
+  const std::string ystring=basename_+std::to_string(index_);
   mesh_->update_nodal_data(ystring, &ppvar[0]);
 
 };
@@ -139,7 +139,7 @@ void post_process::update_scalar_data(const double &time){
   }
 
 };
-double post_process::get_scalar_val(){
+double post_process::get_scalar_val() const {
   return scalar_val_;
 };
 void post_process::scalar_reduction(){

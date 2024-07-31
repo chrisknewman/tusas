@@ -366,7 +366,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
   //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
-  Elem_col = Teuchos::rcp(new elem_color(Comm,mesh,dorestart));
+  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart));
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
@@ -547,10 +547,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
     u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
 
-  const int blk = 0;
-  const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
-  const int num_color = Elem_col->get_num_color();
-
   Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
 
   for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
@@ -571,32 +567,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }
       exit(0);
   }
-
-  const int num_elem = (*mesh_->get_elem_num_map()).size();
-  int ngp = 0;
-  //LTP_quadrature_order;
-  if(4 == n_nodes_per_elem)  {
-    ngp = LTP_quadrature_order*LTP_quadrature_order;
-  }else{
-    ngp = LTP_quadrature_order*LTP_quadrature_order*LTP_quadrature_order;
-  }
-  Kokkos::View<double**,Kokkos::DefaultExecutionSpace> randomdistribution_2d("randomdistribution_2d", num_elem, ngp);
-  if( paramList.get<bool>(TusasrandomDistributionNameString) ){
-    //std::vector<std::vector<double> > vals(randomdistribution->get_gauss_vals());
-    for( int i=0; i<num_elem; i++){
-      for(int ig=0;ig<ngp;ig++){
-	//randomdistribution_2d(i,ig) = vals[i][ig];
-	randomdistribution_2d(i,ig) = randomdistribution->get_gauss_val(i,ig);
-	//randomdistribution_2d(i,ig) = 0.;
-      }
-    }
-  }else{
-    for( int i=0; i<num_elem; i++){
-      for(int ig=0;ig<ngp;ig++){
-	randomdistribution_2d(i,ig) = 0.;
-      }
-    }
-  }//if
 
   if (nonnull(outArgs.get_f())){
 
@@ -629,192 +599,173 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     RESFUNC * h_rf;
     h_rf = (RESFUNC*)malloc(numeqs_*sizeof(RESFUNC));
 
-#ifdef TUSAS_HAVE_CUDA
-    RESFUNC * d_rf;
-    cudaMalloc((double**)&d_rf,numeqs_*sizeof(RESFUNC));
-
-    if("heat" == paramList.get<std::string> (TusastestNameString)){
-      //cn this will need to be done for each equation
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
-    }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
-      //cn this will need to be done for each equation
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatimr_test_dp_, sizeof(RESFUNC));
-    }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
-      //cn this will need to be done for each equation
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_nlheatcn_test_dp_, sizeof(RESFUNC));
-    }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::residual_heat_test_dp_, sizeof(RESFUNC));
-    }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
-    }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::farzadi3d::residual_conc_farzadi_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::farzadi3d::residual_phase_farzadi_dp_, sizeof(RESFUNC));
-    }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub3::residual_heat_pfhub3_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub3::residual_phase_pfhub3_dp_, sizeof(RESFUNC));
-    }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_rf[0], tpetra::pfhub2::residual_c_kks_dp_, sizeof(RESFUNC));
-      cudaMemcpyFromSymbol( &h_rf[1], tpetra::pfhub2::residual_eta_kks_dp_, sizeof(RESFUNC));
-
-    } else {
-      if( 0 == comm_->getRank() ){
-	std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
-		 <<" residual function not found. (void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(...))" <<std::endl<<std::endl<<std::endl;
-      }
-      exit(0);
-    }
-
-    cudaMemcpy(d_rf,h_rf,numeqs_*sizeof(RESFUNC),cudaMemcpyHostToDevice);
-
-#else
     //it seems that evaluating the function via pointer ie h_rf[0] is way faster that evaluation via (*residualfunc_)[0]
     h_rf = &(*residualfunc_)[0];
-#endif
 
-
-    for(int c = 0; c < num_color; c++){
-      //std::vector<int> elem_map = colors[c];
-      const std::vector<int> elem_map = Elem_col->get_color(c);//local
-
-      const int num_elem = elem_map.size();
-
-      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
-      //Kokkos::vector<int> elem_map_k(num_elem);
-      for(int i = 0; i<num_elem; i++) {
-	//elem_map_k[i] = elem_map[i]; 
-	elem_map_1d(i) = elem_map[i]; 
+    const int num_elem = (*mesh_->get_elem_num_map()).size();
+    
+    for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+      const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
+      const int num_color = Elem_col->get_num_color();
+    
+      int ngp = 0;
+      //LTP_quadrature_order;
+      if(4 == n_nodes_per_elem)  {
+	ngp = LTP_quadrature_order*LTP_quadrature_order;
+      }else{
+	ngp = LTP_quadrature_order*LTP_quadrature_order*LTP_quadrature_order;
       }
-      //exit(0);
-      //auto elem_map_2d = Kokkos::subview(elem_map_1d, Kokkos::ALL (), Kokkos::ALL (), 0);
-      //std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
-      //for (int ne=0; ne < num_elem; ne++) { 
-      //#define USE_TEAM
+      //cn not sure how this will work with multiple element types
+      Kokkos::View<double**,Kokkos::DefaultExecutionSpace> randomdistribution_2d("randomdistribution_2d", num_elem, ngp);
+      if( paramList.get<bool>(TusasrandomDistributionNameString) ){
+	//std::vector<std::vector<double> > vals(randomdistribution->get_gauss_vals());
+	for( int i=0; i<num_elem; i++){
+	  for(int ig=0;ig<ngp;ig++){
+	    //randomdistribution_2d(i,ig) = vals[i][ig];
+	    randomdistribution_2d(i,ig) = randomdistribution->get_gauss_val(i,ig);
+	    //randomdistribution_2d(i,ig) = 0.;
+	  }
+	}
+      }else{
+	for( int i=0; i<num_elem; i++){
+	  for(int ig=0;ig<ngp;ig++){
+	    randomdistribution_2d(i,ig) = 0.;
+	  }
+	}
+      }//if
+      
+      for(int c = 0; c < num_color; c++){
+	//std::vector<int> elem_map = colors[c];
+	const std::vector<int> elem_map = Elem_col->get_color(c);//local
+	
+	const int num_elem = elem_map.size();
+	
+	Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
+	//Kokkos::vector<int> elem_map_k(num_elem);
+	for(int i = 0; i<num_elem; i++) {
+	  //elem_map_k[i] = elem_map[i]; 
+	  elem_map_1d(i) = elem_map[i]; 
+	}
+	//exit(0);
+	//auto elem_map_2d = Kokkos::subview(elem_map_1d, Kokkos::ALL (), Kokkos::ALL (), 0);
+	//std::cout<<elem_map_2d.extent(0)<<"   "<<elem_map_2d.extent(1)<<std::endl;
+	//for (int ne=0; ne < num_elem; ne++) { 
+	//#define USE_TEAM
 #ifdef USE_TEAM
-#ifdef TUSAS_HAVE_CUDA
-      int team_size = 512;//this is teamsize (#of threads in team) < 1024; preferably 256
-#else
-      int team_size = 1;//openmp
-#endif
-      int num_teams = (num_elem/team_size)+1;//this is # of thread teams (also league size); unlimited
-      Kokkos::View<const int*,Kokkos::DefaultExecutionSpace> elem_map_1dConst(elem_map_1d);
+	int team_size = 1;//openmp
 
-//       int strides[1]; // any integer type works in stride()
-//       elem_map_1dConst.stride (strides);
-//       std::cout<<strides[0]<<std::endl;
-
-
-      typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type member_type;
-
-      //TeamPolicy <ExecutionSpace >( numberOfTeams , teamSize)
-      Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy (num_teams, team_size );
-      //std::cout<<policy.league_size()<<"    "<<policy.team_size()<<std::endl;
-      Kokkos::parallel_for (policy, KOKKOS_LAMBDA (member_type team_member) {
-        // Calculate a global thread id
-        int ne = team_member.league_rank () * team_member.team_size () +
+	int num_teams = (num_elem/team_size)+1;//this is # of thread teams (also league size); unlimited
+	Kokkos::View<const int*,Kokkos::DefaultExecutionSpace> elem_map_1dConst(elem_map_1d);
+	
+	//       int strides[1]; // any integer type works in stride()
+	//       elem_map_1dConst.stride (strides);
+	//       std::cout<<strides[0]<<std::endl;
+	
+	
+	typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace>::member_type member_type;
+	
+	//TeamPolicy <ExecutionSpace >( numberOfTeams , teamSize)
+	Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy (num_teams, team_size );
+	//std::cout<<policy.league_size()<<"    "<<policy.team_size()<<std::endl;
+        Kokkos::parallel_for (policy, KOKKOS_LAMBDA (member_type team_member) {
+          // Calculate a global thread id
+          int ne = team_member.league_rank () * team_member.team_size () +
                 team_member.team_rank ();
-	if(ne < num_elem) {
-	  const int elem = elem_map_1dConst(ne);
+	  if(ne < num_elem) {
+	    const int elem = elem_map_1dConst(ne);
 #else
 	  //Kokkos::View<GPUBasisLHex *,Kokkos::DefaultExecutionSpace> bh_view("bh_view");
 	  Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){//this loop is fine for openmp re access to elem_map
 			     //for(int ne =0; ne<num_elem; ne++){
-	const int elem = elem_map_1d(ne);
+	    const int elem = elem_map_1d(ne);
 #endif
 
-	//GPUBasisLHex * dummy = new (bh_view) GPUBasisLHex(LTP_quadrature_order);
-	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
-	//IMPORTANT: if TUSAS_MAX_NUMEQS is increased the following lines (and below in prec fill)
-	//need to be adjusted
-	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-	if(4 == n_nodes_per_elem)  {
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bq[neq];
-	}else{
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bh[neq];
-	}
-	
-	const int ngp = BGPU[0]->ngp();
-
-	double xx[BASIS_NODES_PER_ELEM];
-	double yy[BASIS_NODES_PER_ELEM];
-	double zz[BASIS_NODES_PER_ELEM];
-
-	double uu[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
-	double uu_old[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
-	double uu_oldold[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
-
-	const int elemrow = elem*n_nodes_per_elem;
-
-	for(int k = 0; k < n_nodes_per_elem; k++){
+	    //GPUBasisLHex * dummy = new (bh_view) GPUBasisLHex(LTP_quadrature_order);
+	    GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+	    //IMPORTANT: if TUSAS_MAX_NUMEQS is increased the following lines (and below in prec fill)
+	    //need to be adjusted
+	    GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+	    GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	    if(4 == n_nodes_per_elem)  {
+	      for( int neq = 0; neq < numeqs; neq++ )
+		BGPU[neq] = &Bq[neq];
+	    }else{
+	      for( int neq = 0; neq < numeqs; neq++ )
+		BGPU[neq] = &Bh[neq];
+	    }
+	    
+	    const int ngp = BGPU[0]->ngp();
+	    
+	    double xx[BASIS_NODES_PER_ELEM];
+	    double yy[BASIS_NODES_PER_ELEM];
+	    double zz[BASIS_NODES_PER_ELEM];
+	    
+	    double uu[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
+	    double uu_old[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
+	    double uu_oldold[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
+	    
+	    const int elemrow = elem*n_nodes_per_elem;
+	    
+	    for(int k = 0; k < n_nodes_per_elem; k++){
+	      
+	      const int nodeid = meshc_1dra(elemrow+k);//cn this is the local id
 	  
-	  const int nodeid = meshc_1dra(elemrow+k);//cn this is the local id
-	  
-	  xx[k] = x_1dra(nodeid);
-	  yy[k] = y_1dra(nodeid);
-	  zz[k] = z_1dra(nodeid);
-	  //zz[k] =  z_view(nodeid,0);
-
-	  //std::cout<<k<<"   "<<xx[k]<<"   "<<yy[k]<<"   "<<zz[k]<<"   "<<nodeid<<std::endl;
-	  for( int neq = 0; neq < numeqs; neq++ ){
-	    //std::cout<<numeqs*k+neq<<"           "<<n_nodes_per_elem*neq+k <<"      "<<nodeid<<"    "<<numeqs_*nodeid+neq<<std::endl;
-
-	    uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); 
-	    uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs*nodeid+neq);
-	    uu_oldold[n_nodes_per_elem*neq+k] = uoldold_1dra(numeqs*nodeid+neq);
-	  }//neq
-	}//k
-
-	for( int neq = 0; neq < numeqs; neq++ ){
-	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
-	  //Bh[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
-	}//neq
-	for(int gp=0; gp < ngp; gp++) {//gp
-	  double jacwt = 0.;
-	  for( int neq = 0; neq < numeqs; neq++ ){
-	    //we need a basis object that stores all equations here..
-	    jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
-	  }//neq
-	  const double vol = BGPU[0]->vol();//this can probably be computed in computeElemData, with some of the mapping terms moved there
-	  for (int i=0; i< n_nodes_per_elem; i++) {//i
-
-	    //const int lrow = numeqs*meshc[elemrow+i];
-	    const int lrow = numeqs*meshc_1dra(elemrow+i);
-
-	    const double rand = randomdistribution_2d(elem, gp);
+	      xx[k] = x_1dra(nodeid);
+	      yy[k] = y_1dra(nodeid);
+	      zz[k] = z_1dra(nodeid);
+	      //zz[k] =  z_view(nodeid,0);
+	      
+	      //std::cout<<k<<"   "<<xx[k]<<"   "<<yy[k]<<"   "<<zz[k]<<"   "<<nodeid<<std::endl;
+	      for( int neq = 0; neq < numeqs; neq++ ){
+		//std::cout<<numeqs*k+neq<<"           "<<n_nodes_per_elem*neq+k <<"      "<<nodeid<<"    "<<numeqs_*nodeid+neq<<std::endl;
+		
+		uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); 
+		uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs*nodeid+neq);
+		uu_oldold[n_nodes_per_elem*neq+k] = uoldold_1dra(numeqs*nodeid+neq);
+	      }//neq
+	    }//k
 
 	    for( int neq = 0; neq < numeqs; neq++ ){
-#ifdef TUSAS_HAVE_CUDA
-	      //const double val = 0.;//BGPUarr[0].jac*BGPUarr[0].wt*(d_rf[0](&(BGPUarr[0]),i,dt,t_theta,time,neq));
-	      const double val = jacwt*((d_rf[neq])(BGPU,i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand));
-#else
-	      //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
-	      //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
-	      double val = jacwt*(h_rf[neq](BGPU,i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand));
-#endif
-	      //cn this works because we are filling an overlap map and exporting to a node map below...
-	      const int lid = lrow+neq;
-	      f_1d[lid] += val;
-	      //printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
+	      BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
+	      //Bh[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
 	    }//neq
-	  }//i
-	}//gp
+	    for(int gp=0; gp < ngp; gp++) {//gp
+	      double jacwt = 0.;
+	      for( int neq = 0; neq < numeqs; neq++ ){
+		//we need a basis object that stores all equations here..
+		jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
+	      }//neq
+	      const double vol = BGPU[0]->vol();//this can probably be computed in computeElemData, with some of the mapping terms moved there
+	      for (int i=0; i< n_nodes_per_elem; i++) {//i
+		
+		//const int lrow = numeqs*meshc[elemrow+i];
+		const int lrow = numeqs*meshc_1dra(elemrow+i);
+		
+		const double rand = randomdistribution_2d(elem, gp);
+		
+		for( int neq = 0; neq < numeqs; neq++ ){
+
+		  //const double val = BGPU->jac*BGPU->wt*(*residualfunc_)[0](BGPU,i,dt,1.,0.,0);
+		  //const double val = BGPU->jac*BGPU->wt*(tusastpetra::residual_heat_test_(BGPU,i,dt,1.,0.,0));//cn call directly
+		  double val = jacwt*(h_rf[neq](BGPU,i,dt,dtold,t_theta,t_theta2,time,neq,vol,rand));
+
+		  //cn this works because we are filling an overlap map and exporting to a node map below...
+		  const int lid = lrow+neq;
+		  f_1d[lid] += val;
+		  //printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
+		}//neq
+	      }//i
+	    }//gp
 #ifdef USE_TEAM
 			       }//if ne
 #else
 #endif
-      });//parallel_for
-		     //};//ne
+        });//parallel_for
+	  //};//ne
 
-    }//c 
+      }//c 
+    }//blk
 
-#ifdef TUSAS_HAVE_CUDA
-  cudaFree(d_rf);
-  free(h_rf);
-#endif
 			    //exit(0);
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
@@ -867,6 +818,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       GPUBasisLBar Bb = GPUBasisLBar(LTP_quadrature_order);
       int num_node_per_side = 4;
 
+
+    
+      const int blk = 0;
+      const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
+    
       GPUBasis * BGPU;
       if(8 == n_nodes_per_elem) { // linear hex-- quad faces
 	BGPU = &Bq;
@@ -1025,147 +981,112 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     PREFUNC * h_pf;
     h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
 
-#ifdef TUSAS_HAVE_CUDA
-    PREFUNC * d_pf;
-    cudaMalloc((double**)&d_pf,numeqs_*sizeof(PREFUNC));
 
-    if("heat" == paramList.get<std::string> (TusastestNameString)){
-      //cn this will need to be done for each equation
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
-    }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
-      cudaMemcpyFromSymbol( &h_pf[1], tpetra::prec_heat_test_dp_, sizeof(PREFUNC));
-    }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
-      cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
-    }else if("farzadi_test" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::farzadi3d::prec_conc_farzadi_dp_, sizeof(PREFUNC));
-      cudaMemcpyFromSymbol( &h_pf[1], tpetra::farzadi3d::prec_phase_farzadi_dp_, sizeof(PREFUNC));
-    }else if("pfhub3" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::pfhub3::prec_heat_pfhub3_dp_, sizeof(PREFUNC));
-      cudaMemcpyFromSymbol( &h_pf[1], tpetra::pfhub3::prec_phase_pfhub3_dp_, sizeof(PREFUNC));
-    }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
-    }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
-      cudaMemcpyFromSymbol( &h_pf[0], tpetra::prec_nlheatcn_test_dp_, sizeof(PREFUNC));
-    } else {
-      if( 0 == comm_->getRank() ){
-	std::cout<<std::endl<<std::endl<<"Test case: "<<paramList.get<std::string> (TusastestNameString)
-		 <<" precon function not found. (void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(...))" <<std::endl<<std::endl<<std::endl;
-      }
-      exit(0);
-    }
-
-    cudaMemcpy(d_pf,h_pf,numeqs_*sizeof(PREFUNC),cudaMemcpyHostToDevice);
-
-#else
     h_pf = &(*preconfunc_)[0];
-#endif
 
 
-    for(int c = 0; c < num_color; c++){
-      //std::vector<int> elem_map = colors[c];
-      std::vector<int> elem_map = Elem_col->get_color(c);
+    
+    for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
+      const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
+      const int num_color = Elem_col->get_num_color();
+      
+      for(int c = 0; c < num_color; c++){
+	//std::vector<int> elem_map = colors[c];
+	std::vector<int> elem_map = Elem_col->get_color(c);
+	
+	const int num_elem = elem_map.size();
+	
+	
+	Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
+	//Kokkos::vector<int> elem_map_k(num_elem);
+	for(int i = 0; i<num_elem; i++) {
+	  //elem_map_k[i] = elem_map[i];
+	  elem_map_1d(i) = elem_map[i]; 
+	  //std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
+	}
+	//exit(0);	
 
-      const int num_elem = elem_map.size();
-
-
-      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
-      //Kokkos::vector<int> elem_map_k(num_elem);
-      for(int i = 0; i<num_elem; i++) {
-	//elem_map_k[i] = elem_map[i];
-	elem_map_1d(i) = elem_map[i]; 
-	//std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
-      }
-      //exit(0);	
-
-      Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
+	Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
 
 			     //an array of pointers to GPUBasis
-	GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+	  GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
 	
-	GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	  GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+	  GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
 
-	if(4 == n_nodes_per_elem)  {
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bq[neq];
-	}else{
-	  for( int neq = 0; neq < numeqs; neq++ )
-	    BGPU[neq] = &Bh[neq];
-	}
+	  if(4 == n_nodes_per_elem)  {
+	    for( int neq = 0; neq < numeqs; neq++ )
+	      BGPU[neq] = &Bq[neq];
+	  }else{
+	    for( int neq = 0; neq < numeqs; neq++ )
+	      BGPU[neq] = &Bh[neq];
+	  }
 	
-	const int ngp = BGPU[0]->ngp();
-
-	//const int elem = elem_map_k[ne];
-	const int elem = elem_map_1d(ne);
-
-	double xx[BASIS_NODES_PER_ELEM];
-	double yy[BASIS_NODES_PER_ELEM];
-	double zz[BASIS_NODES_PER_ELEM];
-	double uu[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
-
-	const int elemrow = elem*n_nodes_per_elem;
-	for(int k = 0; k < n_nodes_per_elem; k++){
+	  const int ngp = BGPU[0]->ngp();
 	  
-	  //const int nodeid = meshc[elemrow+k];
-	  const int nodeid = meshc_1d(elemrow+k);
+	  //const int elem = elem_map_k[ne];
+	  const int elem = elem_map_1d(ne);
 	  
-	  xx[k] = x_1dra(nodeid);
-	  yy[k] = y_1dra(nodeid);
-	  zz[k] = z_1dra(nodeid);
-
-	  for( int neq = 0; neq < numeqs; neq++ ){
-	    uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); //we can add uu_old, uu_oldold
-	  }//neq
-	}//k
-
-	for( int neq = 0; neq < numeqs; neq++ ){
-	  BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
-	}//neq
-
-	for(int gp=0; gp < ngp; gp++) {//gp
-	  double jacwt = 0.;
-	  for( int neq = 0; neq < numeqs; neq++ ){
-	   jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
-	  }//neq
-	  for (int i=0; i< n_nodes_per_elem; i++) {//i
-	    //const local_ordinal_type lrow = numeqs*meshc[elemrow+i];
-	    const local_ordinal_type lrow = numeqs*meshc_1d(elemrow+i);
-	    for(int j=0;j < n_nodes_per_elem; j++) {
-	      //local_ordinal_type lcol[1] = {numeqs*meshc[elemrow+j]};
-	      local_ordinal_type lcol[1] = {numeqs*meshc_1d(elemrow+j)};
-	      
-	      for( int neq = 0; neq < numeqs; neq++ ){
-#ifdef TUSAS_HAVE_CUDA
-		scalar_type val[1] = {jacwt*d_pf[neq](BGPU,i,j,dt,t_theta,neq)};
-#else
-		scalar_type val[1] = {jacwt*h_pf[neq](BGPU,i,j,dt,t_theta,neq)};
-#endif
-		
-		//cn probably better to fill a view for val and lcol for each column
-		const local_ordinal_type row = lrow +neq; 
-		local_ordinal_type col[1] = {lcol[0] + neq};
-		
-	      //P->sumIntoLocalValues(lrow,(local_ordinal_type)1,val,lcol,false);
-		PV.sumIntoValues (row, col,(local_ordinal_type)1,val);
-		
-	      }//neq
-       	
-	    }//j
+	  double xx[BASIS_NODES_PER_ELEM];
+	  double yy[BASIS_NODES_PER_ELEM];
+	  double zz[BASIS_NODES_PER_ELEM];
+	  double uu[TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM];
+	  
+	  const int elemrow = elem*n_nodes_per_elem;
+	  for(int k = 0; k < n_nodes_per_elem; k++){
 	    
-	  }//i
+	    //const int nodeid = meshc[elemrow+k];
+	    const int nodeid = meshc_1d(elemrow+k);
+	    
+	    xx[k] = x_1dra(nodeid);
+	    yy[k] = y_1dra(nodeid);
+	    zz[k] = z_1dra(nodeid);
+	    
+	    for( int neq = 0; neq < numeqs; neq++ ){
+	      uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); //we can add uu_old, uu_oldold
+	    }//neq
+	  }//k
+	  
+	  for( int neq = 0; neq < numeqs; neq++ ){
+	    BGPU[neq]->computeElemData(&xx[0], &yy[0], &zz[0]);
+	  }//neq
+	  
+	  for(int gp=0; gp < ngp; gp++) {//gp
+	    double jacwt = 0.;
+	    for( int neq = 0; neq < numeqs; neq++ ){
+	      jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
+	    }//neq
+	    for (int i=0; i< n_nodes_per_elem; i++) {//i
+	      //const local_ordinal_type lrow = numeqs*meshc[elemrow+i];
+	      const local_ordinal_type lrow = numeqs*meshc_1d(elemrow+i);
+	      for(int j=0;j < n_nodes_per_elem; j++) {
+		//local_ordinal_type lcol[1] = {numeqs*meshc[elemrow+j]};
+		local_ordinal_type lcol[1] = {numeqs*meshc_1d(elemrow+j)};
+		
+		for( int neq = 0; neq < numeqs; neq++ ){
 
-	}//gp
+		  scalar_type val[1] = {jacwt*h_pf[neq](BGPU,i,j,dt,t_theta,neq)};
 
-      });//parallel_for
-
-    }//c
-
-#ifdef TUSAS_HAVE_CUDA
-  cudaFree(d_pf);
-  free(h_pf);
-#endif
+		  
+		  //cn probably better to fill a view for val and lcol for each column
+		  const local_ordinal_type row = lrow +neq; 
+		  local_ordinal_type col[1] = {lcol[0] + neq};
+		  
+		  //P->sumIntoLocalValues(lrow,(local_ordinal_type)1,val,lcol,false);
+		  PV.sumIntoValues (row, col,(local_ordinal_type)1,val);
+		  
+		}//neq
+		
+	      }//j
+	      
+	    }//i
+	    
+	  }//gp
+	  
+	});//parallel_for
+	
+      }//c
+    }//blk
 
     //cn we need to do a similar comm here...
     P->fillComplete();

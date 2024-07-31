@@ -138,11 +138,11 @@ class Mesh
   /// Return the number of nodes in an element in block blk
   int get_num_nodes_per_elem_in_blk(int blk){ return num_node_per_elem_in_blk[blk];}
   /// Return address of node id (by local id) in element elem (by local id) in block blk with offest offset.
-  int& get_node_id(int blk, int elem, int offset){return connect[blk][elem * num_node_per_elem_in_blk[blk] + offset]; }
+  int get_node_id(int blk, int elem, int offset) const {return connect[blk][elem * num_node_per_elem_in_blk[blk] + offset]; }
   /// Return global node id of local index i
   mesh_lint_t get_global_node_id(int i){ return node_num_map[i];}
   /// Return global element id of local index i
-  mesh_lint_t get_global_elem_id(int i){ return elem_num_map[i];}
+  mesh_lint_t get_global_elem_id(int i){ return elem_num_map[i];}//does not work for blocks
   /// Return node_num_map, a list of global node ids on this processor.
   std::vector<mesh_lint_t> get_node_num_map(){ return node_num_map; }
   /// Return a pointer to elem_num_map, a list of global element ids on this processor.

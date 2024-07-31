@@ -1653,24 +1653,29 @@ void Mesh::compute_nodal_patch_overlap(){
   nodal_patch_overlap.resize(num_nodes);
 
   //std::cout<<"compute_nodal_patch() "<<nodal_patch.size()<<" "<<num_nodes<<" "<<my_node_num_map.size()<<std::endl<<std::endl;
+  int c = 0;
   for(int blk = 0; blk < get_num_elem_blks(); blk++){
     int n_nodes_per_elem = get_num_nodes_per_elem_in_blk(blk);
 
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
       for(int k = 0; k < n_nodes_per_elem; k++){
 	
+	//this is tusas local id (exid -1)
 	int nodeid = get_node_id(blk, ne, k);
 	//std::cout<<proc_id<<" "<<get_global_elem_id(ne)<<" "<<nodeid<<" "<<node_num_map[nodeid]<<" "<<num_my_nodes<<std::endl;
 	//we check here if the node lives on this proc
 	if(nodeid < num_nodes){
-	  //int elemid = get_global_elem_id(ne);
-	  int elemid = ne;
+	  //int elemid = get_global_elem_id(ne+c);
+	  //there is not really a way to get elem id with multiple blocks
+	  //this is tusas local id (exid -1) not sure what this is in parallel
+	  int elemid = ne+c;
 	  nodal_patch_overlap[nodeid].push_back(elemid);
-	  //std::cout<<nodeid<<"  "<<elemid<<std::endl;
-	}
-      }      
-    }
-  }
+	  //std::cout<<nodeid<<"  "<<node_num_map[nodeid]<<": "<<elemid<<" "<<get_global_elem_id(ne+c)<<std::endl;
+	}//nodeid
+      }//k      
+    }//ne
+    c = get_num_elem_in_blk(blk);
+  }//blk
   
   is_compute_nodal_patch_overlap = true;
 
@@ -1771,6 +1776,7 @@ void Mesh::compute_elem_adj(){
 
   elem_connect.resize(num_elem);
 
+  int c = 0;
   for(int blk = 0; blk < get_num_elem_blks(); blk++){
 
     std::string elem_type=get_blk_elem_type(blk);
@@ -1806,73 +1812,34 @@ void Mesh::compute_elem_adj(){
       num_vertices_in_elem = 8;
       //num_elem_in_patch = 8;
     }
+    else if( (0==elem_type.compare("TRI3")) || 
+	     (0==elem_type.compare("TRI")) || 
+	     (0==elem_type.compare("tri3")) || 
+	     (0==elem_type.compare("tri"))  || 
+	     (0==elem_type.compare("TRI6")) || 
+	     (0==elem_type.compare("tri6")) 
+	     ){ 
+      num_vertices_in_elem = 3;
+      num_elem_in_patch = 8;
+    }
     else{
       std::cout<<"Mesh::compute_elem_adj() unsupported element at this time"<<std::endl<<std::endl<<std::endl;
       exit(0);
     }//if 
-
-//     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
-//       int elemid = get_global_elem_id(ne);
-//       std::cout<<proc_id<<" "<<ne<<" "<<elemid<<" "<<elem_num_map[ne]<<std::endl;
-//     }
-
+    //cn on multiple blocks not sure if get_global_elem_id works...
     for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
-#if 0
-      if (nprocs > 1){
-	int cnt = 0;
-	for(int k = 0; k < num_vertices_in_elem; k++){
-	  
-	  int nodeid = get_node_id(blk, ne, k);//local node id
-	  //int gnodeid = node_num_map[nodeid];
-	  //std::cout<<proc_id<<" "<<ne<<" "<<" "<<nodeid<<" "<<std::endl;
-	  
-	  for(int ne2=0; ne2 < get_num_elem_in_blk(blk); ne2++){
-	    for(int k2 = 0; k2 < num_vertices_in_elem; k2++){
-	      //std::cout<<ne<<" "<<ne2<<std::endl;
-	      int nodeid2 = get_node_id(blk, ne2, k2);//local node id
-	      //if(nodeid == nodeid2) elem_connect[elemid].push_back(get_global_elem_id(ne2));
-	      if(nodeid == nodeid2) {
-		elem_connect[ne].push_back(get_global_elem_id(ne2));
-		cnt++;
-		break;
-	      }
-	    }//k2
-	    //std::cout<<ne<<" "<<elem_connect[ne].size()<<" "<<cnt<<std::endl;
-	    if( cnt > num_elem_in_patch - 1) break;
-	  }//ne2
-	  
-	}//k
-      }
-      else{
-#endif
+
 	for(int k = 0; k < num_vertices_in_elem; k++){
 	  int nodeid = get_node_id(blk, ne, k);//local node id
   	  //int s = nodal_patch[nodeid].size();
 	  int s = nodal_patch_overlap[nodeid].size();
 	  for(int np = 0; np < s; np++){
 	    //elem_connect[ne].push_back(get_global_elem_id(nodal_patch[nodeid][np]));
-	    elem_connect[ne].push_back(get_global_elem_id(nodal_patch_overlap[nodeid][np]));
-	    //std::cout<<ne<<" "<<get_global_elem_id(nodal_patch_overlap[nodeid][np])<<std::endl;
+	    elem_connect[ne+c].push_back(get_global_elem_id(nodal_patch_overlap[nodeid][np]));
 	  }//np
 	}//k
-#if 0
-      }//if
-      sort( elem_connect[ne].begin(), elem_connect[ne].end() );
-      elem_connect[ne].erase( unique( elem_connect[ne].begin(), elem_connect[ne].end() ), elem_connect[ne].end() );
-#endif
     }//ne
-#if 0
-    for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
-      int elemid = get_global_elem_id(ne);
-      int s = elem_connect[ne].size();
-      std::cout<<nprocs<<"ec  : "<<elemid<<" : ";
-      for(int k = 0; k < s; k++){
-	std::cout<<elem_connect[ne][k]<<" ";
-      }
-      std::cout<<std::endl;
-    }//ne
-#endif
-
+    c = get_num_elem_in_blk(blk);
   }//blk
 
   //exit(0);
@@ -1880,25 +1847,53 @@ void Mesh::compute_elem_adj(){
   if(verbose)
     std::cout<<"=== Compute elem adjacencies ==="<<std::endl;
 
-  int blk = 0;
-  for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
-    int elemid = get_global_elem_id(ne);
-
+  for (int ne=0; ne < elem_connect.size(); ne++){
     sort( elem_connect[ne].begin(), elem_connect[ne].end() );
     elem_connect[ne].erase( unique( elem_connect[ne].begin(), elem_connect[ne].end() ), elem_connect[ne].end() );
+  }
+  int blk = 0;
+  for (int ne=0; ne < get_num_elem_in_blk(blk); ne++){
+
+    //sort( elem_connect[ne].begin(), elem_connect[ne].end() );
+    //elem_connect[ne].erase( unique( elem_connect[ne].begin(), elem_connect[ne].end() ), elem_connect[ne].end() );
 
 
     if(verbose){
 
       int n=elem_connect[ne].size();
-      std::cout<<elemid<<"::"<<std::endl;
       for (int k =0; k<n; k++){
 	std::cout<<"  "<<elem_connect[ne][k];
       }
       std::cout<<std::endl;
+
+      for(auto i : elem_connect){
+	for (auto it : i){
+	  std::cout<<it<<" ";
+	}
+	std::cout<<std::endl;
+      }
     }
   }
-
+#if 0
+  elem_connect.clear();
+  elem_connect.resize(num_elem);
+  //std::vector<std::vector<int> > ec(4) ;
+  for (auto npit :nodal_patch_overlap ){
+    for (auto elito : npit ){
+      for (auto eliti : npit ){
+	elem_connect[elito].push_back(eliti);
+      }
+    }
+  }
+  for (auto i : elem_connect ){
+    sort(i.begin(), i.end());
+    i.erase( unique(i.begin(),i.end() ), i.end() );
+    for( auto it : i ){
+      std::cout<<it<<" ";
+    }
+    std::cout<<std::endl;
+  }
+#endif
 }
 
 #if MESH_REFACTOR

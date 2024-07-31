@@ -230,7 +230,7 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
 
 #ifdef TUSAS_COLOR_CPU
-  Elem_col = rcp(new elem_color(comm_,mesh_));
+  Elem_col = rcp(new elem_color(mesh_));
 #endif
 
   std::vector<int> indices = (Teuchos::getArrayFromStringParameter<int>(paramList,

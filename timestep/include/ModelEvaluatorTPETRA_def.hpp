@@ -680,10 +680,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #endif
 
 	    GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+#if defined TUSAS_HAVE_CUDA || defined TUSAS_HAVE_HIP
 	    //IMPORTANT: if TUSAS_MAX_NUMEQS is increased the following lines (and below in prec fill)
 	    //need to be adjusted
 	    GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	    GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	    GPUBasisLHex  Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
 	    if(4 == n_nodes_per_elem)  {
 	      for( int neq = 0; neq < numeqs; neq++ )
 		BGPU[neq] = &Bq[neq];
@@ -691,7 +692,22 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      for( int neq = 0; neq < numeqs; neq++ )
 		BGPU[neq] = &Bh[neq];
 	    }
-	    
+#else	    
+	    //GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
+	    //GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
+	    if(4 == n_nodes_per_elem)  {
+	      for( int neq = 0; neq < numeqs; neq++ ){
+		//BGPU[neq] = &Bq[neq];
+		BGPU[neq] = new GPUBasisLQuad(LTP_quadrature_order);
+	      }
+	    }else{
+	      for( int neq = 0; neq < numeqs; neq++ ){
+		//BGPU[neq] = &Bh[neq];
+		BGPU[neq] = new GPUBasisLHex(LTP_quadrature_order);
+	      }
+	    }
+#endif
+
 	    const int ngp = BGPU[0]->ngp();
 	    
 	    double xx[BASIS_NODES_PER_ELEM];
@@ -756,6 +772,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #ifdef USE_TEAM
 			       }//if ne
 #else
+#endif
+
+#if defined TUSAS_HAVE_CUDA || defined TUSAS_HAVE_HIP
+#else
+	      for( int neq = 0; neq < numeqs; neq++ ){
+		delete BGPU[neq];
+	      }
 #endif
         });//parallel_for
 	  //};//ne

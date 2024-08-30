@@ -18,13 +18,19 @@
 
 #include <Kokkos_Core.hpp>
 
-#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
+#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA) || (KOKKOS_HAVE_HIP) || defined (KOKKOS_ENABLE_HIP)
 #define TUSAS_DEVICE __device__
-#define TUSAS_HAVE_CUDA
 #else
 #define TUSAS_DEVICE /**/ 
 #endif
 
+#if defined (KOKKOS_HAVE_CUDA) || defined (KOKKOS_ENABLE_CUDA)
+#define TUSAS_HAVE_CUDA
+#endif
+
+#if defined(KOKKOS_HAVE_HIP) || defined (KOKKOS_ENABLE_HIP)
+#define TUSAS_HAVE_HIP
+#endif
 
 
 

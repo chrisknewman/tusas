@@ -1092,15 +1092,24 @@ int Mesh::write_elem_data_exodus(int ex_id){
   int blk = 1; //hack
   ex_err = ex_put_var_names (ex_id, "E", num_elem_fields, var_names);
 
-  for(int i = 0; i < num_elem_fields; i++){
+  for(int blk = 0; blk < get_num_elem_blks(); blk++){
 
-    ex_err = ex_put_elem_var (ex_id, 1, i + 1, blk,num_elem, &elem_fields[i][0]);
+    for(int i = 0; i < num_elem_fields; i++){
 
-    //(exoid,time_step,elem_var_index,elem_blk_id,num_elem_this_blk,elem_var_vals)
-    //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<nodal_fields[i][j]<<std::endl;
-  
+      auto estart = elem_fields[i].begin();
+      auto eend = elem_fields[i].end();
+      std::vector<double> temp(estart,eend);
+
+      ex_err = ex_put_elem_var (ex_id, 1, i + 1, blk+1,num_elem, &temp[0]);
+      //int ex_put_elem_var (int exoid,
+      //                     int time_step,
+      //                     int elem_var_index,
+      //                     int elem_blk_id,
+      //                     int num_elem_this_blk,
+      //                     void *elem_var_vals)
+      
+    }
   }
-
   delete [] var_names;
 
   return ex_err;
@@ -1137,13 +1146,24 @@ int Mesh::write_elem_data_exodus(int ex_id, int counter){
   int blk = 1; //hack
   ex_err = ex_put_var_names (ex_id, "E", num_elem_fields, var_names);
 
-  for(int i = 0; i < num_elem_fields; i++){
+  for(int blk = 0; blk < get_num_elem_blks(); blk++){
 
-    ex_err = ex_put_elem_var (ex_id, counter, i + 1, blk,num_elem, &elem_fields[i][0]);
+    for(int i = 0; i < num_elem_fields; i++){
+      
+      auto estart = elem_fields[i].begin();
+      auto eend = elem_fields[i].end();
+      std::vector<double> temp(estart,eend);
 
-    //(exoid,time_step,elem_var_index,elem_blk_id,num_elem_this_blk,elem_var_vals)
-    //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<nodal_fields[i][j]<<std::endl;
-  
+      ex_err = ex_put_elem_var (ex_id, counter, i + 1, blk+1,num_elem, &temp[0]);
+      //int ex_put_elem_var (int exoid,
+      //                     int time_step,
+      //                     int elem_var_index,
+      //                     int elem_blk_id,
+      //                     int num_elem_this_blk,
+      //                     void *elem_var_vals)
+      
+
+    }
   }
 
   delete [] var_names;

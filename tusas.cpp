@@ -444,6 +444,8 @@ int join(const int mypid, const int numproc,
 }
 int do_sys_call(const char* command, char * const arg[] )
 {
+  //cn hack
+#if 0
   int status = -99;
   int * s = &status;
   int pid = vfork();
@@ -459,6 +461,8 @@ int do_sys_call(const char* command, char * const arg[] )
   }
   //std::cout<<"err = "<<err<<"\n";
   return err;
+#endif
+  return (int)1;
 }
 void print_disclaimer(const int mypid)
 {

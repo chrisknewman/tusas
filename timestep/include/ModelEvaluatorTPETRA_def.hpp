@@ -57,6 +57,7 @@
 
 #include "function_def.hpp"
 #include "ParamNames.h"
+#include "greedy_tie_break.hpp"
 
 #ifdef TUSAS_CRUSHER
 #else
@@ -335,7 +336,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
   //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
-  Elem_col = Teuchos::rcp(new elem_color(Comm,mesh,dorestart));
+  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart));
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
@@ -2644,7 +2645,7 @@ void ModelEvaluatorTPETRA<scalar_type>::write_exodus()
   //not sre what the bug is here...
   Teuchos::TimeMonitor IOWriteTimer(*ts_time_iowrite);
   const char * c = outfilename.c_str();
-  mesh_->open_exodus(c,Mesh::WRITE);
+  ex_id_ = mesh_->open_exodus(c,Mesh::WRITE);
   mesh_->write_exodus(ex_id_,output_step_,time_);
   mesh_->close_exodus(ex_id_);
   output_step_++;

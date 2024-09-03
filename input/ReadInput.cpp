@@ -15,7 +15,7 @@
 #include <Teuchos_RCP.hpp>
 #include "Teuchos_TimeMonitor.hpp"
 //	#include "Teuchos_StandardParameterEntryValidators.hpp"
-#include <ml_MultiLevelPreconditioner.h>
+//#include <ml_MultiLevelPreconditioner.h>
 
 #include "ReadInput.h"
 #include "ParamNames.h"
@@ -97,7 +97,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   //ML parameters for ML and MueLu
   Teuchos::ParameterList *MLList;
   MLList = &paramList.sublist ( TusasmlNameString, false );
-
+#if 0
   //cn right now this does not make sense as the xml file, namely the method string has not been read--need to fix
   if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis"){
     ML_Epetra::SetDefaults("SA",paramList.sublist (TusasmlNameString ));
@@ -119,7 +119,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     
     //    MLList->set("PDE equations",1);
   }
-
+#endif
   //Linear solver parameters
   Teuchos::ParameterList *LSList;
   LSList = &paramList.sublist(TusaslsNameString,false);

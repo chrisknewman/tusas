@@ -249,6 +249,7 @@ private:
 
   Teuchos::RCP<Teuchos::Time> ts_time_import;
   Teuchos::RCP<Teuchos::Time> ts_time_resfill;
+  Teuchos::RCP<Teuchos::Time> ts_time_resdirichlet;
   Teuchos::RCP<Teuchos::Time> ts_time_precfill;
   Teuchos::RCP<Teuchos::Time> ts_time_nsolve;
   Teuchos::RCP<Teuchos::Time> ts_time_view;

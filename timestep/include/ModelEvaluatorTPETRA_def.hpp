@@ -55,6 +55,7 @@
 #include "greedy_tie_break.hpp"
 
 #define TUSAS_RUN_ON_CPU
+//#define TUSAS_RUN_ON_CPU_RES
 
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
 #define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 40
@@ -353,6 +354,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   
   ts_time_import= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Import Time");
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Fill Time");
+  ts_time_resdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Dirichlet Fill Time");
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
   ts_time_view= Teuchos::TimeMonitor::getNewTimer("Tusas: Total View Time");
@@ -912,6 +914,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   }//get_f
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
+    Teuchos::TimeMonitor ResDerichletTimer(*ts_time_resdirichlet);  
     const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
     //std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
@@ -949,24 +952,28 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 
-#ifdef TUSAS_RUN_ON_CPU	
+#ifdef TUSAS_RUN_ON_CPU_RES
  	for ( int j = 0; j < num_node_ns; j++ ){
 #else
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
 #endif
 			       const int lid = node_set_view(j);//could use Kokkos::vector here...
 
-#ifdef TUSAS_RUN_ON_CPU
+#ifdef TUSAS_RUN_ON_CPU_RES
 			       const double xx = x_1dra(lid);
 			       const double yy = y_1dra(lid);
 			       const double zz = z_1dra(lid);	
 			       const double val1 = (it->second)(xx,yy,zz,time);
 #else
-			       const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,time);
+			       //const double val1 = tpetra::heat::dbc_zero_(0.,0.,0.,time);
+			       const double xx = x_1dra(lid);
+			       const double yy = y_1dra(lid);
+			       const double zz = z_1dra(lid);	
+			       const double val1 = (it->second)(xx,yy,zz,time);
 #endif
 			       const double val = u_1dra(numeqs_*lid + k)  - val1;
 			       f_1d(numeqs_*lid + k) = val;
-#ifdef TUSAS_RUN_ON_CPU	
+#ifdef TUSAS_RUN_ON_CPU_RES	
 			     }//j
 #else
 			     });//parallel_for

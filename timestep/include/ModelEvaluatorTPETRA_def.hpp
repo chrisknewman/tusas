@@ -55,7 +55,6 @@
 #include "greedy_tie_break.hpp"
 
 #define TUSAS_RUN_ON_CPU
-//#define TUSAS_RUN_ON_CPU_RES
 
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
 #define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 40
@@ -947,11 +946,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
 	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-	Kokkos::View <int*> node_set_view("sv",ns_size);
+	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view("sv",ns_size);
 	for (size_t i = 0; i < ns_size; ++i) {
 	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
         }
 
+	//#define TUSAS_RUN_ON_CPU_RES
 #ifdef TUSAS_RUN_ON_CPU_RES
  	for ( int j = 0; j < num_node_ns; j++ ){
 #else
@@ -959,18 +959,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #endif
 			       const int lid = node_set_view(j);//could use Kokkos::vector here...
 
-#ifdef TUSAS_RUN_ON_CPU_RES
 			       const double xx = x_1dra(lid);
 			       const double yy = y_1dra(lid);
 			       const double zz = z_1dra(lid);	
 			       const double val1 = (it->second)(xx,yy,zz,time);
-#else
-			       //const double val1 = tpetra::heat::dbc_zero_(0.,0.,0.,time);
-			       const double xx = x_1dra(lid);
-			       const double yy = y_1dra(lid);
-			       const double zz = z_1dra(lid);	
-			       const double val1 = (it->second)(xx,yy,zz,time);
-#endif
+
 			       const double val = u_1dra(numeqs_*lid + k)  - val1;
 			       f_1d(numeqs_*lid + k) = val;
 #ifdef TUSAS_RUN_ON_CPU_RES	

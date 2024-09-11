@@ -187,10 +187,18 @@ double W0_h = 1.;
 double deltau_h = 1.;
 double uref_h = 0.;
 
-  //KOKKOS_INLINE_FUNCTION 
+KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
 {
   return 0.;
+}
+
+KOKKOS_INLINE_FUNCTION 
+DBC_FUNC(dbc_sin_) 
+{  
+  const double pi = 3.141592653589793;
+
+  return sin(pi*x)*sin(pi*y);
 }
 
   //KOKKOS_INLINE_FUNCTION 

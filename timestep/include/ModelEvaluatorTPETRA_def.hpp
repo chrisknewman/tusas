@@ -916,7 +916,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Teuchos::TimeMonitor ResDerichletTimer(*ts_time_resdirichlet);  
     const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
-    //std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
@@ -926,38 +925,31 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }
 
     //u is already imported to overlap_map here
-    //auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
 
-    //on host only right now
-    //auto f_view = f_overlap->getLocalView<Kokkos::DefaultHostExecutionSpace>();
-    auto f_view = f_overlap->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto f_view = f_overlap->getLocalViewDevice(Tpetra::Access::ReadWrite);
     
-    
-    //auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
-    //Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
 	
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	const int index = it->first;
 	int ns_id = -99;
+	
 	mesh_->node_set_found(index, ns_id);
-	const int num_node_ns = mesh_->get_node_set(ns_id).size();
+	
+	//a pointer to this vector would be better
+	auto node_set_vec = mesh_->get_node_set(ns_id);
+	const size_t ns_size = node_set_vec.size();
 
-
-	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
 	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view("sv",ns_size);
+	//could make this a 2d view and construct outside the k loop
 	for (size_t i = 0; i < ns_size; ++i) {
-	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+	  node_set_view(i) = node_set_vec[i];
         }
 
-	//#define TUSAS_RUN_ON_CPU_RES
-#ifdef TUSAS_RUN_ON_CPU_RES
- 	for ( int j = 0; j < num_node_ns; j++ ){
-#else
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
-#endif
-			       const int lid = node_set_view(j);//could use Kokkos::vector here...
+	Kokkos::parallel_for(ns_size,KOKKOS_LAMBDA (const size_t& j){
+
+			       const int lid = node_set_view(j);
 
 			       const double xx = x_1dra(lid);
 			       const double yy = y_1dra(lid);
@@ -966,11 +958,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 			       const double val = u_1dra(numeqs_*lid + k)  - val1;
 			       f_1d(numeqs_*lid + k) = val;
-#ifdef TUSAS_RUN_ON_CPU_RES	
-			     }//j
-#else
+
 			     });//parallel_for
-#endif
+
       }//it
     }//k
     {

@@ -355,6 +355,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Fill Time");
   ts_time_resdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Dirichlet Fill Time");
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
+  ts_time_precdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Dirichlet Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
   ts_time_view= Teuchos::TimeMonitor::getNewTimer("Tusas: Total View Time");
   ts_time_iowrite= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Write Time");
@@ -1125,18 +1126,20 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
-    Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
+    Teuchos::TimeMonitor PrecFillTimer(*ts_time_precdirichlet);
     P->resumeFill();//this is overlap, P_ is owned
 
     // local nodeset ids are on overlap
    
-#ifdef TUSAS_RUN_ON_CPU
-
 #if (TRILINOS_MAJOR_VERSION < 14) 
     auto PV = P->getLocalMatrix();
 #else
     auto PV = P->getLocalMatrixHost();
 #endif
+    const size_t ncol_max = P->getLocalMaxNumRowEntries();	
+
+    Kokkos::View <local_ordinal_type*,Kokkos::DefaultExecutionSpace> inds_view("iv",ncol_max);
+    Kokkos::View <scalar_type*,Kokkos::DefaultExecutionSpace> vals_view("vv",ncol_max);
 
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
@@ -1145,14 +1148,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	const int ns_id = it->first;
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
   
-	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-	Kokkos::View <int*> node_set_view("nsv",ns_size);
+	auto node_set_vec = mesh_->get_node_set(ns_id);
+	const size_t ns_size = node_set_vec.size();
+	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view("nsv",ns_size);
 	for (size_t i = 0; i < ns_size; ++i) {
-	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+	  node_set_view(i) = node_set_vec[i];
         }
 	
- 	for ( int j = 0; j < num_node_ns; j++ ){
-	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
+ 	//for ( int j = 0; j < num_node_ns; j++ ){
+	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
 
 	  const int lid_overlap = node_set_view(j);
 	  //const global_ordinal_type gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
@@ -1166,30 +1170,23 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  //const Kokkos::SparseRowView<Kokkos::CrsMatrix> RV = PV.row(row);
 	  ncol = RV.length;
 	  
-	  scalar_type * vals = new scalar_type[ncol];
-	  local_ordinal_type * inds = new local_ordinal_type[ncol];
-	  
-	  for(int i = 0; i<(int)ncol; i++){
-	    inds[i] = RV.colidx(i);
-	    vals[i] = 0.0;
-	    ( inds[i] == row ) ? ( vals[i] = 1.0 ) : ( vals[i] = 0.0 );
+	  for(size_t i = 0; i<ncol; i++){
+	    inds_view[i] = RV.colidx(i);
+	    vals_view[i] = 0.0;
+	    ( inds_view[i] == row ) ? ( vals_view[i] = 1.0 ) : ( vals_view[i] = 0.0 );
 	    //std::cout<<row<<"   "<<inds[i]<<"  "<<vals[i]<<std::endl;
-	    RV.value(i) = vals[i];
+	    RV.value(i) = vals_view[i];
 	  }
 	  
 	  //P_->replaceLocalValues(row, ncol, vals, inds );	    
 	  //PV.replaceValues(row, inds, ncol, vals );
 	  
-	  delete[] vals;
-	  delete[] inds;
-	
-	  //});//parallel_for
-	  }//j
+	  });//parallel_for
+	//}//j
 
       }//it
     }//k
-#else
-#endif
+
     P->fillComplete();
     //P->fillComplete();
     //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );

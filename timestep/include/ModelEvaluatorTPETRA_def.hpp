@@ -326,6 +326,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Fill Time");
   ts_time_resdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Dirichlet Fill Time");
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
+  ts_time_precdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Dirichlet Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
   ts_time_view= Teuchos::TimeMonitor::getNewTimer("Tusas: Total View Time");
   ts_time_iowrite= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Write Time");
@@ -975,8 +976,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
 
-    //{ // start scope of f_vec and f_overlap
-    Teuchos::TimeMonitor ResDerichletTimer(*ts_time_resdirichlet);  
+    Teuchos::TimeMonitor ResDirichletTimer(*ts_time_resdirichlet);  
 
     const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
@@ -1019,7 +1019,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
 
 	auto node_set_vec = mesh_->get_node_set(ns_id);
-	size_t ns_size = node_set_vec.size();
+	const size_t ns_size = node_set_vec.size();
 
 #ifdef CPUD
         Kokkos::View <int*,Kokkos::HostSpace> node_set_view("nsv",ns_size);
@@ -1033,7 +1033,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    node_set_view_h(i) = node_set_vec[i];
 	  }
 	  Kokkos::deep_copy(node_set_view, node_set_view_h);
-	  //Kokkos::fence();
 	}
 
 #ifdef CPUD
@@ -1066,8 +1065,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::REPLACE);//REPLACE ???
       Kokkos::fence();
     }
-
-    //} // end scope of f_vec and f_overlap
 
   }//get_f
 
@@ -1289,39 +1286,49 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
-
-    Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
+    
     P->resumeFill();//this is overlap, P_ is owned
-
     // local nodeset ids are on overlap
    
     {//scope PV
+    Teuchos::TimeMonitor PrecDirichletTimer(*ts_time_precdirichlet);
+    
     auto PV = P->getLocalMatrixDevice();
+    const size_t ncol_max = P->getLocalMaxNumRowEntries();
+
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
-	const int ns_id = it->first;
+
+	const int index = it->first;
+	int ns_id = -99;
+
+	mesh_->node_set_found(index, ns_id);
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
   
-	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-	Kokkos::View <int*> node_set_view("nsv",ns_size);
-
+	auto node_set_vec = mesh_->get_node_set(ns_id);
+	const size_t ns_size = node_set_vec.size();
+	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view("nsv",ns_size);
         {
-           auto node_set_view_h = Kokkos::create_mirror_view(node_set_view);
-
-   	   for (size_t i = 0; i < ns_size; ++i) {
-	     node_set_view_h(i) = (mesh_->get_node_set(ns_id))[i];
-           }
-
-           Kokkos::deep_copy(node_set_view,node_set_view_h);
-
-           Kokkos::fence();
+	  auto node_set_view_h = Kokkos::create_mirror_view(node_set_view);
+	  
+	  for (size_t i = 0; i < ns_size; ++i) {
+	    node_set_view_h(i) = node_set_vec[i];
+	  }
+	  
+	  Kokkos::deep_copy(node_set_view,node_set_view_h);
         }
-
-        Kokkos::fence();
 	
- 	//for ( int j = 0; j < num_node_ns; j++ ){
+// 	Kokkos::View <local_ordinal_type*,Kokkos::DefaultExecutionSpace> inds_view("iv",ncol_max);
+// 	{
+// 	  auto inds_view_h = Kokkos::create_mirror_view(inds_view);
+// 	  for (size_t i = 0; i < ncol_max; ++i) {
+// 	    inds_view_h(i) = (local_ordinal_type)0;
+// 	  }
+// 	  Kokkos::deep_copy(inds_view,inds_view_h);
+//         }
+     
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
 
 	  const int lid_overlap = node_set_view(j);
@@ -1336,10 +1343,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  //const Kokkos::SparseRowView<Kokkos::CrsMatrix> RV = PV.row(row);
 	  ncol = RV.length;
 	  
-	  scalar_type * vals = new scalar_type[ncol];
-	  local_ordinal_type * inds = new local_ordinal_type[ncol];
+	  scalar_type * vals = new scalar_type[ncol_max];
+	  local_ordinal_type * inds = new local_ordinal_type[ncol_max];
 	  
-	  for(int i = 0; i<(int)ncol; i++){
+	  for(size_t i = 0; i< ncol; i++){
 	    inds[i] = RV.colidx(i);
 	    vals[i] = 0.0;
 	    ( inds[i] == row ) ? ( vals[i] = 1.0 ) : ( vals[i] = 0.0 );
@@ -1354,23 +1361,21 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  delete[] inds;
 	
 	  });//parallel_for
-	  //}//j
-
+	
       }//it
     }//k
     }//scope PV
 
     P->fillComplete();
-    //P->fillComplete();
-    //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-//     exit(0);
 
     P_->resumeFill();
+  
+    //cn this comm is expensive
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
       P_->doExport(*P, *exporter_, Tpetra::REPLACE);
     }
-
+    
     P_->fillComplete();
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 

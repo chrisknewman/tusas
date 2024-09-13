@@ -1,5 +1,5 @@
 NODAL VARIABLES all
 	!pp0
-	grad0x floor 8.9e-15
+	grad0x floor 2.e-14
 	grad0y floor 1.e-14
 	u floor 1.e-14

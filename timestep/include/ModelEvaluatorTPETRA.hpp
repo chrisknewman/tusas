@@ -248,6 +248,8 @@ private:
   //PARAMFUNC paramfunc_;
 
   Teuchos::RCP<Teuchos::Time> ts_time_import;
+  Teuchos::RCP<Teuchos::Time> ts_time_resimport;
+  Teuchos::RCP<Teuchos::Time> ts_time_precimport;
   Teuchos::RCP<Teuchos::Time> ts_time_resfill;
   Teuchos::RCP<Teuchos::Time> ts_time_resdirichlet;
   Teuchos::RCP<Teuchos::Time> ts_time_precfill;

@@ -205,18 +205,21 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   const Teuchos::ArrayView<global_ordinal_type> AV(my_global_nodes);
 
-  //the overla
+  //the overlap
   x_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
 					     AV,
 					     indexBase,
 					     comm_
 					     ));
 
-  //x_overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   GreedyTieBreak<local_ordinal_type,global_ordinal_type> greedy_tie_break;
-  x_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(x_overlap_map_,greedy_tie_break))));
-  //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-  
+  //x_overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  if( 1 == comm_->getSize() ){
+    x_owned_map_ = x_overlap_map_;
+  }else{
+    x_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(x_overlap_map_,greedy_tie_break))));
+    //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  }
   importer_ = Teuchos::rcp(new import_type(x_owned_map_, x_overlap_map_));
   //exporter_ = Teuchos::rcp(new export_type(x_owned_map_, x_overlap_map_));
   exporter_ = Teuchos::rcp(new export_type(x_overlap_map_, x_owned_map_));
@@ -237,6 +240,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 						));
 
   node_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(node_overlap_map_,greedy_tie_break))));
+
   //cn we could store previous time values in a multivector
   u_old_ = Teuchos::rcp(new vector_type(x_owned_map_));
   u_old_->putScalar(Teuchos::ScalarTraits<scalar_type>::zero());
@@ -330,7 +334,6 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>
       ((Teuchos::RCP<Tpetra::Operator<scalar_type,local_ordinal_type, global_ordinal_type, node_type> >)P_, mueluParamList);
 
-
     if( 0 == comm_->getRank() ){
       std::cout <<" MueLu preconditioner created"<<std::endl<<std::endl;
     }
@@ -352,6 +355,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   time_=0.;
   
   ts_time_import= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Import Time");
+  ts_time_resimport= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Import Time");
+  ts_time_precimport= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Import Time");
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Fill Time");
   ts_time_resdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Dirichlet Fill Time");
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
@@ -363,10 +368,6 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_predsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Predictor Solve Time");
   //ts_time_ioread= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Read Time");
 
-  //HACK
-  //cn 8-28-18 currently elem_color takes an epetra_mpi_comm....
-  //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
-  //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart));
 
@@ -380,7 +381,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   std::vector<int>::iterator it;
   for(it = indices.begin();it != indices.end(); ++it){
     //std::cout<<*it<<" "<<std::endl;
-    int error_index = *it;
+    const int error_index = *it;
     Error_est.push_back(new error_estimator(Comm,mesh_,numeqs_,error_index));
   }
   //initialize();
@@ -571,6 +572,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
     f_vec->scale(0.);
     f_overlap->scale(0.);
+    {
     Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
 
 //     std::string elem_type=mesh_->get_blk_elem_type(blk);
@@ -787,10 +789,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       }//color
     }//blk
-
+      }
 			    //exit(0);
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
       //f_vec->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     }
@@ -819,7 +821,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //we zero nodes on the nonowning proc here, so that we do not add in the values twice
       //this also does no communication
       {
-	Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+	Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
 	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
       }
       //on host only right now..
@@ -907,25 +909,24 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }//k
       
       {
-	Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+	Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);  
 	f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
       }
     }//neumann
   }//get_f
 
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
-    Teuchos::TimeMonitor ResDerichletTimer(*ts_time_resdirichlet);  
     const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
     std::map<int,DBCFUNC>::iterator it;
     
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
       f_overlap->doImport(*f_vec,*importer_,Tpetra::INSERT);
     }
-
-    //u is already imported to overlap_map here
+    {
+    Teuchos::TimeMonitor ResDerichletTimer(*ts_time_resdirichlet);  
 
     auto f_view = f_overlap->getLocalViewDevice(Tpetra::Access::ReadWrite);
     
@@ -964,8 +965,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       }//it
     }//k
+    }
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::REPLACE);//REPLACE ???
     }
   }//get_f
@@ -974,13 +976,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       
   if( nonnull(outArgs.get_W_prec() )){
-
+    {
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
 
-    P_->resumeFill();
+    P_->resumeFill();//owned
     P_->setAllToScalar((scalar_type)0.0); 
 
-    P->resumeFill();
+    P->resumeFill();//overlap
     P->setAllToScalar((scalar_type)0.0); 
 
 #if (TRILINOS_MAJOR_VERSION < 14) 
@@ -989,15 +991,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     auto PV = P->getLocalMatrixHost();
 #endif
 
-
     PREFUNC * h_pf;
     h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
 
-
     h_pf = &(*preconfunc_)[0];
-
-
-    
+   
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
       const int num_color = Elem_col->get_num_color();
@@ -1014,7 +1012,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	
 	const int num_elem = elem_map.size();
 	
-	
 	Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
 	//Kokkos::vector<int> elem_map_k(num_elem);
 	for(int i = 0; i<num_elem; i++) {
@@ -1027,8 +1024,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
 
 			     //an array of pointers to GPUBasis
-	  GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
-	
+	  GPUBasis * BGPU[TUSAS_MAX_NUMEQS];	
 	  GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
 	  GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
 
@@ -1039,7 +1035,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    for( int neq = 0; neq < numeqs; neq++ )
 	      BGPU[neq] = &Bh[neq];
 	  }
-	
+
 	  const int ngp = BGPU[0]->ngp();
 	  
 	  //const int elem = elem_map_k[ne];
@@ -1084,7 +1080,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		for( int neq = 0; neq < numeqs; neq++ ){
 
 		  scalar_type val[1] = {jacwt*h_pf[neq](BGPU,i,j,dt,t_theta,neq)};
-
 		  
 		  //cn probably better to fill a view for val and lcol for each column
 		  const local_ordinal_type row = lrow +neq; 
@@ -1093,27 +1088,24 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		  //P->sumIntoLocalValues(lrow,(local_ordinal_type)1,val,lcol,false);
 		  PV.sumIntoValues (row, col,(local_ordinal_type)1,val);
 		  
-		}//neq
-		
-	      }//j
-	      
-	    }//i
-	    
-	  }//gp
-	  
-	});//parallel_for
-	
+		}//neq		
+	      }//j	      
+	    }//i	    
+	  }//gp	  
+	});//parallel_for	
       }//c
     }//blk
-
+  }
     //cn we need to do a similar comm here...
     P->fillComplete();
 
     //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   
+//     P_->fillComplete();
+//     P_->resumeFill();
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
-      P_->doExport(*P, *exporter_, Tpetra::ADD);
+      Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);  
+      P_->doExport(*P, *exporter_, Tpetra::ADD); 
     }
 
     P_->fillComplete();
@@ -1126,8 +1118,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
+    {
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precdirichlet);
-    P->resumeFill();//this is overlap, P_ is owned
+    P->resumeFill();//P is overlap, P_ is owned
 
     // local nodeset ids are on overlap
    
@@ -1139,7 +1132,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     const size_t ncol_max = P->getLocalMaxNumRowEntries();	
 
     Kokkos::View <local_ordinal_type*,Kokkos::DefaultExecutionSpace> inds_view("iv",ncol_max);
-    Kokkos::View <scalar_type*,Kokkos::DefaultExecutionSpace> vals_view("vv",ncol_max);
 
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
@@ -1172,10 +1164,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  
 	  for(size_t i = 0; i<ncol; i++){
 	    inds_view[i] = RV.colidx(i);
-	    vals_view[i] = 0.0;
-	    ( inds_view[i] == row ) ? ( vals_view[i] = 1.0 ) : ( vals_view[i] = 0.0 );
-	    //std::cout<<row<<"   "<<inds[i]<<"  "<<vals[i]<<std::endl;
-	    RV.value(i) = vals_view[i];
+	    ( inds_view[i] == row ) ? ( RV.value(i) = 1.0 ) : ( RV.value(i) = 0.0 );
 	  }
 	  
 	  //P_->replaceLocalValues(row, ncol, vals, inds );	    
@@ -1186,17 +1175,17 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
       }//it
     }//k
-
+    }
     P->fillComplete();
     //P->fillComplete();
     //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 //     exit(0);
 
-
     P_->resumeFill();
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);  
       P_->doExport(*P, *exporter_, Tpetra::REPLACE);
+      //P_->doExport(*P, *exporter_, Tpetra::INSERT);
     }
 
     P_->fillComplete();
@@ -1210,9 +1199,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     MueLu::ReuseTpetraPreconditioner( P_, *prec_  );
 
   }//outArgs.get_W_prec() 
-
-//   if (time_ < 1.e-9  && predictor_step == true)
-//     exit(0);
 
   return;
 }
@@ -1625,7 +1611,7 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 	  //std::cout<<"   "<<k<<" "<<numeqs_*nn+k<<" "<<un_1d[numeqs_*nn+k]<<" ";
 	} 
 	//std::cout<<"norm = "<<norm<<std::endl;
-	for( auto k : localprojectionindices_ ){
+	for( auto const& k : localprojectionindices_ ){
 	  un_1d[numeqs_*nn+k] = un_1d[numeqs_*nn+k]/sqrt(norm);
 	}
       }
@@ -1851,12 +1837,12 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
 			   double norm = 0.;
 			   //std::cout<<nn<<std::endl;
-			   for( auto k : localprojectionindices_ ){
+			   for( auto const& k : localprojectionindices_ ){
 			     norm = norm + un_1d[numeqs_*nn+k]*un_1d[numeqs_*nn+k];
 			     //std::cout<<"   "<<k<<" "<<numeqs_*nn+k<<" "<<un_1d[numeqs_*nn+k]<<" ";
 			   } 
 			   //std::cout<<"norm = "<<norm<<std::endl;
-			   for( auto k : localprojectionindices_ ){
+			   for( auto const& k : localprojectionindices_ ){
 			     un_1d[numeqs_*nn+k] = un_1d[numeqs_*nn+k]/sqrt(norm);
 			   }
 			 }

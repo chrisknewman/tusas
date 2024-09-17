@@ -1897,6 +1897,44 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
 
+  }else if("neumann" == paramList.get<std::string> (TusastestNameString)){
+    // numeqs_ number of variables(equations) 
+    numeqs_ = 1;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
+    
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::heat::init_zero_;
+    
+    
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &tpetra::heat::dbc_zero_;							 
+    //(*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;						 
+    //(*dirichletfunc_)[0][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
+
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::heat::param_;
+
+    neumannfunc_ = NULL;
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);							 
+    (*neumannfunc_)[0][1] = &tpetra::nbc_one_;	
+
+    //post_proc.push_back(new post_process(mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
+
   }else if("radconvbc" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
     numeqs_ = 1;

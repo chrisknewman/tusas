@@ -210,6 +210,11 @@ INI_FUNC(init_heat_test_)
   return sin(pi*x)*sin(pi*y);
 }
 
+INI_FUNC(init_zero_)
+{
+  return 0.;
+}
+
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_heat_test_)
 {

@@ -205,18 +205,21 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   const Teuchos::ArrayView<global_ordinal_type> AV(my_global_nodes);
 
-  //the overla
+  //the overlap
   x_overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
 					     AV,
 					     indexBase,
 					     comm_
 					     ));
 
-  //x_overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   GreedyTieBreak<local_ordinal_type,global_ordinal_type> greedy_tie_break;
-  x_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(x_overlap_map_,greedy_tie_break))));
-  //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-  
+  //x_overlap_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  if( 1 == comm_->getSize() ){
+    x_owned_map_ = x_overlap_map_;
+  }else{
+    x_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(x_overlap_map_,greedy_tie_break))));
+    //x_owned_map_ ->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  }
   importer_ = Teuchos::rcp(new import_type(x_owned_map_, x_overlap_map_));
   //exporter_ = Teuchos::rcp(new export_type(x_owned_map_, x_overlap_map_));
   exporter_ = Teuchos::rcp(new export_type(x_overlap_map_, x_owned_map_));
@@ -237,6 +240,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 						));
 
   node_owned_map_ = Teuchos::rcp(new map_type(*(Tpetra::createOneToOne(node_overlap_map_,greedy_tie_break))));
+
   //cn we could store previous time values in a multivector
   u_old_ = Teuchos::rcp(new vector_type(x_owned_map_));
   u_old_->putScalar(Teuchos::ScalarTraits<scalar_type>::zero());
@@ -330,7 +334,6 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     prec_ = MueLu::CreateTpetraPreconditioner<scalar_type,local_ordinal_type, global_ordinal_type, node_type>
       ((Teuchos::RCP<Tpetra::Operator<scalar_type,local_ordinal_type, global_ordinal_type, node_type> >)P_, mueluParamList);
 
-
     if( 0 == comm_->getRank() ){
       std::cout <<" MueLu preconditioner created"<<std::endl<<std::endl;
     }
@@ -352,8 +355,12 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   time_=0.;
   
   ts_time_import= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Import Time");
+  ts_time_resimport= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Import Time");
+  ts_time_precimport= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Import Time");
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Fill Time");
+  ts_time_resdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Dirichlet Fill Time");
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
+  ts_time_precdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Dirichlet Fill Time");
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
   ts_time_view= Teuchos::TimeMonitor::getNewTimer("Tusas: Total View Time");
   ts_time_iowrite= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Write Time");
@@ -361,10 +368,6 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_predsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Predictor Solve Time");
   //ts_time_ioread= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Read Time");
 
-  //HACK
-  //cn 8-28-18 currently elem_color takes an epetra_mpi_comm....
-  //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
-  //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
   Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart));
 
@@ -380,7 +383,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   std::vector<int>::iterator it;
   for(it = indices.begin();it != indices.end(); ++it){
     //std::cout<<*it<<" "<<std::endl;
-    int error_index = *it;
+    const int error_index = *it;
     Error_est.push_back(new error_estimator(Comm,mesh_,numeqs_,error_index));
   }
   //initialize();
@@ -584,6 +587,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
     f_vec->scale(0.);
     f_overlap->scale(0.);
+    {
     Teuchos::TimeMonitor ResFillTimer(*ts_time_resfill);  
 
 //     std::string elem_type=mesh_->get_blk_elem_type(blk);
@@ -838,10 +842,10 @@ const GPURefBasis * BGPURef = BGPURefB;
     // Delete Reference basis in block loop
     delete BGPURefB;
     }//blk
-
+      }
 			    //exit(0);
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
       //f_vec->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     }
@@ -869,7 +873,7 @@ const GPURefBasis * BGPURef = BGPURefB;
       //we zero nodes on the nonowning proc here, so that we do not add in the values twice
       //this also does no communication
       {
-	Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+	Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
 	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
       }
       //on host only right now..
@@ -985,7 +989,7 @@ const GPURefBasis * BGPURef = BGPURefB;
   delete BGPURef;
 
       {
-	Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+	Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);  
 	f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
       }
     }//neumann
@@ -994,67 +998,56 @@ const GPURefBasis * BGPURef = BGPURefB;
   if (nonnull(outArgs.get_f()) && NULL != dirichletfunc_){
     const Teuchos::RCP<vector_type> f_vec =
       ConverterT::getTpetraVector(outArgs.get_f());
-    //std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
       f_overlap->doImport(*f_vec,*importer_,Tpetra::INSERT);
     }
+    {
+    Teuchos::TimeMonitor ResDerichletTimer(*ts_time_resdirichlet);  
 
-    //u is already imported to overlap_map here
-    //auto u_view = u->getLocalView<Kokkos::DefaultExecutionSpace>();
-
-    //on host only right now
-    //auto f_view = f_overlap->getLocalView<Kokkos::DefaultHostExecutionSpace>();
-    auto f_view = f_overlap->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto f_view = f_overlap->getLocalViewDevice(Tpetra::Access::ReadWrite);
     
-    
-    //auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);
-    //Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
     auto f_1d = Kokkos::subview (f_view, Kokkos::ALL (), 0);
 	
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
 	const int index = it->first;
 	int ns_id = -99;
+	
 	mesh_->node_set_found(index, ns_id);
-	const int num_node_ns = mesh_->get_node_set(ns_id).size();
+	
+	//a pointer to this vector would be better
+	auto node_set_vec = mesh_->get_node_set(ns_id);
+	const size_t ns_size = node_set_vec.size();
 
-
-	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-	Kokkos::View <int*> node_set_view("sv",ns_size);
+	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view("sv",ns_size);
+	//could make this a 2d view and construct outside the k loop
 	for (size_t i = 0; i < ns_size; ++i) {
-	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+	  node_set_view(i) = node_set_vec[i];
         }
 
-#ifdef TUSAS_RUN_ON_CPU	
- 	for ( int j = 0; j < num_node_ns; j++ ){
-#else
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA (const size_t& j){
-#endif
-			       const int lid = node_set_view(j);//could use Kokkos::vector here...
+	Kokkos::parallel_for(ns_size,KOKKOS_LAMBDA (const size_t& j){
 
-#ifdef TUSAS_RUN_ON_CPU
+			       const int lid = node_set_view(j);
+
 			       const double xx = x_1dra(lid);
 			       const double yy = y_1dra(lid);
 			       const double zz = z_1dra(lid);	
 			       const double val1 = (it->second)(xx,yy,zz,time);
-#else
-			       const double val1 = tusastpetra::dbc_zero_(0.,0.,0.,time);
-#endif
+
 			       const double val = u_1dra(numeqs_*lid + k)  - val1;
 			       f_1d(numeqs_*lid + k) = val;
-#ifdef TUSAS_RUN_ON_CPU	
-			     }//j
-#else
+
 			     });//parallel_for
-#endif
+
       }//it
     }//k
+    }
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::REPLACE);//REPLACE ???
     }
   }//get_f
@@ -1063,13 +1056,13 @@ const GPURefBasis * BGPURef = BGPURefB;
 
       
   if( nonnull(outArgs.get_W_prec() )){
-
+    {
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
 
-    P_->resumeFill();
+    P_->resumeFill();//owned
     P_->setAllToScalar((scalar_type)0.0); 
 
-    P->resumeFill();
+    P->resumeFill();//overlap
     P->setAllToScalar((scalar_type)0.0); 
 
 #if (TRILINOS_MAJOR_VERSION < 14) 
@@ -1078,15 +1071,11 @@ const GPURefBasis * BGPURef = BGPURefB;
     auto PV = P->getLocalMatrixHost();
 #endif
 
-
     PREFUNC * h_pf;
     h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
 
-
     h_pf = &(*preconfunc_)[0];
-
-
-    
+   
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
       const int num_color = Elem_col->get_num_color();
@@ -1123,7 +1112,6 @@ const GPURefBasis * BGPURef = BGPURefB;
 	std::vector<int> elem_map = Elem_col->get_color(c);
 	
 	const int num_elem = elem_map.size();
-	
 	
 	Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
 	//Kokkos::vector<int> elem_map_k(num_elem);
@@ -1218,7 +1206,6 @@ const GPURefBasis * BGPURef = BGPURefB;
 		for( int neq = 0; neq < numeqs; neq++ ){
 
 		  scalar_type val[1] = {jacwt*h_pf[neq](BGPU,i,j,dt,t_theta,neq)};
-
 		  
 		  //cn probably better to fill a view for val and lcol for each column
 		  const local_ordinal_type row = lrow +neq; 
@@ -1247,15 +1234,17 @@ const GPURefBasis * BGPURef = BGPURefB;
     // Delete Reference basis in block loop
     delete BGPURefB;
     }//blk
-
+  }
     //cn we need to do a similar comm here...
     P->fillComplete();
 
     //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   
+//     P_->fillComplete();
+//     P_->resumeFill();
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
-      P_->doExport(*P, *exporter_, Tpetra::ADD);
+      Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);  
+      P_->doExport(*P, *exporter_, Tpetra::ADD); 
     }
 
     P_->fillComplete();
@@ -1268,18 +1257,20 @@ const GPURefBasis * BGPURef = BGPURefB;
 
 
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
-    Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
-    P->resumeFill();//this is overlap, P_ is owned
+    {
+    Teuchos::TimeMonitor PrecFillTimer(*ts_time_precdirichlet);
+    P->resumeFill();//P is overlap, P_ is owned
 
     // local nodeset ids are on overlap
    
-#ifdef TUSAS_RUN_ON_CPU
-
 #if (TRILINOS_MAJOR_VERSION < 14) 
     auto PV = P->getLocalMatrix();
 #else
     auto PV = P->getLocalMatrixHost();
 #endif
+    const size_t ncol_max = P->getLocalMaxNumRowEntries();	
+
+    Kokkos::View <local_ordinal_type*,Kokkos::DefaultExecutionSpace> inds_view("iv",ncol_max);
 
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
@@ -1288,14 +1279,15 @@ const GPURefBasis * BGPURef = BGPURefB;
 	const int ns_id = it->first;
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
   
-	size_t ns_size = (mesh_->get_node_set(ns_id)).size();
-	Kokkos::View <int*> node_set_view("nsv",ns_size);
+	auto node_set_vec = mesh_->get_node_set(ns_id);
+	const size_t ns_size = node_set_vec.size();
+	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view("nsv",ns_size);
 	for (size_t i = 0; i < ns_size; ++i) {
-	  node_set_view(i) = (mesh_->get_node_set(ns_id))[i];
+	  node_set_view(i) = node_set_vec[i];
         }
 	
- 	for ( int j = 0; j < num_node_ns; j++ ){
-	  //Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
+ 	//for ( int j = 0; j < num_node_ns; j++ ){
+	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
 
 	  const int lid_overlap = node_set_view(j);
 	  //const global_ordinal_type gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
@@ -1309,40 +1301,30 @@ const GPURefBasis * BGPURef = BGPURefB;
 	  //const Kokkos::SparseRowView<Kokkos::CrsMatrix> RV = PV.row(row);
 	  ncol = RV.length;
 	  
-	  scalar_type * vals = new scalar_type[ncol];
-	  local_ordinal_type * inds = new local_ordinal_type[ncol];
-	  
-	  for(int i = 0; i<(int)ncol; i++){
-	    inds[i] = RV.colidx(i);
-	    vals[i] = 0.0;
-	    ( inds[i] == row ) ? ( vals[i] = 1.0 ) : ( vals[i] = 0.0 );
-	    //std::cout<<row<<"   "<<inds[i]<<"  "<<vals[i]<<std::endl;
-	    RV.value(i) = vals[i];
+	  for(size_t i = 0; i<ncol; i++){
+	    inds_view[i] = RV.colidx(i);
+	    ( inds_view[i] == row ) ? ( RV.value(i) = 1.0 ) : ( RV.value(i) = 0.0 );
 	  }
 	  
 	  //P_->replaceLocalValues(row, ncol, vals, inds );	    
 	  //PV.replaceValues(row, inds, ncol, vals );
 	  
-	  delete[] vals;
-	  delete[] inds;
-	
-	  //});//parallel_for
-	  }//j
+	  });//parallel_for
+	//}//j
 
       }//it
     }//k
-#else
-#endif
+    }
     P->fillComplete();
     //P->fillComplete();
     //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 //     exit(0);
 
-
     P_->resumeFill();
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);  
       P_->doExport(*P, *exporter_, Tpetra::REPLACE);
+      //P_->doExport(*P, *exporter_, Tpetra::INSERT);
     }
 
     P_->fillComplete();
@@ -1356,9 +1338,6 @@ const GPURefBasis * BGPURef = BGPURefB;
     MueLu::ReuseTpetraPreconditioner( P_, *prec_  );
 
   }//outArgs.get_W_prec() 
-
-//   if (time_ < 1.e-9  && predictor_step == true)
-//     exit(0);
 
   return;
 }
@@ -1771,7 +1750,7 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 	  //std::cout<<"   "<<k<<" "<<numeqs_*nn+k<<" "<<un_1d[numeqs_*nn+k]<<" ";
 	} 
 	//std::cout<<"norm = "<<norm<<std::endl;
-	for( auto k : localprojectionindices_ ){
+	for( auto const& k : localprojectionindices_ ){
 	  un_1d[numeqs_*nn+k] = un_1d[numeqs_*nn+k]/sqrt(norm);
 	}
       }
@@ -1997,12 +1976,12 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,localLength),[=](const int& nn){
 			   double norm = 0.;
 			   //std::cout<<nn<<std::endl;
-			   for( auto k : localprojectionindices_ ){
+			   for( auto const& k : localprojectionindices_ ){
 			     norm = norm + un_1d[numeqs_*nn+k]*un_1d[numeqs_*nn+k];
 			     //std::cout<<"   "<<k<<" "<<numeqs_*nn+k<<" "<<un_1d[numeqs_*nn+k]<<" ";
 			   } 
 			   //std::cout<<"norm = "<<norm<<std::endl;
-			   for( auto k : localprojectionindices_ ){
+			   for( auto const& k : localprojectionindices_ ){
 			     un_1d[numeqs_*nn+k] = un_1d[numeqs_*nn+k]/sqrt(norm);
 			   }
 			 }
@@ -2056,6 +2035,44 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
+
+  }else if("neumann" == paramList.get<std::string> (TusastestNameString)){
+    // numeqs_ number of variables(equations) 
+    numeqs_ = 1;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
+    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
+    
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::heat::init_zero_;
+    
+    
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]
+    //(*dirichletfunc_)[0][0] = &tpetra::heat::dbc_zero_;							 
+    //(*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;						 
+    //(*dirichletfunc_)[0][2] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
+
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::heat::param_;
+
+    neumannfunc_ = NULL;
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);							 
+    (*neumannfunc_)[0][1] = &tpetra::nbc_one_;	
+
+    //post_proc.push_back(new post_process(mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
 
   }else if("radconvbc" == paramList.get<std::string> (TusastestNameString)){
     // numeqs_ number of variables(equations) 
@@ -2710,37 +2727,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     //exit(0);
 
-  }else if("neumann" == paramList.get<std::string> (TusastestNameString)){
-
-    numeqs_ = 1;
-
-    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
-
-    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
-
-    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    //(*initfunc_)[0] = &init_neumann_test_;
-    (*initfunc_)[0] = &tpetra::init_zero_;
-
-    varnames_ = new std::vector<std::string>(numeqs_);
-    (*varnames_)[0] = "u";
-
-    // numeqs_ number of variables(equations) 
-    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
-
-//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
-//               [numeq][nodeset id]
-//  [variable index][nodeset index]				 
-    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;
-
-    // numeqs_ number of variables(equations) 
-    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
-    (*neumannfunc_)[0][1] = &tpetra::nbc_one_;
-    //(*neumannfunc_)[0][2] = &nbc_zero_;						 
-    //(*neumannfunc_)[0][3] = &nbc_zero_;
-}else if("robin" == paramList.get<std::string> (TusastestNameString)){
+  }else if("robin" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;
 

@@ -187,10 +187,18 @@ double W0_h = 1.;
 double deltau_h = 1.;
 double uref_h = 0.;
 
-  //KOKKOS_INLINE_FUNCTION 
+KOKKOS_INLINE_FUNCTION 
 DBC_FUNC(dbc_zero_) 
 {
   return 0.;
+}
+
+KOKKOS_INLINE_FUNCTION 
+DBC_FUNC(dbc_sin_) 
+{  
+  const double pi = 3.141592653589793;
+
+  return sin(pi*x)*sin(pi*y);
 }
 
   //KOKKOS_INLINE_FUNCTION 
@@ -200,6 +208,11 @@ INI_FUNC(init_heat_test_)
   const double pi = 3.141592653589793;
 
   return sin(pi*x)*sin(pi*y);
+}
+
+INI_FUNC(init_zero_)
+{
+  return 0.;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3943,12 +3956,6 @@ NBC_FUNC_TPETRA(nbc_one_)
   double phi = basis->phi(i);
   
   return 1.*phi;
-}
-
-INI_FUNC(init_zero_)
-{
-
-  return 0.;
 }
 
 namespace uehara

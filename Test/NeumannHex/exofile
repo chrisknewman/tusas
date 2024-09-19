@@ -1,0 +1,4 @@
+ELEMENT VARIABLES all
+	!color
+NODAL VARIABLES all
+	u floor 1.e-17

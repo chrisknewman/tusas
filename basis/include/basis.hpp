@@ -2305,9 +2305,10 @@ void getBasis(const int gp,const  double x[4], const  double y[4],  const double
 #define BASIS_SNODES_PER_ELEM 3
 // NGP = Total number of Gauss points in element
 // SNGP = Total number of Gauss points in tensor product element per dimension
-// Current max quadrature degree 3
+// TNGP = Total number of Gauss points in a triangle/tetrahedron
 #define BASIS_NGP_PER_ELEM 64
 #define BASIS_SNGP_PER_ELEM 4
+#define BASIS_TNGP_PER_ELEM 5
 
 class Unified {
 public:
@@ -2338,36 +2339,867 @@ public:
 #endif
 };
 
-//class GPUBasis:public Unified{
+// Reference element basis classes
+// Returns evaluation of reference basis functions, reference coords at quadrature points
+class GPURefBasis{
+
+public:
+
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasis(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPURefBasis(){
+  };
+  
+  /// Public access points for internal functions
+  KOKKOS_INLINE_FUNCTION
+  const int canonical_vol() const {return canonical_volp;};
+  KOKKOS_INLINE_FUNCTION
+  const int ngp() const {return ngpp;};
+  KOKKOS_INLINE_FUNCTION
+  const int nbn() const {return nbnp;};
+  KOKKOS_INLINE_FUNCTION
+  const int pd() const {return pdp;};
+  KOKKOS_INLINE_FUNCTION  
+  const double nwt(const int i) const {return nwtp[i];};
+  KOKKOS_INLINE_FUNCTION
+  const double phinew(const int i, const int j) const {return phinewp[i][j];};
+  KOKKOS_INLINE_FUNCTION
+  const double dphidxinew(const int i, const int j) const {return dphidxinewp[i][j];};
+  KOKKOS_INLINE_FUNCTION
+  const double dphidetanew(const int i, const int j) const {return dphidetanewp[i][j];};
+  KOKKOS_INLINE_FUNCTION
+  const double dphidztanew(const int i, const int j) const {return dphidztanewp[i][j];};
+  KOKKOS_INLINE_FUNCTION
+  const double xi(const int i) const {return xip[i];};
+  KOKKOS_INLINE_FUNCTION
+  const double eta(const int i) const {return etap[i];};
+  KOKKOS_INLINE_FUNCTION
+  const double zta(const int i) const {return ztap[i];};
+
+protected:
+  double canonical_volp;
+
+  /// Access number of basis nodes and polynomial degree
+  int nbnp;
+  int pdp;
+
+  /// Access the number of Gauss points and the corresponding weights.
+  int ngpp;
+  double nwtp[BASIS_NGP_PER_ELEM];
+  
+  /// Access a pointer to the xi, eta, zta coordinates at each Gauss point.
+  double xip[BASIS_NGP_PER_ELEM];
+  double etap[BASIS_NGP_PER_ELEM];
+  double ztap[BASIS_NGP_PER_ELEM];
+  
+  /// Assess phi at Gauss point for each phi; including its derivatives
+  double phinewp[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidxinewp[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidetanewp[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+  double dphidztanewp[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
+};
+
+class GPURefTensorProductBasis:public GPURefBasis{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefTensorProductBasis(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPURefTensorProductBasis(){
+  };
+
+protected:
+  /// Access a pointer to the coordinates of the Gauss points per dimension
+  double abscissa[BASIS_SNGP_PER_ELEM];
+  /// Access a pointer to the Gauss weights.
+  double weight[BASIS_SNGP_PER_ELEM];
+  /// Access number of Gauss points per dimension
+  //note that quadrature is exact for polynomials of degree 2*sngp - 1
+  int sngp;
+ 
+  /// 1D basis functions and their derivatives (currently up to quadratic)
+  double xibasisatqp[BASIS_SNODES_PER_ELEM];
+  double etabasisatqp[BASIS_SNODES_PER_ELEM];
+  double ztabasisatqp[BASIS_SNODES_PER_ELEM];
+  double dxibasisatqp[BASIS_SNODES_PER_ELEM];
+  double detabasisatqp[BASIS_SNODES_PER_ELEM];
+  double dztabasisatqp[BASIS_SNODES_PER_ELEM];
+
+  // Functions to evaluate 1D coordinates at Gauss points
+  KOKKOS_INLINE_FUNCTION
+  void xibasisFunctions1D(const int gp){
+    if (pd() == 1){
+      xibasisatqp[0] = (1 - xip[gp])/2.;
+      xibasisatqp[1] = (1 + xip[gp])/2.;
+      dxibasisatqp[0] = -1/2.;
+      dxibasisatqp[1] = 1/2.;
+    }else if (pd() == 2){
+      xibasisatqp[0] = -xip[gp]*(1 - xip[gp])/2.;
+      xibasisatqp[1] = xip[gp]*(1 + xip[gp])/2.;
+      xibasisatqp[2] = 1 - xip[gp]*xip[gp];
+      dxibasisatqp[0] = xip[gp] - 1/2.;
+      dxibasisatqp[1] = xip[gp] + 1/2.;
+      dxibasisatqp[2] = -2*xip[gp];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void etabasisFunctions1D(const int gp){
+    if (pd() == 1){
+      etabasisatqp[0] = (1 - etap[gp])/2.;
+      etabasisatqp[1] = (1 + etap[gp])/2.;
+      detabasisatqp[0] = -1/2.;
+      detabasisatqp[1] = 1/2.;
+    }else if (pd() == 2){
+      etabasisatqp[0] = -etap[gp]*(1 - etap[gp])/2.;
+      etabasisatqp[1] = etap[gp]*(1 + etap[gp])/2.;
+      etabasisatqp[2] = 1 - etap[gp]*etap[gp];
+      detabasisatqp[0] = etap[gp] - 1/2.;
+      detabasisatqp[1] = etap[gp] + 1/2.;
+      detabasisatqp[2] = -2*etap[gp];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void ztabasisFunctions1D(const int gp){
+    if (pd() == 1){
+      ztabasisatqp[0] = (1 - ztap[gp])/2.;
+      ztabasisatqp[1] = (1 + ztap[gp])/2.;
+      dztabasisatqp[0] = -1/2.;
+      dztabasisatqp[1] = 1/2.;
+    }else if (pd() == 2){
+      ztabasisatqp[0] = -ztap[gp]*(1 - ztap[gp])/2.;
+      ztabasisatqp[1] = ztap[gp]*(1 + ztap[gp])/2.;
+      ztabasisatqp[2] = 1 - ztap[gp]*ztap[gp];
+      dztabasisatqp[0] = ztap[gp] - 1/2.;
+      dztabasisatqp[1] = ztap[gp] + 1/2.;
+      dztabasisatqp[2] = -2*ztap[gp];
+    }
+  }
+
+  /// 1D quadrature rule
+  KOKKOS_INLINE_FUNCTION
+  int computeQuadratureData(const int n){
+    sngp = n;
+    if( 3 == n){
+      abscissa[0] = -3.872983346207417/5.0;
+      abscissa[1] =  0.0;
+      abscissa[2] =  3.872983346207417/5.0;
+      weight[0] = 5.0/9.0;
+      weight[1] = 8.0/9.0;
+      weight[2] = 5.0/9.0;
+    } else if ( 4 == n ) {
+      abscissa[0] =  -30.13977090579184/35.0;
+      abscissa[1] =  -11.89933652546997/35.0;
+      abscissa[2] =   11.89933652546997/35.0;
+      abscissa[3] =   30.13977090579184/35.0;
+      weight[0] = (18.0-5.477225575051661)/36.0;
+      weight[1] = (18.0+5.477225575051661)/36.0;
+      weight[2] = (18.0+5.477225575051661)/36.0;
+      weight[3] = (18.0-5.477225575051661)/36.0;
+    } else {
+      sngp = 2;
+      if ( 2 != n ) {
+        std::cout<<"WARNING: only 1 < N < 5 gauss points supported at this time, defaulting to N = 2"<<std::endl;
+      }
+      abscissa[0] = -1.0/1.732050807568877;
+      abscissa[1] =  1.0/1.732050807568877;
+      weight[0] = 1.0;
+      weight[1] = 1.0;
+    }
+    return sngp;
+  }
+};
+
+class GPURefBasisBar:public GPURefTensorProductBasis{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisBar(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPURefBasisBar(){
+  };
+
+protected:
+  // Set up reference element coordinate values at quadrature points
+  KOKKOS_INLINE_FUNCTION
+  void computeCoordinateData(const int sngp){
+    for(int i = 0; i < sngp; i++){
+      xip[i] = abscissa[i];
+      nwtp[i] = weight[i];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void computeBasisFunctions(const int ngpp, const int nbnp){
+    for(int gp = 0; gp < ngpp; gp++){
+      // Compute basis function evaluations at coordinate
+      xibasisFunctions1D(gp);
+      for(int bn = 0; bn < nbnp; bn++){
+          phinewp[gp][bn] = xibasisatqp[bn];
+          dphidxinewp[gp][bn] = dxibasisatqp[bn];
+          dphidetanewp[gp][bn] = 0;
+          dphidztanewp[gp][bn] = 0;
+      }
+    }
+  }
+};
+
+class GPURefBasisLBar:public GPURefBasisBar{
+public:
+
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisLBar(const int n = 2){
+    pdp = 1;
+    nbnp = pdp + 1;
+    canonical_volp = 2.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp;
+    computeBasisFunctions(ngpp, nbnp);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisLBar(){}
+};
+
+class GPURefBasisQBar:public GPURefBasisBar{
+public:
+
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisQBar(const int n = 3){
+    pdp = 2;
+    nbnp = pdp + 1;
+    canonical_volp = 2.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp;
+    computeBasisFunctions(ngpp, nbnp);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisQBar(){}
+};
+
+class GPURefBasisQuad:public GPURefTensorProductBasis{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisQuad(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPURefBasisQuad(){
+  };
+
+protected:
+  // Set up reference element coordinate values at quadrature points
+  KOKKOS_INLINE_FUNCTION
+  void computeCoordinateData(const int sngp){
+    int c = 0;
+    for( int i = 0; i < sngp; i++ ){
+      for( int j = 0; j < sngp; j++ ){
+	      //std::cout<<i+j+c<<"   "<<i<<"   "<<j<<std::endl;
+	      xip[i+j+c]  = abscissa[i];
+	      etap[i+j+c] = abscissa[j];
+	      nwtp[i+j+c]  = weight[i] * weight[j];
+      }
+      c = c + sngp - 1;
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void computeBasisFunctions(const int ngpp, const int nbnp, const int nl[2][9]){
+    for(int gp = 0; gp < ngpp; gp++){
+      // Compute basis function evaluations at gauss point coordinate
+      xibasisFunctions1D(gp);
+      etabasisFunctions1D(gp);
+      for(int bn = 0; bn < nbnp; bn++){
+          phinewp[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]];
+          dphidxinewp[gp][bn] = dxibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]];
+          dphidetanewp[gp][bn] = xibasisatqp[nl[0][bn]]*detabasisatqp[nl[1][bn]];
+          dphidztanewp[gp][bn] = 0;
+      }
+    }
+  }
+};
+
+class GPURefBasisLQuad:public GPURefBasisQuad{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisLQuad(const int n = 2){
+    pdp = 1;
+    nbnp = (pdp+1)*(pdp+1);
+    canonical_volp = 4.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp*sngp;
+    // Follow exodus node numbering
+    // (first row for xi, second for eta basis functions)
+    int nl[2][9] = {{0, 1, 1, 0}, {0, 0, 1, 1}};
+    computeBasisFunctions(ngpp, nbnp, nl);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisLQuad(){}
+};
+
+class GPURefBasisQQuad:public GPURefBasisQuad{
+public:
+
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisQQuad(const int n = 3){
+    pdp = 2;
+    nbnp = (pdp+1)*(pdp+1);
+    canonical_volp = 4.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp*sngp;
+    int nl[2][9] = {{0, 1, 1, 0, 2, 1, 2, 0, 2},
+                    {0, 0, 1, 1, 0, 2, 1, 2, 2}};
+    computeBasisFunctions(ngpp, nbnp, nl);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisQQuad(){}
+};
+
+class GPURefBasisHex:public GPURefTensorProductBasis{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisHex(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPURefBasisHex(){
+  };
+
+protected:
+  // Set up reference element coordinate values at quadrature points
+  KOKKOS_INLINE_FUNCTION
+  void computeCoordinateData(const int sngp){
+    int c = 0;
+    for( int i = 0; i < sngp; i++ ){
+      for( int j = 0; j < sngp; j++ ){
+	      for( int k = 0; k < sngp; k++ ){
+	        //std::cout<<i+j+k+c<<"   "<<i<<"   "<<j<<"   "<<k<<std::endl;
+	        xip[i+j+k+c]  = abscissa[i];
+	        etap[i+j+k+c] = abscissa[j];
+	        ztap[i+j+k+c] = abscissa[k];
+	        nwtp[i+j+k+c]  = weight[i] * weight[j] * weight[k]; 
+	      }   
+	      c = c + sngp - 1;
+      }
+      c = c + sngp - 1;
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void computeBasisFunctions(const int ngpp, const int nbnp, const int nl[3][27]){
+    for(int gp = 0; gp < ngpp; gp++){
+      // Compute basis function evaluations at coordinate
+      xibasisFunctions1D(gp);
+      etabasisFunctions1D(gp);
+      ztabasisFunctions1D(gp);
+      for(int bn = 0; bn < nbnp; bn++){
+        phinewp[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*ztabasisatqp[nl[2][bn]];
+        dphidxinewp[gp][bn] = dxibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*ztabasisatqp[nl[2][bn]];
+        dphidetanewp[gp][bn] = xibasisatqp[nl[0][bn]]*detabasisatqp[nl[1][bn]]*ztabasisatqp[nl[2][bn]];
+        dphidztanewp[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*dztabasisatqp[nl[2][bn]];
+      }
+    }
+  }
+
+};
+
+class GPURefBasisLHex:public GPURefBasisHex{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisLHex(const int n = 2){
+    pdp = 1;
+    nbnp = (pdp+1)*(pdp+1)*(pdp+1);
+    canonical_volp = 8.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+  
+   // Set up reference element basis function values at quadrature points
+    ngpp = sngp*sngp*sngp;
+    int nl[3][27] = {{0, 1, 1, 0, 0, 1, 1, 0},
+                    {0, 0, 1, 1, 0, 0, 1, 1},
+                    {0, 0, 0, 0, 1, 1, 1, 1}};
+    computeBasisFunctions(ngpp, nbnp, nl);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisLHex(){}
+};
+
+class GPURefBasisQHex:public GPURefBasisHex{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisQHex(const int n = 3){
+    pdp = 2;
+    nbnp = (pdp+1)*(pdp+1)*(pdp+1);
+    canonical_volp = 8.;
+    sngp = computeQuadratureData(n);
+    computeCoordinateData(sngp);
+  
+    // Set up reference element basis function values at quadrature points
+    ngpp = sngp*sngp*sngp;
+    // Check https://sandialabs.github.io/seacas-docs/exodusII-new.pdf, Figure 4.14
+    int nl[3][27] = {{0, 1, 1, 0, 0, 1, 1, 0, 2, 1, 2, 0, 0, 1, 1, 0, 2, 1, 2, 0, 2, 2, 2, 0, 1, 2, 2},
+                     {0, 0, 1, 1, 0, 0, 1, 1, 0, 2, 1, 2, 0, 0, 1, 1, 0, 2, 1, 2, 2, 2, 2, 2, 2, 0, 1},
+                     {0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 2, 2, 2, 2, 1, 1, 1, 1, 2, 0, 1, 2, 2, 2, 2}};
+    computeBasisFunctions(ngpp, nbnp, nl);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisQHex(){}
+};
+
+class GPURefBasisTri:public GPURefBasis{
+  public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisTri(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPURefBasisTri(){
+  };
+
+protected:
+  /// Access a pointer to the coordinates of the Gauss points per dimension
+  double abscissa[BASIS_TNGP_PER_ELEM];
+  /// Access a pointer to the Gauss weights.
+  double weight[BASIS_TNGP_PER_ELEM];
+
+  int ngp; 
+
+  /// Triangle quadrature rule
+  /// abscissae contain coordinates for both xi and eta, need to combine appropriately in computeCoordinateData
+  KOKKOS_INLINE_FUNCTION
+  int computeQuadratureData(const int n){
+    ngp = n;
+    if( 4 == n){
+      abscissa[0] = 1/3.;
+      abscissa[1] = 1/5.;
+      abscissa[2] = 3/5.;
+      weight[0] = -9/32.;
+      weight[1] = 25/96.;
+    } else if ( 3 == n ) {
+      abscissa[0] = 1/6.;
+      abscissa[1] = 2/3.;
+      weight[0] = 1/6.;
+      // GAW This is the usual Gaussian quadrature, and was also used for QTri in old code. However, for LTri, old code used
+      // abscissa[0] = 1/2.
+      // abscissa[1] = 0.
+    } else {
+      ngp = 1;
+      if ( 1 != n ) {
+        std::cout<<"WARNING: only 1, 3 or 4 Gauss points supported at this time, defaulting to 1."<<std::endl;
+      }
+      abscissa[0] = 1/3.;
+      weight[0] = 1/2.;
+    }
+    return ngp;
+  }
+
+  // Set up reference element coordinate values at quadrature points
+  KOKKOS_INLINE_FUNCTION
+  void computeCoordinateData(const int ngp){
+    if( ngp == 1 ){
+      xip[0] = abscissa[0];
+      etap[0] = abscissa[0];
+      nwtp[0] = weight[0];
+    }else if (ngp == 3 ) {
+      xip[0]  = abscissa[0];
+      etap[0] = abscissa[0];
+      nwtp[0]  = weight[0];
+      xip[1]  = abscissa[1];
+      etap[1] = abscissa[0];
+      nwtp[1]  = weight[0];
+      xip[2]  = abscissa[0];
+      etap[2] = abscissa[1];
+      nwtp[2]  = weight[0];
+    }else if (ngp == 4) {
+      xip[0]  = abscissa[0];
+      etap[0] = abscissa[0];
+      nwtp[0]  = weight[0];
+      xip[1]  = abscissa[2];
+      etap[1] = abscissa[1];
+      nwtp[1]  = weight[1];
+      xip[2]  = abscissa[1];
+      etap[2] = abscissa[2];
+      nwtp[2]  = weight[1];
+      xip[3]  = abscissa[1];
+      etap[3] = abscissa[1];
+      nwtp[3]  = weight[1];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  virtual void computeBasisFunctions(){}
+};
+
+class GPURefBasisLTri:public GPURefBasisTri{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisLTri(const int n = 1){
+    pdp = 1;
+    nbnp = 3;
+    canonical_volp = 0.5;
+    ngpp = computeQuadratureData(n);
+    computeCoordinateData(ngpp);
+
+    // Set up reference element basis function values at quadrature points
+    // Follow exodus node numbering
+    computeBasisFunctions(ngpp);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisLTri(){}
+private:
+  KOKKOS_INLINE_FUNCTION
+  virtual void computeBasisFunctions(const int ngpp){
+    for(int gp = 0; gp < ngpp; gp++){
+      phinewp[gp][0] = (1. - xip[gp] - etap[gp]);
+      phinewp[gp][1] = xip[gp];
+      phinewp[gp][2] = etap[gp];
+      dphidxinewp[gp][0] = -1.;
+      dphidxinewp[gp][1] = 1.;
+      dphidxinewp[gp][2] = 0.;
+      dphidetanewp[gp][0] = -1.;
+      dphidetanewp[gp][1] = 0.;
+      dphidetanewp[gp][2] = 1.;
+      dphidztanewp[gp][0] = 0.;
+      dphidztanewp[gp][1] = 0.;
+      dphidztanewp[gp][2] = 0.;
+    }
+  }
+};
+
+class GPURefBasisQTri:public GPURefBasisTri{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisQTri(const int n = 3){
+    pdp = 2;
+    nbnp = 6;
+    canonical_volp = 0.5;
+    ngpp = computeQuadratureData(n);
+    computeCoordinateData(ngpp);
+
+    // Set up reference element basis function values at quadrature points
+    // Follow exodus node numbering
+    computeBasisFunctions(ngpp);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisQTri(){}
+private:
+  KOKKOS_INLINE_FUNCTION
+  virtual void computeBasisFunctions(const int ngpp){
+    for(int gp = 0; gp < ngpp; gp++){
+      phinewp[gp][0]= 2. * (1. - xip[gp] - etap[gp]) * (0.5 - xip[gp] - etap[gp]);
+      phinewp[gp][1]= 2. * xip[gp] * (xip[gp] - 0.5);
+      phinewp[gp][2]= 2. * etap[gp] * (etap[gp] - 0.5);
+      phinewp[gp][3]= 4. * (1. - xip[gp] - etap[gp]) * xip[gp];
+      phinewp[gp][4]= 4. * xip[gp] * etap[gp];
+      phinewp[gp][5]= 4. * (1. - xip[gp] - etap[gp]) * etap[gp];
+      dphidxinewp[gp][0]=-2. * (0.5 - xip[gp] - etap[gp]) - 2. * (1. - xip[gp] - etap[gp]);
+      dphidxinewp[gp][1]= 2. * (xip[gp] - 0.5) + 2.0 * xip[gp];
+      dphidxinewp[gp][2]= 0.;
+      dphidxinewp[gp][3]=-4. * xip[gp] + 4. * (1. - xip[gp] - etap[gp]);
+      dphidxinewp[gp][4]= 4. * etap[gp];
+      dphidxinewp[gp][5]= -4. * etap[gp];
+      dphidetanewp[gp][0]=-2. * (0.5 - xip[gp] - etap[gp]) - 2. * (1. - xip[gp] - etap[gp]);
+      dphidetanewp[gp][1]= 0.;
+      dphidetanewp[gp][2]= 2. * etap[gp] + 2. * (etap[gp] - 0.5);
+      dphidetanewp[gp][3]=-4. * xip[gp];
+      dphidetanewp[gp][4]= 4. * xip[gp];
+      dphidetanewp[gp][5]= 4. * (1. - xip[gp] - etap[gp]) - 4. * etap[gp];
+      dphidztanewp[gp][0]= 0.;
+      dphidztanewp[gp][1]= 0.;
+      dphidztanewp[gp][2]= 0.;
+      dphidztanewp[gp][3]= 0.;
+      dphidztanewp[gp][4]= 0.;
+      dphidztanewp[gp][5]= 0.;
+    }
+  }
+};
+
+class GPURefBasisTet:public GPURefBasis{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisTet(){
+  };
+  KOKKOS_INLINE_FUNCTION
+  virtual ~GPURefBasisTet(){
+  };
+
+protected:
+  /// Access a pointer to the coordinates of the Gauss points per dimension
+  double abscissa[BASIS_TNGP_PER_ELEM];
+  /// Access a pointer to the Gauss weights.
+  double weight[BASIS_TNGP_PER_ELEM];
+
+  int ngp; 
+
+  /// Tetrahedron quadrature rule
+  /// abscissae contain coordinates for both xi and eta, need to combine appropriately in computeCoordinateData
+  KOKKOS_INLINE_FUNCTION
+  int computeQuadratureData(const int n){
+    ngp = n;
+    if ( 5 == n) {
+      abscissa[0] = 0.25;
+      abscissa[1] = 0.5;
+      abscissa[2] = 0.1666666666666667;
+      weight[0] = -0.1333333333333333;
+      weight[0] = 0.075;
+    } else {
+      ngp = 4;
+      if ( 4 != n ) {
+        std::cout<<"WARNING: only 4 or 5 Gauss points supported at this time for tetrahedra, defaulting to 4."<<std::endl;
+      }
+      abscissa[0] = 0.13819660;
+      abscissa[1] = 0.58541020;
+      weight[0] = 0.041666666667;
+    }
+    return ngp;
+  }
+
+  // Set up reference element coordinate values at quadrature points
+  KOKKOS_INLINE_FUNCTION
+  void computeCoordinateData(const int ngp){
+    if ( 4 == ngp ) {
+      xip[0] = abscissa[0];  // 0, 0, 0
+      etap[0]  = abscissa[0];
+      ztap[0]  = abscissa[0];
+      nwtp[0]  = weight[0];
+      xip[1] = abscissa[1]; // 1, 0, 0
+      etap[1] = abscissa[0];
+      ztap[1] = abscissa[0];
+      nwtp[1]  = weight[0];
+      xip[2]  = abscissa[0]; // 1, 1, 0
+      etap[2]  = abscissa[1];
+      ztap[2]  = abscissa[0];
+      nwtp[2]  = weight[0];
+      xip[3]= abscissa[0];  //0, 1, 0
+      etap[3] = abscissa[0];
+      ztap[3]= abscissa[1];
+      nwtp[3]  = weight[0];
+    } else if ( 5 == ngp ) {
+      xip[0] = abscissa[0];
+      etap[0] = abscissa[0];
+      ztap[0] = abscissa[0];
+      nwtp[0] = weight[0];
+      xip[1] = abscissa[1];
+      etap[1] = abscissa[2];
+      ztap[1] = abscissa[2];
+      nwtp[1] = weight[1];
+      xip[2] = abscissa[2];
+      etap[2] = abscissa[2];
+      ztap[2] = abscissa[2];
+      nwtp[2] = weight[1];
+      xip[3] = abscissa[2];
+      etap[3] = abscissa[2];
+      ztap[3] = abscissa[1];
+      nwtp[3] = weight[1];
+      xip[4] = abscissa[2];
+      etap[4] = abscissa[1];
+      ztap[4] = abscissa[2];
+      nwtp[4] = weight[1];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  virtual void computeBasisFunctions(){}
+};
+
+class GPURefBasisLTet:public GPURefBasisTet{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisLTet(const int n = 4){
+    pdp = 1;
+    nbnp = 4;
+    canonical_volp = 1/6.;
+    ngpp = computeQuadratureData(n);
+    computeCoordinateData(ngpp);
+
+    // Set up reference element basis function values at quadrature points
+    // Follow exodus node numbering
+    computeBasisFunctions(ngpp);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisLTet(){}
+private:
+  KOKKOS_INLINE_FUNCTION
+  virtual void computeBasisFunctions(const int ngpp){
+    for(int gp = 0; gp < ngpp; gp++){
+      phinewp[gp][0] = 1. - xip[gp] - etap[gp] - ztap[gp];
+      phinewp[gp][1] = xip[gp];
+      phinewp[gp][2] = etap[gp];
+      phinewp[gp][3] = ztap[gp];
+      dphidxinewp[gp][0] = -1.;
+      dphidxinewp[gp][1] =  1.;
+      dphidxinewp[gp][2] =  0.;
+      dphidxinewp[gp][3] =  0.;
+      dphidetanewp[gp][0] = -1.;
+      dphidetanewp[gp][1] =  0.;
+      dphidetanewp[gp][2] =  1.;
+      dphidetanewp[gp][3] =  0.;
+      dphidztanewp[gp][0] = -1.;
+      dphidztanewp[gp][1] =  0.;
+      dphidztanewp[gp][2] =  0.;
+      dphidztanewp[gp][3] =  1.;
+    }
+  }
+};
+
+class GPURefBasisQTet:public GPURefBasisTet{
+public:
+  KOKKOS_INLINE_FUNCTION
+  GPURefBasisQTet(const int n = 5){
+    pdp = 1;
+    nbnp = 10;
+    canonical_volp = 1/6.;
+    ngpp = computeQuadratureData(n);
+    computeCoordinateData(ngpp);
+
+    // Set up reference element basis function values at quadrature points
+    // Follow exodus node numbering
+    computeBasisFunctions(ngpp);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  ~GPURefBasisQTet(){}
+private:
+
+  double phi1;
+  double phi2;
+  double phi3;
+  double phi4;
+
+  // Exodus corner ordering:
+  // 1 at origin
+  // 2 at xi = 1
+  // 3 at eta = 1
+  // 4 at zta = 
+  KOKKOS_INLINE_FUNCTION
+  virtual void computeBasisFunctions(const int ngpp){
+    for(int gp = 0; gp < ngpp; gp++){
+      phi1 = 1 - xip[gp] - etap[gp] - ztap[gp]; 
+      phi2 = xip[gp];
+      phi3 = etap[gp];
+      phi4 = ztap[gp];
+      phinewp[gp][0] = phi1*(2*phi1 - 1);
+      phinewp[gp][1] = phi2*(2*phi2 - 1);
+      phinewp[gp][2] = phi3*(2*phi3 - 1);
+      phinewp[gp][3] = phi3*(2*phi4 - 1);
+      phinewp[gp][4] = 4*phi1*phi2;
+      phinewp[gp][5] = 4*phi2*phi3;
+      phinewp[gp][6] = 4*phi3*phi1;
+      phinewp[gp][7] = 4*phi1*phi4;
+      phinewp[gp][8] = 4*phi2*phi4;
+      phinewp[gp][9] = 4*phi3*phi4;
+    }
+  }
+};
+
+// Mesh element basis classes
+// Returns (weighted) Jacobian, basis functions and fields evaluated at quadrature points
 class GPUBasis{
 
 public:
 
   KOKKOS_INLINE_FUNCTION
-  GPUBasis(){//printf("GPUBasis()\n");
+  GPUBasis(){
   };
   KOKKOS_INLINE_FUNCTION
-  virtual ~GPUBasis(){//printf("~GPUBasis()\n");
+  virtual ~GPUBasis(){
   };
-  KOKKOS_INLINE_FUNCTION
-  virtual double getBasis(const int gp,
-						   const double x[BASIS_NODES_PER_ELEM], 
-						   const double y[BASIS_NODES_PER_ELEM],  
-						   const double z[BASIS_NODES_PER_ELEM],
-						   const double u[BASIS_NODES_PER_ELEM],
-						   const double uold[BASIS_NODES_PER_ELEM],
-						   const double uoldold[BASIS_NODES_PER_ELEM]) {};
-  //we could compute and return jac here
+
   // Function to compute data related to element's vertices' coordinates
   KOKKOS_INLINE_FUNCTION
   virtual void computeElemData( const double x[BASIS_NODES_PER_ELEM], 
 						   const double y[BASIS_NODES_PER_ELEM],  
 						   const double z[BASIS_NODES_PER_ELEM]) {};
 
-  
-  /// Access number of Gauss points.
+  // Function to build cell coordinates and basis functions at Gauss point (given coord dof values)
+  // Also returns weight times Jacobian
   KOKKOS_INLINE_FUNCTION
-  const int ngp() const {return ngpp;};
+  virtual double getCoordsBasisWJac(const int gp,
+						                        const double x[BASIS_NODES_PER_ELEM], 
+						                        const double y[BASIS_NODES_PER_ELEM],  
+						                        const double z[BASIS_NODES_PER_ELEM]) {};
+
+  // Function to build u, uold, uoldold at Gauss point (given u dof values)
+  // Takes phi basis data as input, since getCoordsBasisJacobian may not be
+  // called by each basis object
+  KOKKOS_INLINE_FUNCTION
+  void getField(const int gp,
+                const GPUBasis * basis,
+                const double u[BASIS_NODES_PER_ELEM],
+                const double uold[BASIS_NODES_PER_ELEM],
+                const double uoldold[BASIS_NODES_PER_ELEM]) {
+  
+  uup=0.0;
+  uuoldp=0.0;
+  uuoldoldp=0.0;
+  duudxp=0.0;
+  duudyp=0.0;
+  duudzp=0.0;
+  duuolddxp = 0.;
+  duuolddyp = 0.;
+  duuolddzp = 0.;
+  duuoldolddxp = 0.;
+  duuoldolddyp = 0.;
+  duuoldolddzp = 0.;
+  // `basisp` is reference basis, `basis` is GPUBasis instance for first equation,
+  // containing (non-reference) element basis function values at Gauss point
+  // dphidz is not computed for 2D elements at the moment! Instead, it is set 0.
+  for (int i=0; i < basisp->nbn(); i++) {
+    if( u ){
+      uup += u[i] * basis->phi(i);
+      duudxp += u[i] * basis->dphidx(i);
+      duudyp += u[i] * basis->dphidy(i);
+      duudzp += u[i] * basis->dphidz(i);
+    }
+    if( uold ){
+      uuoldp += uold[i] * basis->phi(i);
+      duuolddxp += uold[i] * basis->dphidx(i);
+      duuolddyp += uold[i] * basis->dphidy(i);
+      duuolddzp += uold[i] * basis->dphidz(i);
+    }
+    if( uoldold ){
+      uuoldoldp += uoldold[i] * basis->phi(i);
+      duuoldolddxp += uoldold[i] * basis->dphidx(i);
+      duuoldolddyp += uoldold[i] * basis->dphidy(i);
+      duuoldolddzp += uoldold[i] * basis->dphidz(i);
+    }
+    }
+  }
+
+  /// Access volume of current element.
+  KOKKOS_INLINE_FUNCTION const double vol() const {return volp;};
+  /// Acces number of Gauss points
+  KOKKOS_INLINE_FUNCTION const double ngp() const {return ngpp;};
+
+  /// Access value of x coordinate in real space at the current Gauss point.
+  KOKKOS_INLINE_FUNCTION
+  const double xx() const {return xxp;};
+  /// Access value of y coordinate in real space at the current Gauss point.
+  KOKKOS_INLINE_FUNCTION
+  const double yy() const {return yyp;};
+  /// Access value of z coordinate in real space at the current Gauss point.
+  KOKKOS_INLINE_FUNCTION
+  const double zz() const {return zzp;};
 
   /// Access value of the basis function at the current Gauss point
   KOKKOS_INLINE_FUNCTION
@@ -2421,42 +3253,24 @@ public:
   KOKKOS_INLINE_FUNCTION
   const double duuoldolddz() const {return duuoldolddzp;};
 
-  /// Access value of x coordinate in real space at the current Gauss point.
-  KOKKOS_INLINE_FUNCTION
-  const double xx() const {return xxp;};
-  /// Access value of y coordinate in real space at the current Gauss point.
-  KOKKOS_INLINE_FUNCTION
-  const double yy() const {return yyp;};
-  /// Access value of z coordinate in real space at the current Gauss point.
-  KOKKOS_INLINE_FUNCTION
-  const double zz() const {return zzp;};
-
-  /// Access volume of current element.  
-  KOKKOS_INLINE_FUNCTION const double vol() const {return volp;};
-
 protected:
-  /// Access a pointer to the xi coordinate at each Gauss point.
-  double xi[BASIS_NGP_PER_ELEM];
-  /// Access a pointer to the eta coordinate at each Gauss point.
-  double eta[BASIS_NGP_PER_ELEM];
-  /// Access a pointer to the zta coordinate at each Gauss point.
-  double zta[BASIS_NGP_PER_ELEM];
-  /// Access the number of Gauss weights.
-  double nwt[BASIS_NGP_PER_ELEM];
+  /// Access value for reference basis class
+  const GPURefBasis * basisp;
 
-  double volp;
-  double canonical_vol;
-
-  /// Access value of the mapping Jacobian.
+  /// Access value of the mapping Jacobian, volume, and number of Gauss points
   double jac;
-  
-  /// Access number of Gauss points.
-  int ngpp;
+  double volp;
+  double ngpp;
+
   /// Internal values
   double phip[BASIS_NODES_PER_ELEM];
   double dphidxp[BASIS_NODES_PER_ELEM];
   double dphidyp[BASIS_NODES_PER_ELEM];
   double dphidzp[BASIS_NODES_PER_ELEM];
+
+  double xi;
+  double eta;
+  double zta;
 
   double uup;
   double duudxp;
@@ -2474,159 +3288,34 @@ protected:
   double yyp;
   double zzp;
 
-  double phinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidxinew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidetanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-  double dphidztanew[BASIS_NGP_PER_ELEM][BASIS_NODES_PER_ELEM];
-
-  /// Access value of dxi / dx  at the current Gauss point.
+  /// Access value of da/db at Gauss point, a = xi, eta, zta, b = x, y, z
   double dxidx;
-  /// Access value of dxi / dy  at the current Gauss point.
   double dxidy;
-  /// Access value of dxi / dz  at the current Gauss point.
   double dxidz;
-  /// Access value of deta / dx  at the current Gauss point.
   double detadx;
-  /// Access value of deta / dy  at the current Gauss point.
   double detady;
-  /// Access value of deta / dz  at the current Gauss point.
   double detadz;
-  /// Access value of dzta / dx  at the current Gauss point.
   double dztadx;
-  /// Access value of dzta / dy  at the current Gauss point.
   double dztady;
-  /// Access value of dzta / dz  at the current Gauss point.
   double dztadz;
 
+  double dxdxi;
+  double dxdeta;
+  double dxdzta;
+  double dydxi;
+  double dydeta;
+  double dydzta;
+  double dzdxi;
+  double dzdeta;
+  double dzdzta;
 };
 
-class GPUTensorProductBasis:public GPUBasis{
+class GPUBasisBar:public GPUBasis{
 public:
   KOKKOS_INLINE_FUNCTION
-  GPUTensorProductBasis(){
-  };
-  KOKKOS_INLINE_FUNCTION
-  virtual ~GPUTensorProductBasis(){
-  };
-
-protected:
-  /// Access a pointer to the coordinates of the Gauss points per dimension
-  double abscissa[BASIS_SNGP_PER_ELEM];
-  /// Access a pointer to the Gauss weights.
-  double weight[BASIS_SNGP_PER_ELEM];
-  /// Access number of Gauss points per dimension
-  //note that quadrature is exact for polynomials of degree 2*sngp - 1
-  int sngp;
-  /// Access number of basis nodes (determined by dimension, function space order)
-  int nbnp;
-  KOKKOS_INLINE_FUNCTION
-  const int nbn() const {return nbnp;};
-  /// Access polynomial degree
-  int pdp;
-  KOKKOS_INLINE_FUNCTION
-  const int pd() const {return pdp;};
- 
-  /// 1D basis functions and their derivatives (currently up to quadratic)
-  double xibasisatqp[BASIS_SNODES_PER_ELEM];
-  double etabasisatqp[BASIS_SNODES_PER_ELEM];
-  double ztabasisatqp[BASIS_SNODES_PER_ELEM];
-  double dxibasisatqp[BASIS_SNODES_PER_ELEM];
-  double detabasisatqp[BASIS_SNODES_PER_ELEM];
-  double dztabasisatqp[BASIS_SNODES_PER_ELEM];
-
-  // Functions to evaluate 1D coordinates at Gauss points
-  KOKKOS_INLINE_FUNCTION
-  void xibasisFunctions1D(const int gp){
-    if (pd() == 1){
-      xibasisatqp[0] = (1 - xi[gp])/2.;
-      xibasisatqp[1] = (1 + xi[gp])/2.;
-      dxibasisatqp[0] = -1/2.;
-      dxibasisatqp[1] = 1/2.;
-    }else if (pd() == 2){
-      xibasisatqp[0] = -xi[gp]*(1 - xi[gp])/2.;
-      xibasisatqp[1] = xi[gp]*(1 + xi[gp])/2.;
-      xibasisatqp[2] = 1 - xi[gp]*xi[gp];
-      dxibasisatqp[0] = xi[gp] - 1/2.;
-      dxibasisatqp[1] = xi[gp] + 1/2.;
-      dxibasisatqp[2] = -2*xi[gp];
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void etabasisFunctions1D(const int gp){
-    if (pd() == 1){
-      etabasisatqp[0] = (1 - eta[gp])/2.;
-      etabasisatqp[1] = (1 + eta[gp])/2.;
-      detabasisatqp[0] = -1/2.;
-      detabasisatqp[1] = 1/2.;
-    }else if (pd() == 2){
-      etabasisatqp[0] = -eta[gp]*(1 - eta[gp])/2.;
-      etabasisatqp[1] = eta[gp]*(1 + eta[gp])/2.;
-      etabasisatqp[2] = 1 - eta[gp]*eta[gp];
-      detabasisatqp[0] = eta[gp] - 1/2.;
-      detabasisatqp[1] = eta[gp] + 1/2.;
-      detabasisatqp[2] = -2*eta[gp];
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void ztabasisFunctions1D(const int gp){
-    if (pd() == 1){
-      ztabasisatqp[0] = (1 - zta[gp])/2.;
-      ztabasisatqp[1] = (1 + zta[gp])/2.;
-      dztabasisatqp[0] = -1/2.;
-      dztabasisatqp[1] = 1/2.;
-    }else if (pd() == 2){
-      ztabasisatqp[0] = -zta[gp]*(1 - zta[gp])/2.;
-      ztabasisatqp[1] = zta[gp]*(1 + zta[gp])/2.;
-      ztabasisatqp[2] = 1 - zta[gp]*zta[gp];
-      dztabasisatqp[0] = zta[gp] - 1/2.;
-      dztabasisatqp[1] = zta[gp] + 1/2.;
-      dztabasisatqp[2] = -2*zta[gp];
-    }
-  }
-
-  /// 1D quadrature rule
-  KOKKOS_INLINE_FUNCTION
-  int computeQuadratureData(const int n){
-    sngp = n;
-    if( 3 == n){
-      abscissa[0] = -3.872983346207417/5.0;
-      abscissa[1] =  0.0;
-      abscissa[2] =  3.872983346207417/5.0;
-      weight[0] = 5.0/9.0;
-      weight[1] = 8.0/9.0;
-      weight[2] = 5.0/9.0;
-    } else if ( 4 == n ) {
-      abscissa[0] =  -30.13977090579184/35.0;
-      abscissa[1] =  -11.89933652546997/35.0;
-      abscissa[2] =   11.89933652546997/35.0;
-      abscissa[3] =   30.13977090579184/35.0;
-      weight[0] = (18.0-5.477225575051661)/36.0;
-      weight[1] = (18.0+5.477225575051661)/36.0;
-      weight[2] = (18.0+5.477225575051661)/36.0;
-      weight[3] = (18.0-5.477225575051661)/36.0;
-    } else {
-      sngp = 2;
-      if ( 2 != n ) {
-        std::cout<<"WARNING: only 1 < N < 5 gauss points supported at this time, defaulting to N = 2"<<std::endl;
-      }
-      abscissa[0] = -1.0/1.732050807568877;
-      abscissa[1] =  1.0/1.732050807568877;
-      weight[0] = 1.0;
-      weight[1] = 1.0;
-    }
-    return sngp;
-  }
-
-  /// difference in nodal coordinates
-  double nodaldiff[36];//12 for lquad and qquad, 36 for lhex
-};
-
-class GPUBasisBar:public GPUTensorProductBasis{
-public:
-  KOKKOS_INLINE_FUNCTION
-  GPUBasisBar(){
+  GPUBasisBar(const GPURefBasis *basis){
+    basisp = basis;
+    ngpp = basisp->ngp();
   };
   KOKKOS_INLINE_FUNCTION
   virtual ~GPUBasisBar(){
@@ -2645,162 +3334,67 @@ public:
 }
 
   KOKKOS_INLINE_FUNCTION
-  double getBasis(const int gp,
-					        const double x[BASIS_NODES_PER_ELEM], 
-					        const double y[BASIS_NODES_PER_ELEM],  
-					        const double z[BASIS_NODES_PER_ELEM],
-					        const double u[BASIS_NODES_PER_ELEM],
-					        const double uold[BASIS_NODES_PER_ELEM],
-					        const double uoldold[BASIS_NODES_PER_ELEM]) {
+  double getCoordsBasisWJac(const int gp,
+						                const double x[BASIS_NODES_PER_ELEM], 
+						                const double y[BASIS_NODES_PER_ELEM],  
+						                const double z[BASIS_NODES_PER_ELEM]) {
 
-    for (int i=0; i < nbn(); i++) {
-      phip[i]=phinew[gp][i];
-    }
+  // Calculate partial coordinate derivatives for Jacobian and phi derivatives
+  // we could make these protected, ove this jac and volp to computeElemData as an optimization
+  // Reference cell goes from -1 to 1, so need factor of .5
+  dxdxi  = .5*nodaldiff[0];
+  dydxi  = .5*nodaldiff[1];
+  dzdxi  = .5*nodaldiff[2];
 
-    const double dxdxi  = .5*nodaldiff[0];
-    const double dydxi  = .5*nodaldiff[1];
-    const double dzdxi  = .5*nodaldiff[2];
+  // For 1D bar embedded in 3D, the Jacobian transformation adds a
+  // factor of sqrt(det(J^T J)), for J = (dx/dxi, dy/dxi, dz/dxi)
+  jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
+  volp = jac*basisp->canonical_vol();
+  dxidx = 1. / dxdxi;
+  dxidy = 1. / dydxi;
+  dxidz = 1. / dzdxi;
 
-    jac = sqrt(dxdxi*dxdxi+dydxi*dydxi+dzdxi*dzdxi);
-    //std::cout<<jac<<" "<<wt<<std::endl;
-    volp = jac*canonical_vol;
-    dxidx = 1. / dxdxi;
-    dxidy = 1. / dydxi;
-    dxidz = 1. / dzdxi;
-    detadx = 0.;
-    detady = 0.;
-    detadz =0.;
-    dztadx =0.;
-    dztady =0.;
-    dztadz =0.;
-    // Caculate basis function and derivative at GP.
-    xxp=0.0;
-    yyp=0.0;
-    zzp=0.0;
-    uup=0.0;
-    uuoldp=0.0;
-    uuoldoldp=0.0;
-    duudxp=0.0;
-    duudyp=0.0;
-    duudzp=0.0;
-    duuolddxp = 0.;
-    duuolddyp = 0.;
-    duuolddzp = 0.;
-    duuoldolddxp = 0.;
-    duuoldolddyp = 0.;
-    duuoldolddzp = 0.;
+  // Caculate basis function and derivative at GP.
+  xxp = 0.0;
+  yyp = 0.0;
+  zzp = 0.0;
 
-    for (int i=0; i < nbn(); i++) {
-      xxp += x[i] * phinew[gp][i];
-      yyp += y[i] * phinew[gp][i];
-      zzp += z[i] * phinew[gp][i];
-      dphidxp[i] = dphidxinew[gp][i]*dxidx;
-      dphidyp[i] = dphidxinew[gp][i]*dxidy;
-      dphidzp[i] = dphidxinew[gp][i]*dxidz;
-      if( u ){
-	uup += u[i] * phinew[gp][i];
-	duudxp += u[i] * dphidxp[i];
-	duudyp += u[i]* dphidyp[i];
-	duudzp += u[i]* dphidzp[i];
-      }
-      if( uold ){
-	uuoldp += uold[i] * phinew[gp][i];
-	duuolddxp += uold[i] * dphidxp[i];
-	duuolddyp += uold[i]* dphidyp[i];
-	duuolddzp += uold[i]* dphidzp[i];
-      }
-      if( uoldold ){
-	uuoldoldp += uoldold[i] * phinew[gp][i];
-	duuoldolddxp += uoldold[i] * dphidxp[i];
-	duuoldolddyp += uoldold[i]* dphidyp[i];
-	duuoldolddzp += uoldold[i]* dphidzp[i];
-      }
-    }
-  
-    return jac*nwt[gp];
+  for (int i=0; i < basisp->nbn(); i++) {
+    phip[i]=basisp->phinew(gp, i);
+    dphidxp[i] = basisp->dphidxinew(gp, i)*dxidx;
+    dphidyp[i] = basisp->dphidxinew(gp, i)*dxidy;
+    dphidzp[i] = basisp->dphidxinew(gp, i)*dxidz;
+
+    xxp += x[i] * phip[i];
+    yyp += y[i] * phip[i];
+    zzp += z[i] * phip[i];
+  }
+
+  return jac*basisp->nwt(gp);
   }
 
 protected:
-  // Set up reference element coordinate values at quadrature points
-  KOKKOS_INLINE_FUNCTION
-  void computeCoordinateData(const int sngp){
-    for(int i = 0; i < sngp; i++){
-      xi[i] = abscissa[i];
-      nwt[i] = weight[i];
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void computeBasisFunctions(const int ngpp, const int nbnp){
-    for(int gp = 0; gp < ngpp; gp++){
-      // Compute basis function evaluations at coordinate
-      xibasisFunctions1D(gp);
-      for(int bn = 0; bn < nbnp; bn++){
-          phinew[gp][bn] = xibasisatqp[bn];
-          dphidxinew[gp][bn] = dxibasisatqp[bn];
-          dphidetanew[gp][bn] = 0;
-          dphidztanew[gp][bn] = 0;
-      }
-    }
-  }
+  /// difference in nodal coordinates
+  double nodaldiff[3];
 };
 
-class GPUBasisLBar:public GPUBasisBar{
-public:
-
-  KOKKOS_INLINE_FUNCTION
-  GPUBasisLBar(const int n = 2){
-    pdp = 1;
-    nbnp = pdp + 1;
-    canonical_vol = 2.;
-    sngp = computeQuadratureData(n);
-    computeCoordinateData(sngp);
-
-    // Set up reference element basis function values at quadrature points
-    ngpp = sngp;
-    computeBasisFunctions(ngpp, nbnp);
-  }
-  
-  KOKKOS_INLINE_FUNCTION
-  ~GPUBasisLBar(){}
-};
-
-class GPUBasisQBar:public GPUBasisBar{
-public:
-
-  KOKKOS_INLINE_FUNCTION
-  GPUBasisQBar(const int n = 3){
-    pdp = 2;
-    nbnp = pdp + 1;
-    canonical_vol = 2.;
-    sngp = computeQuadratureData(n);
-    computeCoordinateData(sngp);
-
-    // Set up reference element basis function values at quadrature points
-    ngpp = sngp;
-    computeBasisFunctions(ngpp, nbnp);
-  }
-  
-  KOKKOS_INLINE_FUNCTION
-  ~GPUBasisQBar(){}
-};
-
-class GPUBasisQuad:public GPUTensorProductBasis{
+class GPUBasisQuad:public GPUBasis{
 public:
   KOKKOS_INLINE_FUNCTION
-  GPUBasisQuad(){
+  GPUBasisQuad(const GPURefBasis *basis){
+    basisp = basis;
+    ngpp = basisp->ngp();
   };
   KOKKOS_INLINE_FUNCTION
   virtual ~GPUBasisQuad(){
   };
 
   KOKKOS_INLINE_FUNCTION
-  void computeElemData(const double x[BASIS_NODES_PER_ELEM], 
+  void computeElemData(const double x[BASIS_NODES_PER_ELEM],
 						           const double y[BASIS_NODES_PER_ELEM],  
 						           const double z[BASIS_NODES_PER_ELEM]) {
     // Compute differences between the corners; needed for partial derivatives and Jacobian
     // First four nodes are always the corners in exo ordering, regardless of polynomial degree
-    //std::cout<<"lquad 1"<<std::endl;
     nodaldiff[0] = x[1]-x[0];
     nodaldiff[1] = x[3]-x[0];
     nodaldiff[2] = y[1]-y[0];
@@ -2818,166 +3412,70 @@ public:
   }
 
   KOKKOS_INLINE_FUNCTION
-  double getBasis(const int gp,
-		      		    const double x[BASIS_NODES_PER_ELEM], 
-					        const double y[BASIS_NODES_PER_ELEM],  
-					        const double z[BASIS_NODES_PER_ELEM],
-					        const double u[BASIS_NODES_PER_ELEM],
-					        const double uold[BASIS_NODES_PER_ELEM],
-					        const double uoldold[BASIS_NODES_PER_ELEM]) {
-
-  // Calculate basis function and derivatives at nodal pts
-  for (int i=0; i < nbn(); i++) {
-    phip[i]=phinew[gp][i];
-  }
+  double getCoordsBasisWJac(const int gp,
+						                const double x[BASIS_NODES_PER_ELEM], 
+						                const double y[BASIS_NODES_PER_ELEM],  
+						                const double z[BASIS_NODES_PER_ELEM]) {
 
   // Calculate partial coordinate derivatives for Jacobian and phi derivatives
   // we could make these protected, ove this jac and volp to computeElemData as an optimization
-  double dxdxi  = .25*( (nodaldiff[0])*(1.-eta[gp])+(nodaldiff[6])*(1.+eta[gp]) );
-  double dxdeta = .25*( (nodaldiff[1])*(1.- xi[gp])+(nodaldiff[7])*(1.+ xi[gp]) );
-  double dydxi  = .25*( (nodaldiff[2])*(1.-eta[gp])+(nodaldiff[8])*(1.+eta[gp]) );
-  double dydeta = .25*( (nodaldiff[3])*(1.- xi[gp])+(nodaldiff[9])*(1.+ xi[gp]) );
-  double dzdxi  = .25*( (nodaldiff[4])*(1.-eta[gp])+(nodaldiff[10])*(1.+eta[gp]) );
-  double dzdeta = .25*( (nodaldiff[5])*(1.- xi[gp])+(nodaldiff[11])*(1.+ xi[gp]) );
+  xi = basisp->xi(gp);
+  eta = basisp->eta(gp);
 
-  //jac = dxdxi * dydeta - dxdeta * dydxi;
+  dxdxi  = .25*( (nodaldiff[0])*(1.-eta)+(nodaldiff[6])*(1.+eta) );
+  dxdeta = .25*( (nodaldiff[1])*(1.-xi)+(nodaldiff[7])*(1.+xi) );
+  dydxi  = .25*( (nodaldiff[2])*(1.-eta)+(nodaldiff[8])*(1.+eta) );
+  dydeta = .25*( (nodaldiff[3])*(1.-xi)+(nodaldiff[9])*(1.+xi) );
+  dzdxi  = .25*( (nodaldiff[4])*(1.-eta)+(nodaldiff[10])*(1.+eta) );
+  dzdeta = .25*( (nodaldiff[5])*(1.-xi)+(nodaldiff[11])*(1.+xi) );
+
+  // For 2D quadrilateral embedded in 3D, the Jacobian transformation adds a
+  // factor of sqrt(det(J^T J)); by the Cauchy-Binet formula, this in turn
+  // is equal to the 2-norm of the 2x2 sub-determinants of J.
   jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
 	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
 	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
-  volp = jac*canonical_vol;
+  volp = jac*basisp->canonical_vol();
+
+  // Only need derivatives dphidy, dphidx for interior integrals in xy-plane;
+  // boundary integrals in xyz space only need phi, jac, x, y, z.
+  // Currently does not work for interior integrals not in xy-plane!
   dxidx = dydeta / jac;
   dxidy = -dxdeta / jac;
-  dxidz = 0.;
   detadx = -dydxi / jac;
   detady = dxdxi / jac;
-  detadz =0.;
-  dztadx =0.;
-  dztady =0.;
-  dztadz =0.;
+
   // Caculate basis function and derivative at GP.
-  xxp=0.0;
-  yyp=0.0;
-  zzp=0.0;
-  uup=0.0;
-  uuoldp=0.0;
-  uuoldoldp=0.0;
-  duudxp=0.0;
-  duudyp=0.0;
-  duudzp=0.0;
-  duuolddxp = 0.;
-  duuolddyp = 0.;
-  duuolddzp = 0.;
-  duuoldolddxp = 0.;
-  duuoldolddyp = 0.;
-  duuoldolddzp = 0.;
-  // x[i] is a vector of node coords, x(j, k) 
-  for (int i=0; i < nbn(); i++) {
-    xxp += x[i] * phinew[gp][i];
-    yyp += y[i] * phinew[gp][i];
-    zzp += z[i] * phinew[gp][i];
-    dphidxp[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx;
-    dphidyp[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady;
+  xxp = 0.0;
+  yyp = 0.0;
+  zzp = 0.0;
+
+  // x[i] is a vector of node coords, x(j, k)
+  for (int i=0; i < basisp->nbn(); i++) {
+    phip[i]=basisp->phinew(gp, i);
+    dphidxp[i] = basisp->dphidxinew(gp, i)*dxidx+basisp->dphidetanew(gp, i)*detadx;
+    dphidyp[i] = basisp->dphidxinew(gp, i)*dxidy+basisp->dphidetanew(gp, i)*detady;
     dphidzp[i] = 0.0;
-    if( u ){
-      uup += u[i] * phinew[gp][i];
-      duudxp += u[i] * dphidxp[i];
-      duudyp += u[i]* dphidyp[i];
-    }
-    if( uold ){
-      uuoldp += uold[i] * phinew[gp][i];
-      duuolddxp += uold[i] * dphidxp[i];
-      duuolddyp += uold[i]* dphidyp[i];
-    }
-    if( uoldold ){
-      uuoldoldp += uoldold[i] * phinew[gp][i];
-      duuoldolddxp += uoldold[i] * dphidxp[i];
-      duuoldolddyp += uoldold[i]* dphidyp[i];
-    }
+
+    xxp += x[i] * phip[i];
+    yyp += y[i] * phip[i];
+    zzp += z[i] * phip[i];
   }
 
-  return jac*nwt[gp];
+  return jac*basisp->nwt(gp);
   }
 
 protected:
-  // Set up reference element coordinate values at quadrature points
-  KOKKOS_INLINE_FUNCTION
-  void computeCoordinateData(const int sngp){
-    int c = 0;
-    for( int i = 0; i < sngp; i++ ){
-      for( int j = 0; j < sngp; j++ ){
-	      //std::cout<<i+j+c<<"   "<<i<<"   "<<j<<std::endl;
-	      xi[i+j+c]  = abscissa[i];
-	      eta[i+j+c] = abscissa[j];
-	      nwt[i+j+c]  = weight[i] * weight[j];
-      }
-      c = c + sngp - 1;
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void computeBasisFunctions(const int ngpp, const int nbnp, const int nl[2][9]){
-    for(int gp = 0; gp < ngpp; gp++){
-      // Compute basis function evaluations at gauss point coordinate
-      xibasisFunctions1D(gp);
-      etabasisFunctions1D(gp);
-      for(int bn = 0; bn < nbnp; bn++){
-          phinew[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]];
-          dphidxinew[gp][bn] = dxibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]];
-          dphidetanew[gp][bn] = xibasisatqp[nl[0][bn]]*detabasisatqp[nl[1][bn]];
-          dphidztanew[gp][bn] = 0;
-      }
-    }
-  }
+  /// difference in nodal coordinates
+  double nodaldiff[12];
 };
 
-class GPUBasisLQuad:public GPUBasisQuad{
+class GPUBasisHex:public GPUBasis{
 public:
   KOKKOS_INLINE_FUNCTION
-  GPUBasisLQuad(const int n = 2){
-    pdp = 1;
-    nbnp = (pdp+1)*(pdp+1);
-    canonical_vol = 4.;
-    sngp = computeQuadratureData(n);
-    computeCoordinateData(sngp);
-
-    // Set up reference element basis function values at quadrature points
-    ngpp = sngp*sngp;
-    // Follow exodus node numbering
-    // (first row for xi, second for eta basis functions)
-    int nl[2][9] = {{0, 1, 1, 0}, {0, 0, 1, 1}};
-    computeBasisFunctions(ngpp, nbnp, nl);
-  }
-  
-  KOKKOS_INLINE_FUNCTION
-  ~GPUBasisLQuad(){}
-};
-
-class GPUBasisQQuad:public GPUBasisQuad{
-public:
-
-  KOKKOS_INLINE_FUNCTION
-  GPUBasisQQuad(const int n = 3){
-    pdp = 2;
-    nbnp = (pdp+1)*(pdp+1);
-    canonical_vol = 4.;
-    sngp = computeQuadratureData(n);
-    computeCoordinateData(sngp);
-
-    // Set up reference element basis function values at quadrature points
-    ngpp = sngp*sngp;
-    int nl[2][9] = {{0, 1, 1, 0, 2, 1, 2, 0, 2},
-                    {0, 0, 1, 1, 0, 2, 1, 2, 2}};
-    computeBasisFunctions(ngpp, nbnp, nl);
-  }
-  
-  KOKKOS_INLINE_FUNCTION
-  ~GPUBasisQQuad(){}
-};
-
-class GPUBasisHex:public GPUTensorProductBasis{
-public:
-  KOKKOS_INLINE_FUNCTION
-  GPUBasisHex(){
+  GPUBasisHex(const GPURefBasis *basis){
+    basisp = basis;
+    ngpp = basisp->ngp();
   };
   KOKKOS_INLINE_FUNCTION
   virtual ~GPUBasisHex(){
@@ -3030,179 +3528,234 @@ public:
 }
 
   KOKKOS_INLINE_FUNCTION
-  double getBasis(const int gp,
-						      const double x[BASIS_NODES_PER_ELEM], 
-						      const double y[BASIS_NODES_PER_ELEM],  
-						      const double z[BASIS_NODES_PER_ELEM],
-					 	      const double u[BASIS_NODES_PER_ELEM],
-					 	      const double uold[BASIS_NODES_PER_ELEM],
-						      const double uoldold[BASIS_NODES_PER_ELEM]) {
-  
-  for (int i=0; i < nbn(); i++) {
-    phip[i]=phinew[gp][i];
-  }  
+  double getCoordsBasisWJac(const int gp,
+                            const double x[BASIS_NODES_PER_ELEM], 
+                            const double y[BASIS_NODES_PER_ELEM],  
+                            const double z[BASIS_NODES_PER_ELEM]) {
+
+  // Calculate partial coordinate derivatives for Jacobian and phi derivatives
+  // we could make these protected, ove this jac and volp to computeElemData as an optimization
+  xi = basisp->xi(gp);
+  eta = basisp->eta(gp);
+  zta = basisp->zta(gp);
+
   // Caculate basis function and derivative at GP.
-  double dxdxi  = 0.125*( (nodaldiff[0])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[9])*(1.+eta[gp])*(1.-zta[gp]) 
-	    + (nodaldiff[18])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[27])*(1.+eta[gp])*(1.+zta[gp]) );
-  double dxdeta = 0.125*( (nodaldiff[1])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[10])*(1.+ xi[gp])*(1.-zta[gp]) 
-	    + (nodaldiff[19])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[28])*(1.+ xi[gp])*(1.+zta[gp]) );
-  double dxdzta = 0.125*( (nodaldiff[2])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[11])*(1.+ xi[gp])*(1.-eta[gp])
-	    + (nodaldiff[20])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[29])*(1.- xi[gp])*(1.+eta[gp]) );
-  double dydxi  = 0.125*( (nodaldiff[3])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[12])*(1.+eta[gp])*(1.-zta[gp])
-	    + (nodaldiff[21])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[30])*(1.+eta[gp])*(1.+zta[gp]) );
-  double dydeta = 0.125*( (nodaldiff[4])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[13])*(1.+ xi[gp])*(1.-zta[gp]) 
-	    + (nodaldiff[22])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[31])*(1.+ xi[gp])*(1.+zta[gp]) );
-  double dydzta = 0.125*( (nodaldiff[5])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[14])*(1.+ xi[gp])*(1.-eta[gp])
-	    + (nodaldiff[23])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[32])*(1.- xi[gp])*(1.+eta[gp]) );
-  double dzdxi  = 0.125*( (nodaldiff[6])*(1.-eta[gp])*(1.-zta[gp]) + (nodaldiff[15])*(1.+eta[gp])*(1.-zta[gp])
-	    + (nodaldiff[24])*(1.-eta[gp])*(1.+zta[gp]) + (nodaldiff[33])*(1.+eta[gp])*(1.+zta[gp]) );
-  double dzdeta = 0.125*( (nodaldiff[7])*(1.- xi[gp])*(1.-zta[gp]) + (nodaldiff[16])*(1.+ xi[gp])*(1.-zta[gp]) 
-	    + (nodaldiff[25])*(1.- xi[gp])*(1.+zta[gp]) + (nodaldiff[34])*(1.+ xi[gp])*(1.+zta[gp]) );
-  double dzdzta = 0.125*( (nodaldiff[8])*(1.- xi[gp])*(1.-eta[gp]) + (nodaldiff[17])*(1.+ xi[gp])*(1.-eta[gp])
-	    + (nodaldiff[26])*(1.+ xi[gp])*(1.+eta[gp]) + (nodaldiff[35])*(1.- xi[gp])*(1.+eta[gp]) );
+  dxdxi  = 0.125*( (nodaldiff[0])*(1.-eta)*(1.-zta) + (nodaldiff[9])*(1.+eta)*(1.-zta) 
+	    + (nodaldiff[18])*(1.-eta)*(1.+zta) + (nodaldiff[27])*(1.+eta)*(1.+zta) );
+  dxdeta = 0.125*( (nodaldiff[1])*(1.- xi)*(1.-zta) + (nodaldiff[10])*(1.+ xi)*(1.-zta) 
+	    + (nodaldiff[19])*(1.- xi)*(1.+zta) + (nodaldiff[28])*(1.+ xi)*(1.+zta) );
+  dxdzta = 0.125*( (nodaldiff[2])*(1.- xi)*(1.-eta) + (nodaldiff[11])*(1.+ xi)*(1.-eta)
+	    + (nodaldiff[20])*(1.+ xi)*(1.+eta) + (nodaldiff[29])*(1.- xi)*(1.+eta) );
+  dydxi  = 0.125*( (nodaldiff[3])*(1.-eta)*(1.-zta) + (nodaldiff[12])*(1.+eta)*(1.-zta)
+	    + (nodaldiff[21])*(1.-eta)*(1.+zta) + (nodaldiff[30])*(1.+eta)*(1.+zta) );
+  dydeta = 0.125*( (nodaldiff[4])*(1.- xi)*(1.-zta) + (nodaldiff[13])*(1.+ xi)*(1.-zta) 
+	    + (nodaldiff[22])*(1.- xi)*(1.+zta) + (nodaldiff[31])*(1.+ xi)*(1.+zta) );
+  dydzta = 0.125*( (nodaldiff[5])*(1.- xi)*(1.-eta) + (nodaldiff[14])*(1.+ xi)*(1.-eta)
+	    + (nodaldiff[23])*(1.+ xi)*(1.+eta) + (nodaldiff[32])*(1.- xi)*(1.+eta) );
+  dzdxi  = 0.125*( (nodaldiff[6])*(1.-eta)*(1.-zta) + (nodaldiff[15])*(1.+eta)*(1.-zta)
+	    + (nodaldiff[24])*(1.-eta)*(1.+zta) + (nodaldiff[33])*(1.+eta)*(1.+zta) );
+  dzdeta = 0.125*( (nodaldiff[7])*(1.- xi)*(1.-zta) + (nodaldiff[16])*(1.+ xi)*(1.-zta) 
+	    + (nodaldiff[25])*(1.- xi)*(1.+zta) + (nodaldiff[34])*(1.+ xi)*(1.+zta) );
+  dzdzta = 0.125*( (nodaldiff[8])*(1.- xi)*(1.-eta) + (nodaldiff[17])*(1.+ xi)*(1.-eta)
+	    + (nodaldiff[26])*(1.+ xi)*(1.+eta) + (nodaldiff[35])*(1.- xi)*(1.+eta) );
   
   jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi) 
     + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
+    
   //std::cout<<jac<<" "<<wt<<" "<<gp<<std::endl;
-  volp = jac*canonical_vol;
+  volp = jac*basisp->canonical_vol();
   dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
   dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
   dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;
-    
   detadx =  ( dydzta*dzdxi - dydxi*dzdzta) / jac;
   detady =  (-dxdzta*dzdxi + dxdxi*dzdzta) / jac;
   detadz =  ( dxdzta*dydxi - dxdxi*dydzta) / jac;
-    
   dztadx =  ( dydxi*dzdeta - dydeta*dzdxi) / jac;
   dztady =  (-dxdxi*dzdeta + dxdeta*dzdxi) / jac;
   dztadz =  ( dxdxi*dydeta - dxdeta*dydxi) / jac;
+
   // Caculate basis function and derivative at GP.
   xxp=0.0;
   yyp=0.0;
   zzp=0.0;
-  uup=0.0;
-  uuoldp=0.0;
-  uuoldoldp=0.0;
-  duudxp=0.0;
-  duudyp=0.0;
-  duudzp=0.0;
-  duuolddxp = 0.;
-  duuolddyp = 0.;
-  duuolddzp = 0.;
-  duuoldolddxp = 0.;
-  duuoldolddyp = 0.;
-  duuoldolddzp = 0.;
+
   // x[i] is a vector of node coords, x(j, k) 
-  for (int i=0; i < nbn(); i++) {
-    xxp += x[i] * phinew[gp][i];
-    yyp += y[i] * phinew[gp][i];
-    zzp += z[i] * phinew[gp][i];
-    dphidxp[i] = dphidxinew[gp][i]*dxidx+dphidetanew[gp][i]*detadx+dphidztanew[gp][i]*dztadx;
-    dphidyp[i] = dphidxinew[gp][i]*dxidy+dphidetanew[gp][i]*detady+dphidztanew[gp][i]*dztady;
-    dphidzp[i] = dphidxinew[gp][i]*dxidz+dphidetanew[gp][i]*detadz+dphidztanew[gp][i]*dztadz;
-    if( u ){
-	    uup += u[i] * phinew[gp][i];
-	    duudxp += u[i] * dphidxp[i];
-	    duudyp += u[i] * dphidyp[i];
-	    duudzp += u[i] * dphidzp[i];
-    }
-    if( uold ){
-    	uuoldp += uold[i] * phinew[gp][i];
-	    duuolddxp += uold[i] * dphidxp[i];
-	    duuolddyp += uold[i] * dphidyp[i];
-	    duuolddzp += uold[i] * dphidzp[i];
-    }
-    if( uoldold ){
-	    uuoldoldp += uoldold[i] * phinew[gp][i];
-	    duuoldolddxp += uoldold[i] * dphidxp[i];
-    	duuoldolddyp += uoldold[i] * dphidyp[i];
-	    duuoldolddzp += uoldold[i] * dphidzp[i];
-    }
+  for (int i=0; i < basisp->nbn(); i++) {
+    phip[i]=basisp->phinew(gp, i);
+    dphidxp[i] = basisp->dphidxinew(gp, i)*dxidx+basisp->dphidetanew(gp, i)*detadx+basisp->dphidztanew(gp, i)*dztadx;
+    dphidyp[i] = basisp->dphidxinew(gp, i)*dxidy+basisp->dphidetanew(gp, i)*detady+basisp->dphidztanew(gp, i)*dztady;
+    dphidzp[i] = basisp->dphidxinew(gp, i)*dxidz+basisp->dphidetanew(gp, i)*detadz+basisp->dphidztanew(gp, i)*dztadz;
+    
+    xxp += x[i] * phip[i];
+    yyp += y[i] * phip[i];
+    zzp += z[i] * phip[i];
   }
-  return jac*nwt[gp];
+
+  return jac*basisp->nwt(gp);
   }
 
 protected:
-  // Set up reference element coordinate values at quadrature points
-  KOKKOS_INLINE_FUNCTION
-  void computeCoordinateData(const int sngp){
-    int c = 0;
-    for( int i = 0; i < sngp; i++ ){
-      for( int j = 0; j < sngp; j++ ){
-	      for( int k = 0; k < sngp; k++ ){
-	        //std::cout<<i+j+k+c<<"   "<<i<<"   "<<j<<"   "<<k<<std::endl;
-	        xi[i+j+k+c]  = abscissa[i];
-	        eta[i+j+k+c] = abscissa[j];
-	        zta[i+j+k+c] = abscissa[k];
-	        nwt[i+j+k+c]  = weight[i] * weight[j] * weight[k]; 
-	      }   
-	      c = c + sngp - 1;
-      }
-      c = c + sngp - 1;
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void computeBasisFunctions(const int ngpp, const int nbnp, const int nl[3][27]){
-    for(int gp = 0; gp < ngpp; gp++){
-      // Compute basis function evaluations at coordinate
-      xibasisFunctions1D(gp);
-      etabasisFunctions1D(gp);
-      ztabasisFunctions1D(gp);
-      for(int bn = 0; bn < nbnp; bn++){
-        phinew[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*ztabasisatqp[nl[2][bn]];
-        dphidxinew[gp][bn] = dxibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*ztabasisatqp[nl[2][bn]];
-        dphidetanew[gp][bn] = xibasisatqp[nl[0][bn]]*detabasisatqp[nl[1][bn]]*ztabasisatqp[nl[2][bn]];
-        dphidztanew[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*dztabasisatqp[nl[2][bn]];
-      }
-    }
-  }
-
+  /// difference in nodal coordinates
+  double nodaldiff[36];
 };
 
-class GPUBasisLHex:public GPUBasisHex{
+class GPUBasisTri:public GPUBasis{
 public:
   KOKKOS_INLINE_FUNCTION
-  GPUBasisLHex(const int n = 2){
-    pdp = 1;
-    nbnp = (pdp+1)*(pdp+1)*(pdp+1);
-    canonical_vol = 8.;
-    sngp = computeQuadratureData(n);
-    computeCoordinateData(sngp);
-  
-   // Set up reference element basis function values at quadrature points
-    ngpp = sngp*sngp*sngp;
-    int nl[3][27] = {{0, 1, 1, 0, 0, 1, 1, 0},
-                    {0, 0, 1, 1, 0, 0, 1, 1},
-                    {0, 0, 0, 0, 1, 1, 1, 1}};
-    computeBasisFunctions(ngpp, nbnp, nl);
-  }
-  
+  GPUBasisTri(const GPURefBasis *basis){
+    basisp = basis;
+    ngpp = basisp->ngp();
+  };
   KOKKOS_INLINE_FUNCTION
-  ~GPUBasisLHex(){}
+  virtual ~GPUBasisTri(){
+  };
+
+  KOKKOS_INLINE_FUNCTION
+  void computeElemData(const double x[BASIS_NODES_PER_ELEM],
+						           const double y[BASIS_NODES_PER_ELEM],  
+						           const double z[BASIS_NODES_PER_ELEM]) {
+    nodaldiff[0] = x[1]-x[0];
+    nodaldiff[1] = x[2]-x[0];
+    nodaldiff[2] = y[1]-y[0];
+    nodaldiff[3] = y[2]-y[0];
+    nodaldiff[4] = z[1]-z[0];
+    nodaldiff[5] = z[2]-z[0];
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  double getCoordsBasisWJac(const int gp,
+						                const double x[BASIS_NODES_PER_ELEM], 
+						                const double y[BASIS_NODES_PER_ELEM],  
+						                const double z[BASIS_NODES_PER_ELEM]) {
+
+  // Calculate partial coordinate derivatives for Jacobian and phi derivatives
+  dxdxi  = nodaldiff[0];
+  dxdeta = nodaldiff[1];
+  dydxi  = nodaldiff[2];
+  dydeta = nodaldiff[3];
+  dzdxi  = nodaldiff[4];
+  dzdeta = nodaldiff[5];
+
+  // For 2D triangle embedded in 3D, situation as for 2D quadrilateral
+  jac = sqrt( (dzdxi * dxdeta - dxdxi * dzdeta)*(dzdxi * dxdeta - dxdxi * dzdeta)
+	     +(dydxi * dzdeta - dzdxi * dydeta)*(dydxi * dzdeta - dzdxi * dydeta)
+	     +(dxdxi * dydeta - dxdeta * dydxi)*(dxdxi * dydeta - dxdeta * dydxi));
+  volp = jac*basisp->canonical_vol();
+  // As for quads, currently does not work for interior integrals not in xy-plane!
+  dxidx = dydeta / jac;
+  dxidy = -dxdeta / jac;
+  detadx = -dydxi / jac;
+  detady = dxdxi / jac;
+
+  // Caculate basis function and derivative at GP.
+  xxp = 0.0;
+  yyp = 0.0;
+  zzp = 0.0;
+
+  // x[i] is a vector of node coords, x(j, k)
+  for (int i=0; i < basisp->nbn(); i++) {
+    phip[i]=basisp->phinew(gp, i);
+    dphidxp[i] = basisp->dphidxinew(gp, i)*dxidx+basisp->dphidetanew(gp, i)*detadx;
+    dphidyp[i] = basisp->dphidxinew(gp, i)*dxidy+basisp->dphidetanew(gp, i)*detady;
+    dphidzp[i] = 0.0;
+
+    xxp += x[i] * phip[i];
+    yyp += y[i] * phip[i];
+    zzp += z[i] * phip[i];
+  }
+
+  return jac*basisp->nwt(gp);
+  }
+
+  /// difference in nodal coordinates
+  double nodaldiff[6];
+
 };
 
-class GPUBasisQHex:public GPUBasisHex{
+class GPUBasisTet:public GPUBasis{
 public:
   KOKKOS_INLINE_FUNCTION
-  GPUBasisQHex(const int n = 3){
-    pdp = 2;
-    nbnp = (pdp+1)*(pdp+1)*(pdp+1);
-    canonical_vol = 8.;
-    sngp = computeQuadratureData(n);
-    computeCoordinateData(sngp);
-  
-    // Set up reference element basis function values at quadrature points
-    ngpp = sngp*sngp*sngp;
-    // Check https://sandialabs.github.io/seacas-docs/exodusII-new.pdf, Figure 4.14
-    int nl[3][27] = {{0, 1, 1, 0, 0, 1, 1, 0, 2, 1, 2, 0, 0, 1, 1, 0, 2, 1, 2, 0, 2, 2, 2, 0, 1, 2, 2},
-                     {0, 0, 1, 1, 0, 0, 1, 1, 0, 2, 1, 2, 0, 0, 1, 1, 0, 2, 1, 2, 2, 2, 2, 2, 2, 0, 1},
-                     {0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 2, 2, 2, 2, 1, 1, 1, 1, 2, 0, 1, 2, 2, 2, 2}};
-    computeBasisFunctions(ngpp, nbnp, nl);
-  }
-  
+  GPUBasisTet(const GPURefBasis *basis){
+    basisp = basis;
+    ngpp = basisp->ngp();
+  };
   KOKKOS_INLINE_FUNCTION
-  ~GPUBasisQHex(){}
+  virtual ~GPUBasisTet(){
+  };
+
+  KOKKOS_INLINE_FUNCTION
+  void computeElemData(const double x[BASIS_NODES_PER_ELEM],
+						           const double y[BASIS_NODES_PER_ELEM],  
+						           const double z[BASIS_NODES_PER_ELEM]) {
+    nodaldiff[0] = x[1]-x[0];
+    nodaldiff[1] = x[2]-x[0];
+    nodaldiff[2] = x[3]-x[0];
+    nodaldiff[3] = y[1]-y[0];
+    nodaldiff[4] = y[2]-y[0];
+    nodaldiff[5] = y[3]-y[0];
+    nodaldiff[6] = z[1]-z[0];
+    nodaldiff[7] = z[2]-z[0];
+    nodaldiff[8] = z[3]-z[0];
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  double getCoordsBasisWJac(const int gp,
+						                const double x[BASIS_NODES_PER_ELEM], 
+						                const double y[BASIS_NODES_PER_ELEM],  
+						                const double z[BASIS_NODES_PER_ELEM]) {
+
+  // Calculate partial coordinate derivatives for Jacobian and phi derivatives
+  dxdxi  = nodaldiff[0];
+  dxdeta = nodaldiff[1];
+  dxdzta = nodaldiff[2];
+  dydxi  = nodaldiff[3];
+  dydeta = nodaldiff[4];
+  dydzta = nodaldiff[5];
+  dzdxi  = nodaldiff[6];
+  dzdeta = nodaldiff[7];
+  dzdzta = nodaldiff[8];
+
+  jac = dxdxi*(dydeta*dzdzta - dydzta*dzdeta) - dxdeta*(dydxi*dzdzta - dydzta*dzdxi)
+    + dxdzta*(dydxi*dzdeta - dydeta*dzdxi);
+  volp = jac*basisp->canonical_vol();
+  dxidx =  (-dydzta*dzdeta + dydeta*dzdzta) / jac;
+  dxidy =  ( dxdzta*dzdeta - dxdeta*dzdzta) / jac;
+  dxidz =  (-dxdzta*dydeta + dxdeta*dydzta) / jac;
+  detadx =  ( dydzta*dzdxi - dydxi*dzdzta) / jac;
+  detady =  (-dxdzta*dzdxi + dxdxi*dzdzta) / jac;
+  detadz =  ( dxdzta*dydxi - dxdxi*dydzta) / jac;
+  dztadx =  ( dydxi*dzdeta - dydeta*dzdxi) / jac;
+  dztady =  (-dxdxi*dzdeta + dxdeta*dzdxi) / jac;
+  dztadz =  ( dxdxi*dydeta - dxdeta*dydxi) / jac;
+
+  // Caculate basis function and derivative at GP.
+  xxp = 0.0;
+  yyp = 0.0;
+  zzp = 0.0;
+
+  // x[i] is a vector of node coords, x(j, k)
+  for (int i=0; i < basisp->nbn(); i++) {
+    phip[i]=basisp->phinew(gp, i);
+    dphidxp[i] = basisp->dphidxinew(gp, i)*dxidx+basisp->dphidetanew(gp, i)*detadx+basisp->dphidztanew(gp, i)*dztadx;
+    dphidyp[i] = basisp->dphidxinew(gp, i)*dxidy+basisp->dphidetanew(gp, i)*detady+basisp->dphidztanew(gp, i)*dztady;
+    dphidzp[i] = basisp->dphidxinew(gp, i)*dxidz+basisp->dphidetanew(gp, i)*detadz+basisp->dphidztanew(gp, i)*dztadz;
+
+    xxp += x[i] * phip[i];
+    yyp += y[i] * phip[i];
+    zzp += z[i] * phip[i];
+  }
+
+  return jac*basisp->nwt(gp);
+  }
+
+  /// difference in nodal coordinates
+  double nodaldiff[9];
+
 };
+
+// GAW TO DOs:
+// - QTet still needs testing! Easy to get exodus ordering wrong
+// - Maybe do base classes  GPUBasis2D, GPUBasis3D from which GPUBasisTri/Quad  and GPUBasisHex/Tet inherit.
+// -- Difference Tri/Quad and Tet/Hex only lies in computeElemData and dx,y,z/dxi,eta
 
 #endif

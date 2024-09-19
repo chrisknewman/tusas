@@ -1225,15 +1225,15 @@ namespace noise
   double interface_noise_amplitude_d = 0.0;
 
 KOKKOS_INLINE_FUNCTION 
-double noise_(const double rand)
+double noise_(const double &rand, const double &dt, const double &vol)
 {
-  return interface_noise_amplitude_d*rand;
+  return interface_noise_amplitude_d*rand*std::sqrt(dt/vol);
 }
 
 PARAM_FUNC(param_)
 {
   double interface_noise_amplitude_p = plist->get<double>("interface_noise_amplitude", 0.0);
- interface_noise_amplitude_d=interface_noise_amplitude_p;
+  interface_noise_amplitude_d=interface_noise_amplitude_p;
 }
 }//namespace noise
 
@@ -1420,7 +1420,7 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_noise_)
   const double phi[1] ={ basis[eqn_id]->uu};
   const double g = (1.-phi[0]*phi[0])*(1.-phi[0]*phi[0]);
   //on crusher noise is noise_amplitude*rand*sqrt(dt_/vol)*test*g
-  double noise[3] = {g*tpetra::noise::noise_(rand)*std::sqrt(dt_/vol)*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i]};
+  double noise[3] = {g*tpetra::noise::noise_(rand,dt_,vol)*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i],0.*basis[eqn_id]->phi[i]};
 
   double rv = (val + (1.-t_theta2_)*t_theta_*noise[0]
 	  + (1.-t_theta2_)*(1.-t_theta_)*noise[1]

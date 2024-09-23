@@ -292,6 +292,8 @@ private:
 
   bool predictor_step;
   bool corrector_step;
+
+  std::string get_basis_name(const std::string elem_type) const;
 };
 
 //==================================================================

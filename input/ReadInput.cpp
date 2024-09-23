@@ -70,6 +70,10 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasqtriquadordNameString,(int)3,TusasqtriquadordDocString);
 
+  paramList.set(TusasltetquadordNameString,(int)4,TusasltetquadordDocString);
+
+  paramList.set(TusasqtetquadordNameString,(int)5,TusasqtetquadordDocString);
+
   paramList.set(TusasexaConstitNameString,(bool)false,TusasexaConstitDocString);
 
   paramList.set(TusasestimateTimestepNameString,(bool)false,TusasestimateTimestepDocString);

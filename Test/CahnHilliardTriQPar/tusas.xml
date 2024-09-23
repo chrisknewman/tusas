@@ -9,6 +9,7 @@
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="1.0"/>
   <Parameter name="outputfreq" type="int" value = "3"/>
+  <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="noxrelres" type="double" value="1.e-7"/>
   <ParameterList name="ML">
      <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/>

@@ -25,7 +25,7 @@
 
 
 
-#define TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX 81
+#define TUSAS_MAX_NODE_PER_ROW_PER_EQN_HEX 125 // 81 GAW: should be 125 I think for regular HexQ mesh
 // #define TUSAS_MAX_NODE_PER_ROW_PER_EQN_QUAD 27
 
 class elem_color

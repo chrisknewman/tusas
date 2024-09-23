@@ -4,13 +4,12 @@
 
   <Parameter name="dt" type="double" value=".001"/>
   <Parameter name="nt" type="int" value = "10"/>
-  <Parameter name="meshfile" type="string" value="../../meshes/quadQ256.e"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/tet_Q384.e"/>
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="testcase" type="string" value="heat"/>
-  <Parameter name="preconditioner" type="bool" value = "false"/>
+  <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="1."/>
+  <Parameter name="outputfreq" type="int" value = "5"/>
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
-
-  <Parameter name="errorestimator" type="string" value = "{0}"/>
 
 </ParameterList>

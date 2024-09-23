@@ -86,14 +86,22 @@ std::string const TusasltpquadordDocString = "quadrature order for bilinear tens
 std::string const TusasqtpquadordNameString = "qtpquadord";
 /// Quadrature order.
 std::string const TusasqtpquadordDocString = "quadrature order for biquadratic tensor product family (int): default 3";
-/// Quadrature order.
+/// Quadrature points.
 std::string const TusasltriquadordNameString = "ltriquadord";
-/// Quadrature order.
-std::string const TusasltriquadordDocString = "quadrature order for bilinear tri family (int): default 1";
-/// Quadrature order.
+/// Quadrature points.
+std::string const TusasltriquadordDocString = "quadrature points for bilinear tri family (int): default 1";
+/// Quadrature points.
 std::string const TusasqtriquadordNameString = "qtriquadord";
-/// Quadrature order.
-std::string const TusasqtriquadordDocString = "quadrature order for biquadratic tri family (int): default 3";
+/// Quadrature points.
+std::string const TusasqtriquadordDocString = "quadrature points for biquadratic tri family (int): default 3";
+/// Quadrature points.
+std::string const TusasltetquadordNameString = "ltetquadord";
+/// Quadrature points.
+std::string const TusasltetquadordDocString = "quadrature points for trilinear tet family (int): default 4";
+/// Quadrature points.
+std::string const TusasqtetquadordNameString = "qtetquadord";
+/// Quadrature points.
+std::string const TusasqtetquadordDocString = "quadrature points for triquadratic tet family (int): default 5";
 /// Dump exaConstit file
 std::string const TusasexaConstitNameString = "exaconstit";
 /// Dump exaConstit file

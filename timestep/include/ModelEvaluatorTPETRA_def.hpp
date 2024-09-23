@@ -2450,8 +2450,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    paramfunc_.resize(1);
+    paramfunc_.resize(2);
     paramfunc_[0] = &tpetra::pfhub3::param_;
+    paramfunc_[1] = &tpetra::noise::param_;
 
     neumannfunc_ = NULL;
 

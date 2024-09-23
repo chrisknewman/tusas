@@ -1810,17 +1810,11 @@ void Mesh::compute_elem_adj(){
 	(0==elem_type.compare("quad4")) || 
 	(0==elem_type.compare("quad")) || 
 	(0==elem_type.compare("quad9")) || 
-	(0==elem_type.compare("QUAD9")) 
-	//|| 
-	//(0==elem_type.compare("TETRA4")) || 
-	//(0==elem_type.compare("TETRA")) || 
-	//(0==elem_type.compare("tetra4")) || 
-	//(0==elem_type.compare("tetra")) ||
-	//(0==elem_type.compare("TETRA10")) || 
-	//(0==elem_type.compare("tetra10")) 
+	(0==elem_type.compare("QUAD9"))  
 	){ 
       num_vertices_in_elem = 4;
-      //num_elem_in_patch = 4;
+      //if refined, this could be more 6 instead of 4
+      num_elem_in_patch = 6;
     }
     else if( (0==elem_type.compare("HEX8")) || 
 	     (0==elem_type.compare("HEX")) || 
@@ -1830,7 +1824,8 @@ void Mesh::compute_elem_adj(){
 	     (0==elem_type.compare("hex27")) 
 	     ){ 
       num_vertices_in_elem = 8;
-      //num_elem_in_patch = 8;
+      //if refined, this could be more 10 instead of 8
+      num_elem_in_patch = 10;
     }
     else if( (0==elem_type.compare("TRI3")) || 
 	     (0==elem_type.compare("TRI")) || 
@@ -1840,7 +1835,17 @@ void Mesh::compute_elem_adj(){
 	     (0==elem_type.compare("tri6")) 
 	     ){ 
       num_vertices_in_elem = 3;
-      num_elem_in_patch = 8;
+      num_elem_in_patch = 7;
+    }
+    else if( (0==elem_type.compare("TETRA4")) || 
+	     (0==elem_type.compare("TETRA")) || 
+	     (0==elem_type.compare("tetra4")) || 
+	     (0==elem_type.compare("tetra")) ||
+	     (0==elem_type.compare("TETRA10")) || 
+	     (0==elem_type.compare("tetra10")) 
+	     ){
+      num_vertices_in_elem = 4;
+      num_elem_in_patch = 32;
     }
     else{
       std::cout<<"Mesh::compute_elem_adj() unsupported element at this time"<<std::endl<<std::endl<<std::endl;

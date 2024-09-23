@@ -1,0 +1,14 @@
+<ParameterList>
+	
+<!-- simulation parameters -->
+
+  <Parameter name="dt" type="double" value="1000"/>
+  <Parameter name="nt" type="int" value = "1"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/tet_384.e"/>
+  <Parameter name="method" type="string" value="tpetra"/>
+  <Parameter name="testcase" type="string" value="neumann"/>
+  <Parameter name="preconditioner" type="bool" value = "false"/>
+  <Parameter name="theta" type="double" value="1."/>
+<!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+
+</ParameterList>

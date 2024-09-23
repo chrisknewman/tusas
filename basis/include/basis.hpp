@@ -2960,7 +2960,7 @@ protected:
       abscissa[1] = 0.5;
       abscissa[2] = 0.1666666666666667;
       weight[0] = -0.1333333333333333;
-      weight[0] = 0.075;
+      weight[1] = 0.075;
     } else {
       ngp = 4;
       if ( 4 != n ) {
@@ -3081,33 +3081,57 @@ public:
   ~GPURefBasisQTet(){}
 private:
 
-  double phi1;
-  double phi2;
-  double phi3;
-  double phi4;
-
   // Exodus corner ordering:
   // 1 at origin
   // 2 at xi = 1
   // 3 at eta = 1
-  // 4 at zta = 
+  // 4 at zta = 1
   KOKKOS_INLINE_FUNCTION
   virtual void computeBasisFunctions(const int ngpp){
     for(int gp = 0; gp < ngpp; gp++){
-      phi1 = 1 - xip[gp] - etap[gp] - ztap[gp]; 
-      phi2 = xip[gp];
-      phi3 = etap[gp];
-      phi4 = ztap[gp];
-      phinewp[gp][0] = phi1*(2*phi1 - 1);
-      phinewp[gp][1] = phi2*(2*phi2 - 1);
-      phinewp[gp][2] = phi3*(2*phi3 - 1);
-      phinewp[gp][3] = phi3*(2*phi4 - 1);
-      phinewp[gp][4] = 4*phi1*phi2;
-      phinewp[gp][5] = 4*phi2*phi3;
-      phinewp[gp][6] = 4*phi3*phi1;
-      phinewp[gp][7] = 4*phi1*phi4;
-      phinewp[gp][8] = 4*phi2*phi4;
-      phinewp[gp][9] = 4*phi3*phi4;
+      phinewp[gp][0] = (1 - xip[gp] - etap[gp] - ztap[gp])*(1 - 2*(xip[gp] + etap[gp] + ztap[gp]));
+      phinewp[gp][1] = xip[gp]*(2*xip[gp] - 1);
+      phinewp[gp][2] = etap[gp]*(2*etap[gp] - 1);
+      phinewp[gp][3] = ztap[gp]*(2*ztap[gp] - 1);
+      phinewp[gp][4] = 4*(1 - xip[gp] - etap[gp] - ztap[gp])*xip[gp];
+      phinewp[gp][5] = 4*xip[gp]*etap[gp];
+      phinewp[gp][6] = 4*etap[gp]*(1 - xip[gp] - etap[gp] - ztap[gp]);
+      phinewp[gp][7] = 4*(1 - xip[gp] - etap[gp] - ztap[gp])*ztap[gp];
+      phinewp[gp][8] = 4*xip[gp]*ztap[gp];
+      phinewp[gp][9] = 4*etap[gp]*ztap[gp];
+
+      dphidxinewp[gp][0] = 4*(xip[gp] + etap[gp] + ztap[gp]) - 3;
+      dphidxinewp[gp][1] = 4*xip[gp] - 1;
+      dphidxinewp[gp][2] = 0;
+      dphidxinewp[gp][3] = 0;
+      dphidxinewp[gp][4] = 4*(1 - 2*xip[gp] - etap[gp] - ztap[gp]);
+      dphidxinewp[gp][5] = 4*etap[gp];
+      dphidxinewp[gp][6] = -4*etap[gp];
+      dphidxinewp[gp][7] = -4*ztap[gp];
+      dphidxinewp[gp][8] = 4*ztap[gp];
+      dphidxinewp[gp][9] = 0;
+
+      dphidetanewp[gp][0] = 4*(xip[gp] + etap[gp] + ztap[gp]) - 3;
+      dphidetanewp[gp][1] = 0;
+      dphidetanewp[gp][2] = 4*etap[gp] - 1;
+      dphidetanewp[gp][3] = 0;
+      dphidetanewp[gp][4] = -4*xip[gp];
+      dphidetanewp[gp][5] = 4*xip[gp];
+      dphidetanewp[gp][6] = 4*(1 - xip[gp] - 2*etap[gp] - ztap[gp]);
+      dphidetanewp[gp][7] = -4*ztap[gp];
+      dphidetanewp[gp][8] = 0;
+      dphidetanewp[gp][9] = 4*ztap[gp];
+
+      dphidztanewp[gp][0] = 4*(xip[gp] + etap[gp] + ztap[gp]) - 3;
+      dphidztanewp[gp][1] = 0;
+      dphidztanewp[gp][2] = 0;
+      dphidztanewp[gp][3] = 4*ztap[gp] - 1;
+      dphidztanewp[gp][4] = -4*xip[gp];
+      dphidztanewp[gp][5] = 0;
+      dphidztanewp[gp][6] = -4*etap[gp];
+      dphidztanewp[gp][7] = 4*(1 - xip[gp] - etap[gp] - 2*ztap[gp]);
+      dphidztanewp[gp][8] = 4*xip[gp];
+      dphidztanewp[gp][9] = 4*etap[gp];
     }
   }
 };

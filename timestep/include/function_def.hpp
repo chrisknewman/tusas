@@ -1421,7 +1421,7 @@ RES_FUNC_TPETRA(residual_phase_pfhub3_noise_)
   const double g = (1.-phi[0]*phi[0])*(1.-phi[0]*phi[0]);
   
   //on crusher noise is noise_amplitude*rand*sqrt(dt_/vol)*test*g
-  double noise[3] = {g*tpetra::noise::noise_(rand,dt_,vol)*basis[0]->phi[i],0.*basis[0]->phi[i],0.*basis[0]->phi[i]};
+  double noise[3] = {g*tpetra::noise::noise_(rand,dt_,vol)*basis[0]->phi(i),0.*basis[0]->phi(i),0.*basis[0]->phi(i)};
 
   double rv = (val + (1.-t_theta2_)*t_theta_*noise[0]
 	  + (1.-t_theta2_)*(1.-t_theta_)*noise[1]

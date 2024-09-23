@@ -5,6 +5,7 @@
   <Parameter name="dt" type="double" value="10000"/>
   <Parameter name="nt" type="int" value = "1"/>
   <Parameter name="meshfile" type="string" value="../../meshes/triQ96.e"/>
+  <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="testcase" type="string" value="neumann"/>
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="1."/>

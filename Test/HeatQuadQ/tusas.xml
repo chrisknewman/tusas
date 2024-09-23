@@ -5,6 +5,7 @@
   <Parameter name="dt" type="double" value=".001"/>
   <Parameter name="nt" type="int" value = "10"/>
   <Parameter name="meshfile" type="string" value="../../meshes/quadQ256.e"/>
+  <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="testcase" type="string" value="heat"/>
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="1."/>

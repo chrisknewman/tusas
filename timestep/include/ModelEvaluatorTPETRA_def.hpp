@@ -1894,7 +1894,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_,(int)0,post_process::NORM2));
     post_proc[0].postprocfunc_ = &tpetra::heat::postproc_;
 
   }else if("neumann" == paramList.get<std::string> (TusastestNameString)){

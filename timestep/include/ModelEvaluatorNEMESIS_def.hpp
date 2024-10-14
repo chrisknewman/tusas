@@ -2531,6 +2531,11 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     neumannfunc_ = NULL;
 
+    post_proc.push_back(new post_process(mesh_,(int)0,post_process::NORM2,false,0,"pp",16));
+    post_proc[0].postprocfunc_ = &heat::postproc_;
+    post_proc.push_back(new post_process(mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &heat::postproc_ex_;
+
   }else if("heaterror" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;

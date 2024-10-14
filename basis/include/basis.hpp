@@ -996,13 +996,13 @@ class BasisQQuad : public Basis {
 		 const double *uold,  ///< uold (solution)  array (input)  
 		 const double *uoldold ///< uoldold (solution)  array (input)
 					    ) {
-  double phi1_xi = -xi[gp]*(1-xi[gp])/2;
-  double phi2_xi = xi[gp]*(1+xi[gp])/2;
-  double phi3_xi = 1-xi[gp]*xi[gp];
+  const double phi0_xi = -xi[gp]*(1-xi[gp])/2;
+  const double phi1_xi = xi[gp]*(1+xi[gp])/2;
+  const double phi2_xi = 1-xi[gp]*xi[gp];
 
-  double phi1_eta = -eta[gp]*(1-eta[gp])/2;
-  double phi2_eta = eta[gp]*(1+eta[gp])/2;
-  double phi3_eta = 1-eta[gp]*eta[gp];
+  const double phi0_eta = -eta[gp]*(1-eta[gp])/2;
+  const double phi1_eta = eta[gp]*(1+eta[gp])/2;
+  const double phi2_eta = 1-eta[gp]*eta[gp];
  
   //double phi_xi[3] = [phi1_xi,phi2_xi,phi3_xi];
   //double phi_eta[3] = [phi1_eta,phi2_eta,phi3_eta];
@@ -1011,47 +1011,51 @@ class BasisQQuad : public Basis {
   //printf("_xi %f %f %f:\n", phi1_xi, phi2_xi, phi3_xi);
   //printf("_eta %f %f %f:\n\n", phi1_eta, phi2_eta, phi3_eta);
 
-  phi[0] = (-xi[gp]*(1-xi[gp])/2)*(-eta[gp]*(1-eta[gp])/2);
-  phi[1] = (xi[gp]*(1+xi[gp])/2)*(-eta[gp]*(1-eta[gp])/2);
-  phi[2] = (xi[gp]*(1+xi[gp])/2)*(eta[gp]*(1+eta[gp])/2);
-  phi[3] = (-xi[gp]*(1-xi[gp])/2)*(eta[gp]*(1+eta[gp])/2);
+  phi[0] = phi0_xi * phi0_eta;
+  phi[1] = phi1_xi * phi0_eta;
+  phi[2] = phi1_xi * phi1_eta;
+  phi[3] = phi0_xi * phi1_eta;
   
-  phi[4] = (1-xi[gp]*xi[gp])*(-eta[gp]*(1-eta[gp])/2);
-  phi[5] = (xi[gp]*(1+xi[gp])/2)*(1-eta[gp]*eta[gp]);
-  phi[6] = (1-xi[gp]*xi[gp])*(eta[gp]*(1+eta[gp])/2);
-  phi[7] = (-xi[gp]*(1-xi[gp])/2)*(1-eta[gp]*eta[gp]);
+  phi[4] = phi2_xi * phi0_eta;
+  phi[5] = phi1_xi * phi2_eta;
+  phi[6] = phi2_xi * phi1_eta;
+  phi[7] = phi0_xi * phi2_eta;
   
-  phi[8] = (1-xi[gp]*xi[gp])*(1-eta[gp]*eta[gp]);
+  phi[8] = phi2_xi * phi2_eta;
 
-  double dphi1dxi = (-1+2*xi[gp])/2;
-  double dphi2dxi = (1+2*xi[gp])/2;
-  double dphi3dxi = (-2*xi[gp]);
+  const double dphi0dxi = (-1+2*xi[gp])/2;
+  const double dphi1dxi = (1+2*xi[gp])/2;
+  const double dphi2dxi = (-2*xi[gp]);
 
-  double dphi1deta = (-1+2*eta[gp])/2;
-  double dphi2deta = (1+2*eta[gp])/2;
-  double dphi3deta = -2*eta[gp];
+  const double dphi0deta = (-1+2*eta[gp])/2;
+  const double dphi1deta = (1+2*eta[gp])/2;
+  const double dphi2deta = -2*eta[gp];
   
   
-  dphidxi[0] = ((-1+2*xi[gp])/2)*(-eta[gp]*(1-eta[gp])/2);
-  dphidxi[1] = ((1+2*xi[gp])/2)*(-eta[gp]*(1-eta[gp])/2);
-  dphidxi[2] = ((1+2*xi[gp])/2)*(eta[gp]*(1+eta[gp])/2);
-  dphidxi[3] = ((-1+2*xi[gp])/2)*(eta[gp]*(1+eta[gp])/2);
-  dphidxi[4] = (-2*xi[gp])*(-eta[gp]*(1-eta[gp])/2);
-  dphidxi[5] = ((1+2*xi[gp])/2)*(1-eta[gp]*eta[gp]);
-  dphidxi[6] = (-2*xi[gp])*(eta[gp]*(1+eta[gp])/2);
-  dphidxi[7] = ((-1+2*xi[gp])/2)*(1-eta[gp]*eta[gp]);
-  dphidxi[8] = (-2*xi[gp])*(1-eta[gp]*eta[gp]);
+  dphidxi[0] = dphi0dxi * phi0_eta;
+  dphidxi[1] = dphi1dxi * phi0_eta;
+  dphidxi[2] = dphi1dxi * phi1_eta;
+  dphidxi[3] = dphi0dxi * phi1_eta;
+  
+  dphidxi[4] = dphi2dxi * phi0_eta;
+  dphidxi[5] = dphi1dxi * phi2_eta;
+  dphidxi[6] = dphi2dxi * phi1_eta;
+  dphidxi[7] = dphi0dxi * phi2_eta;
+  
+  dphidxi[8] = dphi2dxi * phi2_eta;
 
 
-  dphideta[0] = (-xi[gp]*(1-xi[gp])/2)*((-1+2*eta[gp])/2);
-  dphideta[1] = (xi[gp]*(1+xi[gp])/2)*((-1+2*eta[gp])/2);
-  dphideta[2] = (xi[gp]*(1+xi[gp])/2)*((1+2*eta[gp])/2);
-  dphideta[3] = (-xi[gp]*(1-xi[gp])/2)*((1+2*eta[gp])/2);
-  dphideta[4] = (1-xi[gp]*xi[gp])*((-1+2*eta[gp])/2);
-  dphideta[5] = (xi[gp]*(1+xi[gp])/2)*(-2*eta[gp]);
-  dphideta[6] = (1-xi[gp]*xi[gp])*((1+2*eta[gp])/2);
-  dphideta[7] = (-xi[gp]*(1-xi[gp])/2)*(-2*eta[gp]);
-  dphideta[8] = (1-xi[gp]*xi[gp])*(-2*eta[gp]);
+  dphideta[0] = phi0_xi * dphi0deta;
+  dphideta[1] = phi1_xi * dphi0deta;
+  dphideta[2] = phi1_xi * dphi1deta;
+  dphideta[3] = phi0_xi * dphi1deta;
+  
+  dphideta[4] = phi2_xi * dphi0deta;
+  dphideta[5] = phi1_xi * dphi2deta;
+  dphideta[6] = phi2_xi * dphi1deta;
+  dphideta[7] = phi0_xi * dphi2deta;
+  
+  dphideta[8] = phi2_xi * dphi2deta;
 
   wt = nwt[gp];
 
@@ -1073,21 +1077,21 @@ class BasisQQuad : public Basis {
   double dydxi  = .25*( (y[1]-y[0])*(1.-eta)+(y[2]-y[3])*(1.+eta) );
   double dydeta = .25*( (y[3]-y[0])*(1.- xi)+(y[2]-y[1])*(1.+ xi) );*/
 
-  double dxdxi  = dphi1dxi *(x[0]*phi1_eta+x[3]*phi2_eta + x[7]*phi3_eta) + 
-                   dphi2dxi *(x[1]*phi1_eta+x[2]*phi2_eta + x[5]*phi3_eta) + 
-                   dphi3dxi *(x[4]*phi1_eta+x[6]*phi2_eta + x[8]*phi3_eta); 
+  double dxdxi  = dphi0dxi *(x[0]*phi0_eta+x[3]*phi1_eta + x[7]*phi2_eta) + 
+                   dphi1dxi *(x[1]*phi0_eta+x[2]*phi1_eta + x[5]*phi2_eta) + 
+                   dphi2dxi *(x[4]*phi0_eta+x[6]*phi1_eta + x[8]*phi2_eta); 
  
-  double dydxi =  dphi1dxi *(y[0]*phi1_eta+y[3]*phi2_eta + y[7]*phi3_eta) + 
-                   dphi2dxi *(y[1]*phi1_eta+y[2]*phi2_eta + y[5]*phi3_eta) + 
-                   dphi3dxi *(y[4]*phi1_eta+y[6]*phi2_eta + y[8]*phi3_eta); 
+  double dydxi =  dphi0dxi *(y[0]*phi0_eta+y[3]*phi1_eta + y[7]*phi2_eta) + 
+                   dphi1dxi *(y[1]*phi0_eta+y[2]*phi1_eta + y[5]*phi2_eta) + 
+                   dphi2dxi *(y[4]*phi0_eta+y[6]*phi1_eta + y[8]*phi2_eta); 
   
-  double dxdeta = dphi1deta *(x[0]*phi1_xi+x[1]*phi2_xi + x[4]*phi3_xi) + 
-                   dphi2deta *(x[3]*phi1_xi+x[2]*phi2_xi + x[6]*phi3_xi) + 
-                   dphi3deta *(x[7]*phi1_xi+x[5]*phi2_xi + x[8]*phi3_xi); 
+  double dxdeta = dphi0deta *(x[0]*phi0_xi+x[1]*phi1_xi + x[4]*phi2_xi) + 
+                   dphi1deta *(x[3]*phi0_xi+x[2]*phi1_xi + x[6]*phi2_xi) + 
+                   dphi2deta *(x[7]*phi0_xi+x[5]*phi1_xi + x[8]*phi2_xi); 
  
-  double dydeta = dphi1deta *(y[0]*phi1_xi+y[1]*phi2_xi + y[4]*phi3_xi) + 
-                   dphi2deta *(y[3]*phi1_xi+y[2]*phi2_xi + y[6]*phi3_xi) + 
-                   dphi3deta *(y[7]*phi1_xi+y[5]*phi2_xi + y[8]*phi3_xi); 
+  double dydeta = dphi0deta *(y[0]*phi0_xi+y[1]*phi1_xi + y[4]*phi2_xi) + 
+                   dphi1deta *(y[3]*phi0_xi+y[2]*phi1_xi + y[6]*phi2_xi) + 
+                   dphi2deta *(y[7]*phi0_xi+y[5]*phi1_xi + y[8]*phi2_xi); 
  
 /*printf("%f + %f + %f\n",dphi1dxi *(x[0]*phi1_eta+x[3]*phi2_eta + x[7]*phi3_eta),dphi2dxi *(x[1]*phi1_eta+x[2]*phi2_eta + x[5]*phi3_eta),dphi3dxi *(x[4]*phi1_eta+x[6]*phi2_eta + x[8]*phi3_eta));*/
 

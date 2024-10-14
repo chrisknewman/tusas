@@ -209,6 +209,20 @@ PPR_FUNC(postproc_)
 
   return s-uu;
 }
+
+PPR_FUNC(postproc_ex_)
+{
+  //exact solution is: u[x,y,t]=exp(-2 pi^2 k t)sin(pi x)sin(pi y)
+  //const double uu = u[0];
+  const double x = xyz[0];
+  const double y = xyz[1];
+
+  const double pi = 3.141592653589793;
+
+  const double s= exp(-2.*pi*pi*time)*sin(pi*x)*sin(pi*y);
+
+  return s;
+}
 }//namespace heat
 
 namespace timeonly

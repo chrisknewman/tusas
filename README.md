@@ -17,3 +17,5 @@ In addition, configuration of the nonlinear system and preconditioner can be per
 For questions and inquiries a mailing list is available for discussion: tusas-users@googlegroups.com
 
 Google / gmail users can sign in and click the "Join group" button. Otherwise send an email to: tusas-users+subscribe@googlegroups.com
+
+Current release/version is tusas-1.0.0

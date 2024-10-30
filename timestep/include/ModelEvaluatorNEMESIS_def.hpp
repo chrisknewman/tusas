@@ -752,7 +752,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    //it->import_data(*f_fe_p,u);
 	    it->import_data(*f_fe_p,u_in,k);
 
-          int ns_size = it->u_rep_->map_->getLocalNumElements();
+	    int ns_size = it->u_rep_->getMap()->getLocalNumElements();
 
 	    //f_rep_(ns1); u_rep_(ns2)
 
@@ -766,7 +766,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    for ( int j = 0; j < ns_size; j++ ){
 
 	      //this is the gid for ns2
-            Mesh::mesh_lint_t gid2 = it->u_rep_->map_->getGlobalElement(j);
+	      Mesh::mesh_lint_t gid2 = it->u_rep_->getMap()->getGlobalElement(j);
 
 	      bool local = x_owned_map_->MyGID(numeqs_*gid2 + k);
 	      if(local) {
@@ -787,7 +787,7 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    for ( int j = 0; j < ns_size; j++ ){
 
 	      //this is the gid for ns1
-            Mesh::mesh_lint_t gid1 = it->f_rep_->map_->getGlobalElement(j);
+	      Mesh::mesh_lint_t gid1 = it->f_rep_->getMap()->getGlobalElement(j);
 
 	      bool local = x_owned_map_->MyGID(numeqs_*gid1 + k);
 	      if(local) {

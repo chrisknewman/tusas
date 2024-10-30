@@ -7,4 +7,4 @@ $2 -n 4 $1/tusas --kokkos-num-threads=1 --input-file=tusas.xml --writedecomp
 $2 -n 1 bash decompscript
 $2 -n 4 $1/tusas --kokkos-num-threads=1 --input-file=tusas.xml --skipdecomp
 $2 -n 1 bash epuscript
-$2 -n 1 $1/exodiff Gold.e results.e
+$2 -n 1 $1/exodiff -f exofile Gold.e results.e

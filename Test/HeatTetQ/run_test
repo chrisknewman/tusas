@@ -1,4 +1,4 @@
 #!/bin/bash
 rm -rf results.e
 $2 -n 1 $1/tusas --kokkos-num-threads=1 --input-file=tusas.xml
-$2 -n 1 $1/exodiff -Floor 1e-14 Gold.e results.e
+$2 -n 1 $1/exodiff -f exofile Gold.e results.e

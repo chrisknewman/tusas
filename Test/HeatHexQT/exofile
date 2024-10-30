@@ -1,0 +1,4 @@
+NODAL VARIABLES all
+	u floor 1.e-12
+	!pp0
+ELEMENT VARIABLES

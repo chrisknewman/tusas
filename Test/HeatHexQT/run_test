@@ -8,4 +8,4 @@ $2 -n 2 $1/tusas --kokkos-num-threads=1 --input-file=test.xml --writedecomp
 $2 -n 1 bash decompscript
 $2 -n 2 $1/tusas --kokkos-num-threads=1 --input-file=test.xml --skipdecomp
 $2 -n 1 bash epuscript
-$2 -n 1 $1/exodiff -Floor 1e-14 Gold.e results.e
+$2 -n 1 $1/exodiff -f exofile Gold.e results.e

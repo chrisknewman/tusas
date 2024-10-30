@@ -60,6 +60,7 @@
 #include "Teuchos_ParameterList.hpp"
 #include <Teuchos_TimeMonitor.hpp>
 #include "Teuchos_Array.hpp"
+#include <Teuchos_DefaultComm.hpp>
 
 #include <iomanip>
 #include <iostream>
@@ -751,28 +752,26 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 	    //it->import_data(*f_fe_p,u);
 	    it->import_data(*f_fe_p,u_in,k);
 
-	    int ns_size = it->u_rep_->Map().NumMyElements ();
+          int ns_size = it->u_rep_->map_->getLocalNumElements();
 
 	    //f_rep_(ns1); u_rep_(ns2)
 
 	    //first we will add f(ns1) to f(ns2) by looping over nodeset 2
 	    //ie f(ns2) = f(ns2) + f_rep_(ns1)
 
+          auto f_view = it->f_rep_->get1dView();
+
 	    //loop over ns2 and add value from f_rep_(ns1)
 	    
 	    for ( int j = 0; j < ns_size; j++ ){
 
 	      //this is the gid for ns2
-#ifdef MESH_64
-	      Mesh::mesh_lint_t gid2 = it->u_rep_->Map().GID64(j);
-#else
-	      Mesh::mesh_lint_t gid2 = it->u_rep_->Map().GID(j);
-#endif
+            Mesh::mesh_lint_t gid2 = it->u_rep_->map_->getGlobalElement(j);
 
 	      bool local = x_owned_map_->MyGID(numeqs_*gid2 + k);
 	      if(local) {
 		int lid2 = (x_owned_map_->LID(numeqs_*gid2 + k) - k)/numeqs_;
-		double val1 = (*(it->f_rep_))[j];
+		double val1 = f_view[j];
 		Mesh::mesh_lint_t row = numeqs_*gid2 + k;
 		f_fe_p->SumIntoGlobalValues ((int) 1, &row, &val1);
 		//if( 1 == comm_->MyPID() ) std::cout<<j<<" "<<gid2<<" "<<lid2<<" "<<val1<<std::endl;
@@ -782,21 +781,18 @@ void ModelEvaluatorNEMESIS<Scalar>::evalModelImpl(
 
 	    //exit(0);
 
+          auto u_view = it->u_rep_->get1dView();
 	    //loop over ns1
 	    // u(ns1) - u_rep_(ns2)
 	    for ( int j = 0; j < ns_size; j++ ){
 
 	      //this is the gid for ns1
-#ifdef MESH_64
-	      Mesh::mesh_lint_t gid1 = it->f_rep_->Map().GID64(j);//this is the mesh gid
-#else
-	      Mesh::mesh_lint_t gid1 = it->f_rep_->Map().GID(j);//this is the mesh gid
-#endif
+            Mesh::mesh_lint_t gid1 = it->f_rep_->map_->getGlobalElement(j);
 
 	      bool local = x_owned_map_->MyGID(numeqs_*gid1 + k);
 	      if(local) {
 		int lid1 = (x_owned_map_->LID(numeqs_*gid1 + k) - k)/numeqs_;
-		double val1 = (*(it->u_rep_))[j];
+		double val1 = u_view[j];
 		Mesh::mesh_lint_t row = numeqs_*gid1 + k;
 		int lid = x_owned_map_->LID(row);
 		// u(ns1) - u(ns2)
@@ -3467,9 +3463,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     paramfunc_ = grain::param_;
 
 #ifdef PERIODIC_BC
-    periodic_bc_.push_back(new periodic_bc(0,2,numeqs_,mesh_,comm_));
-    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_,comm_));
-    if(3 == mesh_->get_num_dim() ) periodic_bc_.push_back(new periodic_bc(4,5,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(0,2,numeqs_,mesh_));
+    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_));
+    if(3 == mesh_->get_num_dim() ) periodic_bc_.push_back(new periodic_bc(4,5,numeqs_,mesh_));
     for( int k = 0; k < numeqs_; k++ ){
       periodic_bc_[0].add_eqn_index(k);
       periodic_bc_[1].add_eqn_index(k);
@@ -3516,9 +3512,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     //paramfunc_ = grain::param_;
 
 #ifdef PERIODIC_BC
-    periodic_bc_.push_back(new periodic_bc(0,2,numeqs_,mesh_,comm_));
-    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_,comm_));
-    if(3 == mesh_->get_num_dim() ) periodic_bc_.push_back(new periodic_bc(4,5,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(0,2,numeqs_,mesh_));
+    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_));
+    if(3 == mesh_->get_num_dim() ) periodic_bc_.push_back(new periodic_bc(4,5,numeqs_,mesh_));
     for( int k = 0; k < numeqs_; k++ ){
       periodic_bc_[0].add_eqn_index(k);
       periodic_bc_[1].add_eqn_index(k);
@@ -3556,7 +3552,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     neumannfunc_ = NULL;
 
 #ifdef PERIODIC_BC
-    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_));
     periodic_bc_[0].add_eqn_index(0);
 
 #else
@@ -3595,9 +3591,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     neumannfunc_ = NULL;
 
 #ifdef PERIODIC_BC
-    periodic_bc_.push_back(new periodic_bc(0,2,numeqs_,mesh_,comm_));
-    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_,comm_));
-    if(3 == mesh_->get_num_dim() ) periodic_bc_.push_back(new periodic_bc(4,5,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(0,2,numeqs_,mesh_));
+    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_));
+    if(3 == mesh_->get_num_dim() ) periodic_bc_.push_back(new periodic_bc(4,5,numeqs_,mesh_));
     for( int k = 0; k < numeqs_; k++ ){
       periodic_bc_[0].add_eqn_index(k);
       periodic_bc_[1].add_eqn_index(k);
@@ -3846,7 +3842,7 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 
     neumannfunc_ = NULL;
 #ifdef PERIODIC_BC
-    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_,comm_));
+    periodic_bc_.push_back(new periodic_bc(1,3,numeqs_,mesh_));
     periodic_bc_[0].add_eqn_index(0);
 
 #else

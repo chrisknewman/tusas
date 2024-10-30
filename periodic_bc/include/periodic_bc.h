@@ -23,7 +23,9 @@
 #include "Epetra_Vector.h"
 #include "Epetra_FEVector.h"
 
-
+#include <Tpetra_Map_decl.hpp>
+#include <Tpetra_Import.hpp>
+#include <Tpetra_Vector.hpp>
 
 //needed for create_onetoone hack below
 #include "Epetra_Comm.h"
@@ -38,13 +40,22 @@ class periodic_bc
 {
 public:
 
+  typedef Tpetra::Map<>::global_ordinal_type global_ordinal_type;
+  typedef Tpetra::Map<>::local_ordinal_type local_ordinal_type;
+  typedef Tpetra::Map<>::node_type node_type;
+  typedef Tpetra::Map<local_ordinal_type, global_ordinal_type, node_type> map_type;
+  typedef Tpetra::Import<local_ordinal_type, global_ordinal_type,
+                         node_type> import_type;
+  typedef Tpetra::Vector<>::scalar_type scalar_type;
+  typedef Tpetra::Vector<scalar_type, local_ordinal_type,
+                   global_ordinal_type, node_type> vector_type;
+
   /// Constructor
   /** Creates a periodic bc pair  */
   periodic_bc(const int ns_id1, ///< Nodeset index 1
 	      const int ns_id2, ///< Nodeset index 2
 	      const int numeqs, ///< the number of PDEs  
-	      Mesh *mesh, ///< mesh object
-	      const Teuchos::RCP<const Epetra_Comm>& comm ///< MPI communicator
+	      Mesh *mesh ///< mesh object
 	      );
 
   /// Destructor.
@@ -56,9 +67,9 @@ public:
 		   ) const;
 
   /// Replicated vector.
-  Teuchos::RCP<Epetra_Vector> f_rep_;
+  Teuchos::RCP<vector_type> f_rep_;
   /// Replicated vector.
-  Teuchos::RCP<Epetra_Vector> u_rep_;
+  Teuchos::RCP<vector_type> u_rep_;
 
   /// Vector containing the equation indices associated with this periodic_bc
   std::vector<int> eqn_indices_;
@@ -69,12 +80,12 @@ public:
 private:
   ///Mesh object
   Mesh *mesh_;
-  /// MPI comm object.
-  const Teuchos::RCP<const Epetra_Comm>  comm_;
+  /// overlap object
+  Teuchos::RCP<const map_type> overlap_map_;
   /// Node map object.
-  Teuchos::RCP<const Epetra_Map>   ns1_map_;
+  Teuchos::RCP<const map_type> ns1_map_;
   /// Node map object.
-  Teuchos::RCP<const Epetra_Map>   ns2_map_;
+  Teuchos::RCP<const map_type> ns2_map_;
   /// Nodeset 1 index
   int ns_id1_;
   /// Nodeset 2 index
@@ -82,13 +93,13 @@ private:
   /// Number of pdes.
   int numeqs_;
   /// Import object.
-  Teuchos::RCP<const Epetra_Import> importer1_;
+  Teuchos::RCP<const import_type > importer1_;
   /// Import object.
-  Teuchos::RCP<const Epetra_Import> importer2_;
+  Teuchos::RCP<const import_type > importer2_;
   /// Node map object.
-  Teuchos::RCP<const Epetra_Map>   node_map_;
+  Teuchos::RCP<const map_type > node_map_;
   /// Sets up the communication maps for nodeset id.
-  Teuchos::RCP<const Epetra_Map> get_replicated_map(const int id);
+  Teuchos::RCP<const map_type> get_replicated_map(const int id); 
 
   /// Vector utility function
   void uniquifyWithOrder_set_remove_if(const std::vector<int>& input, std::vector<int>& output);

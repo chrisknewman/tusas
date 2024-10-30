@@ -57,7 +57,7 @@
 #define TUSAS_RUN_ON_CPU
 
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
-#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 40
+#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 135 // 5 * 27 for HexQ
 
 std::string getmypidstring(const int mypid, const int numproc);
 
@@ -373,6 +373,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
+    // GAW TO DO // need to set this up for other quadrature orders
+    std::cout<<"Using Random distribution memory access; currently assumes linear tensor product elements!"<<std::endl;
     randomdistribution = Teuchos::rcp(new random_distribution(mesh_, LTP_quadrature_order));
   }
 
@@ -550,6 +552,13 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
     u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
 
+  Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
+
+  for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
+    meshc_1d(i)=(mesh_->connect)[0][i];
+  }
+  Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
+
   const double dt = dt_; //cuda 8 lambdas dont capture private data
   const double dtold = dtold_; //cuda 8 lambdas dont capture private data
   const double t_theta = t_theta_; //cuda 8 lambdas dont capture private data
@@ -557,9 +566,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   const double time = time_; //cuda 8 lambdas dont capture private data
   const int numeqs = numeqs_; //cuda 8 lambdas dont capture private data
   const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
-  if (4 <  LTP_quadrature_order ){
+  const int QTP_quadrature_order = paramList.get<int> (TusasqtpquadordNameString);
+  const int LTR_quadrature_order = paramList.get<int> (TusasltriquadordNameString);
+  const int QTR_quadrature_order = paramList.get<int> (TusasqtriquadordNameString);
+  const int LTE_quadrature_order = paramList.get<int> (TusasltetquadordNameString);
+  const int QTE_quadrature_order = paramList.get<int> (TusasqtetquadordNameString);
+  // GAW TO DO : exit for other too high orders/number of points
+  if (4 <  LTP_quadrature_order || 4 <  QTP_quadrature_order){
       if( 0 == comm_->getRank() ){
-	std::cout<<std::endl<<std::endl<<"4 <  LTP_quadrature_order" <<std::endl<<std::endl<<std::endl;
+	std::cout<<std::endl<<std::endl<<"4 <  TP_quadrature_order" <<std::endl<<std::endl<<std::endl;
       }
       exit(0);
   }
@@ -600,24 +615,48 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     h_rf = &(*residualfunc_)[0];
 
     const int num_elem = (*mesh_->get_elem_num_map()).size();
-
+    
     for(int blk = 0; blk < mesh_->get_num_elem_blks(); blk++){
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
       const int num_color = Elem_col->get_num_color();
     
-      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[blk]).size());
-      for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
-	meshc_1d(i)=(mesh_->connect)[blk][i];
-      }
-      Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
-
       int ngp = 0;
       //LTP_quadrature_order;
-      if(4 == n_nodes_per_elem)  {
-	ngp = LTP_quadrature_order*LTP_quadrature_order;
-      }else{
-	ngp = LTP_quadrature_order*LTP_quadrature_order*LTP_quadrature_order;
-      }
+
+  std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
+	std::string * elem_type_p = &elem_type;
+  std::string element_name;
+  element_name = get_basis_name(* elem_type_p);
+
+  GPURefBasis * BGPURefB;
+  if ( element_name == "LQuad" )  {
+    ngp = LTP_quadrature_order*LTP_quadrature_order;
+      BGPURefB = new GPURefBasisLQuad(LTP_quadrature_order);
+  }else if( element_name == "QQuad" ) {
+    ngp = QTP_quadrature_order*QTP_quadrature_order;
+      BGPURefB = new GPURefBasisQQuad(QTP_quadrature_order);
+  }else if( element_name == "LHex" ) {
+    ngp = LTP_quadrature_order*LTP_quadrature_order*LTP_quadrature_order;
+    BGPURefB = new GPURefBasisLHex(LTP_quadrature_order);
+  }else if( element_name == "QHex" ) {
+    ngp = QTP_quadrature_order*QTP_quadrature_order*QTP_quadrature_order;
+    BGPURefB = new GPURefBasisQHex(QTP_quadrature_order);
+  }else if( element_name == "LTri" ) {
+    ngp = LTR_quadrature_order;
+    BGPURefB = new GPURefBasisLTri(LTR_quadrature_order);
+  }else if( element_name == "QTri" ) {
+    ngp = QTR_quadrature_order;
+    BGPURefB = new GPURefBasisQTri(QTR_quadrature_order);
+  }else if( element_name == "LTet" ) {
+    ngp = LTE_quadrature_order;
+    BGPURefB = new GPURefBasisLTet(LTE_quadrature_order);
+  }else if( element_name == "QTet" ) {
+    ngp = QTE_quadrature_order;
+    BGPURefB = new GPURefBasisQTet(QTE_quadrature_order);
+  }
+// Build constant pointer to be passed to element loop
+const GPURefBasis * BGPURef = BGPURefB;
+
       //cn not sure how this will work with multiple element types
       Kokkos::View<double**,Kokkos::DefaultExecutionSpace> randomdistribution_2d("randomdistribution_2d", num_elem, ngp);
       if( paramList.get<bool>(TusasrandomDistributionNameString) ){
@@ -637,9 +676,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}
       }//if
       
-      for(int color = 0; color < num_color; color++){
+      for(int c = 0; c < num_color; c++){
 	//std::vector<int> elem_map = colors[c];
-	const std::vector<int> elem_map = Elem_col->get_color(color);//local
+	const std::vector<int> elem_map = Elem_col->get_color(c);//local
 	
 	const int num_elem = elem_map.size();
 	
@@ -687,29 +726,39 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #if defined TUSAS_HAVE_CUDA || defined TUSAS_HAVE_HIP
 	    //IMPORTANT: if TUSAS_MAX_NUMEQS is increased the following lines (and below in prec fill)
 	    //need to be adjusted
-	    GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	    GPUBasisLHex  Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-	    if(4 == n_nodes_per_elem)  {
-	      for( int neq = 0; neq < numeqs; neq++ )
-		BGPU[neq] = &Bq[neq];
-	    }else{
-	      for( int neq = 0; neq < numeqs; neq++ )
-		BGPU[neq] = &Bh[neq];
-	    }
-#else	    
-	    //GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	    //GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-	    if(4 == n_nodes_per_elem)  {
-	      for( int neq = 0; neq < numeqs; neq++ ){
-		//BGPU[neq] = &Bq[neq];
-		BGPU[neq] = new GPUBasisLQuad(LTP_quadrature_order);
-	      }
-	    }else{
-	      for( int neq = 0; neq < numeqs; neq++ ){
-		//BGPU[neq] = &Bh[neq];
-		BGPU[neq] = new GPUBasisLHex(LTP_quadrature_order);
-	      }
-	    }
+	    GPUBasisQuad Bquad[TUSAS_MAX_NUMEQS] = {GPUBasisQuad(BGPURef), GPUBasisQuad(BGPURef), GPUBasisQuad(BGPURef), GPUBasisQuad(BGPURef), GPUBasisQuad(BGPURef)};
+	    GPUBasisHex Bhex[TUSAS_MAX_NUMEQS] = {GPUBasisHex(BGPURef), GPUBasisHex(BGPURef), GPUBasisHex(BGPURef), GPUBasisHex(BGPURef), GPUBasisHex(BGPURef)};
+      GPUBasisTri Btri[TUSAS_MAX_NUMEQS] = {GPUBasisTri(BGPURef), GPUBasisTri(BGPURef), GPUBasisTri(BGPURef), GPUBasisTri(BGPURef), GPUBasisTri(BGPURef)};
+      GPUBasisTet Btet[TUSAS_MAX_NUMEQS] = {GPUBasisTet(BGPURef), GPUBasisTet(BGPURef), GPUBasisTet(BGPURef), GPUBasisTet(BGPURef), GPUBasisTet(BGPURef)};
+
+
+      if ( element_name == "LQuad" || element_name == "QQuad" )  {
+        for( int neq = 0; neq < numeqs; neq++ )
+	        BGPU[neq] = &Bquad[neq];
+      }else if( element_name == "LHex" || element_name == "QHex" ) {
+        for( int neq = 0; neq < numeqs; neq++ )
+	        BGPU[neq] = &Bhex[neq];
+      }else if( element_name == "LTri" || element_name == "QTri" ) {
+        for( int neq = 0; neq < numeqs; neq++ )
+	        BGPU[neq] = &Btri[neq];
+      }else if( element_name == "LTet" || element_name == "QTet" ) {
+        for( int neq = 0; neq < numeqs; neq++ )
+	        BGPU[neq] = &Btet[neq];
+      }
+#else
+    if ( element_name == "LQuad" || element_name == "QQuad" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = new GPUBasisQuad(BGPURef);
+    } else if ( element_name == "LHex" || element_name == "QHex" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = new GPUBasisHex(BGPURef);
+    } else if ( element_name == "LTri" || element_name == "QTri" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = new GPUBasisTri(BGPURef);
+    } else if ( element_name == "LTet" || element_name == "QTet" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = new GPUBasisTet(BGPURef);
+    }
 #endif
 
 	    const int ngp = BGPU[0]->ngp();
@@ -731,6 +780,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      xx[k] = x_1dra(nodeid);
 	      yy[k] = y_1dra(nodeid);
 	      zz[k] = z_1dra(nodeid);
+	      //zz[k] =  z_view(nodeid,0);
 	      
 	      //std::cout<<k<<"   "<<xx[k]<<"   "<<yy[k]<<"   "<<zz[k]<<"   "<<nodeid<<std::endl;
 	      for( int neq = 0; neq < numeqs; neq++ ){
@@ -747,10 +797,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	      //Bh[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
 	    }//neq
 	    for(int gp=0; gp < ngp; gp++) {//gp
-	      double jacwt = 0.;
+        double jacwt = BGPU[0]->getCoordsBasisWJac(gp, &xx[0], &yy[0], &zz[0]); // GAW To do // // const double?
 	      for( int neq = 0; neq < numeqs; neq++ ){
 		//we need a basis object that stores all equations here..
-		jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem],&uu_oldold[neq*n_nodes_per_elem]);
+		BGPU[neq]->getField(gp, BGPU[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem], &uu_oldold[neq*n_nodes_per_elem]);
 	      }//neq
 	      const double vol = BGPU[0]->vol();//this can probably be computed in computeElemData, with some of the mapping terms moved there
 	      for (int i=0; i< n_nodes_per_elem; i++) {//i
@@ -768,6 +818,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
 		  //cn this works because we are filling an overlap map and exporting to a node map below...
 		  const int lid = lrow+neq;
+      //std::cout<<lid<<" "<<val<<" "<<jacwt<<" "<<BGPURef->nwt(gp)<<std::endl; // GAW test //
 		  f_1d[lid] += val;
 		  //printf("%d %le %le %d\n",lid,jacwt*((h_rf[neq])(BGPU,i,dt,t_theta,time,neq)),f_1d[lid],c);
 		}//neq
@@ -787,7 +838,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
         });//parallel_for
 	  //};//ne
 
-      }//color
+      }//c 
+    // Delete Reference basis in block loop
+    delete BGPURefB;
     }//blk
       }
 			    //exit(0);
@@ -798,7 +851,6 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     }
   }//get_f
 
-      //not sure what to do about blocks here
   if (nonnull(outArgs.get_f())) {
     if (NULL != neumannfunc_) {
 
@@ -839,28 +891,51 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> 
 	uoldold_1dra = Kokkos::subview (uoldold_view, Kokkos::ALL (), 0);
 
-      GPUBasisLQuad Bq = GPUBasisLQuad(LTP_quadrature_order);
-      GPUBasisLBar Bb = GPUBasisLBar(LTP_quadrature_order);
-      int num_node_per_side = 4;
-
-
-    
+      int num_node_per_side = 0;
       const int blk = 0;
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
-    
+
+      std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
+      std::string * elem_type_p = &elem_type;
+      std::string element_name;
+      element_name = get_basis_name(* elem_type_p);
+
       GPUBasis * BGPU;
-      if(8 == n_nodes_per_elem) { // linear hex-- quad faces
-	BGPU = &Bq;
-      }
-      else if(4 == n_nodes_per_elem) { // linear quad-- bar faces
-	BGPU = &Bb;
-	num_node_per_side = 2;
-      }
-      else {
-	std::cout<<"Only quad4/bar2 elements implemented for neumann bc now"<<std::endl;
-	exit(0);
+      GPURefBasis * BGPURef;
+      if ( element_name == "LQuad" || element_name == "LTri")  { // linear quad/tri-- bar faces
+        BGPURef = new GPURefBasisLBar(LTP_quadrature_order);
+        BGPU = new GPUBasisBar(BGPURef);
+	      num_node_per_side = 2;
+      }else if( element_name == "QQuad" || element_name == "QTri") { // quadratic quad/tri-- bar faces
+        BGPURef = new GPURefBasisQBar(QTP_quadrature_order);
+        BGPU = new GPUBasisBar(BGPURef);
+	      num_node_per_side = 3;
+      }else if( element_name == "LHex" ) { // linear hex-- quad faces
+        BGPURef = new GPURefBasisLQuad(LTP_quadrature_order);
+        BGPU = new GPUBasisQuad(BGPURef);
+        num_node_per_side = 4;
+      }else if( element_name == "QHex" ) { // quadratic hex-- quad faces
+        BGPURef = new GPURefBasisQQuad(QTP_quadrature_order);
+        BGPU = new GPUBasisQuad(BGPURef);
+        num_node_per_side = 9;
+      }else if( element_name == "LTet" ) { // linear tet-- tri faces
+        BGPURef = new GPURefBasisLTri(LTR_quadrature_order);
+        BGPU = new GPUBasisTri(BGPURef);
+        num_node_per_side = 3;
+      }else if( element_name == "QTet" ) { // quadratic tet-- tri faces
+        BGPURef = new GPURefBasisQTri(QTR_quadrature_order);
+        BGPU = new GPUBasisTri(BGPURef);
+        num_node_per_side = 6;
       }
       
+      /* // GAW GPU basis code; keep here in view of potential parallel loop
+      GPUBasisQuad Bquad = GPUBasisQuad(BGPURef);
+      GPUBasisHex Bbar = GPUBasisBar(BGPURef);
+      if(27 == n_nodes_per_elem) { BGPU = &Bquad;
+      } else if(8 == n_nodes_per_elem) { BGPU = &Bquad; num_node_per_side = 4; }
+      else if(4 == n_nodes_per_elem) { BGPU = &Bbar; num_node_per_side = 2; }
+      else if(9 == n_nodes_per_elem) { BGPU = &Bbar; num_node_per_side = 3; } */
+
       const int ngp = BGPU->ngp();
       
       std::map<int,NBCFUNC>::iterator it;
@@ -892,14 +967,15 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	    }//ll
 	    BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
 	    for ( int gp = 0; gp < ngp; gp++){
-	      const double jacwt = BGPU->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0], &uu_old[0], &uu_oldold[0]);
+        const double jacwt = BGPU->getCoordsBasisWJac(gp, &xx[0], &yy[0], &zz[0]);
+        BGPU->getField(gp, BGPU, &uu[0], &uu_old[0], &uu_oldold[0]);
 	      for( int i = 0; i < num_node_per_side; i++ ){  
 		
 		const int lid = mesh_->get_side_set_node_list(ss_id)[ne*num_node_per_side+i];
 		const int row = numeqs_*lid + k;
-		
+  
 		const double val = -jacwt*(it->second)(BGPU,i,dt,dtold,t_theta,t_theta2,time);
-		//std::cout<<row<<" "<<val<<" "<<jacwt<<std::endl;
+		// std::cout<<row<<" "<<val<<" "<<jacwt<<std::endl; // GAW test //
 		f_1d[row] += val;
 		
 	      }//i
@@ -908,6 +984,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}//it
       }//k
       
+  // Delete basis and reference basis
+  delete BGPU;
+  delete BGPURef;
+
       {
 	Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);  
 	f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
@@ -1000,15 +1080,36 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);//shared
       const int num_color = Elem_col->get_num_color();
       
-      Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[blk]).size());
-      for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
-	meshc_1d(i)=(mesh_->connect)[blk][i];
-      }
-      Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
+    std::string elem_type=mesh_->get_blk_elem_type(blk);//shared
+    std::string * elem_type_p = &elem_type;
+    std::string element_name;
+    element_name = get_basis_name(* elem_type_p);
 
-      for(int color = 0; color < num_color; color++){
+    GPURefBasis * BGPURefB;
+    if ( element_name == "LQuad" )  {
+      BGPURefB = new GPURefBasisLQuad(LTP_quadrature_order);
+    }else if( element_name == "QQuad" ) {
+      BGPURefB = new GPURefBasisQQuad(QTP_quadrature_order);
+    }else if( element_name == "LHex" ) {
+      BGPURefB = new GPURefBasisLHex(LTP_quadrature_order);
+    }else if( element_name == "QHex" ) {
+      BGPURefB = new GPURefBasisQHex(QTP_quadrature_order);
+    }else if( element_name == "LTri" ) {
+      BGPURefB = new GPURefBasisLTri(LTR_quadrature_order);
+    }else if( element_name == "QTri" ) {
+      BGPURefB = new GPURefBasisQTri(QTR_quadrature_order);
+    }else if( element_name == "LTet" ) {
+      BGPURefB = new GPURefBasisLTet(LTE_quadrature_order);
+    }else if( element_name == "QTet" ) {
+      BGPURefB = new GPURefBasisQTet(QTE_quadrature_order);
+    }
+
+    // Build constant pointer to be passed to element loop
+    const GPURefBasis * BGPURef = BGPURefB;
+
+      for(int c = 0; c < num_color; c++){
 	//std::vector<int> elem_map = colors[c];
-	std::vector<int> elem_map = Elem_col->get_color(color);
+	std::vector<int> elem_map = Elem_col->get_color(c);
 	
 	const int num_elem = elem_map.size();
 	
@@ -1022,19 +1123,44 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	//exit(0);	
 
 	Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
+    //an array of pointers to GPUBasis
+	  GPUBasis * BGPU[TUSAS_MAX_NUMEQS];
+#if defined TUSAS_HAVE_CUDA || defined TUSAS_HAVE_HIP
+	  //IMPORTANT: if TUSAS_MAX_NUMEQS is increased the following lines (and below in prec fill)
+	  //need to be adjusted
+    GPUBasisQuad Bquad[TUSAS_MAX_NUMEQS] = {GPUBasisQuad(BGPURef), GPUBasisQuad(BGPURef), GPUBasisQuad(BGPURef), GPUBasisQuad(BGPURef), GPUBasisQuad(BGPURef)};
+    GPUBasisHex Bhex[TUSAS_MAX_NUMEQS] = {GPUBasisHex(BGPURef), GPUBasisHex(BGPURef), GPUBasisHex(BGPURef), GPUBasisHex(BGPURef), GPUBasisHex(BGPURef)};
+    GPUBasisTri Btri[TUSAS_MAX_NUMEQS] = {GPUBasisTri(BGPURef), GPUBasisTri(BGPURef), GPUBasisTri(BGPURef), GPUBasisTri(BGPURef), GPUBasisTri(BGPURef)};
+    GPUBasisTet Btet[TUSAS_MAX_NUMEQS] = {GPUBasisTet(BGPURef), GPUBasisTet(BGPURef), GPUBasisTet(BGPURef), GPUBasisTet(BGPURef), GPUBasisTet(BGPURef)};
 
-			     //an array of pointers to GPUBasis
-	  GPUBasis * BGPU[TUSAS_MAX_NUMEQS];	
-	  GPUBasisLQuad Bq[TUSAS_MAX_NUMEQS] = {GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order), GPUBasisLQuad(LTP_quadrature_order)};
-	  GPUBasisLHex Bh[TUSAS_MAX_NUMEQS] = {GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order), GPUBasisLHex(LTP_quadrature_order)};
-
-	  if(4 == n_nodes_per_elem)  {
-	    for( int neq = 0; neq < numeqs; neq++ )
-	      BGPU[neq] = &Bq[neq];
-	  }else{
-	    for( int neq = 0; neq < numeqs; neq++ )
-	      BGPU[neq] = &Bh[neq];
-	  }
+    if ( element_name == "LQuad" || element_name == "QQuad" )  {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = &Bquad[neq];
+    }else if( element_name == "LHex" || element_name == "QHex" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = &Bhex[neq];
+    }else if( element_name == "LTri" || element_name == "QTri" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = &Btri[neq];
+    }else if( element_name == "LTet" || element_name == "QTet" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = &Btet[neq];
+    }
+#else
+    if ( element_name == "LQuad" || element_name == "QQuad" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = new GPUBasisQuad(BGPURef);
+    } else if ( element_name == "LHex" || element_name == "QHex" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = new GPUBasisHex(BGPURef);
+    } else if ( element_name == "LTri" || element_name == "QTri" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = new GPUBasisTri(BGPURef);
+    } else if ( element_name == "LTet" || element_name == "QTet" ) {
+      for( int neq = 0; neq < numeqs; neq++ )
+        BGPU[neq] = new GPUBasisTet(BGPURef);
+    }
+#endif
 
 	  const int ngp = BGPU[0]->ngp();
 	  
@@ -1066,9 +1192,9 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  }//neq
 	  
 	  for(int gp=0; gp < ngp; gp++) {//gp
-	    double jacwt = 0.;
+	    double jacwt = BGPU[0]->getCoordsBasisWJac(gp, &xx[0], &yy[0], &zz[0]);
 	    for( int neq = 0; neq < numeqs; neq++ ){
-	      jacwt = BGPU[neq]->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[neq*n_nodes_per_elem], NULL,NULL);//we can add uu_old, uu_oldold
+        BGPU[neq]->getField(gp, BGPU[0], &uu[neq*n_nodes_per_elem], NULL, NULL); //we can add uu_old, uu_oldold
 	    }//neq
 	    for (int i=0; i< n_nodes_per_elem; i++) {//i
 	      //const local_ordinal_type lrow = numeqs*meshc[elemrow+i];
@@ -1088,12 +1214,25 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 		  //P->sumIntoLocalValues(lrow,(local_ordinal_type)1,val,lcol,false);
 		  PV.sumIntoValues (row, col,(local_ordinal_type)1,val);
 		  
-		}//neq		
-	      }//j	      
-	    }//i	    
-	  }//gp	  
-	});//parallel_for	
+		}//neq
+		
+	      }//j
+	      
+	    }//i
+	    
+	  }//gp
+
+#if defined TUSAS_HAVE_CUDA || defined TUSAS_HAVE_HIP
+#else
+	for( int neq = 0; neq < numeqs; neq++ ){
+		delete BGPU[neq];
+	}
+#endif
+	});//parallel_for
+	
       }//c
+    // Delete Reference basis in block loop
+    delete BGPURefB;
     }//blk
   }
     //cn we need to do a similar comm here...
@@ -4007,4 +4146,32 @@ void ModelEvaluatorTPETRA<Scalar>::print_norms()
 	std::cout<<" ||F_"<<k<<"|| = "<<norms[k]<<std::endl<<std::defaultfloat;
     }
   }
+
+template<class Scalar>
+std::string ModelEvaluatorTPETRA<Scalar>::get_basis_name(const std::string elem_type ) const
+{
+  std::string elem_str;
+  if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){
+    elem_str = "LQuad";
+  } else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))){
+	  elem_str = "LTri";
+  } else if( (0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))  ){
+	  elem_str = "LHex";
+  } else if( (0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra")) ){
+    elem_str = "LTet";
+  } else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){
+    elem_str = "QQuad";
+  } else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6")) ){
+	  elem_str = "QTri";
+  } else if( (0==elem_type.compare("HEX27")) || (0==elem_type.compare("hex27")) ){
+    elem_str = "QHex";
+  } else if( (0==elem_type.compare("TETRA10")) || (0==elem_type.compare("tetra10")) ){
+    elem_str = "QTet";
+	} else {
+	std::cout<<"Unsupported element type : "<<elem_type<<std::endl<<std::endl;
+	exit(0);
+      }
+  return elem_str;
+}
+
 #endif

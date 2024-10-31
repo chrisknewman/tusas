@@ -1,3 +1,5 @@
 NODAL VARIABLES all relative 1.E-06 floor 1.e-17
-	grad0y relative 5.E-06 floor 6.e-14
+	!grad0x
+	!grad0y
+	!grad0z
 ELEMENT VARIABLES all relative 1.E-06

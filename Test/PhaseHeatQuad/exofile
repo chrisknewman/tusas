@@ -1,3 +1,11 @@
-NODAL VARIABLES all #floor 1.e-15
-	!phi relative 1.e-2 floor 1.e-7
+NODAL VARIABLES all relative 1.e-2 floor 1.e-6
+	phi
 	u
+	!temperror0
+   	!tempnorm0
+   	!tempdyn0
+   	!temperror1
+   	!tempnorm1
+   	!tempdyn1
+ELEMENT VARIABLES
+        !color

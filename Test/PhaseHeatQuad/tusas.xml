@@ -2,21 +2,35 @@
 	
 <!-- simulation parameters -->
 
-  <Parameter name="dt" type="double" value=".001"/>
-  <Parameter name="nt" type="int" value = "10"/>
-  <Parameter name="meshfile" type="string" value="../../meshes/dendquad300_q.e"/>
-  <Parameter name="testcase" type="string" value="cummins"/>
+  <Parameter name="dt" type="double" value=".005"/>
+  <Parameter name="nt" type="int" value = "100"/>
+  <Parameter name="meshfile" type="string" value="./pfhub3_2d_240x240p2.e"/>
+  <Parameter name="testcase" type="string" value="pfhub3"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="0.5"/>
   <Parameter name="outputfreq" type="int" value = "5"/>
+  <Parameter name="method" type="string" value="tpetra"/>
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
-   <ParameterList name="ML">
-     <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/>
-   </ParameterList>
+<!--    <ParameterList name="ML"> -->
+<!--      <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/> -->
+<!--    </ParameterList> -->
 
    <ParameterList name="ProblemParams">
      <Parameter name="delta" type="double" value=".015"/>
    </ParameterList>
+
+  <Parameter name="adaptivetimestep" type="bool" value = "true"/>
+  <ParameterList name="Adaptive Timestep Parameters">
+    <Parameter name="maxiter" type="int" value = "1"/>
+    <Parameter name="atol" type="double" value = "1.e-3"/>
+    <Parameter name="rtol" type="double" value = "0."/>
+    <Parameter name="safety factor" type="double" value = ".95"/>
+    <Parameter name="rmin" type="double" value = ".5"/>
+    <Parameter name="rmax" type="double" value = "2."/>
+    <Parameter name="max dt" type="double" value = "2.5"/>
+  </ParameterList>
+
+
 
 
 </ParameterList>

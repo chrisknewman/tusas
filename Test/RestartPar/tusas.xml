@@ -13,7 +13,7 @@
     <Parameter name="delta" type="double" value=".015"/>
   </ParameterList>
 
-<!--   <Parameter name="method" type="string" value="nemesis"/> -->
+<!--   <Parameter name="method" type="string" value="tpetra"/> -->
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
 
 </ParameterList>

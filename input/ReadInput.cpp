@@ -40,12 +40,10 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   paramList.set(TusasthetaNameString,(double)1.,TusasthetaDocString);
   //paramList.set(TusasthetaNameString,(double)0.,TusasthetaDocString);
 
-  //paramList.set(TusaspreconNameString,(bool)true,TusaspreconDocString);
   paramList.set(TusaspreconNameString,(bool)false,TusaspreconDocString);
 
   paramList.set(TusasleftScalingNameString,(bool)false,TusasleftScalingDocString);
 
-  //paramList.set(TusasmethodNameString,"phaseheat",TusasmethodDocString);
   paramList.set(TusasmethodNameString,"nemesis",TusasmethodDocString);
 
   paramList.set(TusasnoxrelresNameString,(double)1.e-6,TusasnoxrelresDocString);
@@ -135,16 +133,12 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   //Linear solver parameters
   Teuchos::ParameterList *LSList;
   LSList = &paramList.sublist(TusaslsNameString,false);
-#if 0
+
   LSList->set("Linear Solver Type", "Belos");
   //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Num Blocks",1);
   //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Pseudo Block GMRES").set("Maximum Restarts",200);
   //lsparams->sublist("Linear Solver Types").sublist("Belos").sublist("Solver Types").sublist("Psuedo Block GMRES").set("Output Frequency",1);
-#else
-  LSList->set("Linear Solver Type", "AztecOO");
-  LSList->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").set("Output Frequency",1);
-  //lsparams->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").sublist("AztecOO Preconditioner", "None");
-#endif
+
   LSList->set("Preconditioner Type", "None");
 
   //jfnk params
@@ -240,9 +234,11 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasoutputpathNameString,outputPathName,TusasoutputpathDocString);
 
-  if( 0 !=(LSList->get<std::string>("Linear Solver Type")).compare("AztecOO") ) {
-    //LSList->sublist("Linear Solver Types").sublist("AztecOO").sublist("Forward Solve").sublist("AztecOO Settings").remove("Output Frequency");
-    LSList->sublist("Linear Solver Types").remove("AztecOO");
+  if( 0 ==(LSList->get<std::string>("Linear Solver Type")).compare("AztecOO") ) {
+    if( 0 == mypid ){
+      std::cout<<"Linear Solver Type: AztecOO no longer supported, please use Belos."<<"\n"<<"\n"<<"\n";
+      LSList->sublist("Linear Solver Types").remove("AztecOO",true);
+    }
   }
 
   //also want to remove ml if methodname is Tpetra

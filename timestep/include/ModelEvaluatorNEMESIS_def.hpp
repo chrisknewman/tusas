@@ -1162,6 +1162,9 @@ void ModelEvaluatorNEMESIS<Scalar>::init_nox()
   Teuchos::RCP<Teuchos::ParameterList> lsparams =
     Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusaslsNameString)));
 
+  if( 0 == mypid )
+    lsparams->print(std::cout);
+
   builder.setParameterList(lsparams);
 
   if( 0 == mypid )

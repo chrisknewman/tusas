@@ -6,6 +6,4 @@ NODAL VARIABLES all relative 1.e-2 floor 1.e-6
    	!tempdyn0
    	!temperror1
    	!tempnorm1
-   	!tempdyn1
-ELEMENT VARIABLES
-        !color
+   	!tempdyn1 all

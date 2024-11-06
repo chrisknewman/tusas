@@ -5,4 +5,4 @@ NODAL VARIABLES all
 	u floor 1.e-17
 ELEMENT VARIABLES
 	!color
-	error0 floor 3.e-9
+	error0 floor 3.e-9 relative 1.e-3

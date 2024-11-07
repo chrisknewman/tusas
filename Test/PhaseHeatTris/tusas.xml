@@ -8,7 +8,7 @@
   <Parameter name="testcase" type="string" value="pfhub3"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="0.5"/>
-  <Parameter name="outputfreq" type="int" value = "1"/>
+  <Parameter name="outputfreq" type="int" value = "2"/>
   <Parameter name="method" type="string" value="tpetra"/>
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
   <Parameter name="noxrelres" type="double" value="1.e-6"/>

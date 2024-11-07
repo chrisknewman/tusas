@@ -11,9 +11,7 @@
   <Parameter name="outputfreq" type="int" value = "5"/>
   <Parameter name="method" type="string" value="tpetra"/>
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
-<!--    <ParameterList name="ML"> -->
-<!--      <Parameter name="smoother: type" type="string" value="symmetric Gauss-Seidel"/> -->
-<!--    </ParameterList> -->
+  <Parameter name="ltpquadord" type="int" value = "3"/>
 
    <ParameterList name="ProblemParams">
      <Parameter name="delta" type="double" value=".015"/>

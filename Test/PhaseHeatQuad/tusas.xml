@@ -3,12 +3,12 @@
 <!-- simulation parameters -->
 
   <Parameter name="dt" type="double" value=".005"/>
-  <Parameter name="nt" type="int" value = "100"/>
-  <Parameter name="meshfile" type="string" value="./pfhub3_2d_240x240p2.e"/>
+  <Parameter name="nt" type="int" value = "400"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/pfhub3_2d_120x120quad.e"/>
   <Parameter name="testcase" type="string" value="pfhub3"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="0.5"/>
-  <Parameter name="outputfreq" type="int" value = "5"/>
+  <Parameter name="outputfreq" type="int" value = "2"/>
   <Parameter name="method" type="string" value="tpetra"/>
 <!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
   <Parameter name="ltpquadord" type="int" value = "3"/>

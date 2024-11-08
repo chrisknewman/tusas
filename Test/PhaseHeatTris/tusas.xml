@@ -3,8 +3,8 @@
 <!-- simulation parameters -->
 
   <Parameter name="dt" type="double" value="0.005"/>
-  <Parameter name="nt" type="int" value = "30"/>
-  <Parameter name="meshfile" type="string" value="./pfhub3_2d_240x240p2tri.e"/>
+  <Parameter name="nt" type="int" value = "400"/>
+  <Parameter name="meshfile" type="string" value="./pfhub3_2d_120x120tri.e"/>
   <Parameter name="testcase" type="string" value="pfhub3"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="0.5"/>

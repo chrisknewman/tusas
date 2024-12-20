@@ -2292,6 +2292,42 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
+  }else if("farzadinew" == paramList.get<std::string> (TusastestNameString)){
+    //farzadi test
+
+    if(paramList.get<double> (TusasthetaNameString) < .49) exit(0);
+
+    numeqs_ = 2;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::farzadi3d::init_conc_farzadi_;
+    (*initfunc_)[1] = &tpetra::farzadi3d::init_phase_farzadi_;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_uncoupled_new_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
+    (*preconfunc_)[1] = tpetra::farzadi3d::prec_phase_farzadi_new_dp_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u";
+    (*varnames_)[1] = "phi";
+
+    dirichletfunc_ = NULL;
+
+    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
+    post_proc.push_back(new post_process(mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
+
+    paramfunc_.resize(2);
+    paramfunc_[0] = &tpetra::farzadi3d::param_;
+    paramfunc_[1] = &tpetra::noise::param_;
+
+    neumannfunc_ = NULL;
+
   }else if("fullycoupled" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
 

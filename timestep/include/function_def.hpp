@@ -926,6 +926,79 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_phase_farzadi_dp_)) = residual_phase_farzadi_;
 
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_phase_farzadi_new_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[0]->dphidx(i);
+  const double dtestdy = basis[0]->dphidy(i);
+  const double dtestdz = basis[0]->dphidz(i);
+  //test function
+  const double test = basis[0]->phi(i);
+  //u, phi
+  const int u_id = eqn_id-1;
+  const double u[3] = {basis[u_id]->uu(),basis[u_id]->uuold(),basis[u_id]->uuoldold()};
+  const double phi[3] = {basis[eqn_id]->uu(),basis[eqn_id]->uuold(),basis[eqn_id]->uuoldold()};
+
+  const double dphidx[3] = {basis[eqn_id]->duudx(),basis[eqn_id]->duuolddx(),basis[eqn_id]->duuoldolddx()};
+  const double dphidy[3] = {basis[eqn_id]->duudy(),basis[eqn_id]->duuolddy(),basis[eqn_id]->duuoldolddy()};
+  const double dphidz[3] = {basis[eqn_id]->duudz(),basis[eqn_id]->duuolddz(),basis[eqn_id]->duuoldolddz()};
+
+  const double as[3] = {a(phi[0],dphidx[0],dphidy[0],dphidz[0],eps),
+			a(phi[1],dphidx[1],dphidy[1],dphidz[1],eps),
+			a(phi[2],dphidx[2],dphidy[2],dphidz[2],eps)};
+
+  const double divgradphi[3] = {as[0]*as[0]*(dphidx[0]*dtestdx + dphidy[0]*dtestdy + dphidz[0]*dtestdz),
+				as[1]*as[1]*(dphidx[1]*dtestdx + dphidy[1]*dtestdy + dphidz[1]*dtestdz),
+				as[2]*as[2]*(dphidx[2]*dtestdx + dphidy[2]*dtestdy + dphidz[2]*dtestdz)};//(grad u,grad phi)
+
+  const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
+  const double phit = (phi[0]-phi[1])/dt_*test;
+
+  //double curlgrad = -dgdtheta*dphidy*dtestdx + dgdtheta*dphidx*dtestdy;
+  const double curlgrad[3] = {as[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])
+			      *(ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidx[0],eps)*dtestdx 
+				+ ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidy[0],eps)*dtestdy 
+				+ ap(phi[0],dphidx[0],dphidy[0],dphidz[0],dphidz[0],eps)*dtestdz),
+			      as[1]*(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1])
+			      *(ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidx[1],eps)*dtestdx 
+				+ ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidy[1],eps)*dtestdy 
+				+ ap(phi[1],dphidx[1],dphidy[1],dphidz[1],dphidz[1],eps)*dtestdz),
+			      as[2]*(dphidx[2]*dphidx[2] + dphidy[2]*dphidy[2] + dphidz[2]*dphidz[2])
+			      *(ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidx[2],eps)*dtestdx 
+				+ ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidy[2],eps)*dtestdy 
+				+ ap(phi[2],dphidx[2],dphidy[2],dphidz[2],dphidz[2],eps)*dtestdz)};
+  
+  const double gp1[3] = {-(phi[0] - phi[0]*phi[0]*phi[0])*test,
+			 -(phi[1] - phi[1]*phi[1]*phi[1])*test,
+			 -(phi[2] - phi[2]*phi[2]*phi[2])*test};
+
+  //note in paper eq 39 has g3 different
+  //here (as implemented) our g3 = lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])
+  //matches farzadi eq 10
+  const double noise_term[3] = {tpetra::noise::interface_noise_amplitude_d*std::sqrt(dt_/vol) * rand*test * (1.0 - phi[0]*phi[0]), 
+				0.0, 0.0};
+  //printf("%e %e %e %e\n",rand,vol,tpetra::noise::interface_noise_amplitude_d,noise_term[0]);
+
+  const double hp1u[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(u[0])*test,
+			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(u[1])*test,
+			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(u[2])*test};
+  
+  const double f[3] = {(divgradphi[0] + curlgrad[0] + gp1[0] + hp1u[0] + noise_term[0])/mob[0],
+		       (divgradphi[1] + curlgrad[1] + gp1[1] + hp1u[1] + noise_term[1])/mob[1],
+		       (divgradphi[2] + curlgrad[2] + gp1[2] + hp1u[2] + noise_term[2])/mob[2]};
+
+  const double val = phit 
+    + (1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+
+  return mob[0]*val;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_phase_farzadi_new_dp_)) = residual_phase_farzadi_new_;
+
 TUSAS_DEVICE
 const double gradT(const double &phi){
   return .5*(G_solid_ + G_liquid_ - G_solid_*phi + G_solid_*phi);
@@ -988,6 +1061,65 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_phase_farzadi_uncoupled_dp_)) = residual_phase_farzadi_uncoupled_;
+
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_new_)
+{
+  //test function
+  const double test = basis[0]->phi(i);
+  //u, phi
+  const int u_id = eqn_id-1;
+  const double u[3] = {basis[u_id]->uu(),basis[u_id]->uuold(),basis[u_id]->uuoldold()};
+  const double phi[3] = {basis[eqn_id]->uu(),basis[eqn_id]->uuold(),basis[eqn_id]->uuoldold()};
+
+  const double dphidx[3] = {basis[eqn_id]->duudx(),basis[eqn_id]->duuolddx(),basis[eqn_id]->duuoldolddx()};
+  const double dphidy[3] = {basis[eqn_id]->duudy(),basis[eqn_id]->duuolddy(),basis[eqn_id]->duuoldolddy()};
+  const double dphidz[3] = {basis[eqn_id]->duudz(),basis[eqn_id]->duuolddz(),basis[eqn_id]->duuoldolddz()};
+
+  const double as[3] = {a(phi[0],dphidx[0],dphidy[0],dphidz[0],eps),
+			a(phi[1],dphidx[1],dphidy[1],dphidz[1],eps),
+			a(phi[2],dphidx[2],dphidy[2],dphidz[2],eps)};
+
+  const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
+
+  const double x = basis[0]->xx();//non dimensional x from mesh
+  
+  // frozen temperature approximation: linear pulling of the temperature field
+  const double xx = x*w0;// dimensional x
+
+  //cn this should probablly be: (time+dt_)*tau
+  const double tt[3] = {(time+dt_)*tau0,time*tau0,(time-dtold_)*tau0};//dimensional time
+
+  const double g4[3] = {((dT < 0.001) ? gradT(phi[0])*(xx-R*tt[0])/delta_T0 : dT),
+			     ((dT < 0.001) ? gradT(phi[1])*(xx-R*tt[1])/delta_T0 : dT),
+			     ((dT < 0.001) ? gradT(phi[2])*(xx-R*tt[2])/delta_T0 : dT)};
+  
+  const double hp1g4[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(g4[0])*test,
+			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(g4[1])*test,
+			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(g4[2])*test};
+
+  const double val = tpetra::farzadi3d::residual_phase_farzadi_new_dp_(basis,
+								   i,
+								   dt_,
+								   dtold_,
+								   t_theta_,
+								   t_theta2_,
+								   time,
+								   eqn_id,
+								   vol,
+								   rand);
+
+  const double rv = val/mob[0]
+    + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]/mob[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]/mob[1]-dt_/dtold_*hp1g4[2]/mob[2]);
+
+  return mob[0]*rv;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_phase_farzadi_uncoupled_new_dp_)) = residual_phase_farzadi_uncoupled_new_;
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
@@ -1113,6 +1245,9 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
 
 }
 
+TUSAS_DEVICE
+PRE_FUNC_TPETRA((*prec_conc_farzadi_dp_)) = prec_conc_farzadi_;
+
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_phase_farzadi_)
 {
@@ -1145,8 +1280,38 @@ PRE_FUNC_TPETRA(prec_phase_farzadi_)
 TUSAS_DEVICE
 PRE_FUNC_TPETRA((*prec_phase_farzadi_dp_)) = prec_phase_farzadi_;
 
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_phase_farzadi_new_)
+{
+  const double dtestdx = basis[0]->dphidx(i);
+  const double dtestdy = basis[0]->dphidy(i);
+  const double dtestdz = basis[0]->dphidz(i);
+  const double dbasisdx = basis[0]->dphidx(j);
+  const double dbasisdy = basis[0]->dphidy(j);
+  const double dbasisdz = basis[0]->dphidz(j);
+
+  const double test = basis[0]->phi(i);
+  
+  const double dphidx = basis[1]->duudx();
+  const double dphidy = basis[1]->duudy();
+  const double dphidz = basis[1]->duudz();
+
+  const double u = basis[0]->uu();
+  const double phi = basis[1]->uu();
+
+  const double as = a(phi,dphidx,dphidy,dphidz,eps);
+
+  const double m = (1.+(1.-k)*u)*as*as;
+  const double phit = (basis[0]->phi(j))/dt_*test;
+
+  const double divgrad = as*as*(dbasisdx*dtestdx + dbasisdy*dtestdy + dbasisdz*dtestdz);
+
+  return (phit + t_theta_*(divgrad)/m)*m;
+}
+
 TUSAS_DEVICE
-PRE_FUNC_TPETRA((*prec_conc_farzadi_dp_)) = prec_conc_farzadi_;
+PRE_FUNC_TPETRA((*prec_phase_farzadi_new_dp_)) = prec_phase_farzadi_new_;
+
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_conc_farzadi_exp_)

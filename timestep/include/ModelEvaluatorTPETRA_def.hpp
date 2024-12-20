@@ -2286,8 +2286,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
 
-    paramfunc_.resize(1);
+    paramfunc_.resize(2);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
+    paramfunc_[1] = &tpetra::noise::param_;
 
     neumannfunc_ = NULL;
 

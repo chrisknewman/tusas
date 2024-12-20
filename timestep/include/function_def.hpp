@@ -161,6 +161,24 @@
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
 
+namespace noise
+{
+TUSAS_DEVICE
+double interface_noise_amplitude_d = 0.0;
+
+KOKKOS_INLINE_FUNCTION 
+double noise_(const double &rand, const double &dt, const double &vol)
+{
+  return interface_noise_amplitude_d*rand*std::sqrt(dt/vol);
+}
+
+PARAM_FUNC(param_)
+{
+  double interface_noise_amplitude_p = plist->get<double>("interface_noise_amplitude", 0.0);
+  interface_noise_amplitude_d=interface_noise_amplitude_p;
+}
+}//namespace noise
+
 namespace heat{
 TUSAS_DEVICE
 double k_d = 1.;
@@ -885,14 +903,17 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   //note in paper eq 39 has g3 different
   //here (as implemented) our g3 = lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])
   //matches farzadi eq 10
+  const double noise_term[3] = {tpetra::noise::interface_noise_amplitude_d*std::sqrt(dt_/vol) * rand*test * (1.0 - phi[0]*phi[0]), 
+				0.0, 0.0};
+  //printf("%e %e %e %e\n",rand,vol,tpetra::noise::interface_noise_amplitude_d,noise_term[0]);
 
   const double hp1u[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(u[0])*test,
 			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(u[1])*test,
 			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(u[2])*test};
   
-  const double f[3] = {(divgradphi[0] + curlgrad[0] + gp1[0] + hp1u[0])/mob[0],
-		       (divgradphi[1] + curlgrad[1] + gp1[1] + hp1u[1])/mob[1],
-		       (divgradphi[2] + curlgrad[2] + gp1[2] + hp1u[2])/mob[2]};
+  const double f[3] = {(divgradphi[0] + curlgrad[0] + gp1[0] + hp1u[0] + noise_term[0])/mob[0],
+		       (divgradphi[1] + curlgrad[1] + gp1[1] + hp1u[1] + noise_term[1])/mob[1],
+		       (divgradphi[2] + curlgrad[2] + gp1[2] + hp1u[2] + noise_term[2])/mob[2]};
 
   const double val = phit 
     + (1.-t_theta2_)*t_theta_*f[0]
@@ -1219,23 +1240,6 @@ PPR_FUNC(postproc_t_)
   return ((dT < 0.001) ? T_ref + gradT(phi)*(xx-R*tt) : T_ref);
 }
 }//namespace farzadi3d
-
-namespace noise
-{
-  double interface_noise_amplitude_d = 0.0;
-
-KOKKOS_INLINE_FUNCTION 
-double noise_(const double &rand, const double &dt, const double &vol)
-{
-  return interface_noise_amplitude_d*rand*std::sqrt(dt/vol);
-}
-
-PARAM_FUNC(param_)
-{
-  double interface_noise_amplitude_p = plist->get<double>("interface_noise_amplitude", 0.0);
-  interface_noise_amplitude_d=interface_noise_amplitude_p;
-}
-}//namespace noise
 
 namespace pfhub3
 {

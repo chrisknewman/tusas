@@ -369,7 +369,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //ts_time_ioread= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Read Time");
 
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
-  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart));
+  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart,false));
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);

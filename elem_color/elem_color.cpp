@@ -26,8 +26,10 @@
 std::string getmypidstring(const int mypid, const int numproc);
 
 elem_color::elem_color(Mesh *mesh,
-		       bool dorestart): 
-  mesh_(mesh)
+		       bool dorestart,
+		       bool writedata): 
+  mesh_(mesh),
+  writedata_(writedata)
 {
   //ts_time_create= Teuchos::TimeMonitor::getNewTimer("Total Elem Create Color Time");
   //ts_time_elemadj= Teuchos::TimeMonitor::getNewTimer("Total Elem Adj Fill Time");
@@ -203,12 +205,14 @@ void elem_color::create_colorer()
 }
 void elem_color::init_mesh_data() const
 {
+  if(!writedata_) return;
   const std::string cstring="color";
   mesh_->add_elem_field(cstring);
   return;
 }
 void elem_color::update_mesh_data() const
 {
+  if(!writedata_) return;
   const int num_elem = mesh_->get_elem_num_map()->size();
   std::vector<double> color(num_elem,0.);
   for(int c = 0; c < num_color_; c++){

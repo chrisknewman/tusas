@@ -1858,6 +1858,11 @@ template<class scalar_type>
     for( int k = 0; k < numeqs_; k++ ){
       mesh_->add_nodal_field((*varnames_)[k]);
     }
+
+    //create a global variable to store the number of
+    //time-steps elapsed
+    const std::string ntsteps_name = "num_timesteps";
+    mesh_->add_global_field(ntsteps_name);
 #if 1
     if(paramList.get<bool> (TusasestimateTimestepNameString)){    
       setadaptivetimestep();
@@ -1873,6 +1878,7 @@ template<class scalar_type>
       mesh_->add_nodal_field((*varnames_)[k]);
     }
 
+    // do we need to make a global num_timesteps here too?
 #if 1
     Teuchos::ParameterList *atsList;
     atsList = &paramList.sublist (TusasatslistNameString, false );

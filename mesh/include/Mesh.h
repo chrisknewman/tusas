@@ -100,6 +100,8 @@ class Mesh
   std::vector<int> get_nodal_patch(int i){return nodal_patch[i];}
   std::vector<int> get_nodal_patch_overlap(int i){return nodal_patch_overlap[i];}
 
+  /// Add global field with name name
+  int add_global_field(const std::string name);
   /// Add nodal data as std::vector<double> with name name
   int add_nodal_data(std::string name, std::vector<double> &data);
   /// Add nodal data as an array with name name
@@ -251,6 +253,7 @@ class Mesh
   int num_elem_blk;
   int num_node_sets;
   int num_side_sets;
+  int num_global_fields;
   int num_nodal_fields;
   int num_elem_fields;
   int num_vertices;
@@ -285,6 +288,9 @@ class Mesh
   std::vector<std::vector<int> > nodal_adj; //cn we may only need this for epetra
   //std::vector<int> nodal_adj_idx;
   //std::vector<int> nodal_adj_array;
+
+  std::vector<std::string> global_field_names;
+  std::vector<double> global_fields;
 
   std::vector<std::string> nodal_field_names;      
   std::vector<std::vector<double> > nodal_fields;

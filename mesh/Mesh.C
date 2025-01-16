@@ -51,6 +51,7 @@ int Mesh::read_exodus(const char * filename){
   is_nodesets_sorted = false;
   is_compute_nodal_patch_overlap = false;
 
+  num_global_fields = 0;
   num_nodal_fields = 0;
   num_elem_fields = 0;
 
@@ -1256,6 +1257,22 @@ int Mesh::add_nodal_data(std::string &name, std::vector<double> &data){
 }
 */
 //int Mesh::add_nodal_data(std::basic_string<char, std::char_traits<char> > name, double *data){return 1;}
+
+int Mesh::add_global_field(const std::string name){
+    num_global_fields++;
+
+    global_field_names.push_back(name);
+    global_fields.resize(num_nodal_fields);
+    if(verbose)
+
+      std::cout<<"=== add global field ==="<<std::endl
+	       <<" num_global_fields "<<num_global_fields<<std::endl
+	       <<" sizeof global_field_names "<<global_field_names.size()<<std::endl
+	       <<" global_field_names "<<name<<std::endl;
+
+  return 1;
+
+}
 int Mesh::add_nodal_data(std::string name, std::vector<double> &data){
 
 

@@ -1816,6 +1816,11 @@ template<class scalar_type>
       mesh_->add_nodal_field((*varnames_)[k]);
     }
 
+    //create a global variable to store the number of
+    //time-steps elapsed
+    const std::string ntsteps_name = "num_timesteps";
+    mesh_->add_global_field(ntsteps_name);
+
     if(paramList.get<bool> (TusasestimateTimestepNameString)){    
       setadaptivetimestep();
     }

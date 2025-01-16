@@ -1070,8 +1070,8 @@ int Mesh::write_elem_data_exodus(int ex_id){
 
   if(verbose)
 
-    std::cout<<"=== Write Nodal Data Exodus ==="<<std::endl
-	     <<" num_nodal_fields "<<num_nodal_fields<<std::endl;
+    std::cout<<"=== Write Element Data Exodus ==="<<std::endl
+	     <<" num_elem_fields "<<num_elem_fields<<std::endl;
 
   if(num_elem_fields == 0) return 0;
 
@@ -1124,8 +1124,8 @@ int Mesh::write_elem_data_exodus(int ex_id, int counter){
 
   if(verbose)
 
-    std::cout<<"=== Write Nodal Data Exodus ==="<<std::endl
-	     <<" num_nodal_fields "<<num_nodal_fields<<std::endl;
+    std::cout<<"=== Write Element Data Exodus ==="<<std::endl
+	     <<" num_elem_fields "<<num_nodal_fields<<std::endl;
 
   if(num_elem_fields == 0) return 0;
 

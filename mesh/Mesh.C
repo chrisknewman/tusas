@@ -707,6 +707,7 @@ int Mesh::write_exodus(const char * filename){
 
    write_nodal_coordinates_exodus(ex_id);
    write_element_blocks_exodus(ex_id);
+   write_global_data_exodus(ex_id);
    write_nodal_data_exodus(ex_id);
 
 return 0;
@@ -719,6 +720,7 @@ int Mesh::write_exodus(const int ex_id){
 
    write_nodal_coordinates_exodus(ex_id);
    write_element_blocks_exodus(ex_id);
+   write_global_data_exodus(ex_id);
    write_nodal_data_exodus(ex_id);
    write_elem_data_exodus(ex_id);
    //ex_put_node_num_map(ex_id,&node_num_map[0]);
@@ -733,7 +735,10 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
   //std::cout<<error<<std::endl;
   error = write_element_blocks_exodus(ex_id);
   //std::cout<<error<<std::endl;
+  error = write_global_data_exodus(ex_id,counter);
+  //std::cout<<error<<std::endl;
   error = write_nodal_data_exodus(ex_id,counter);
+  //std::cout<<error<<std::endl;
   error = write_elem_data_exodus(ex_id,counter);
   //std::cout<<error<<std::endl;
   error = ex_put_time(ex_id,counter,&time);
@@ -758,6 +763,8 @@ int Mesh::write_exodus_no_elem(const int ex_id, const int counter, const double 
   error = write_nodal_coordinates_exodus(ex_id);
   //std::cout<<error<<std::endl;
   error = write_element_blocks_exodus(ex_id);
+  //std::cout<<error<<std::endl;
+  error = write_global_data_exodus(ex_id,counter);
   //std::cout<<error<<std::endl;
   error = write_nodal_data_exodus(ex_id,counter);
   //error = write_elem_data_exodus(ex_id,counter);
@@ -971,6 +978,77 @@ int Mesh::write_element_blocks_exodus(int ex_id){
   //#endif
   }
 
+
+  return ex_err;
+
+}
+
+int Mesh::write_global_data_exodus(int ex_id){
+
+  int ex_err;
+  char **var_names;
+
+  if(1)
+    std::cout<<"=== Write Global Data Exodus ==="<<std::endl
+	         <<" num_global_fields "<<num_global_fields<<std::endl;
+
+  if(num_global_fields == 0) return 0;
+
+  ex_err = ex_put_var_param (ex_id, "G", num_global_fields);
+
+  var_names = new char*[num_global_fields];
+  for(int i = 0; i < num_global_fields; i++){
+    var_names[i] = (char *)&global_field_names[i][0];
+
+    if(1)
+      std::cout<<" name  "<<var_names[i]<<std::endl<<std::endl;
+  }
+
+  ex_err = ex_put_var_names (ex_id, "G", num_global_fields, var_names);
+
+  ex_err = ex_put_glob_vars (ex_id, 1, num_global_fields, &global_fields[0]);
+
+  delete [] var_names;
+
+  return ex_err;
+
+}
+
+int Mesh::write_global_data_exodus(int ex_id, int counter){
+
+  int ex_err;
+  char **var_names;
+
+  if(1)
+    std::cout<<"=== Write Global Data Exodus 1==="<<std::endl
+	         <<" num_global_fields "<<num_global_fields<<std::endl;
+
+  if(num_global_fields == 0) return 0;
+
+  ex_err = ex_put_var_param (ex_id, "G", num_global_fields);
+
+  var_names = new char*[num_global_fields];
+  std::vector<int> ex_index(num_global_fields);
+  for(int i = 0; i < num_global_fields; i++){
+    ex_index[i] = read_global_field_index(ex_id, global_field_names[i]);
+
+    if( 0 > ex_index[i] ) ex_index[i] = i;
+
+    var_names[ex_index[i]] = (char *)&global_field_names[i][0];
+
+    if(1)
+      std::cout<<" name  "<<var_names[i]<<std::endl<<std::endl;
+  }
+
+  ex_err = ex_put_var_names (ex_id, "G", num_global_fields, var_names);
+
+  ex_err = ex_put_glob_vars (ex_id, counter, num_global_fields, &global_fields[0]);
+  std::cout<<"ex_err "<<ex_err<<std::endl;
+  std::cout<<"global_fields[0] "<<global_fields[0]<<std::endl;
+  std::cout<<"&global_fields[0] "<<&global_fields[0]<<std::endl;
+  std::cout<<"&global_fields "<<&global_fields<<std::endl;
+
+  delete [] var_names;
 
   return ex_err;
 
@@ -1193,6 +1271,40 @@ int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, std::strin
   return ex_err;
 }
 
+int Mesh::read_global_field_index(const int ex_id, std::string name){
+  //cn this should be the index in the exodus file, since we have not populated these names yet
+
+  int index = -1;
+
+  int num_global_vars;
+  int error = ex_get_var_param (ex_id, "G" , &num_global_vars);
+
+  //std::cout<<num_node_vars<<std::endl;
+
+  char ** var_names;
+  var_names = new char*[num_global_vars];
+  for (int i = 0; i < num_global_vars; i++) var_names[i] = new char[TUSAS_MAX_LINE_LENGTH];
+
+
+  error = ex_get_var_names (ex_id, "G", num_global_vars, var_names);
+  for (int i = 0; i < num_global_vars; i++){
+    //std::cout<<std::string(var_names[i])<<std::endl;
+    if( name == std::string(var_names[i])) index = i;
+  }
+
+  for (int i = 0; i < num_global_vars; i++) delete [] var_names[i];
+  delete [] var_names;
+
+//   if(0 > index){
+//     std::cout<<name<<" not found"<<std::endl<<std::endl;
+//     exit(0);
+//   }
+  std::cout<<"index "<<index<<std::endl;
+
+  //exit(0);
+  return index;
+}
+
 int Mesh::read_nodal_field_index(const int ex_id, std::string name){
   //cn this should be the index in the exodus file, since we have not populated these names yet
 
@@ -1358,6 +1470,29 @@ int Mesh::add_elem_field(const std::string name){
 
 }
 
+int Mesh::update_global_data(const std::string name, const double data){
+
+  for (int i = 0; i < num_global_fields; i++){
+    if(name == global_field_names[i]){
+      //std::cout<<"found"<<std::endl;
+      std::cout<<"data "<<data<<std::endl;
+      global_fields[i]=data;
+      //for(int j = 0; j<(nodal_fields[i]).size();j++ ) std::cout<<proc_id<<" "<<(nodal_fields[i]).size()<<" "<<num_nodes<<" "<<j<<" "<<nodal_fields[i][j]<<std::endl;
+      return 1;
+    }
+  }
+
+  if(verbose)
+    std::cout<<"=== Update global data ==="<<std::endl
+	         <<" num_global_fields "<<num_global_fields<<std::endl
+	         <<" sizeof global_field_names "<<global_field_names.size()<<std::endl
+	         <<" sizeof global_fields "<<global_fields.size()<<std::endl<<std::endl;
+
+  std::cout<<name<<" not found"<<std::endl<<std::endl;
+
+  return 0;
+
+}
 
 int Mesh::update_nodal_data(const std::string name, const double *data){
 

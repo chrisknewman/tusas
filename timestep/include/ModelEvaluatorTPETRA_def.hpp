@@ -3438,6 +3438,16 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     mesh_->update_nodal_data((*varnames_)[k], &output[k][0]);
   }
 
+  // just have one global variable for now, otherwise this
+  // could be called in a loop as update_nodal_data above
+  // additionally, it would be better to track ntsteps within
+  // a given instance of a modal object, rather than doing
+  // output_freq * output_step_
+  const int output_freq = paramList.get<int> (TusasoutputfreqNameString);
+  const int ntsteps = output_freq * (output_step_ - 1);
+  mesh_->update_global_data("num_timesteps", (double)ntsteps);
+  std::cout<<"ntsteps "<<ntsteps<<std::endl;
+
   boost::ptr_vector<error_estimator>::iterator it;
   for(it = Error_est.begin();it != Error_est.end();++it){
     it->update_mesh_data();

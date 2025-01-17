@@ -1874,13 +1874,18 @@ template<class scalar_type>
     write_exodus();
   }//if !dorestart
   else{
+    const std::string ntsteps_name = "num_timesteps";
+    mesh_->add_global_field(ntsteps_name);
+
     restart(u_old_);//,u_old_old_);
 
     for( int k = 0; k < numeqs_; k++ ){
       mesh_->add_nodal_field((*varnames_)[k]);
     }
 
-    // do we need to make a global num_timesteps here too?
+    //do we need this?
+    //const std::string ntsteps_name = "num_timesteps";
+    //mesh_->add_global_field(ntsteps_name);
 #if 1
     Teuchos::ParameterList *atsList;
     atsList = &paramList.sublist (TusasatslistNameString, false );
@@ -3681,6 +3686,12 @@ template<class scalar_type>
     }
   }
 
+  //grab the number of timesteps taken in the run before this restart
+  double ntsteps_d = -1;
+  error = mesh_->read_global_data_exodus(ex_id_, step, "num_timesteps", &ntsteps_d);
+  const int ntsteps = (int)ntsteps_d;
+  std::cout<<"read ntsteps "<<ntsteps<<std::endl;
+
   mesh_->close_exodus(ex_id_);
 
   //cn for now just put current values into old values, 
@@ -3709,14 +3720,17 @@ template<class scalar_type>
   step = step - 1;
   this->start_time = time;
   //start_step is not quite accurate here if adaptive
-  int ntstep = (int)(time/dt_);
-  this->start_step = ntstep;
+  //int ntstep = (int)(time/dt_);
+  this->start_step = ntsteps;
+  this->cur_step = ntsteps;
   time_=time;
   output_step_ = step+2;
   //   u->Print(std::cout);
   //   exit(0);
   if( 0 == mypid ){
-    std::cout<<"Restarting at time = "<<time<<" and tusas step = "<<step<<std::endl<<std::endl;
+    std::cout<<"Restarting at time = "<<time
+             <<", time step = "<<ntsteps
+             <<", and output step = "<<step<<std::endl<<std::endl;
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
   //exit(0);

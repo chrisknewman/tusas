@@ -1030,7 +1030,7 @@ int Mesh::write_global_data_exodus(int ex_id, int counter){
   var_names = new char*[num_global_fields];
   std::vector<int> ex_index(num_global_fields);
   for(int i = 0; i < num_global_fields; i++){
-    ex_index[i] = read_global_field_index(ex_id, global_field_names[i]);
+    ex_index[i] = get_global_field_index(global_field_names[i]);
 
     if( 0 > ex_index[i] ) ex_index[i] = i;
 
@@ -1259,6 +1259,16 @@ int Mesh::read_num_proc_nemesis(int ex_id, int *nproc){
   return ex_err;
 }
 
+int Mesh::read_global_data_exodus(const int ex_id, const int timestep, std::string name, double *data){
+
+  int ex_err = ex_get_glob_vars (ex_id, timestep, num_global_fields, &global_fields[0]);
+
+  const int index = get_global_field_index(name);
+  *data = global_fields[index];
+
+  return ex_err;
+}
+
 int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, const int index, double *data){
   int ex_err = ex_get_nodal_var (ex_id, timestep, index, num_nodes, &data[0]);
   return ex_err;
@@ -1271,37 +1281,16 @@ int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, std::strin
   return ex_err;
 }
 
-int Mesh::read_global_field_index(const int ex_id, std::string name){
-  //cn this should be the index in the exodus file, since we have not populated these names yet
+int Mesh::get_global_field_index(std::string name){
 
   int index = -1;
 
-  int num_global_vars;
-  int error = ex_get_var_param (ex_id, "G" , &num_global_vars);
-
-  //std::cout<<num_node_vars<<std::endl;
-
-  char ** var_names;
-  var_names = new char*[num_global_vars];
-  for (int i = 0; i < num_global_vars; i++) var_names[i] = new char[TUSAS_MAX_LINE_LENGTH];
-
-
-  error = ex_get_var_names (ex_id, "G", num_global_vars, var_names);
-  for (int i = 0; i < num_global_vars; i++){
-    //std::cout<<std::string(var_names[i])<<std::endl;
-    if( name == std::string(var_names[i])) index = i;
+  for (int i = 0; i < num_global_fields; i++){
+    if(name == global_field_names[i]) index = i;
   }
 
-  for (int i = 0; i < num_global_vars; i++) delete [] var_names[i];
-  delete [] var_names;
-
-//   if(0 > index){
-//     std::cout<<name<<" not found"<<std::endl<<std::endl;
-//     exit(0);
-//   }
   std::cout<<"index "<<index<<std::endl;
 
-  //exit(0);
   return index;
 }
 

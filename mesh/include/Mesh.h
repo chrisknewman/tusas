@@ -76,6 +76,8 @@ class Mesh
   int read_time_exodus(const int ex_id, const int counter, double &time);
   /// Read the last timestep index timestep from exodus file with exodus id ex_id.
   int read_last_step_exodus(const int ex_id, int &timestep);
+  /// Read global data by variable name name at timestep index timestep.
+  int read_global_data_exodus(const int ex_id, const int timestep, std::string name, double *data);
   /// Read nodal data by variable index index at timestep index timestep.
   int read_nodal_data_exodus(const int ex_id, const int timestep, const int index, double *data);
   /// Read nodal data by variable name name at timestep index timestep.
@@ -311,8 +313,8 @@ class Mesh
   int write_elem_data_exodus(int ex_id, int counter);
   int write_elem_data_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
+  int get_global_field_index(std::string name);
   int get_nodal_field_index(std::string name);
-  int read_global_field_index(const int ex_id, std::string name);
   int read_nodal_field_index(const int ex_id, std::string name);
   int get_elem_field_index(std::string name);
   //std::vector<int> node_num_map;

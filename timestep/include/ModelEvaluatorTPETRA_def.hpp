@@ -1802,7 +1802,6 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
   }
   ++numsteps_;
   this->cur_step++;
-  std::cout<<"advance cur_step "<<this->cur_step<<std::endl;
 
   dt_ = dtpred;
   return dtold_;
@@ -1874,6 +1873,13 @@ template<class scalar_type>
     write_exodus();
   }//if !dorestart
   else{
+    //since we need to read num_timesteps from exodus
+    //during the restart() below here, we need to tell
+    //tusas to expect this global variable first
+    // ~~~
+    //it might make more sense to put this, along with
+    //the loop over the nodal fields in the restart function
+    //itself
     const std::string ntsteps_name = "num_timesteps";
     mesh_->add_global_field(ntsteps_name);
 
@@ -1883,9 +1889,6 @@ template<class scalar_type>
       mesh_->add_nodal_field((*varnames_)[k]);
     }
 
-    //do we need this?
-    //const std::string ntsteps_name = "num_timesteps";
-    //mesh_->add_global_field(ntsteps_name);
 #if 1
     Teuchos::ParameterList *atsList;
     atsList = &paramList.sublist (TusasatslistNameString, false );
@@ -3449,7 +3452,6 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
   // could be called in a loop as update_nodal_data above
   const int ntsteps = this->cur_step;
   mesh_->update_global_data("num_timesteps", (double)ntsteps);
-  std::cout<<"this->cur_step "<<this->cur_step<<std::endl;
 
   boost::ptr_vector<error_estimator>::iterator it;
   for(it = Error_est.begin();it != Error_est.end();++it){
@@ -3690,7 +3692,6 @@ template<class scalar_type>
   double ntsteps_d = -1;
   error = mesh_->read_global_data_exodus(ex_id_, step, "num_timesteps", &ntsteps_d);
   const int ntsteps = (int)ntsteps_d;
-  std::cout<<"read ntsteps "<<ntsteps<<std::endl;
 
   mesh_->close_exodus(ex_id_);
 
@@ -3717,10 +3718,8 @@ template<class scalar_type>
   u->doExport(*u_temp,*exporter_, Tpetra::INSERT);
   //u_old->doExport(*u_temp,*exporter_, Tpetra::INSERT);
 
-  step = step - 1;
+  step = step - 1; //this is the exodus output step, not the timestep
   this->start_time = time;
-  //start_step is not quite accurate here if adaptive
-  //int ntstep = (int)(time/dt_);
   this->start_step = ntsteps;
   this->cur_step = ntsteps;
   time_=time;

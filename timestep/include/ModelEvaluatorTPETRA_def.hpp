@@ -1757,7 +1757,9 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
     (*it)->estimate_gradient(u_old_);
     (*it)->estimate_error(u_old_);
   }
-  ++numsteps_;   
+  ++numsteps_;
+  this->cur_step++;
+  std::cout<<"advance cur_step "<<this->cur_step<<std::endl;
 
   dt_ = dtpred;
   return dtold_;
@@ -2613,13 +2615,9 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
 
   // just have one global variable for now, otherwise this
   // could be called in a loop as update_nodal_data above
-  // additionally, it would be better to track ntsteps within
-  // a given instance of a modal object, rather than doing
-  // output_freq * output_step_
-  const int output_freq = paramList.get<int> (TusasoutputfreqNameString);
-  const int ntsteps = output_freq * (output_step_ - 1);
+  const int ntsteps = this->cur_step;
   mesh_->update_global_data("num_timesteps", (double)ntsteps);
-  std::cout<<"ntsteps "<<ntsteps<<std::endl;
+  std::cout<<"this->cur_step "<<this->cur_step<<std::endl;
 
   std::vector<error_estimator*>::iterator it;
   for(it = Error_est.begin();it != Error_est.end();++it){

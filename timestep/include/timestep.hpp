@@ -20,7 +20,7 @@ class timestep
 
 public:
   /// Constructor
-  timestep():start_time(0.0),start_step(0){};
+  timestep():start_time(0.0),start_step(0),cur_step(0){};
   /// Destructor
   virtual ~timestep(){};
   /// Initialize
@@ -33,6 +33,8 @@ public:
   virtual void finalize() = 0;
   /// Write solution to exodusII file.
   virtual void write_exodus() = 0;
+  /// Return the current number of timesteps taken.
+  virtual int get_cur_step(){return cur_step;};
   /// Return the timestep index for restart.
   virtual int get_start_step(){return start_step;};
   /// Return the timestep for restart.
@@ -44,6 +46,8 @@ public:
   double start_time;
   /// Timestep index for restart.
   int start_step;
+  /// Count of total number of timesteps taken.
+  int cur_step;
   
 };
 

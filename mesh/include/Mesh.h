@@ -108,6 +108,8 @@ class Mesh
   int add_nodal_data(std::string name, double *data);
   /// Add nodal field with name name
   int add_nodal_field(const std::string name);
+  /// Update global data as a double with name name
+  int update_global_data(const std::string name, const double data);
   /// Update nodal data as an array with name name
   int update_nodal_data(const std::string name, const double *data);
   /// Add an element field with name name
@@ -302,12 +304,15 @@ class Mesh
 
   int write_nodal_coordinates_exodus(int ex_id);
   int write_element_blocks_exodus(int ex_id);
+  int write_global_data_exodus(int ex_id);
+  int write_global_data_exodus(int ex_id, int counter);
   int write_nodal_data_exodus(int ex_id);
   int write_nodal_data_exodus(int ex_id, int counter);
   int write_elem_data_exodus(int ex_id, int counter);
   int write_elem_data_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
   int get_nodal_field_index(std::string name);
+  int read_global_field_index(const int ex_id, std::string name);
   int read_nodal_field_index(const int ex_id, std::string name);
   int get_elem_field_index(std::string name);
   //std::vector<int> node_num_map;

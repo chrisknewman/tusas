@@ -76,6 +76,8 @@ class Mesh
   int read_time_exodus(const int ex_id, const int counter, double &time);
   /// Read the last timestep index timestep from exodus file with exodus id ex_id.
   int read_last_step_exodus(const int ex_id, int &timestep);
+  /// Read global data by variable name name at timestep index timestep.
+  int read_global_data_exodus(const int ex_id, const int timestep, std::string name, double *data);
   /// Read nodal data by variable index index at timestep index timestep.
   int read_nodal_data_exodus(const int ex_id, const int timestep, const int index, double *data);
   /// Read nodal data by variable name name at timestep index timestep.
@@ -100,12 +102,16 @@ class Mesh
   std::vector<int> get_nodal_patch(int i){return nodal_patch[i];}
   std::vector<int> get_nodal_patch_overlap(int i){return nodal_patch_overlap[i];}
 
+  /// Add global field with name name
+  int add_global_field(const std::string name);
   /// Add nodal data as std::vector<double> with name name
   int add_nodal_data(std::string name, std::vector<double> &data);
   /// Add nodal data as an array with name name
   int add_nodal_data(std::string name, double *data);
   /// Add nodal field with name name
   int add_nodal_field(const std::string name);
+  /// Update global data as a double with name name
+  int update_global_data(const std::string name, const double data);
   /// Update nodal data as an array with name name
   int update_nodal_data(const std::string name, const double *data);
   /// Add an element field with name name
@@ -251,6 +257,7 @@ class Mesh
   int num_elem_blk;
   int num_node_sets;
   int num_side_sets;
+  int num_global_fields;
   int num_nodal_fields;
   int num_elem_fields;
   int num_vertices;
@@ -286,6 +293,9 @@ class Mesh
   //std::vector<int> nodal_adj_idx;
   //std::vector<int> nodal_adj_array;
 
+  std::vector<std::string> global_field_names;
+  std::vector<double> global_fields;
+
   std::vector<std::string> nodal_field_names;      
   std::vector<std::vector<double> > nodal_fields;
 
@@ -296,11 +306,14 @@ class Mesh
 
   int write_nodal_coordinates_exodus(int ex_id);
   int write_element_blocks_exodus(int ex_id);
+  int write_global_data_exodus(int ex_id);
+  int write_global_data_exodus(int ex_id, int counter);
   int write_nodal_data_exodus(int ex_id);
   int write_nodal_data_exodus(int ex_id, int counter);
   int write_elem_data_exodus(int ex_id, int counter);
   int write_elem_data_exodus(int ex_id);
   void check_exodus_error(const int ex_err,const std::string msg);
+  int get_global_field_index(std::string name);
   int get_nodal_field_index(std::string name);
   int read_nodal_field_index(const int ex_id, std::string name);
   int get_elem_field_index(std::string name);

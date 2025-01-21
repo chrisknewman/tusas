@@ -26,15 +26,18 @@ post_process::post_process(//const Teuchos::RCP<const Epetra_Comm>& comm,
 			   bool restart,
 			   const int eqn_id,
 			   const std::string basename,
-			   const int precision):  
+			   const int precision,
+               const bool writedata):
   mesh_(mesh),
   index_(index),
   s_op_(s_op),
   restart_(restart),
   eqn_id_(eqn_id),
   basename_(basename),
-  precision_(precision)
+  precision_(precision),
+  writedata_(writedata)
 {
+
   scalar_val_ =  0.;
 
   const std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
@@ -66,7 +69,7 @@ post_process::post_process(//const Teuchos::RCP<const Epetra_Comm>& comm,
   ppvar_ = Teuchos::rcp(new vector_type(node_map_));
 
   const std::string ystring=basename_+std::to_string(index_);
-  mesh_->add_nodal_field(ystring);
+  if(writedata_) mesh_->add_nodal_field(ystring);
 
   if ( (0 == comm_->getRank()) && (s_op_ != NONE) ){
     filename_ = ystring+".dat";
@@ -80,7 +83,9 @@ post_process::post_process(//const Teuchos::RCP<const Epetra_Comm>& comm,
   }
 
   if ( 0 == comm_->getRank())
-    std::cout<<"Post process created for variable "<<index_<<" with name "<<ystring<<std::endl<<std::endl;
+    std::cout<<"Post process created for variable "<<index_
+             <<" with name "<<ystring
+             <<". Write to exodus = "<<writedata_<<std::endl<<std::endl;
   //exit(0);
 };
 
@@ -109,6 +114,8 @@ void post_process::process(const int i,
 };
 
 void post_process::update_mesh_data() const {
+
+  if(!writedata_) return;
 
   const int num_nodes = overlap_map_->getLocalNumElements();
 

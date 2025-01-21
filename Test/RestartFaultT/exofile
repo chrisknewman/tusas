@@ -1,3 +1,5 @@
 NODAL VARIABLES all
 	u floor 3.e-17
-	pp0 floor 7.e-17
+	!pp0 floor 7.e-17
+GLOBAL VARIABLES all
+	

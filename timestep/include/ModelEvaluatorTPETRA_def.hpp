@@ -4094,7 +4094,8 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 					      dorestart, 
 					      k, 
 					      "temperror",
-					      16));
+					      16,
+                          false));
       //be with an error estimate based on second derivative
       if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
 	temporal_est[k].postprocfunc_ = &timeadapt::d2udt2_;
@@ -4122,7 +4123,8 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 					       dorestart,
 					       k, 
 					       "tempnorm",
-					       16));
+					       16,
+                           false));
       temporal_norm[k].postprocfunc_ = &timeadapt::normu_;
 
       temporal_dyn.push_back(new post_process(
@@ -4132,7 +4134,8 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 					       dorestart,
 					       k, 
 					       "tempdyn",
-					       16));
+					       16,
+                           false));
       temporal_dyn[k].postprocfunc_ = &timeadapt::dynamic_;
       
     }

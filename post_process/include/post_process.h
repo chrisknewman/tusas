@@ -51,8 +51,8 @@ public:
 	       bool restart = false, ///< restart bool
 	       const int eqn_id = 0, ///< associate this post process variable with an equation
 	       const std::string basename = "pp", ///< basename this post process variable
-	       const int precision = 6 ///< precision for output file
-	       );
+	       const int precision = 6, ///< precision for output file
+	       const bool writedata = true); ///< whether to write field to exodus
   /// Destructor
   ~post_process();
   /// Write the post process variable to exodus.
@@ -127,8 +127,8 @@ private:
   std::string basename_;
   /// restart boolean
   bool restart_;
-  /// write files boolean
-  //bool write_files_;
+  /// write data boolean
+  bool writedata_;
 
 };
 

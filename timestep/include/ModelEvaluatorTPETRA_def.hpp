@@ -339,7 +339,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
   //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
-  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart));
+  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart,false));
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);

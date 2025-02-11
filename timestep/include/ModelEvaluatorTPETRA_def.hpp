@@ -339,7 +339,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
   //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
-  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart));
+  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart,false));
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
@@ -1757,7 +1757,8 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
     (*it)->estimate_gradient(u_old_);
     (*it)->estimate_error(u_old_);
   }
-  ++numsteps_;   
+  ++numsteps_;
+  this->cur_step++;
 
   dt_ = dtpred;
   return dtold_;
@@ -1816,6 +1817,11 @@ template<class scalar_type>
       mesh_->add_nodal_field((*varnames_)[k]);
     }
 
+    //create a global variable to store the number of
+    //time-steps elapsed
+    const std::string ntsteps_name = "num_timesteps";
+    mesh_->add_global_field(ntsteps_name);
+
     if(paramList.get<bool> (TusasestimateTimestepNameString)){    
       setadaptivetimestep();
     }
@@ -1824,7 +1830,16 @@ template<class scalar_type>
     write_exodus();
   }//if !dorestart
   else{
-    
+    //since we need to read num_timesteps from exodus
+    //during the restart() below here, we need to tell
+    //tusas to expect this global variable first
+    // ~~~
+    //it might make more sense to put this, along with
+    //the loop over the nodal fields in the restart function
+    //itself
+    const std::string ntsteps_name = "num_timesteps";
+    mesh_->add_global_field(ntsteps_name);
+
     restart(u_old_);//,u_old_old_);
     
 //     if(1==comm_->MyPID())
@@ -1835,6 +1850,7 @@ template<class scalar_type>
     }
   }//if !dorestart
    
+
   if( 0 == comm_->getRank()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
 }
 
@@ -2606,6 +2622,11 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     mesh_->update_nodal_data((*varnames_)[k], &output[k][0]);
   }
 
+  // just have one global variable for now, otherwise this
+  // could be called in a loop as update_nodal_data above
+  const int ntsteps = this->cur_step;
+  mesh_->update_global_data("num_timesteps", (double)ntsteps);
+
   std::vector<error_estimator*>::iterator it;
   for(it = Error_est.begin();it != Error_est.end();++it){
     (*it)->update_mesh_data();
@@ -2837,6 +2858,11 @@ template<class scalar_type>
     }
   }
 
+  //grab the number of timesteps taken in the run before this restart
+  double ntsteps_d = -1;
+  error = mesh_->read_global_data_exodus(ex_id_, step, "num_timesteps", &ntsteps_d);
+  const int ntsteps = (int)ntsteps_d;
+
   mesh_->close_exodus(ex_id_);
 
   //cn for now just put current values into old values, 
@@ -2864,16 +2890,18 @@ template<class scalar_type>
   Kokkos::fence();
   //u_old->doExport(*u_temp,*exporter_, Tpetra::INSERT);
 
-  step = step - 1;
+  step = step - 1; //this is the exodus output step, not the timestep
   this->start_time = time;
-  int ntstep = (int)(time/dt_);
-  this->start_step = ntstep;
+  this->start_step = ntsteps;
+  this->cur_step = ntsteps;
   time_=time;
   output_step_ = step+2;
   //   u->Print(std::cout);
   //   exit(0);
   if( 0 == mypid ){
-    std::cout<<"Restarting at time = "<<time<<" and tusas step = "<<step<<std::endl<<std::endl;
+    std::cout<<"Restarting at time = "<<time
+             <<", time step = "<<ntsteps
+             <<", and output step = "<<step<<std::endl<<std::endl;
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
   //exit(0);
@@ -3247,7 +3275,8 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 						post_process::NORMRMS, 
 						k, 
 						"temperror",
-						16));
+						16,
+                        false));
 	//be with an error estimate based on second derivative
 	if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
 	   temporal_est[k]->postprocfunc_ = &timeadapt::d2udt2_;
@@ -3274,7 +3303,8 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 						 post_process::NORMRMS, 
 						 k, 
 						 "tempnorm",
-						 16));
+						 16,
+                         false));
  	temporal_norm[k]->postprocfunc_ = &timeadapt::normu_;
 
       }

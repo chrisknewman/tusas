@@ -63,7 +63,8 @@ public:
 	       SCALAR_OP s_op = NONE, ///< scalar operation to perform
 	       const int eqn_id = 0, ///< associate this post process variable with an equation
 	       const std::string basename = "pp", ///< basename this post process variable
-	       const double precision = 6 ///< precision for output file
+	       const double precision = 6, ///< precision for output file
+           const bool writedata = true
 	       );
   /// Destructor
   ~post_process();
@@ -129,6 +130,8 @@ private:
   int eqn_id_;
   /// Variable and file base name
   std::string basename_;
+  /// Write data bool
+  bool writedata_;
 
 
 

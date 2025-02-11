@@ -51,6 +51,7 @@ int Mesh::read_exodus(const char * filename){
   is_nodesets_sorted = false;
   is_compute_nodal_patch_overlap = false;
 
+  num_global_fields = 0;
   num_nodal_fields = 0;
   num_elem_fields = 0;
 
@@ -705,6 +706,7 @@ int Mesh::write_exodus(const char * filename){
 
    write_nodal_coordinates_exodus(ex_id);
    write_element_blocks_exodus(ex_id);
+   write_global_data_exodus(ex_id);
    write_nodal_data_exodus(ex_id);
 
 return 0;
@@ -717,6 +719,7 @@ int Mesh::write_exodus(const int ex_id){
 
    write_nodal_coordinates_exodus(ex_id);
    write_element_blocks_exodus(ex_id);
+   write_global_data_exodus(ex_id);
    write_nodal_data_exodus(ex_id);
    write_elem_data_exodus(ex_id);
    //ex_put_node_num_map(ex_id,&node_num_map[0]);
@@ -731,7 +734,10 @@ int Mesh::write_exodus(const int ex_id, const int counter, const double time){
   //std::cout<<error<<std::endl;
   error = write_element_blocks_exodus(ex_id);
   //std::cout<<error<<std::endl;
+  error = write_global_data_exodus(ex_id,counter);
+  //std::cout<<error<<std::endl;
   error = write_nodal_data_exodus(ex_id,counter);
+  //std::cout<<error<<std::endl;
   error = write_elem_data_exodus(ex_id,counter);
   //std::cout<<error<<std::endl;
   error = ex_put_time(ex_id,counter,&time);
@@ -746,6 +752,8 @@ int Mesh::write_exodus_no_elem(const int ex_id, const int counter, const double 
   error = write_nodal_coordinates_exodus(ex_id);
   //std::cout<<error<<std::endl;
   error = write_element_blocks_exodus(ex_id);
+  //std::cout<<error<<std::endl;
+  error = write_global_data_exodus(ex_id,counter);
   //std::cout<<error<<std::endl;
   error = write_nodal_data_exodus(ex_id,counter);
   //error = write_elem_data_exodus(ex_id,counter);
@@ -964,6 +972,67 @@ int Mesh::write_element_blocks_exodus(int ex_id){
 
 }
 
+int Mesh::write_global_data_exodus(int ex_id){
+
+  if(verbose)
+    std::cout<<"=== Write Global Data Exodus ==="<<std::endl
+	         <<" num_global_fields "<<num_global_fields<<std::endl;
+
+  if(num_global_fields == 0) return 0;
+
+  int ex_err = ex_put_var_param (ex_id, "G", num_global_fields);
+
+  char **var_names = new char*[num_global_fields];
+  for(int i = 0; i < num_global_fields; i++){
+    var_names[i] = (char *)&global_field_names[i][0];
+
+    if(verbose)
+      std::cout<<" name  "<<var_names[i]<<std::endl<<std::endl;
+  }
+
+  ex_err = ex_put_var_names(ex_id, "G", num_global_fields, var_names);
+
+  ex_err = ex_put_glob_vars(ex_id, 1, num_global_fields, &global_fields[0]);
+
+  delete [] var_names;
+
+  return ex_err;
+
+}
+
+int Mesh::write_global_data_exodus(int ex_id, int counter){
+
+  if(verbose)
+    std::cout<<"=== Write Global Data Exodus 1==="<<std::endl
+	         <<" num_global_fields "<<num_global_fields<<std::endl;
+
+  if(num_global_fields == 0) return 0;
+
+  int ex_err = ex_put_var_param (ex_id, "G", num_global_fields);
+
+  char **var_names = new char*[num_global_fields];
+  std::vector<int> ex_index(num_global_fields);
+  for(int i = 0; i < num_global_fields; i++){
+    ex_index[i] = get_global_field_index(global_field_names[i]);
+
+    if(0 > ex_index[i]) ex_index[i] = i;
+
+    var_names[ex_index[i]] = (char *)&global_field_names[i][0];
+
+    if(verbose)
+      std::cout<<" name  "<<var_names[i]<<std::endl<<std::endl;
+  }
+
+  ex_err = ex_put_var_names(ex_id, "G", num_global_fields, var_names);
+
+  ex_err = ex_put_glob_vars(ex_id, counter, num_global_fields, &global_fields[0]);
+
+  delete [] var_names;
+
+  return ex_err;
+
+}
+
 int Mesh::write_nodal_data_exodus(int ex_id){
 
   int ex_err;
@@ -1055,8 +1124,8 @@ int Mesh::write_elem_data_exodus(int ex_id){
 
   if(verbose)
 
-    std::cout<<"=== Write Nodal Data Exodus ==="<<std::endl
-	     <<" num_nodal_fields "<<num_nodal_fields<<std::endl;
+    std::cout<<"=== Write Element Data Exodus ==="<<std::endl
+	     <<" num_elem_fields "<<num_elem_fields<<std::endl;
 
   if(num_elem_fields == 0) return 0;
 
@@ -1100,8 +1169,8 @@ int Mesh::write_elem_data_exodus(int ex_id, int counter){
 
   if(verbose)
 
-    std::cout<<"=== Write Nodal Data Exodus ==="<<std::endl
-	     <<" num_nodal_fields "<<num_nodal_fields<<std::endl;
+    std::cout<<"=== Write Element Data Exodus ==="<<std::endl
+	     <<" num_elem_fields "<<num_nodal_fields<<std::endl;
 
   if(num_elem_fields == 0) return 0;
 
@@ -1145,6 +1214,16 @@ int Mesh::read_num_proc_nemesis(int ex_id, int *nproc){
   return ex_err;
 }
 
+int Mesh::read_global_data_exodus(const int ex_id, const int timestep, std::string name, double *data){
+
+  int ex_err = ex_get_glob_vars(ex_id, timestep, num_global_fields, &global_fields[0]);
+
+  const int index = get_global_field_index(name);
+  *data = global_fields[index];
+
+  return ex_err;
+}
+
 int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, const int index, double *data){
   int ex_err = ex_get_nodal_var (ex_id, timestep, index, num_nodes, &data[0]);
   return ex_err;
@@ -1155,6 +1234,17 @@ int Mesh::read_nodal_data_exodus(const int ex_id, const int timestep, std::strin
   int index = read_nodal_field_index(ex_id, name) + 1;//exodus starts at 1
   int ex_err = ex_get_nodal_var (ex_id, timestep, index, num_nodes, &data[0]);
   return ex_err;
+}
+
+int Mesh::get_global_field_index(std::string name){
+
+  int index = -1;
+
+  for (int i = 0; i < num_global_fields; i++){
+    if(name == global_field_names[i]) index = i;
+  }
+
+  return index;
 }
 
 int Mesh::read_nodal_field_index(const int ex_id, std::string name){
@@ -1256,6 +1346,23 @@ int Mesh::add_nodal_data(std::string &name, std::vector<double> &data){
 }
 */
 //int Mesh::add_nodal_data(std::basic_string<char, std::char_traits<char> > name, double *data){return 1;}
+
+int Mesh::add_global_field(const std::string name){
+
+    num_global_fields++;
+    global_field_names.push_back(name);
+    global_fields.resize(num_nodal_fields);
+
+    if(verbose)
+      std::cout<<"=== add global field ==="<<std::endl
+	           <<" num_global_fields "<<num_global_fields<<std::endl
+	           <<" sizeof global_field_names "<<global_field_names.size()<<std::endl
+	           <<" global_field_names "<<name<<std::endl;
+
+  return 1;
+
+}
+
 int Mesh::add_nodal_data(std::string name, std::vector<double> &data){
 
 
@@ -1306,6 +1413,26 @@ int Mesh::add_elem_field(const std::string name){
 
 }
 
+int Mesh::update_global_data(const std::string name, const double data){
+
+  for (int i = 0; i < num_global_fields; i++){
+    if(name == global_field_names[i]){
+      global_fields[i]=data;
+      return 1;
+    }
+  }
+
+  if(verbose)
+    std::cout<<"=== Update global data ==="<<std::endl
+	         <<" num_global_fields "<<num_global_fields<<std::endl
+	         <<" sizeof global_field_names "<<global_field_names.size()<<std::endl
+	         <<" sizeof global_fields "<<global_fields.size()<<std::endl<<std::endl;
+
+  std::cout<<name<<" not found"<<std::endl<<std::endl;
+
+  return 0;
+
+}
 
 int Mesh::update_nodal_data(const std::string name, const double *data){
 

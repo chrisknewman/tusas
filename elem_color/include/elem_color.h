@@ -33,7 +33,8 @@ class elem_color
 public:
   /// Constructor
   elem_color(Mesh *mesh, ///< mesh object
-	     bool dorestart = false ///< do restart
+	     bool dorestart = false, ///< do restart
+         bool writedata = false
 	     );
   ///Destructor
   ~elem_color();
@@ -79,6 +80,7 @@ private:
   //Teuchos::RCP<Teuchos::Time> ts_time_elemadj;
   Teuchos::RCP<Teuchos::Time> ts_time_color;
   //Teuchos::RCP<Teuchos::Time> ts_time_create;
+  bool writedata_;
 
 };
 #endif

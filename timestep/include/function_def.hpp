@@ -823,7 +823,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   				as[2]*as[2]*(dphidx[2]*dtestdx + dphidy[2]*dtestdy + dphidz[2]*dtestdz)};//(grad u,grad phi)
 
   const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
-  const double phit = (phi[0]-phi[1])/dt_*test;
+  const double phit = (t_theta_*mob[0]+(1.-t_theta_)*mob[1])*(phi[0]-phi[1])/dt_*test;
 
   //double curlgrad = -dgdtheta*dphidy*dtestdx + dgdtheta*dphidx*dtestdy;
   const double curlgrad[3] = {as[0]*(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0])
@@ -848,19 +848,19 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
   //matches farzadi eq 10
 
   const double hp1u[3] = {lambda*(1. - phi[0]*phi[0])*(1. - phi[0]*phi[0])*(u[0])*test,
-  			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(u[1])*test,
-  			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(u[2])*test};
-    
-  const double f[3] = {(divgradphi[0] + curlgrad[0] + gp1[0] + hp1u[0])/mob[0],
-  		       (divgradphi[1] + curlgrad[1] + gp1[1] + hp1u[1])/mob[1],
-  		       (divgradphi[2] + curlgrad[2] + gp1[2] + hp1u[2])/mob[2]};
+			 lambda*(1. - phi[1]*phi[1])*(1. - phi[1]*phi[1])*(u[1])*test,
+			 lambda*(1. - phi[2]*phi[2])*(1. - phi[2]*phi[2])*(u[2])*test};
+  
+  const double f[3] = {(divgradphi[0] + curlgrad[0] + gp1[0] + hp1u[0]),
+		       (divgradphi[1] + curlgrad[1] + gp1[1] + hp1u[1]),
+		       (divgradphi[2] + curlgrad[2] + gp1[2] + hp1u[2])};
 
   const double val = phit 
       + (1.-t_theta2_)*t_theta_*f[0]
       + (1.-t_theta2_)*(1.-t_theta_)*f[1]
       +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 
-  return mob[0]*val;
+  return val;
 }
 
 TUSAS_DEVICE
@@ -883,8 +883,6 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
   const double as[3] = {a(phi[0],dphidx[0],dphidy[0],dphidz[0],eps),
 			a(phi[1],dphidx[1],dphidy[1],dphidz[1],eps),
 			a(phi[2],dphidx[2],dphidy[2],dphidz[2],eps)};
-
-  const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
 
   const double x = basis[eqn_id].xx();
   
@@ -914,12 +912,12 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
 								vol,
 								rand);
 
-  const double rv = val/mob[0]
-    + (1.-t_theta2_)*t_theta_*hp1g4[0]/mob[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]/mob[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]/mob[1]-dt_/dtold_*hp1g4[2]/mob[2]);
+  const double rv = val
+    + (1.-t_theta2_)*t_theta_*hp1g4[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*hp1g4[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]-dt_/dtold_*hp1g4[2]);
 
-  return mob[0]*rv;
+  return rv;
 }
 
 TUSAS_DEVICE
@@ -944,8 +942,6 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
 			a(phi[1],dphidx[1],dphidy[1],dphidz[1],eps),
 			a(phi[2],dphidx[2],dphidy[2],dphidz[2],eps)};
 
-  const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
-
   const double theta[3] = {basis[theta_id].uu(),basis[theta_id].uuold(),basis[theta_id].uuoldold()};
   
   const double g4[3] = {theta[0],theta[1],theta[2]};
@@ -965,16 +961,17 @@ RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
 								vol,
 								rand);
 
+  //CN noise term is in different place in master......
   
   const double noise_term[3] = {interface_noise_amplitude_d*std::sqrt(dt_/vol) * rand*test * (1.0 - phi[0]*phi[0]), 0.0, 0.0};
   //printf("%e %e %e %e\n",rand,vol,interface_noise_amplitude_d,noise_term[0]);
 
-  const double rv = val/mob[0]
-    + (1.-t_theta2_)*t_theta_*(hp1g4[0]/mob[0] + noise_term[0])
-    + (1.-t_theta2_)*(1.-t_theta_)*(hp1g4[1]/mob[1] + noise_term[1])
-    +.5*t_theta2_*( (2.+dt_/dtold_)*hp1g4[1]/mob[1] - dt_/dtold_*hp1g4[2]/mob[2] + (2.+dt_/dtold_)*noise_term[1]-dt_/dtold_*noise_term[2] );
+  const double rv = val
+    + (1.-t_theta2_)*t_theta_*(hp1g4[0] + noise_term[0])
+    + (1.-t_theta2_)*(1.-t_theta_)*(hp1g4[1] + noise_term[1])
+    +.5*t_theta2_*( (2.+dt_/dtold_)*hp1g4[1] - dt_/dtold_*hp1g4[2] + (2.+dt_/dtold_)*noise_term[1]-dt_/dtold_*noise_term[2] );
 	
-  return mob[0]*rv;
+  return rv;
 }
 
 TUSAS_DEVICE

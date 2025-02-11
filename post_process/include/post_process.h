@@ -64,7 +64,7 @@ public:
 	       const int eqn_id = 0, ///< associate this post process variable with an equation
 	       const std::string basename = "pp", ///< basename this post process variable
 	       const double precision = 6, ///< precision for output file
-           const bool writedata = true
+	       const bool writedata = true
 	       );
   /// Destructor
   ~post_process();

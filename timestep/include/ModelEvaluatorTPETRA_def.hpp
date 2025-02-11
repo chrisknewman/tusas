@@ -339,7 +339,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //there are some epetra_maps and a routine that does mpi calls for off proc comm const 
   //Comm = Teuchos::rcp(new Epetra_MpiComm( MPI_COMM_WORLD ));
   bool dorestart = paramList.get<bool> (TusasrestartNameString);
-  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart,false));
+  Elem_col = Teuchos::rcp(new elem_color(mesh,dorestart));
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
@@ -740,7 +740,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	  rf[1] = tpetra::heat::residual_heat_test_;
 	}else if (testcase == 4){
 	  rf[0] = tpetra::farzadi3d::residual_conc_farzadi_;
-	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_;
+	  rf[1] = tpetra::farzadi3d::residual_phase_farzadi_uncoupled_;
 	}else if (testcase == 8){
 	  rf[0] = tpetra::goldak::residual_uncoupled_test_;
 	}else if (testcase == 9){
@@ -1071,21 +1071,16 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
      
   if( nonnull(outArgs.get_W_prec() )){
 
-    Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
+    //Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
     {
       P_->resumeFill();
       P_->setAllToScalar((scalar_type)0.0); 
-      //P->fillComplete();
       
       P->resumeFill();
       P->setAllToScalar((scalar_type)0.0);
-      //P->fillComplete();
     }
-    //#if 0
-    //Kokkos::fence();
-    // auto PV = P->getLocalMatrix();//this is a KokkosSparse::CrsMatrix<scalar_type,local_ordinal_type, node_type> PV = P->getLocalMatrix();
-    //auto PV = P->getLocalMatrixDevice();
-    //#endif
+    {
+    Teuchos::TimeMonitor PrecFillTimer(*ts_time_precfill);
 
     auto u_view = u->getLocalViewDevice(Tpetra::Access::ReadOnly);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> u_1dra = Kokkos::subview (u_view, Kokkos::ALL (), 0);
@@ -1097,8 +1092,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> y_1dra = Kokkos::subview (y_view, Kokkos::ALL (), 0);
     Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> z_1dra = Kokkos::subview (z_view, Kokkos::ALL (), 0);
 
-    PREFUNC * h_pf;
-    h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
+//     PREFUNC * h_pf;
+//     h_pf = (PREFUNC*)malloc(numeqs_*sizeof(PREFUNC));
 
     int testcase = -99;
 #ifdef TUSAS_CRUSHER
@@ -1143,14 +1138,12 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     {//scope PV
     auto PV = P->getLocalMatrixDevice();
     for(int c = 0; c < num_color; c++){
-      //auto PV = P->getLocalMatrixDevice();
-      //std::vector<int> elem_map = colors[c];
+      
       std::vector<int> elem_map = Elem_col->get_color(c);
 
       const int num_elem = elem_map.size();
 
       Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
-      //Kokkos::vector<int> elem_map_k(num_elem);
 
       {
          auto elem_map_1d_h = Kokkos::create_mirror_view(elem_map_1d);
@@ -1163,10 +1156,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
          Kokkos::deep_copy(elem_map_1d,elem_map_1d_h);
 
-         Kokkos::fence();
+         //Kokkos::fence();
       }
 
-      Kokkos::fence();
+      //Kokkos::fence();
 
       //printf("%d\n",c);
       Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
@@ -1187,6 +1180,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 	}else{
 	  return;//exit(0);
 	}
+	
 #else
 #endif
 #ifdef TUSAS3D	
@@ -1261,12 +1255,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
     }//c
     }//scope PV
-
 #ifdef TUSAS_HAVE_CUDA
-    //cudaFree(d_pf);
-  free(h_pf);
+    //free(h_pf);
 #endif
-
+    }
     //cn we need to do a similar comm here...
     P->fillComplete();
 
@@ -1757,8 +1749,7 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
     (*it)->estimate_gradient(u_old_);
     (*it)->estimate_error(u_old_);
   }
-  ++numsteps_;
-  this->cur_step++;
+  ++numsteps_;   
 
   dt_ = dtpred;
   return dtold_;
@@ -1817,11 +1808,6 @@ template<class scalar_type>
       mesh_->add_nodal_field((*varnames_)[k]);
     }
 
-    //create a global variable to store the number of
-    //time-steps elapsed
-    const std::string ntsteps_name = "num_timesteps";
-    mesh_->add_global_field(ntsteps_name);
-
     if(paramList.get<bool> (TusasestimateTimestepNameString)){    
       setadaptivetimestep();
     }
@@ -1830,16 +1816,7 @@ template<class scalar_type>
     write_exodus();
   }//if !dorestart
   else{
-    //since we need to read num_timesteps from exodus
-    //during the restart() below here, we need to tell
-    //tusas to expect this global variable first
-    // ~~~
-    //it might make more sense to put this, along with
-    //the loop over the nodal fields in the restart function
-    //itself
-    const std::string ntsteps_name = "num_timesteps";
-    mesh_->add_global_field(ntsteps_name);
-
+    
     restart(u_old_);//,u_old_old_);
     
 //     if(1==comm_->MyPID())
@@ -1850,7 +1827,6 @@ template<class scalar_type>
     }
   }//if !dorestart
    
-
   if( 0 == comm_->getRank()) std::cout<<std::endl<<"initialize finished"<<std::endl<<std::endl;
 }
 
@@ -1971,80 +1947,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //post_proc.push_back(new post_process(Comm,mesh_,(int)0));
     //post_proc[0].postprocfunc_ = &tpetra::postproc_;
 
-#if 0
-  }else if("NLheatIMR" == paramList.get<std::string> (TusastestNameString)){
-    // numeqs_ number of variables(equations) 
-    numeqs_ = 1;
-    
-    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tpetra::residual_nlheatimr_test_dp_;
-
-    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::heat::prec_heat_test_dp_;
-    
-    varnames_ = new std::vector<std::string>(numeqs_);
-    (*varnames_)[0] = "u";
-    
-    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
-    
-    
-    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
-    
-    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
-    //               [numeq][nodeset id]
-    //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
-
-    paramfunc_.resize(1);
-    paramfunc_[0] = &tpetra::heat::param_;
-
-    neumannfunc_ = NULL;
-
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
-
-  }else if("NLheatCN" == paramList.get<std::string> (TusastestNameString)){
-    // numeqs_ number of variables(equations) 
-    numeqs_ = 1;
-    
-    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    //(*residualfunc_)[0] = &tusastpetra::residual_heat_test_;
-    (*residualfunc_)[0] = tpetra::residual_nlheatcn_test_dp_;
-
-    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::prec_nlheatcn_test_dp_;
-    
-    varnames_ = new std::vector<std::string>(numeqs_);
-    (*varnames_)[0] = "u";
-    
-    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
-    
-    
-    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
-    
-    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
-    //               [numeq][nodeset id]
-    //  [variable index][nodeset index]
-    (*dirichletfunc_)[0][0] = &dbc_zero_;							 
-    (*dirichletfunc_)[0][1] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][2] = &dbc_zero_;						 
-    (*dirichletfunc_)[0][3] = &dbc_zero_;
-
-    paramfunc_.resize(1);
-    paramfunc_[0] = &tpetra::heat::param_;
-
-    neumannfunc_ = NULL;
-
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0));
-    post_proc[0]->postprocfunc_ = &tpetra::heat::postproc_;
-
-#endif
   }else if("heat2" == paramList.get<std::string> (TusastestNameString)){
     
     numeqs_ = 2;
@@ -2086,41 +1988,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::heat::param_;
-#if 0
-  }else if("cummins" == paramList.get<std::string> (TusastestNameString)){
-
-#ifdef TUSAS_CRUSHER
-#else    
-    numeqs_ = 2;
-    
-    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-//     (*residualfunc_)[0] = &cummins::residual_heat_;
-//     (*residualfunc_)[1] = &cummins::residual_phase_;
-    (*residualfunc_)[0] = tpetra::heat::residual_heat_test_dp_;
-    (*residualfunc_)[1] = tpetra::heat::residual_heat_test_dp_;
-
-//     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-//     (*preconfunc_)[0] = &cummins::prec_heat_;
-//     (*preconfunc_)[1] = &cummins::prec_phase_;
-
-    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
-    //(*initfunc_)[0] = &cummins::init_heat_;
-    //(*initfunc_)[1] = &cummins::init_phase_;
-    (*initfunc_)[0] = &tpetra::heat::init_heat_test_;
-    (*initfunc_)[1] = &tpetra::heat::init_heat_test_;
-
-    varnames_ = new std::vector<std::string>(numeqs_);
-    (*varnames_)[0] = "u";
-    (*varnames_)[1] = "phi";
-
-    dirichletfunc_ = NULL;
-
-    neumannfunc_ = NULL;
-
-    paramfunc_.resize(1);
-    paramfunc_[0] = &cummins::param_;
-#endif
-#endif
 
   }else if("farzadi" == paramList.get<std::string> (TusastestNameString)){
     //farzadi test
@@ -2146,6 +2013,15 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[1] = "phi";
 
     dirichletfunc_ = NULL;
+
+    post_proc.push_back(new post_process(Comm,mesh_,
+					 (int)0, 
+					 post_process::NONE,
+					 (int)0,
+					 (std::string)"pp",
+					 (double)16,
+					 (bool)true ));
+    post_proc[0]->postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
@@ -2622,11 +2498,6 @@ int ModelEvaluatorTPETRA<scalar_type>:: update_mesh_data()
     mesh_->update_nodal_data((*varnames_)[k], &output[k][0]);
   }
 
-  // just have one global variable for now, otherwise this
-  // could be called in a loop as update_nodal_data above
-  const int ntsteps = this->cur_step;
-  mesh_->update_global_data("num_timesteps", (double)ntsteps);
-
   std::vector<error_estimator*>::iterator it;
   for(it = Error_est.begin();it != Error_est.end();++it){
     (*it)->update_mesh_data();
@@ -2858,11 +2729,6 @@ template<class scalar_type>
     }
   }
 
-  //grab the number of timesteps taken in the run before this restart
-  double ntsteps_d = -1;
-  error = mesh_->read_global_data_exodus(ex_id_, step, "num_timesteps", &ntsteps_d);
-  const int ntsteps = (int)ntsteps_d;
-
   mesh_->close_exodus(ex_id_);
 
   //cn for now just put current values into old values, 
@@ -2890,18 +2756,16 @@ template<class scalar_type>
   Kokkos::fence();
   //u_old->doExport(*u_temp,*exporter_, Tpetra::INSERT);
 
-  step = step - 1; //this is the exodus output step, not the timestep
+  step = step - 1;
   this->start_time = time;
-  this->start_step = ntsteps;
-  this->cur_step = ntsteps;
+  int ntstep = (int)(time/dt_);
+  this->start_step = ntstep;
   time_=time;
   output_step_ = step+2;
   //   u->Print(std::cout);
   //   exit(0);
   if( 0 == mypid ){
-    std::cout<<"Restarting at time = "<<time
-             <<", time step = "<<ntsteps
-             <<", and output step = "<<step<<std::endl<<std::endl;
+    std::cout<<"Restarting at time = "<<time<<" and tusas step = "<<step<<std::endl<<std::endl;
     std::cout<<"Exiting restart"<<std::endl<<std::endl;
   }
   //exit(0);
@@ -3275,8 +3139,7 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 						post_process::NORMRMS, 
 						k, 
 						"temperror",
-						16,
-                        false));
+						16));
 	//be with an error estimate based on second derivative
 	if(atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
 	   temporal_est[k]->postprocfunc_ = &timeadapt::d2udt2_;
@@ -3303,8 +3166,7 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 						 post_process::NORMRMS, 
 						 k, 
 						 "tempnorm",
-						 16,
-                         false));
+						 16));
  	temporal_norm[k]->postprocfunc_ = &timeadapt::normu_;
 
       }

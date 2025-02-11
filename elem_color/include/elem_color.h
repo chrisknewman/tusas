@@ -34,7 +34,7 @@ public:
   /// Constructor
   elem_color(Mesh *mesh, ///< mesh object
 	     bool dorestart = false, ///< do restart
-         bool writedata = false
+	     bool writedata = false
 	     );
   ///Destructor
   ~elem_color();

@@ -55,7 +55,7 @@ post_process::post_process(const Teuchos::RCP<const Epetra_Comm>& comm,
   std::string ystring=basename_+std::to_string(index_);
   if (writedata_) mesh_->add_nodal_field(ystring);
 
-  if ( (0 == comm_->MyPID()) && (s_op_ != NONE) ){
+  if ( (0 == comm_->MyPID()) && (s_op_ != NONE) && (writedata_ == true) ){
     filename_ = ystring+".dat";
     std::ofstream outfile;
     outfile.open(filename_);
@@ -113,7 +113,7 @@ void post_process::update_mesh_data(){
 void post_process::update_scalar_data(double time){
   
   scalar_reduction();//not sure if we need this here
-  if ( (0 == comm_->MyPID()) && (s_op_ != NONE) ){
+  if ( (0 == comm_->MyPID()) && (s_op_ != NONE) && (writedata_ == true) ){
     std::ofstream outfile;
     outfile.open(filename_, std::ios::app );
     outfile << std::setprecision(precision_)

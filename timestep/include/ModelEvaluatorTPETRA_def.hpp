@@ -323,6 +323,8 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   time_=0.;
   
   ts_time_import= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Import Time");
+  ts_time_resimport= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Import Time");
+  ts_time_precimport= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Import Time");
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Fill Time");
   ts_time_resdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Dirichlet Fill Time");
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
@@ -850,7 +852,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 #endif
   //exit(0);
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
     }
 
@@ -892,7 +894,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       //we zero nodes on the nonowning proc here, so that we do not add in the values twice
       //this also does no communication
       {
-	Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+	Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
 	f_overlap->doImport(*f_vec,*importer_,Tpetra::ZERO);
       }
       {//scope for views
@@ -965,7 +967,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
       }//k
       }//scope for views
       {
-	Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+	Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
 	f_vec->doExport(*f_overlap, *exporter_, Tpetra::ADD);
 	Kokkos::fence();
       }
@@ -983,7 +985,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
       f_overlap->doImport(*f_vec,*importer_,Tpetra::INSERT);
     }
 
@@ -1061,7 +1063,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     } // end scope of f_view
 
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::REPLACE);//REPLACE ???
       Kokkos::fence();
     }
@@ -1265,7 +1267,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);
       P_->doExport(*P, *exporter_, Tpetra::ADD);
     }
 
@@ -1364,7 +1366,7 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   
     //cn this comm is expensive
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_import);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);
       P_->doExport(*P, *exporter_, Tpetra::REPLACE);
     }
     

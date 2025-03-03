@@ -1269,9 +1269,10 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);
       P_->doExport(*P, *exporter_, Tpetra::ADD);
+      P_->fillComplete();
     }
 
-    P_->fillComplete();
+    //P_->fillComplete();
 
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     //exit(0);

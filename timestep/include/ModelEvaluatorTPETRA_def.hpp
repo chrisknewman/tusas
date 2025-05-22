@@ -2516,46 +2516,50 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     int numeta = problemList->get<int>("N");
 
-    numeqs_ = numeta+1;
+    numeqs_ = numeta+2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_kks_dp_;
-    (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_kks_dp_;
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_;
+    (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_kks_dp_;
+    (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_kks_dp_;
 #if 0
     if( 4 == numeta){
-      (*residualfunc_)[2] = &pfhub2::residual_eta_kks_;
       (*residualfunc_)[3] = &pfhub2::residual_eta_kks_;
       (*residualfunc_)[4] = &pfhub2::residual_eta_kks_;
+      (*residualfunc_)[5] = &pfhub2::residual_eta_kks_;
     }
 #endif
     preconfunc_ = NULL;
-#if 0
+
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &pfhub2::prec_c_;
-    (*preconfunc_)[1] = &pfhub2::prec_eta_;
+    (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[1] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
     if( 4 == numeta){
-      (*preconfunc_)[2] = &pfhub2::prec_eta_;
-      (*preconfunc_)[3] = &pfhub2::prec_eta_;
-      (*preconfunc_)[4] = &pfhub2::prec_eta_;
+      (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
     }
-#endif
+
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &tpetra::pfhub2::init_c_;
-    (*initfunc_)[1] = &tpetra::pfhub2::init_eta_;
+    (*initfunc_)[1] = &tpetra::pfhub2::init_mu_;
+    (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
     if( 4 == numeta){
-      (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
       (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
       (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[5] = &tpetra::pfhub2::init_eta_;
     }
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "c";
-    (*varnames_)[1] = "eta0";
+    (*varnames_)[1] = "mu";
+    (*varnames_)[2] = "eta0";
     if( 4 == numeta){
-      (*varnames_)[2] = "eta1";
-      (*varnames_)[3] = "eta2";
-      (*varnames_)[4] = "eta3";
+      (*varnames_)[3] = "eta1";
+      (*varnames_)[4] = "eta2";
+      (*varnames_)[5] = "eta3";
     }
 
     // numeqs_ number of variables(equations) 
@@ -2572,6 +2576,80 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
+
+  }else if("pfhub2kkstest" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    int numeta = problemList->get<int>("N");
+
+    numeqs_ = numeta+2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_;
+    (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_kks_dp_;
+    (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_kks_dp_;
+#if 0
+    if( 4 == numeta){
+      (*residualfunc_)[3] = &pfhub2::residual_eta_kks_;
+      (*residualfunc_)[4] = &pfhub2::residual_eta_kks_;
+      (*residualfunc_)[5] = &pfhub2::residual_eta_kks_;
+    }
+#endif
+    preconfunc_ = NULL;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[1] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+    if( 4 == numeta){
+      (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
+    }
+
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::pfhub2::init_c_test_;
+    (*initfunc_)[1] = &tpetra::pfhub2::init_mu_test_;
+    (*initfunc_)[2] = &tpetra::pfhub2::init_eta_test_;
+    if( 4 == numeta){
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[5] = &tpetra::pfhub2::init_eta_;
+    }
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "mu";
+    (*varnames_)[2] = "eta0";
+    if( 4 == numeta){
+      (*varnames_)[3] = "eta1";
+      (*varnames_)[4] = "eta2";
+      (*varnames_)[5] = "eta3";
+    }
+
+    // numeqs_ number of variables(equations) 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::pfhub2::param_;
+
+    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::pfhub2::postproc_c_exact_;
+
+    post_proc.push_back(new post_process(mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_eta_exact_;
+
+    post_proc.push_back(new post_process(mesh_,(int)2,post_process::NORM2,false,0,"pp",16));
+    post_proc[2].postprocfunc_ = &tpetra::pfhub2::postproc_c_error_;
+
+    post_proc.push_back(new post_process(mesh_,(int)3,post_process::NORM2,false,0,"pp",16));
+    post_proc[3].postprocfunc_ = &tpetra::pfhub2::postproc_eta_error_;
 
   }else if("pfhub2" == paramList.get<std::string> (TusastestNameString)){
 

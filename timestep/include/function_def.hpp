@@ -1865,6 +1865,8 @@ namespace pfhub2
   double L_ = 5.;
   TUSAS_DEVICE
   const double w_ = 1.;
+  TUSAS_DEVICE
+  double kks_tol_ = 1e-10;
 //   double c_a[2] = {0., 0.};
 //   double c_b[2] = {0., 0.};
 
@@ -1889,7 +1891,7 @@ namespace pfhub2
     k_eta_ = plist->get<double>("k_eta_",3.);
     M_ = plist->get<double>("M_",5.);
     L_ = plist->get<double>("L_",5.);
-
+    kks_tol_ =  plist->get<double>("kks_tol_",1e-10);
     //eps_ and eps_eta_ seem to only reside in some init cond
     //eps_ = plist->get<double>("eps_",.05);
 
@@ -1958,7 +1960,7 @@ KOKKOS_INLINE_FUNCTION
     double delta_c_a = 0.;
     double delta_c_b = 0.;
     const int max_iter = 20;
-    const double tol = 1.e-8;
+    const double tol = kks_tol_;
     const double hh = h(phi);
     //c_a[0] = (1.-hh)*c;
     ca = c - hh*(c_beta_ - c_alpha_);
@@ -2241,7 +2243,7 @@ RES_FUNC_TPETRA(residual_mu_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_mu_dp_)) = residual_mu_;
-
+#if 0
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_mu_kks_)
 {
@@ -2278,7 +2280,7 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
-
+#endif
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_c_)
 {
@@ -2383,33 +2385,6 @@ INI_FUNC(init_mu_)
 //   return 0.;
 }
 
-const double exact_c_test_(const double &x)
-{
-  //need to fix appropriately wrt to k_eta_,w_
-  return 0.1*(1 - 0.125*(10 - 7.5*(1. - tanh(0.7071067811865475*x)) + 
-         1.5*pow(1. - tanh(0.7071067811865475*x),2))*
-       pow(1. - tanh(0.7071067811865475*x),3)) + 
-   0.1125*(10 - 7.5*(1. - tanh(0.7071067811865475*x)) + 
-      1.5*pow(1. - tanh(0.7071067811865475*x),2))*
-  pow(1. - tanh(0.7071067811865475*x),3);
-}
-
-INI_FUNC(init_c_test_)
-{
-  //0.9*(0.5*(1.0-tanh(x/sqrt(2.0))))^3*(6*(0.5*(1.0-tanh(x/sqrt(2.0))))^2-15*(0.5*(1.0-tanh(x/sqrt(2.0))))+10)+0.1*(1-(0.5*(1.0-tanh(x/sqrt(2.0))))^3*(6*(0.5*(1.0-tanh(x/sqrt(2.0))))^2-15*(0.5*(1.0-tanh(x/sqrt(2.0))))+10));
-  return  exact_c_test_(x);
-}
-
-const double exact_eta_test_(const double &x)
-{
-  return 0.5*(1.0-tanh((x*sqrt(w_))/(k_eta_*sqrt(2.0))));
-}
-
-INI_FUNC(init_eta_test_)
-{
-  return exact_eta_test_(x);
-}
-
 INI_FUNC(init_mu_test_)
 {
   //this will need the eta_array version
@@ -2417,6 +2392,184 @@ INI_FUNC(init_mu_test_)
 //   const double eta = init_eta_(x,y,z,2,lid);
 //   return dfdc(c,&eta);
   return 0.;
+}
+
+}//namespace pfhub2
+
+namespace kkstest
+{
+  TUSAS_DEVICE
+  double c_alpha_ = .1;
+  TUSAS_DEVICE
+  double c_beta_ = .9;
+  TUSAS_DEVICE
+  double w_ = 1.;
+  TUSAS_DEVICE
+  double k_eta_ = 1.;
+  TUSAS_DEVICE
+  double k_c_ = 1.e-4;
+  TUSAS_DEVICE
+  double M_ = 5.;
+  TUSAS_DEVICE
+  double L_ = 5.;
+
+  TUSAS_DEVICE
+  int ci_ = 1;
+  TUSAS_DEVICE
+  int mui_ = 0;
+
+  TUSAS_DEVICE
+  const int N_MAX = 1;
+  TUSAS_DEVICE
+  int N_ = 1;
+  TUSAS_DEVICE
+  int eqn_off_ = 2;
+
+PARAM_FUNC(param_)
+{
+  c_alpha_ = plist->get<double>("c_alpha_",.1);    
+  c_beta_ = plist->get<double>("c_beta_",.9);
+  w_ = plist->get<double>("w_",1.);
+  k_eta_ = plist->get<double>("k_eta_",1.);
+  M_ = plist->get<double>("M_",5.);
+  L_ = plist->get<double>("L_",5.);
+  
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_mu_kks_)
+{
+  //-mu + df/dc +div c grad test
+  const double c = basis[ci_]->uu();
+  const double mu = basis[mui_]->uu();
+  //const double eta = basis[2]->uu();
+  const double test = basis[0]->phi(i);
+
+  const double divgradc = k_c_*(basis[ci_]->duudx()*basis[0]->dphidx(i)
+				+ basis[ci_]->duudy()*basis[0]->dphidy(i)
+				+ basis[ci_]->duudz()*basis[0]->dphidz(i));
+
+  double eta_array[N_MAX];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+  };
+
+  double c_a = 0.;;
+  double c_b = 0.;
+  tpetra::pfhub2::solve_kks(c,eta_array,c_a,c_b);
+
+  //const double hh = h(eta_array);
+  //const double cc = (1.-hh)*c_a[0] + hh*c_b[0];
+
+  //const double df_dc = dfdc(cc,eta_array)*test;
+  const double df_dc = tpetra::pfhub2::df_betadc(c_b)*test;
+
+  return -mu*test + df_dc + divgradc;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_eta_kks_)
+{
+
+  //derivatives of the test function
+  const double dtestdx = basis[0]->dphidx(i);
+  const double dtestdy = basis[0]->dphidy(i);
+  const double dtestdz = basis[0]->dphidz(i);
+  //double dtestdz = basis[0].dphidz(i);
+  //test function
+  const double test = basis[0]->phi(i);
+  //u, phi
+  const double c[2] = {basis[0]->uu(), basis[0]->uuold()};
+
+  const double eta[2] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold()};
+  const double detadx[2] = {basis[eqn_id]->duudx(), basis[eqn_id]->duuolddx()};
+  const double detady[2] = {basis[eqn_id]->duudy(), basis[eqn_id]->duuolddy()};
+  const double detadz[2] = {basis[eqn_id]->duudz(), basis[eqn_id]->duuolddz()};
+
+  double c_a[2] = {0., 0.};
+  double c_b[2] = {0., 0.};
+
+  double eta_array[N_MAX];
+  double eta_array_old[N_MAX];
+  for( int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+  }
+
+  tpetra::pfhub2::solve_kks(c[0],eta_array,c_a[0],c_b[0]);
+
+  const double etat = (eta[0]-eta[1])/dt_*test;
+
+
+  const double f[2] = {tpetra::pfhub2::f_beta(c_b[0]) - tpetra::pfhub2::f_alpha(c_a[0]) - (c_b[0] - c_a[0])*tpetra::pfhub2::df_betadc(c_b[0]),
+		       tpetra::pfhub2::f_beta(c_b[1]) - tpetra::pfhub2::f_alpha(c_a[1]) - (c_b[1] - c_a[1])*tpetra::pfhub2::df_betadc(c_b[1])};
+
+  const int k = eqn_id - eqn_off_;
+  const double dfdeta[3] = {L_*(f[0]*tpetra::pfhub2::dhdeta(eta[0]) + w_*tpetra::pfhub2::dgdeta(eta_array,k)    )*test,
+			    L_*(f[1]*tpetra::pfhub2::dhdeta(eta[1]) + w_*tpetra::pfhub2::dgdeta(eta_array_old,k))*test,
+			    0};
+
+  const double divgradeta[3] = {L_*k_eta_ *(detadx[0]*dtestdx + detady[0]*dtestdy), 
+				L_*k_eta_ *(detadx[1]*dtestdx + detady[1]*dtestdy),
+				0};//(grad u,grad phi)
+ 
+  return etat + t_theta_*divgradeta[0] + t_theta_*dfdeta[0] + (1.-t_theta_)*divgradeta[1] + (1.-t_theta_)*dfdeta[1];
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_c_)
+{
+  // c_t + M grad mu grad test
+  const double ut = (basis[ci_]->uu()-basis[ci_]->uuold())/dt_*basis[0]->phi(i);
+  //M_ divgrad mu
+
+  //mu is not time dependant so this makes no sense for theta .ne. 1
+  const double f[3] = {M_*(basis[mui_]->duudx()*basis[0]->dphidx(i)
+			   + basis[mui_]->duudy()*basis[0]->dphidy(i)
+			   + basis[mui_]->duudz()*basis[0]->dphidz(i)),
+		       M_*(basis[mui_]->duuolddx()*basis[0]->dphidx(i)
+			   + basis[mui_]->duuolddy()*basis[0]->dphidy(i)
+			   + basis[mui_]->duuolddz()*basis[0]->dphidz(i)),
+		       M_*(basis[mui_]->duuoldolddx()*basis[0]->dphidx(i)
+			   + basis[mui_]->duuoldolddy()*basis[0]->dphidy(i)
+			   + basis[mui_]->duuoldolddz()*basis[0]->dphidz(i))};
+
+  return ut + (1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_dp_)) = residual_c_;
+
+const double exact_c_test_(const double &x)
+{
+  return c_alpha_*(1. - ((10. - (15.*(1 - tanh((sqrt(w_)*x)/(sqrt(2.0)*k_eta_))))/2. + 
+			 (3.*pow(1 - tanh((sqrt(w_)*x)/(sqrt(2.0)*k_eta_)),2))/2.)*
+			pow(1 - tanh((sqrt(w_)*x)/(sqrt(2.0)*k_eta_)),3))/8.) + 
+    (c_beta_*(10. - (15.*(1. - tanh((sqrt(w_)*x)/(sqrt(2.0)*k_eta_))))/2. + 
+	      (3.*pow(1 - tanh((sqrt(w_)*x)/(sqrt(2.0)*k_eta_)),2))/2.)*
+     pow(1. - tanh((sqrt(w_)*x)/(sqrt(2.0)*k_eta_)),3))/8.;
+}
+
+const double exact_eta_test_(const double &x)
+{
+  return 0.5*(1.0-tanh((x*sqrt(w_))/(k_eta_*sqrt(2.0))));
+}
+
+INI_FUNC(init_c_test_)
+{
+  //perturb = 1 is exact solution; <1 flattens; >1 steepens
+  const double perturb_ = 1.;
+  return  exact_c_test_(perturb_*x);
 }
 
 PPR_FUNC(postproc_c_exact_)
@@ -2431,10 +2584,15 @@ PPR_FUNC(postproc_eta_exact_)
   return  exact_eta_test_(x);
 }
 
+INI_FUNC(init_eta_test_)
+{
+  return exact_eta_test_(x);
+}
+
 PPR_FUNC(postproc_c_error_)
 {
   const double x = xyz[0];
-  const double c = u[0];
+  const double c = u[ci_];
   const double d = c - exact_c_test_(x);
   return d;
 }
@@ -2447,7 +2605,22 @@ PPR_FUNC(postproc_eta_error_)
   return d;
 }
 
-}//namespace pfhub2
+DBC_FUNC(dbc_one_)
+{
+  return 1.;
+}
+
+DBC_FUNC(dbc_c_alpha_)
+{
+  return c_alpha_;
+}
+ 
+DBC_FUNC(dbc_c_beta_)
+{
+  return c_beta_;
+}
+
+}//kkstest
 
 namespace cahnhilliard
 {

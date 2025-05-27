@@ -2414,9 +2414,9 @@ namespace kkstest
   double L_ = 5.;
 
   TUSAS_DEVICE
-  int ci_ = 1;
+  int ci_ = 0;
   TUSAS_DEVICE
-  int mui_ = 0;
+  int mui_ = 1;
 
   TUSAS_DEVICE
   const int N_MAX = 1;
@@ -2483,7 +2483,7 @@ RES_FUNC_TPETRA(residual_eta_kks_)
   //test function
   const double test = basis[0]->phi(i);
   //u, phi
-  const double c[2] = {basis[0]->uu(), basis[0]->uuold()};
+  const double c[2] = {basis[ci_]->uu(), basis[ci_]->uuold()};
 
   const double eta[2] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold()};
   const double detadx[2] = {basis[eqn_id]->duudx(), basis[eqn_id]->duuolddx()};

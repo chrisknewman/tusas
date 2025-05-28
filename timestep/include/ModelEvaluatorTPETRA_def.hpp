@@ -2593,15 +2593,15 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[1] = tpetra::kkstest::residual_mu_kks_dp_;
     (*residualfunc_)[2] = tpetra::kkstest::residual_eta_kks_dp_;
 
-    const int ci_ = 0;
-    const int mui_ = 1;
+    const int ci_ = 0;//problemList->get<int>("ci_");
+    const int mui_ = 1;//problemList->get<int>("mui_");;
 
     preconfunc_ = NULL;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[ci_] = &tpetra::pfhub2::prec_c_;
-    (*preconfunc_)[mui_] = &tpetra::pfhub2::prec_mu_;
-    (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+    (*preconfunc_)[ci_] = &tpetra::kkstest::prec_c_;
+    (*preconfunc_)[mui_] = &tpetra::kkstest::prec_mu_;
+    (*preconfunc_)[2] = &tpetra::kkstest::prec_eta_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[ci_] = &tpetra::kkstest::init_c_test_;
@@ -2644,6 +2644,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     post_proc.push_back(new post_process(mesh_,(int)3,post_process::NORM2,false,0,"pp",16));
     post_proc[3].postprocfunc_ = &tpetra::kkstest::postproc_eta_error_;
+
+//     post_proc.push_back(new post_process(mesh_,(int)4));
+//     post_proc[4].postprocfunc_ = &tpetra::kkstest::postproc_mu_;
 
   }else if("pfhub2" == paramList.get<std::string> (TusastestNameString)){
 

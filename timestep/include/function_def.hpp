@@ -440,6 +440,8 @@ PRE_FUNC_TPETRA((*prec_nlheatcn_test_dp_)) = prec_nlheatcn_test_;
 
 //}//namespace heat
 
+
+
 namespace localprojection
 {
 RES_FUNC_TPETRA(residual_u1_)
@@ -509,9 +511,90 @@ PPR_FUNC(postproc_u2err_)
 {
   return sin(time)-u[1];
 }
-
-
 }//namespace localprojection
+
+
+
+/*
+Implementation of KKS solver for binary single phase alloys found in:
+
+https://journals.aps.org/pre/pdf/10.1103/PhysRevE.60.7186
+
+Solves for cb, ca:
+
+h(phi)*cb + (1-h(phi))*ca - c = f1(cb,ca) = 0
+f_beta'(cb) + f_alpha'(ca) = f2(cb,ca) = 0
+
+with 
+
+J = [ h         (1-h) ]
+    [ f''(cb) f''(ca) ]
+
+Note that at equilibrium, f'(c) = f_beta'(cb) = f_alpha'(ca).
+
+Note that cb corrsponds to solid with phi = 1 and ca corresponds to liquid with phi = 0;
+and the solution is ceq_b when phi = 1 and ceq_a when phi = 0, so in theory solver
+should return in a single iteration in either case.
+
+For CALPHAD format, this will need to be further generalized with f_*(c,T)
+
+For ternaries and multi-phase this will no longer be a 2x2 inversion...
+
+See kkstest for implementation details.
+
+*/
+namespace kks
+{
+double kks_tol_ = 1e-10;
+int kks_max_iter_ = 20;
+
+
+PARAM_FUNC(param_)
+{
+  kks_tol_ = plist->get<double>("kks_tol_",kks_tol_); 
+  kks_max_iter_ = plist->get<double>("kks_max_iter_",kks_max_iter_);
+}
+  
+typedef const double (*KKSFUNC)(const double);
+
+KOKKOS_INLINE_FUNCTION 
+int solve_kks(const double &c, //input c
+	      const double &hh, //input h(phi)
+	      double &ca, //output ca; input initial guess for ca ie ceq_a
+	      double &cb, //output cb; input initial guess for cb ie ceq_b
+	      KKSFUNC DFBETADC, //f_beta'(c)
+	      KKSFUNC DFALPHADC, //f_alpha'(c)
+	      KKSFUNC D2FDC2) //f''(c)
+  {
+    //if(phi[0] > .999 || phi[0] < .001) return 0; //hack for single phase; leads to more iters but comparable cpu time
+    double delta_c_a = 0.;
+    double delta_c_b = 0.;
+    const int max_iter = kks_max_iter_;
+    const double tol = kks_tol_;
+    
+    ca = (1.-hh)*ca;
+    cb=hh*cb;
+
+    //std::cout<<"-1"<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
+    for(int i = 0; i < max_iter; i++){
+      const double det = hh*(*D2FDC2)(ca) + (1.-hh)*(*D2FDC2)(cb);
+      const double f1 = hh*cb + (1.- hh)*ca - c;
+      const double f2 = (*DFBETADC)(cb) - (*DFALPHADC)(ca);
+      delta_c_b = (-(*D2FDC2)(ca)*f1 - (1-hh)*f2)/det;
+      delta_c_a = (-(*D2FDC2)(cb)*f1 + hh*f2)/det;
+      cb = delta_c_b + cb;
+      ca = delta_c_a + ca;
+      //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
+      if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return 0;
+    }
+//     std::cout<<"###################################  solve_kks falied to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
+// 	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
+    exit(0);
+    return 1;
+  }
+
+
+}//namespace kks
 
 
 namespace farzadi3d
@@ -1865,8 +1948,6 @@ namespace pfhub2
   double L_ = 5.;
   TUSAS_DEVICE
   const double w_ = 1.;
-  TUSAS_DEVICE
-  double kks_tol_ = 1e-10;
 //   double c_a[2] = {0., 0.};
 //   double c_b[2] = {0., 0.};
 
@@ -1891,7 +1972,6 @@ namespace pfhub2
     k_eta_ = plist->get<double>("k_eta_",3.);
     M_ = plist->get<double>("M_",5.);
     L_ = plist->get<double>("L_",5.);
-    kks_tol_ =  plist->get<double>("kks_tol_",1e-10);
     //eps_ and eps_eta_ seem to only reside in some init cond
     //eps_ = plist->get<double>("eps_",.05);
 
@@ -1916,11 +1996,11 @@ namespace pfhub2
   }
  
 KOKKOS_INLINE_FUNCTION 
-  double dhdeta(const double eta)
-  {
-    //return 30.*eta[eqn_id]*eta[eqn_id] - 60.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id] + 30.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
-    return 30.*eta*eta - 60.*eta*eta*eta + 30.*eta*eta*eta*eta;
-  }
+double dhdeta(const double eta)
+{
+  //return 30.*eta[eqn_id]*eta[eqn_id] - 60.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id] + 30.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
+  return 30.*eta*eta - 60.*eta*eta*eta + 30.*eta*eta*eta*eta;
+}
  
 KOKKOS_INLINE_FUNCTION 
 const double h(const double *eta)
@@ -1933,7 +2013,7 @@ const double h(const double *eta)
   }
  
 KOKKOS_INLINE_FUNCTION 
-const double d2fdc2()
+const double d2fdc2(const double c = 0)
   {
     return 2.*rho_*rho_;
   }
@@ -1943,8 +2023,6 @@ const double df_alphadc(const double c)
   {
     return 2.*rho_*rho_*(c - c_alpha_);
   }
- 
-typedef const double (*FUNC)(const double);
 
 KOKKOS_INLINE_FUNCTION 
 const double df_betadc(const double c)
@@ -1954,41 +2032,6 @@ const double df_betadc(const double c)
 
     //this is the analytical solution function, here it is identical
     return 2.*rho_*rho_*(-c_beta_ + c);
-  }
-
- 
-  FUNC fp_ = df_betadc;
- 
-KOKKOS_INLINE_FUNCTION 
-int solve_kks(const double &c, const double *phi, double &ca, double &cb)//const double phi
-  {
-    //if(phi[0] > .999 || phi[0] < .001) return 0; //hack for single phase; leads to more iters but comparable cpu time
-    double delta_c_a = 0.;
-    double delta_c_b = 0.;
-    const int max_iter = 20;
-    const double tol = kks_tol_;
-    const double hh = h(phi);
-    
-    ca = (1.-hh)*ca;
-    cb=hh*cb;
-
-    //std::cout<<"-1"<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
-    for(int i = 0; i < max_iter; i++){
-      const double det = hh*d2fdc2() + (1.-hh)*d2fdc2();
-      const double f1 = hh*cb + (1.- hh)*ca - c;
-      //const double f2 = df_betadc(cb) - df_alphadc(ca);
-      const double f2 = (*fp_)(cb) - df_alphadc(ca);
-      delta_c_b = (-d2fdc2()*f1 - (1-hh)*f2)/det;
-      delta_c_a = (-d2fdc2()*f1 + hh*f2)/det;
-      cb = delta_c_b + cb;
-      ca = delta_c_a + ca;
-      //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
-      if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return 0;
-    }
-//     std::cout<<"###################################  solve_kks falied to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
-// 	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
-    exit(0);
-    return 1;
   }
 
 KOKKOS_INLINE_FUNCTION 
@@ -2101,7 +2144,7 @@ RES_FUNC_TPETRA(residual_c_kks_)
     eta_array_old[kk] = basis[kk_off]->uuold();
   }
 
-  solve_kks(c[0],eta_array,c_a[0],c_b[0]);
+  //solve_kks(c[0],eta_array,c_a[0],c_b[0],NULL,NULL,NULL);
 
   const double DfDc[2] = {-c_b[0] + c_a[0],
  		    -c_b[1] + c_a[1]};
@@ -2200,7 +2243,7 @@ RES_FUNC_TPETRA(residual_eta_kks_)
     eta_array_old[kk] = basis[kk_off]->uuold();
   }
 
-  solve_kks(c[0],eta_array,c_a[0],c_b[0]);
+  //solve_kks(c[0],eta_array,c_a[0],c_b[0],NULL,NULL,NULL);
 
   const double etat = (eta[0]-eta[1])/dt_*test;
 
@@ -2270,7 +2313,7 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 
   double c_a[2] = {0., 0.};
   double c_b[2] = {0., 0.};
-  solve_kks(c,eta_array,c_a[0],c_b[0]);
+  //solve_kks(c,eta_array,c_a[0],c_b[0]);
 
   const double hh = h(eta_array);
   const double cc = (1.-hh)*c_a[0] + hh*c_b[0];
@@ -2344,7 +2387,7 @@ PPR_FUNC(postproc_c_a_)
   double c_a = 0.;
   double c_b = 0.;
 
-  solve_kks(cc,&phi,c_a,c_b);
+  //solve_kks(cc,&phi,c_a,c_b,NULL,NULL,NULL);
 
   return c_a;
 }
@@ -2357,7 +2400,7 @@ PPR_FUNC(postproc_c_b_)
   double c_a = 0.;
   double c_b = 0.;
 
-  solve_kks(cc,&phi,c_a,c_b);
+  //solve_kks(cc,&phi,c_a,c_b,NULL,NULL,NULL);
 
   return c_b;
 }
@@ -2417,6 +2460,8 @@ namespace kkstest
   double M_ = .7;
   TUSAS_DEVICE
   double L_ = .7;
+  TUSAS_DEVICE
+  double rho_ = 1.;
 
   TUSAS_DEVICE
   int ci_ = 0;
@@ -2441,11 +2486,50 @@ PARAM_FUNC(param_)
   M_ = plist->get<double>("M_",.7);
   L_ = plist->get<double>("L_",.7);
 
+  rho_ = plist->get<double>("rho_",rho_);
+
   ci_ = 0;
   mui_ = 1;
   //plist->set("ci_",ci_);
   //plist->set("mui_",mui_);
   
+}
+ 
+KOKKOS_INLINE_FUNCTION 
+const double df_alphadc(const double c)
+{
+  return 2.*rho_*rho_*(c - c_alpha_);
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double df_betadc(const double c)
+{
+  return 2.*rho_*rho_*(c - c_beta_ );
+}
+
+KOKKOS_INLINE_FUNCTION 
+double dfdc(const double c, const double *eta)
+{
+  const double hh = tpetra::pfhub2::h(eta);
+  return df_alphadc(c)*(1.-hh) + df_betadc(c)*hh;
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double f_alpha(const double c)
+{
+  return rho_*rho_*(c - c_alpha_)*(c - c_alpha_);
+}
+ 
+KOKKOS_INLINE_FUNCTION 
+const double f_beta(const double c)
+{
+  return rho_*rho_*(c - c_beta_)*(c - c_beta_);
+}
+ 
+KOKKOS_INLINE_FUNCTION 
+const double d2fdc2(const double c = 0)
+{
+  return 2.*rho_*rho_;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -2477,21 +2561,22 @@ RES_FUNC_TPETRA(residual_mu_kks_)
     eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   };
 
+//   const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
 //   double c_a[3] = {c_alpha_, c_alpha_,c_alpha_};
 //   double c_b[3] = {c_beta_, c_beta_, c_beta_};
 
-//   tpetra::pfhub2::solve_kks(c[0],eta_array,c_a[0],c_b[0]);
-//   tpetra::pfhub2::solve_kks(c[1],eta_array_old,c_a[1],c_b[1]);
-//   tpetra::pfhub2::solve_kks(c[2],eta_array_oldold,c_a[2],c_b[2]);
+//   tpetra::pfhub2::solve_kks(c[0],h[0],c_a[0],c_b[0]);
+//   tpetra::pfhub2::solve_kks(c[1],h[1],c_a[1],c_b[1]);
+//   tpetra::pfhub2::solve_kks(c[2],h[2],c_a[2],c_b[2]);
 
 //   const double df_dc[3] = {tpetra::pfhub2::df_betadc(c_b[0])*test,
 // 			   tpetra::pfhub2::df_betadc(c_b[1])*test,
 // 			   tpetra::pfhub2::df_betadc(c_b[2])*test};
   
-  const double df_dc[3] = {tpetra::pfhub2::dfdc(c[0],eta_array)*test,
-			   tpetra::pfhub2::dfdc(c[1],eta_array_old)*test,
-			   tpetra::pfhub2::dfdc(c[2],eta_array_oldold)*test};
-
+  const double df_dc[3] = {dfdc(c[0],eta_array)*test,
+			   dfdc(c[1],eta_array_old)*test,
+			   dfdc(c[2],eta_array_oldold)*test};
+  //note that either form of df_dc is equivalent; second is cheaper
 
   const double f[3] = {df_dc[0] + divgradc[0],
 		       df_dc[1] + divgradc[1],
@@ -2537,17 +2622,18 @@ RES_FUNC_TPETRA(residual_eta_kks_)
     eta_array_old[kk] = basis[kk_off]->uuold();
     eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   }
+  const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
 
-  tpetra::pfhub2::solve_kks(c[0],eta_array,c_a[0],c_b[0]);
-  tpetra::pfhub2::solve_kks(c[1],eta_array_old,c_a[1],c_b[1]);
-  tpetra::pfhub2::solve_kks(c[2],eta_array_oldold,c_a[2],c_b[2]);
+  tpetra::kks::solve_kks(c[0],hh[0],c_a[0],c_b[0],df_betadc,df_alphadc,d2fdc2);
+  tpetra::kks::solve_kks(c[1],hh[1],c_a[1],c_b[1],df_betadc,df_alphadc,d2fdc2);
+  tpetra::kks::solve_kks(c[2],hh[2],c_a[2],c_b[2],df_betadc,df_alphadc,d2fdc2);
 
   const double etat = (eta[0]-eta[1])/dt_*test;
 
 
-  const double F[3] = {tpetra::pfhub2::f_beta(c_b[0]) - tpetra::pfhub2::f_alpha(c_a[0]) - (c_b[0] - c_a[0])*tpetra::pfhub2::df_betadc(c_b[0]),
-		       tpetra::pfhub2::f_beta(c_b[1]) - tpetra::pfhub2::f_alpha(c_a[1]) - (c_b[1] - c_a[1])*tpetra::pfhub2::df_betadc(c_b[1]),
-		       tpetra::pfhub2::f_beta(c_b[2]) - tpetra::pfhub2::f_alpha(c_a[2]) - (c_b[2] - c_a[2])*tpetra::pfhub2::df_betadc(c_b[2])};
+  const double F[3] = {f_beta(c_b[0]) - f_alpha(c_a[0]) - (c_b[0] - c_a[0])*df_betadc(c_b[0]),
+		       f_beta(c_b[1]) - f_alpha(c_a[1]) - (c_b[1] - c_a[1])*df_betadc(c_b[1]),
+		       f_beta(c_b[2]) - f_alpha(c_a[2]) - (c_b[2] - c_a[2])*df_betadc(c_b[2])};
 
   const int k = eqn_id - eqn_off_;
   const double dfdeta[3] = {L_*(F[0]*tpetra::pfhub2::dhdeta(eta[0]) + w_*tpetra::pfhub2::dgdeta(eta_array,k)    )*test,
@@ -2609,8 +2695,8 @@ PRE_FUNC_TPETRA(prec_c_)
   const double divgrad = D*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
        + basis[0]->dphidy(j)*basis[0]->dphidy(i)
        + basis[0]->dphidz(j)*basis[0]->dphidz(i));
-  //const double d2 = tpetra::pfhub2::d2fdc2()*basis[0]->phi(j)*test;
-  return divgrad;// + d2;
+  const double d2 = d2fdc2()*basis[0]->phi(j)*test;
+  return divgrad + d2;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -2701,7 +2787,8 @@ PPR_FUNC(postproc_mu_)
   double c_a = c_alpha_;
   double c_b = c_beta_;
   const double eta[1] = {u[2]};
-  tpetra::pfhub2::solve_kks(c,eta,c_a,c_b);
+  const double hh = tpetra::pfhub2::h(eta);//will need the array here...
+  tpetra::kks::solve_kks(c,hh,c_a,c_b,df_betadc,df_alphadc,tpetra::pfhub2::d2fdc2);
   //return tpetra::pfhub2::df_betadc(c_b);
   return tpetra::pfhub2::dfdc(c,eta);
 }

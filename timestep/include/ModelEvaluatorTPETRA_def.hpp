@@ -2629,9 +2629,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(2);
-    paramfunc_[0] = &tpetra::pfhub2::param_;
-    paramfunc_[1] = &tpetra::kkstest::param_;
+    paramfunc_.resize(3);
+    paramfunc_[0] = &tpetra::kkstest::param_;
+    paramfunc_[1] = &tpetra::kks::param_;
+    paramfunc_[2] = &tpetra::pfhub2::param_;//for N_, N_MAX for h(phi), g(phi)
 
     post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::kkstest::postproc_c_exact_;
@@ -2646,7 +2647,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[3].postprocfunc_ = &tpetra::kkstest::postproc_eta_error_;
 
 //     post_proc.push_back(new post_process(mesh_,(int)4));
-//     post_proc[4].postprocfunc_ = &tpetra::kkstest::postproc_mu_;
+//     post_proc[4].postprocfunc_ = &tpetra::kkstest::postproc__;
 
   }else if("pfhub2" == paramList.get<std::string> (TusastestNameString)){
 

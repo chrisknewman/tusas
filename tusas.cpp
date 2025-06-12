@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
     
     double curTime = model->get_start_time();
     int elapsedSteps = model->get_start_step();
-    double endTime = curTime + ((double)numSteps-elapsedSteps)*dt;
+    double endTime = dt*numSteps;//curTime + ((double)numSteps-elapsedSteps)*dt;
     
     while ( ( curTime <= endTime ) && ( elapsedSteps < numSteps ) ) {
       double dtnew = 0.;

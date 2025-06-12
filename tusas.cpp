@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
     
     double curTime = model->get_start_time();
     int elapsedSteps = model->get_start_step();
-    double endTime = curTime + ((double)numSteps-elapsedSteps)*dt;
+    double endTime = numSteps*dt;//curTime + ((double)numSteps-elapsedSteps)*dt;
     
     bool timeadapt = paramList.get<bool>(TusasadaptiveTimestepNameString);
     while ( ( curTime <= endTime ) && ( ( elapsedSteps < numSteps ) || ( timeadapt ) ) ) {

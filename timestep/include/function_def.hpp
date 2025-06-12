@@ -2659,14 +2659,10 @@ RES_FUNC_TPETRA(residual_eta_kks_)
   const double f[3] = {divgradeta[0] + dfdeta[0],
 		       divgradeta[1] + dfdeta[1],
 		       divgradeta[2] + dfdeta[2]};
- 
-  //std::cout<<F[0]<<" "<<f[0]<<" "<<dfdeta[0]<<std::endl;
 
-  const double r = (etat + (1.-t_theta2_)*t_theta_*f[0]
+  return (etat + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
-  if(std::isnan(r) ) {printf("%lf re\n\n\n\n\n\n",r); exit(0);}
-  return r;
 }
 
 TUSAS_DEVICE
@@ -2724,18 +2720,7 @@ RES_FUNC_TPETRA(residual_c_trans_)
   const double f[3] = {df_dc[0] + divgradc[0],
 		       df_dc[1] + divgradc[1],
 		       df_dc[2] + divgradc[2]};
-  const double r = -mu*test + f[0];
-  if(std::isnan(mu) ) 
-    {
-      printf("%lf rc\n\n\n\n\n\n",c[0]);
-      //std::cout<<mu<<" "<<c[0]<<" "<<f[0]<<" "<<df_dc[0]<<" "<<eta_array[0]<<std::endl<<std::endl<<std::endl<<std::endl<<std::endl;
-      exit(0);
-    }
-//   const double ds =1.;
-//   return (-mu*test + (1.-t_theta2_)*t_theta_*f[0]
-//     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-//     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]))*ds;
-  return r;
+  return -mu*test + f[0];
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -2775,49 +2760,37 @@ RES_FUNC_TPETRA(residual_mu_trans_)
   //M_ divgrad mu
 
   //mu is not time dependant so this makes no sense for theta .ne. 1
-//   const double f[3] = {M_*(basis[1]->duudx()*basis[0]->dphidx(i)
-// 			   + basis[1]->duudy()*basis[0]->dphidy(i)
-// 			   + basis[1]->duudz()*basis[0]->dphidz(i)),
-// 		       0,
-// 		       0};
-
-//   return (ut + (1.-t_theta2_)*t_theta_*f[0]
-// 	  + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-// 	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
-  //const double r = ut + f[0];
-  const double r = ut + M_*(basis[1]->duudx()*basis[0]->dphidx(i)
+  const double f[3] = {M_*(basis[1]->duudx()*basis[0]->dphidx(i)
 			   + basis[1]->duudy()*basis[0]->dphidy(i)
-			   + basis[1]->duudz()*basis[0]->dphidz(i));
-  if(std::isnan(r) ) {printf("%lf rm\n\n\n\n\n\n",r); exit(0);}
-  return r;
+			   + basis[1]->duudz()*basis[0]->dphidz(i)),
+		       0,
+		       0};
+
+  return (ut + (1.-t_theta2_)*t_theta_*f[0]
+	  + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
 }
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_c_)
 {
-  //const double test = basis[0]->phi(i);
-  //const double u_t =test * basis[0]->phi(j)/dt_;
   const double divgrad = L_*k_c_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
 			    + basis[0]->dphidy(j)*basis[0]->dphidy(i)
 			    + basis[0]->dphidz(j)*basis[0]->dphidz(i));
-  //const double d2 = d2fdc2()*basis[0]->phi(j)*test;
-  if(std::isnan(divgrad) ) {printf("%lf pc\n\n\n\n\n\n",divgrad); exit(0);}
-  return divgrad;// + d2;
+  const double d2 = d2fdc2()*basis[0]->phi(j)*basis[0]->phi(i);
+
+  return divgrad + d2;
 }
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_mu_)
 {
-  //std::cout<<basis[0]->uu()<<" "<<basis[1]->uu()<<" "<<basis[1]->dphidx(j)<<std::endl;
-  const double divgrad = M_*(basis[1]->dphidx(j)*basis[0]->dphidx(i)
-			    + basis[1]->dphidy(j)*basis[0]->dphidy(i)
-			    + basis[1]->dphidz(j)*basis[0]->dphidz(i));
-  const double ut = basis[1]->uu()*basis[0]->phi(i)*1e-2;
-  if(std::isnan(divgrad) ) {
-    printf("%lf pm\n\n\n\n\n\n",divgrad); 
-    std::cout<<basis[0]->uu()<<" "<<basis[1]->uu()<<" "<<basis[2]->uu()<<" "<<M_<<" "<<divgrad<<" "
-	     <<basis[1]->dphidx(j)<<" "<<basis[1]->dphidy(i)<<std::endl;
-    exit(0);}
+  //cn having basis[1]->dphidx(j)*basis[0]->dphidx(i)
+  //with            ^      and          ^
+  //was causing major underflow problems... need to look into this 6-11-25
+  const double divgrad = M_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
+			    + basis[0]->dphidy(j)*basis[0]->dphidy(i)
+			    + basis[0]->dphidz(j)*basis[0]->dphidz(i));
   return divgrad;
 }
 
@@ -2832,7 +2805,6 @@ PRE_FUNC_TPETRA(prec_eta_)
 //   const double c = basis[0]->uu();
 //   const double g1 = L_*(2. - 12.*eta + 12.*eta*eta)*basis[0]->phi(j)*basis[0]->phi(i);
 //   const double h1 = L_*(-f_alpha(c)+f_beta(c))*(60.*eta-180.*eta*eta+120.*eta*eta*eta)*basis[0]->phi(j)*basis[0]->phi(i);
-  if(std::isnan(ut + divgrad) ) {printf("%lf pe\n\n\n\n\n\n",ut + divgrad); exit(0);}
   return ut + divgrad;// + t_theta_*(g1+h1);
 }
 const double sqrt2 = std::sqrt(2.0);

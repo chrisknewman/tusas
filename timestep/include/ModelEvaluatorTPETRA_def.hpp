@@ -801,7 +801,7 @@ const GPURefBasis * BGPURef = BGPURefB;
 	      //Bh[neq].computeElemData(&xx[0], &yy[0], &zz[0]);
 	    }//neq
 	    for(int gp=0; gp < ngp; gp++) {//gp
-        double jacwt = BGPU[0]->getCoordsBasisWJac(gp, &xx[0], &yy[0], &zz[0]); // GAW To do // // const double?
+	      const double jacwt = BGPU[0]->getCoordsBasisWJac(gp, &xx[0], &yy[0], &zz[0]); // GAW To do // // const double?
 	      for( int neq = 0; neq < numeqs; neq++ ){
 		//we need a basis object that stores all equations here..
 		BGPU[neq]->getField(gp, BGPU[0], &uu[neq*n_nodes_per_elem], &uu_old[neq*n_nodes_per_elem], &uu_oldold[neq*n_nodes_per_elem]);
@@ -2696,8 +2696,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][1] = &tpetra::kkstest::dbc_c_alpha_;
     (*dirichletfunc_)[0][3] = &tpetra::kkstest::dbc_c_beta_;
 
-    (*dirichletfunc_)[1][1] = &tpetra::heat::dbc_zero_;
-    (*dirichletfunc_)[1][3] = &tpetra::heat::dbc_zero_;
+    //     (*dirichletfunc_)[1][1] = &tpetra::heat::dbc_zero_;
+//     (*dirichletfunc_)[1][3] = &tpetra::heat::dbc_zero_;
 
 
     (*dirichletfunc_)[2][1] = &tpetra::heat::dbc_zero_;
@@ -2710,11 +2710,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &tpetra::kks::param_;
     paramfunc_[2] = &tpetra::pfhub2::param_;//for N_, N_MAX for h(phi), g(phi)
 
-//     post_proc.push_back(new post_process(mesh_,(int)0));
-//     post_proc[0].postprocfunc_ = &tpetra::kkstest::postproc_c_exact_;
+    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::kkstest::postproc_c_exact_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)1));
-//     post_proc[1].postprocfunc_ = &tpetra::kkstest::postproc_eta_exact_;
+    post_proc.push_back(new post_process(mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::kkstest::postproc_eta_exact_;
 
 //     post_proc.push_back(new post_process(mesh_,(int)2,post_process::NORM2,false,0,"pp",16));
 //     post_proc[2].postprocfunc_ = &tpetra::kkstest::postproc_c_error_;

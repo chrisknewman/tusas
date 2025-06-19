@@ -788,10 +788,10 @@ const GPURefBasis * BGPURef = BGPURefB;
 		
 		uu[n_nodes_per_elem*neq+k] = u_1dra(numeqs*nodeid+neq); 
 		uu_old[n_nodes_per_elem*neq+k] = uold_1dra(numeqs*nodeid+neq);
-		if(std::isnan(uu[n_nodes_per_elem*neq+k]) ) {
-		  printf("%lf rf\n\n\n\n\n\n",uu[n_nodes_per_elem*neq+k]); 
-		  std::cout<<neq<<std::endl;
-		  exit(0);}
+// 		if(std::isnan(uu[n_nodes_per_elem*neq+k]) ) {
+// 		  printf("%lf rf\n\n\n\n\n\n",uu[n_nodes_per_elem*neq+k]); 
+// 		  std::cout<<neq<<std::endl;
+// 		  exit(0);}
 		uu_oldold[n_nodes_per_elem*neq+k] = uoldold_1dra(numeqs*nodeid+neq);
 	      }//neq
 	    }//k
@@ -2659,7 +2659,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
 
+    //N_ETA_
     const int numeta = 1;// problemList->get<int>("N");
+    //N_C_
+    const int numc = 1;
 
     numeqs_ = numeta+2;
 
@@ -2671,8 +2674,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     preconfunc_ = NULL;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::kkstest::prec_c_;
-    (*preconfunc_)[1] = &tpetra::kkstest::prec_mu_;
+    (*preconfunc_)[0] = &tpetra::kkstest::prec_c_trans_;
+    (*preconfunc_)[1] = &tpetra::kkstest::prec_mu_trans_;
     (*preconfunc_)[2] = &tpetra::kkstest::prec_eta_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);

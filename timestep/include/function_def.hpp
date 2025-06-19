@@ -528,12 +528,12 @@ https://journals.aps.org/pre/pdf/10.1103/PhysRevE.60.7186
 Solves for cb, ca:
 
 h(phi)*cb + (1-h(phi))*ca - c = f1(cb,ca) = 0
-f_beta'(cb) + f_alpha'(ca) = f2(cb,ca) = 0
+f_beta'(cb) - f_alpha'(ca)=0; f_beta'(cb) = f_alpha'(ca) = f2(cb,ca)
 
 with 
 
-J = [ h         (1-h) ]
-    [ f''(cb) f''(ca) ]
+J = [ h          (1-h) ]
+    [ f''(cb) -f''(ca) ]
 
 Note that at equilibrium, f'(c) = f_beta'(cb) = f_alpha'(ca).
 
@@ -589,7 +589,7 @@ int solve_kks(const double &c, //input c
       delta_c_a = (-(*D2FDC2)(cb)*f1 + hh*f2)/det;
       cb = delta_c_b + cb;
       ca = delta_c_a + ca;
-      //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
+      //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<cb<<" "<<ca<<" "<<hh*cb + (1.- hh)*ca<<" "<<c<<std::endl;
       if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return 0;
     }
 //     std::cout<<"###################################  solve_kks falied to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
@@ -2297,44 +2297,7 @@ RES_FUNC_TPETRA(residual_mu_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_mu_dp_)) = residual_mu_;
-#if 0
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_mu_kks_)
-{
-  //-mu + df/dc +div c grad test
-  const double c = basis[ci_]->uu();
-  const double mu = basis[mui_]->uu();
-  //const double eta = basis[2]->uu();
-  const double test = basis[0]->phi(i);
 
-  const double divgradc = k_c_*(basis[ci_]->duudx()*basis[0]->dphidx(i)
-				+ basis[ci_]->duudy()*basis[0]->dphidy(i)
-				+ basis[ci_]->duudz()*basis[0]->dphidz(i));
-
-  double eta_array[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
-    int kk_off = kk + eqn_off_;
-    eta_array[kk] = basis[kk_off]->uu();
-  };
-
-  double c_a[2] = {0., 0.};
-  double c_b[2] = {0., 0.};
-  //solve_kks(c,eta_array,c_a[0],c_b[0]);
-
-  const double hh = h(eta_array);
-  const double cc = (1.-hh)*c_a[0] + hh*c_b[0];
-
-  //const double df_dc = dfdc(cc,eta_array)*test;
-  const double df_dc = df_betadc(c_b[0])*test;
-
-  //return dt_*(-mu*test + df_dc + divgradc);
-  //return -mu*test + df_dc + divgradc;
-  return -mu*test + df_dc;
-}
-
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
-#endif
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_c_)
 {
@@ -2453,10 +2416,6 @@ INI_FUNC(init_mu_test_)
 namespace kkstest
 {
   TUSAS_DEVICE
-  double c_alpha_ = .1;
-  TUSAS_DEVICE
-  double c_beta_ = .9;
-  TUSAS_DEVICE
   double w_ = 1.;
   TUSAS_DEVICE
   double k_eta_ = 1.;
@@ -2474,19 +2433,40 @@ namespace kkstest
   TUSAS_DEVICE
   int mui_ = 1;
 
+  //number of phases to compute
+  //N_ETA_ = 1 for two phases
   TUSAS_DEVICE
-  const int N_MAX = 1;
+  const int N_ETA_MAX = 1;
   TUSAS_DEVICE
-  int N_ = 1;
+  int N_ETA_ = 1;
   TUSAS_DEVICE
   int eqn_off_ = 2;
+
+  //number of alloy components to compute
+  //N_C_ = 1 for binary
+  //N_C_ = 2 for ternary
+  TUSAS_DEVICE
+  const int N_C_MAX = 2;
+  TUSAS_DEVICE
+  int N_C_ = 1;
+
+  TUSAS_DEVICE
+  double c_alpha_[1] = {.1};
+  TUSAS_DEVICE
+  double c_beta_[1] = {.9};
+
+  //for binary with one phase there is 1 eq for c, mu 1 eq for eta
+  //with (N_C_ + 1) x (N_C_ + 1) KKS system
+  //for ternary with one phase there are 2 eq for c, mu, 1 eq for eta
+  //with 2*N_C_ x 2*N_C_ KKS system
+  //or possibly two 2 X 2 KKS systems???
 
 PARAM_FUNC(param_)
 {
   //c_alpha_ is c^eq_L
   //c_beta_ is c^eq_S
-  c_alpha_ = plist->get<double>("c_alpha_",.1);    
-  c_beta_ = plist->get<double>("c_beta_",.9);
+  c_alpha_[0] = plist->get<double>("c_alpha_",.1);    
+  c_beta_[0] = plist->get<double>("c_beta_",.9);
   w_ = plist->get<double>("w_",1.);
   k_eta_ = plist->get<double>("k_eta_",1.);
   k_c_ = plist->get<double>("k_c_",0.);
@@ -2511,13 +2491,13 @@ PARAM_FUNC(param_)
 KOKKOS_INLINE_FUNCTION 
 const double df_alphadc(const double c)
 {
-  return 2.*rho_*rho_*(c - c_alpha_);
+  return 2.*rho_*rho_*(c - c_alpha_[0]);
 }
 
 KOKKOS_INLINE_FUNCTION 
 const double df_betadc(const double c)
 {
-  return 2.*rho_*rho_*(c - c_beta_ );
+  return 2.*rho_*rho_*(c - c_beta_[0]);
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -2530,13 +2510,13 @@ double dfdc(const double c, const double *eta)
 KOKKOS_INLINE_FUNCTION 
 const double f_alpha(const double c)
 {
-  return rho_*rho_*(c - c_alpha_)*(c - c_alpha_);
+  return rho_*rho_*(c - c_alpha_[0])*(c - c_alpha_[0]);
 }
  
 KOKKOS_INLINE_FUNCTION 
 const double f_beta(const double c)
 {
-  return rho_*rho_*(c - c_beta_)*(c - c_beta_);
+  return rho_*rho_*(c - c_beta_[0])*(c - c_beta_[0]);
 }
  
 KOKKOS_INLINE_FUNCTION 
@@ -2564,10 +2544,10 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 				    + basis[ci_]->duuoldolddy()*basis[0]->dphidy(i)
 				    + basis[ci_]->duuoldolddz()*basis[0]->dphidz(i))};
 
-  double eta_array[N_MAX];
-  double eta_array_old[N_MAX];
-  double eta_array_oldold[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
@@ -2576,7 +2556,7 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 
 //   const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
 //   double c_a[3] = {c_alpha_, c_alpha_,c_alpha_};
-//   double c_b[3] = {c_beta_, c_beta_, c_beta_};
+//   double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};
 
 //   tpetra::pfhub2::solve_kks(c[0],h[0],c_a[0],c_b[0]);
 //   tpetra::pfhub2::solve_kks(c[1],h[1],c_a[1],c_b[1]);
@@ -2622,13 +2602,13 @@ RES_FUNC_TPETRA(residual_eta_kks_)
   const double detady[3] = {basis[eqn_id]->duudy(), basis[eqn_id]->duuolddy(), basis[eqn_id]->duuoldolddy()};
   const double detadz[3] = {basis[eqn_id]->duudz(), basis[eqn_id]->duuolddz(), basis[eqn_id]->duuoldolddz()};
 
-  double c_a[3] = {c_alpha_, c_alpha_, c_alpha_};
-  double c_b[3] = {c_beta_, c_beta_, c_alpha_};
+  double c_a[3] = {c_alpha_[0], c_alpha_[0], c_alpha_[0]};
+  double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};
 
-  double eta_array[N_MAX];
-  double eta_array_old[N_MAX];
-  double eta_array_oldold[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
@@ -2674,26 +2654,26 @@ RES_FUNC_TPETRA(residual_c_trans_)
 {
   //-mu + df/dc +div c grad test
   //std::cout<<basis[0]->uu()<<" "<<basis[1]->uu()<<" "<<basis[2]->uu()<<std::endl;
-
-  const double c[3] = {basis[0]->uu(), basis[0]->uuold(), basis[0]->uuoldold()};
-  const double mu = basis[1]->uu();
+  const int mu_id = 1;
+  const double c[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
+  const double mu = basis[mu_id]->uu();
   //const double eta = basis[2]->uu();
   const double test = basis[0]->phi(i);
 
-  const double divgradc[3] = {k_c_*(basis[0]->duudx()*basis[0]->dphidx(i)
-				    + basis[0]->duudy()*basis[0]->dphidy(i)
-				    + basis[0]->duudz()*basis[0]->dphidz(i)),
-			      k_c_*(basis[0]->duuolddx()*basis[0]->dphidx(i)
-				    + basis[0]->duuolddy()*basis[0]->dphidy(i)
-				    + basis[0]->duuolddz()*basis[0]->dphidz(i)),
-			      k_c_*(basis[0]->duuoldolddx()*basis[0]->dphidx(i)
-				    + basis[0]->duuoldolddy()*basis[0]->dphidy(i)
-				    + basis[0]->duuoldolddz()*basis[0]->dphidz(i))};
+  const double divgradc[3] = {k_c_*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
+				    + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
+				    + basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
+			      k_c_*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i)
+				    + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
+				    + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
+			      k_c_*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
+				    + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
+				    + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
 
-  double eta_array[N_MAX];
-  double eta_array_old[N_MAX];
-  double eta_array_oldold[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
@@ -2701,8 +2681,8 @@ RES_FUNC_TPETRA(residual_c_trans_)
   };
 
 //   const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
-//   double c_a[3] = {c_alpha_, c_alpha_,c_alpha_};
-//   double c_b[3] = {c_beta_, c_beta_, c_beta_};
+//   double c_a[3] = {c_alpha_[0], c_alpha_[0],c_alpha_[0]};
+//   double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};
 
 //   tpetra::pfhub2::solve_kks(c[0],h[0],c_a[0],c_b[0]);
 //   tpetra::pfhub2::solve_kks(c[1],h[1],c_a[1],c_b[1]);
@@ -2755,14 +2735,14 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_mu_trans_)
 {
   // c_t + M grad mu grad test
-
-  const double ut = (basis[0]->uu()-basis[0]->uuold())/dt_*basis[0]->phi(i);
+  const int c_id = 0;
+  const double ut = (basis[c_id]->uu()-basis[c_id]->uuold())/dt_*basis[0]->phi(i);
   //M_ divgrad mu
 
   //mu is not time dependant so this makes no sense for theta .ne. 1
-  const double f[3] = {M_*(basis[1]->duudx()*basis[0]->dphidx(i)
-			   + basis[1]->duudy()*basis[0]->dphidy(i)
-			   + basis[1]->duudz()*basis[0]->dphidz(i)),
+  const double f[3] = {M_*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
+			   + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
+			   + basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
 		       0,
 		       0};
 
@@ -2773,6 +2753,17 @@ RES_FUNC_TPETRA(residual_mu_trans_)
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_c_)
+{
+  const double divgrad = L_*k_c_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
+			    + basis[0]->dphidy(j)*basis[0]->dphidy(i)
+			    + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+  const double d2 = d2fdc2()*basis[0]->phi(j)*basis[0]->phi(i);
+
+  return divgrad + d2;
+}
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_c_trans_)
 {
   const double divgrad = L_*k_c_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
 			    + basis[0]->dphidy(j)*basis[0]->dphidy(i)
@@ -2795,6 +2786,15 @@ PRE_FUNC_TPETRA(prec_mu_)
 }
 
 KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_mu_trans_)
+{
+  const double divgrad = M_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
+			    + basis[0]->dphidy(j)*basis[0]->dphidy(i)
+			    + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+  return divgrad;
+}
+
+KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_eta_)
 {
   const double ut = basis[0]->phi(j)/dt_*basis[0]->phi(i);
@@ -2807,14 +2807,15 @@ PRE_FUNC_TPETRA(prec_eta_)
 //   const double h1 = L_*(-f_alpha(c)+f_beta(c))*(60.*eta-180.*eta*eta+120.*eta*eta*eta)*basis[0]->phi(j)*basis[0]->phi(i);
   return ut + divgrad;// + t_theta_*(g1+h1);
 }
+
 const double sqrt2 = std::sqrt(2.0);
 const double sqrtw = std::sqrt(w_);
 const double exact_c_test_(const double &x)
 {
-  return c_alpha_*(1. - ((10. - (15.*(1 - tanh((sqrtw*x)/(sqrt2*k_eta_))))/2. + 
+  return c_alpha_[0]*(1. - ((10. - (15.*(1 - tanh((sqrtw*x)/(sqrt2*k_eta_))))/2. + 
 			 (3.*std::pow(1 - tanh((sqrtw*x)/(sqrt2*k_eta_)),2.))/2.)*
 			std::pow(1 - tanh((sqrtw*x)/(sqrt2*k_eta_)),3.))/8.) + 
-    (c_beta_*(10. - (15.*(1. - tanh((sqrtw*x)/(sqrt2*k_eta_))))/2. + 
+    (c_beta_[0]*(10. - (15.*(1. - tanh((sqrtw*x)/(sqrt2*k_eta_))))/2. + 
 	      (3.*std::pow(1 - tanh((sqrtw*x)/(sqrt2*k_eta_)),2.))/2.)*
      std::pow(1. - tanh((sqrtw*x)/(sqrt2*k_eta_)),3.))/8.;
 }
@@ -2867,8 +2868,8 @@ PPR_FUNC(postproc_eta_error_)
 PPR_FUNC(postproc_mu_)
 {
   const double c = u[ci_];
-  double c_a = c_alpha_;
-  double c_b = c_beta_;
+  double c_a = c_alpha_[0];
+  double c_b = c_beta_[0];
   const double eta[1] = {u[2]};
   const double hh = tpetra::pfhub2::h(eta);//will need the array here...
   tpetra::kks::solve_kks(c,hh,c_a,c_b,df_betadc,df_alphadc,tpetra::pfhub2::d2fdc2);
@@ -2883,12 +2884,12 @@ DBC_FUNC(dbc_one_)
 
 DBC_FUNC(dbc_c_alpha_)
 {
-  return c_alpha_;
+  return c_alpha_[0];
 }
  
 DBC_FUNC(dbc_c_beta_)
 {
-  return c_beta_;
+  return c_beta_[0];
 }
 
 }//kkstest

@@ -611,7 +611,7 @@ int solve_kks(const double &c, //input c
 }//namespace kks
 
 /*
-Implementation of KKS solver for binary single phase alloys:
+Implementation of KKS solver for single phase 3 component alloys:
 solve for c1b, c1a, c2b, c2a given c1, c2:
 
 -c1 + c1a (1 - hh) + c1b hh = 0 = f1
@@ -2560,6 +2560,74 @@ INI_FUNC(init_mu_test_)
 
 }//namespace pfhub2
 
+namespace ternarytest
+{
+
+  //beta is solid ie h
+KOKKOS_INLINE_FUNCTION 
+const double f_beta(const double c1, const double c2)
+{
+  return (.1 - c1)*(.1 - c1)*(.05 - c2)*(.05 - c2);
+}
+  //alpha is liq ie (1-h)
+KOKKOS_INLINE_FUNCTION 
+const double f_alpha(const double c1, const double c2)
+{
+  return (.8 - c1)*(.8 - c1)*(.1 - c2)*(.1 - c2);
+}
+KOKKOS_INLINE_FUNCTION 
+const double dfbetadc1(const double c1, const double c2, const double T = 0)
+{
+  return -2.*(0.1 - c1)*(0.05 - c2)*(0.05 - c2);
+}
+KOKKOS_INLINE_FUNCTION 
+const double dfalphadc1(const double c1, const double c2, const double T = 0)
+{
+  return -2.*(0.1 - c1)*(0.05 - c2)*(0.05 - c2);
+}
+KOKKOS_INLINE_FUNCTION
+const double dfbetadc2(const double c1, const double c2, const double T = 0)
+{
+  return -2.*(0.1 - c1)*(0.1 - c1)*(0.05 - c2);
+}
+KOKKOS_INLINE_FUNCTION
+const double dfalphadc2(const double c1, const double c2, const double T = 0)
+{
+  return -2.*(0.1 - c1)*(0.1 - c1)*(0.05 - c2);
+}
+KOKKOS_INLINE_FUNCTION
+const double d2fbetadc1dc2(const double c1, const double c2, const double T = 0)
+{
+  return 4.*(0.1 - c1)*(0.05 - c2);
+}
+KOKKOS_INLINE_FUNCTION
+const double d2falphadc1dc2(const double c1, const double c2, const double T = 0)
+{
+  return 4.*(0.1 - c1)*(0.05 - c2);
+}
+KOKKOS_INLINE_FUNCTION
+const double d2fbetadc12(const double c1, const double c2, const double T = 0)
+{
+  return 2.*(0.05 - c2)*(0.05 - c2);
+}
+KOKKOS_INLINE_FUNCTION
+const double d2falphadc12(const double c1, const double c2, const double T = 0)
+{
+  return 2.*(0.05 - c2)*(0.05 - c2);
+}
+KOKKOS_INLINE_FUNCTION
+const double d2fbetadc22(const double c1, const double c2, const double T = 0)
+{
+  return 2.*(0.1 - c1)* (0.1 - c1);
+}
+KOKKOS_INLINE_FUNCTION
+const double d2falphadc22(const double c1, const double c2, const double T = 0)
+{
+  return 2.*(0.1 - c1)*(0.1 - c1);
+}
+
+}//namespace ternarytest
+
 namespace kkstest
 {
   TUSAS_DEVICE
@@ -3040,6 +3108,7 @@ DBC_FUNC(dbc_c_beta_)
 }
 
 }//kkstest
+
 
 namespace cahnhilliard
 {

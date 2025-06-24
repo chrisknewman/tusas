@@ -18,7 +18,8 @@
     <Parameter name="N" type="int" value="1"/>
     <Parameter name="OFFSET" type="int" value="2"/>
 
-    <Parameter name="rho_" type="double" value="1"/>
+    <Parameter name="rho_beta" type="double" value="1"/>
+    <Parameter name="rho_alpha_" type="double" value="1"/>
     <Parameter name="c_alpha_" type="double" value=".1"/>   
     <Parameter name="c_beta_" type="double" value=".9"/>
     <Parameter name="k_eta_" type="double" value="1"/>

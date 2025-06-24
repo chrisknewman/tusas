@@ -2670,6 +2670,12 @@ namespace kkstest
   TUSAS_DEVICE
   double c_beta_[1] = {.9};
 
+  TUSAS_DEVICE
+  double f_alpha_const = 0.;
+
+  TUSAS_DEVICE
+  double f_beta_const = 0.;
+
   //for binary with one phase there is 1 eq for c, mu 1 eq for eta
   //with (N_C_ + 1) x (N_C_ + 1) KKS system
   //for ternary with one phase there are 2 eq for c, mu, 1 eq for eta
@@ -2682,6 +2688,8 @@ PARAM_FUNC(param_)
   //c_beta_ is c^eq_S
   c_alpha_[0] = plist->get<double>("c_alpha_",.1);    
   c_beta_[0] = plist->get<double>("c_beta_",.9);
+  f_alpha_const = plist->get<double>("f_alpha_const_",0.);
+  f_beta_const = plist->get<double>("f_beta_const_",0.);
   w_ = plist->get<double>("w_",1.);
   k_eta_ = plist->get<double>("k_eta_",1.);
   k_c_ = plist->get<double>("k_c_",0.);
@@ -2725,13 +2733,13 @@ double dfdc(const double c, const double *eta)
 KOKKOS_INLINE_FUNCTION 
 const double f_alpha(const double c)
 {
-  return rho_*rho_*(c - c_alpha_[0])*(c - c_alpha_[0]);
+  return rho_*rho_*(c - c_alpha_[0])*(c - c_alpha_[0]) + f_alpha_const;
 }
  
 KOKKOS_INLINE_FUNCTION 
 const double f_beta(const double c)
 {
-  return rho_*rho_*(c - c_beta_[0])*(c - c_beta_[0]);
+  return rho_*rho_*(c - c_beta_[0])*(c - c_beta_[0]) + f_beta_const;
 }
  
 KOKKOS_INLINE_FUNCTION 
@@ -2781,6 +2789,7 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 // 			   tpetra::pfhub2::df_betadc(c_b[1])*test,
 // 			   tpetra::pfhub2::df_betadc(c_b[2])*test};
   
+//this term is also unique to our binary alloy; dfloc/dc
   const double df_dc[3] = {dfdc(c[0],eta_array)*test,
 			   dfdc(c[1],eta_array_old)*test,
 			   dfdc(c[2],eta_array_oldold)*test};
@@ -2837,7 +2846,7 @@ RES_FUNC_TPETRA(residual_eta_kks_)
 
   const double etat = (eta[0]-eta[1])/dt_*test;
 
-
+  //this is the binary alloy component term, multiplied by dhdeta below; dfloc/deta
   const double F[3] = {f_beta(c_b[0]) - f_alpha(c_a[0]) - (c_b[0] - c_a[0])*df_betadc(c_b[0]),
 		       f_beta(c_b[1]) - f_alpha(c_a[1]) - (c_b[1] - c_a[1])*df_betadc(c_b[1]),
 		       f_beta(c_b[2]) - f_alpha(c_a[2]) - (c_b[2] - c_a[2])*df_betadc(c_b[2])};
@@ -2907,6 +2916,7 @@ RES_FUNC_TPETRA(residual_c_trans_)
 // 			   tpetra::pfhub2::df_betadc(c_b[1])*test,
 // 			   tpetra::pfhub2::df_betadc(c_b[2])*test};
   
+//this term is unique to binary; dfloc/dc
   const double df_dc[3] = {dfdc(c[0],eta_array)*test,
 			   dfdc(c[1],eta_array_old)*test,
 			   dfdc(c[2],eta_array_oldold)*test};

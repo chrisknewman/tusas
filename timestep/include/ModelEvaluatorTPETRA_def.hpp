@@ -2583,7 +2583,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 #endif
     exit(0);
 
-  }else if("kkstest" == paramList.get<std::string> (TusastestNameString)){
+  }else if("kkstestold" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
@@ -2652,6 +2652,77 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
 //     post_proc.push_back(new post_process(mesh_,(int)4));
 //     post_proc[4].postprocfunc_ = &tpetra::kkstest::postproc__;
+
+  }else if("kkstest" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    //N_ETA_
+    const int numeta = 1;// problemList->get<int>("N");
+    //N_C_
+    const int numc = 1;
+
+    numeqs_ = numeta+2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::kkstest::residual_c_trans_;
+    (*residualfunc_)[1] = tpetra::kkstest::residual_mu_trans_;
+    (*residualfunc_)[2] = tpetra::kkstest::residual_eta_kks_dp_;
+
+    preconfunc_ = NULL;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::kkstest::prec_c_trans_;
+    (*preconfunc_)[1] = &tpetra::kkstest::prec_mu_trans_;
+    (*preconfunc_)[2] = &tpetra::kkstest::prec_eta_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::kkstest::init_c_test_;
+    (*initfunc_)[1] = &tpetra::heat::init_zero_;
+    (*initfunc_)[2] = &tpetra::kkstest::init_eta_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "mu";
+    (*varnames_)[2] = "eta0";
+
+
+    // numeqs_ number of variables(equations) 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
+    //dirichletfunc_ = NULL;
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+//  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+//               [numeq][nodeset id]
+//  [variable index][nodeset index]
+    (*dirichletfunc_)[0][1] = &tpetra::kkstest::dbc_c_alpha_;
+    (*dirichletfunc_)[0][3] = &tpetra::kkstest::dbc_c_beta_;
+
+    //     (*dirichletfunc_)[1][1] = &tpetra::heat::dbc_zero_;
+//     (*dirichletfunc_)[1][3] = &tpetra::heat::dbc_zero_;
+
+
+    (*dirichletfunc_)[2][1] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[2][3] = &tpetra::kkstest::dbc_one_;
+
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &tpetra::kkstest::param_;
+    paramfunc_[1] = &tpetra::kks::param_;
+    paramfunc_[2] = &tpetra::pfhub2::param_;//for N_, N_MAX for h(phi), g(phi)
+
+    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::kkstest::postproc_c_exact_;
+
+    post_proc.push_back(new post_process(mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::kkstest::postproc_eta_exact_;
+
+//     post_proc.push_back(new post_process(mesh_,(int)2,post_process::NORM2,false,0,"pp",16));
+//     post_proc[2].postprocfunc_ = &tpetra::kkstest::postproc_c_error_;
+
+//     post_proc.push_back(new post_process(mesh_,(int)3,post_process::NORM2,false,2,"pp",16));
+//     post_proc[3].postprocfunc_ = &tpetra::kkstest::postproc_eta_error_;
 
 
   }else if("kkstrans" == paramList.get<std::string> (TusastestNameString)){

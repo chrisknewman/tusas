@@ -7,8 +7,8 @@
   <Parameter name="meshfile" type="string" value="kkstest_150x15r1.e"/>
   <Parameter name="testcase" type="string" value="kkstest"/>
   <Parameter name="method" type="string" value="tpetra"/>
-  <Parameter name="preconditioner" type="bool" value = "false"/>
-  <Parameter name="theta" type="double" value=".5"/><!-- only 1 for now -->
+  <Parameter name="preconditioner" type="bool" value = "true"/>
+  <Parameter name="theta" type="double" value="1."/><!-- only 1 for now -->
   <Parameter name="noxrelres" type="double" value="1.e-12"/>
 
   <Parameter name="ltpquadord" type="int" value = "3"/>
@@ -18,11 +18,11 @@
     <Parameter name="N" type="int" value="1"/>
     <Parameter name="OFFSET" type="int" value="2"/>
 
-    <Parameter name="rho_beta" type="double" value="1"/>
-    <Parameter name="rho_alpha_" type="double" value="1"/>
+    <Parameter name="rho_beta" type="double" value="1."/>
+    <Parameter name="rho_alpha_" type="double" value="1."/>
     <Parameter name="c_alpha_" type="double" value=".1"/>   
     <Parameter name="c_beta_" type="double" value=".9"/>
-    <Parameter name="k_eta_" type="double" value="1"/>
+    <Parameter name="k_eta_" type="double" value="1."/>
     <Parameter name="M_" type="double" value=".7"/>
     <Parameter name="L_" type="double" value=".7"/>
   </ParameterList>

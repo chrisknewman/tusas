@@ -2823,23 +2823,14 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
 
+  //this is dfloc/dc test for binary alloy with quadratic free energy
 KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_eta_kks_)
+RES_FUNC_TPETRA(residual_dfdeta_bin_quad_kks_)
 {
-  //derivatives of the test function
-  const double dtestdx = basis[0]->dphidx(i);
-  const double dtestdy = basis[0]->dphidy(i);
-  const double dtestdz = basis[0]->dphidz(i);
-  //double dtestdz = basis[0].dphidz(i);
   //test function
   const double test = basis[0]->phi(i);
-  //u, phi
   const double c[3] = {basis[0]->uu(), basis[0]->uuold(), basis[0]->uuoldold()};
-
   const double eta[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
-  const double detadx[3] = {basis[eqn_id]->duudx(), basis[eqn_id]->duuolddx(), basis[eqn_id]->duuoldolddx()};
-  const double detady[3] = {basis[eqn_id]->duudy(), basis[eqn_id]->duuolddy(), basis[eqn_id]->duuoldolddy()};
-  const double detadz[3] = {basis[eqn_id]->duudz(), basis[eqn_id]->duuolddz(), basis[eqn_id]->duuoldolddz()};
 
   double c_a[3] = {c_alpha_[0], c_alpha_[0], c_alpha_[0]};
   double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};
@@ -2859,33 +2850,97 @@ RES_FUNC_TPETRA(residual_eta_kks_)
   tpetra::kks::solve_kks(c[1],hh[1],c_b[1],c_a[1],df_betadc,df_alphadc,d2fbetadc2,d2falphadc2);
   tpetra::kks::solve_kks(c[2],hh[2],c_b[2],c_a[2],df_betadc,df_alphadc,d2fbetadc2,d2falphadc2);
 
-  const double etat = (eta[0]-eta[1])/dt_*test;
-
   //this is the binary alloy component term, multiplied by dhdeta below; dfloc/deta
   const double F[3] = {f_beta(c_b[0]) - f_alpha(c_a[0]) - (c_b[0] - c_a[0])*df_betadc(c_b[0]),
 		       f_beta(c_b[1]) - f_alpha(c_a[1]) - (c_b[1] - c_a[1])*df_betadc(c_b[1]),
 		       f_beta(c_b[2]) - f_alpha(c_a[2]) - (c_b[2] - c_a[2])*df_betadc(c_b[2])};
 
   const int k = eqn_id - eqn_off_;
-  const double dfdeta[3] = {L_*(F[0]*tpetra::pfhub2::dhdeta(eta[0]) + w_*tpetra::pfhub2::dgdeta(eta_array,k)    )*test,
-			    L_*(F[1]*tpetra::pfhub2::dhdeta(eta[1]) + w_*tpetra::pfhub2::dgdeta(eta_array_old,k))*test,
-			    L_*(F[2]*tpetra::pfhub2::dhdeta(eta[2]) + w_*tpetra::pfhub2::dgdeta(eta_array_oldold,k))*test};
+  const double f[3] = {L_*F[0]*tpetra::pfhub2::dhdeta(eta[0])*test,
+		       L_*F[1]*tpetra::pfhub2::dhdeta(eta[1])*test,
+		       L_*F[2]*tpetra::pfhub2::dhdeta(eta[2])*test};
+
+  return ((1.-t_theta2_)*t_theta_*f[0]
+    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
+}
+
+  //this is eta' test + L(grad eta grad test + w g' test) for multiple eta
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_eta_kks_)
+{
+  //derivatives of the test function
+  const double dtestdx = basis[0]->dphidx(i);
+  const double dtestdy = basis[0]->dphidy(i);
+  const double dtestdz = basis[0]->dphidz(i);
+  //test function
+  const double test = basis[0]->phi(i);
+
+  const double eta[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
+  const double detadx[3] = {basis[eqn_id]->duudx(), basis[eqn_id]->duuolddx(), basis[eqn_id]->duuoldolddx()};
+  const double detady[3] = {basis[eqn_id]->duudy(), basis[eqn_id]->duuolddy(), basis[eqn_id]->duuoldolddy()};
+  const double detadz[3] = {basis[eqn_id]->duudz(), basis[eqn_id]->duuolddz(), basis[eqn_id]->duuoldolddz()};
+
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
+  }
+
+  const double etat = (eta[0]-eta[1])/dt_*test;
+
+  const int k = eqn_id - eqn_off_;
+
+  const double dgdeta[3] = {L_*w_*tpetra::pfhub2::dgdeta(eta_array,k)*test,
+			    L_*w_*tpetra::pfhub2::dgdeta(eta_array_old,k)*test,
+			    L_*w_*tpetra::pfhub2::dgdeta(eta_array_oldold,k)*test};
 
   const double divgradeta[3] = {L_*k_eta_ *(detadx[0]*dtestdx + detady[0]*dtestdy + detadz[0]*dtestdz), 
 				L_*k_eta_ *(detadx[1]*dtestdx + detady[1]*dtestdy + detadz[1]*dtestdz),
 				L_*k_eta_ *(detadx[2]*dtestdx + detady[2]*dtestdy + detadz[2]*dtestdz)};//(grad u,grad phi)
 
-  const double f[3] = {divgradeta[0] + dfdeta[0],
-		       divgradeta[1] + dfdeta[1],
-		       divgradeta[2] + dfdeta[2]};
+  const double f[3] = {divgradeta[0] + dgdeta[0],
+		       divgradeta[1] + dgdeta[1],
+		       divgradeta[2] + dgdeta[2]};
 
   return (etat + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
+	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
 }
-
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
+
+  //this is allen cahn for eta_i with binary alloy with quadratic free energy for multiple eta
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_allencahn_bin_quad_kks_)
+{
+  return residual_eta_kks_(basis,
+			   i,
+			   dt_,
+			   dtold_,
+			   t_theta_,
+			   t_theta2_,
+			   time,
+			   eqn_id,
+			   vol,
+			   rand) +
+    residual_dfdeta_bin_quad_kks_(basis,
+				  i,
+				  dt_,
+				  dtold_,
+				  t_theta_,
+				  t_theta2_,
+				  time,
+				  eqn_id,
+				  vol,
+				  rand);
+}
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_allencahn_bin_quad_kks_dp_)) = residual_allencahn_bin_quad_kks_;
 
 
 KOKKOS_INLINE_FUNCTION 

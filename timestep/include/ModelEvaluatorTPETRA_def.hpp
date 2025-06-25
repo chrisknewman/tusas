@@ -2595,7 +2595,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::kkstest::residual_c_dp_;
     (*residualfunc_)[1] = tpetra::kkstest::residual_mu_kks_dp_;
-    (*residualfunc_)[2] = tpetra::kkstest::residual_eta_kks_dp_;
+    (*residualfunc_)[2] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
 
     const int ci_ = 0;//problemList->get<int>("ci_");
     const int mui_ = 1;//problemList->get<int>("mui_");;
@@ -2668,7 +2668,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::kkstest::residual_c_trans_;
     (*residualfunc_)[1] = tpetra::kkstest::residual_mu_trans_;
-    (*residualfunc_)[2] = tpetra::kkstest::residual_eta_kks_dp_;
+    (*residualfunc_)[2] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
+    //(*residualfunc_)[2] = tpetra::kkstest::residual_eta_kks_dp_;
 
     preconfunc_ = NULL;
 
@@ -2718,11 +2719,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(mesh_,(int)1));
     post_proc[1].postprocfunc_ = &tpetra::kkstest::postproc_eta_exact_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)2,post_process::NORM2,false,0,"pp",16));
-//     post_proc[2].postprocfunc_ = &tpetra::kkstest::postproc_c_error_;
+    post_proc.push_back(new post_process(mesh_,(int)2,post_process::NORM2,false,0,"pp",16));
+    post_proc[2].postprocfunc_ = &tpetra::kkstest::postproc_c_error_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)3,post_process::NORM2,false,2,"pp",16));
-//     post_proc[3].postprocfunc_ = &tpetra::kkstest::postproc_eta_error_;
+    post_proc.push_back(new post_process(mesh_,(int)3,post_process::NORM2,false,2,"pp",16));
+    post_proc[3].postprocfunc_ = &tpetra::kkstest::postproc_eta_error_;
 
 
   }else if("kkstrans" == paramList.get<std::string> (TusastestNameString)){
@@ -2740,7 +2741,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::kkstest::residual_c_trans_;
     (*residualfunc_)[1] = tpetra::kkstest::residual_mu_trans_;
-    (*residualfunc_)[2] = tpetra::kkstest::residual_eta_kks_dp_;
+    (*residualfunc_)[2] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
 
     preconfunc_ = NULL;
 

@@ -2514,35 +2514,53 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
   }else if("pfhub2kks" == paramList.get<std::string> (TusastestNameString)){
-#if 0
+
+    //https://www.sciencedirect.com/science/article/pii/S0927025616304712?via%3Dihub
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
 
-    int numeta = problemList->get<int>("N");
+    const int numeta = problemList->get<int>("N_");
 
     numeqs_ = numeta+2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_;
-    (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_kks_dp_;
-    (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_kks_dp_;
-#if 0
-    if( 4 == numeta){
-      (*residualfunc_)[3] = &pfhub2::residual_eta_kks_;
-      (*residualfunc_)[4] = &pfhub2::residual_eta_kks_;
-      (*residualfunc_)[5] = &pfhub2::residual_eta_kks_;
+    (*residualfunc_)[0] = tpetra::kkstest::residual_c_trans_;
+    (*residualfunc_)[1] = tpetra::kkstest::residual_mu_trans_;
+    (*residualfunc_)[2] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
+
+    if( 2 == numeta){
+      (*residualfunc_)[3] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
     }
-#endif
+    if( 3 == numeta){
+      (*residualfunc_)[3] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
+      (*residualfunc_)[4] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
+    }
+    if( 4 == numeta){
+      (*residualfunc_)[3] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
+      (*residualfunc_)[4] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
+      (*residualfunc_)[5] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
+    }
+
     preconfunc_ = NULL;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
-    (*preconfunc_)[1] = &tpetra::pfhub2::prec_ut_;
-    (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+    (*preconfunc_)[0] = &tpetra::kkstest::prec_c_trans_;
+    (*preconfunc_)[1] = &tpetra::kkstest::prec_mu_trans_;
+    (*preconfunc_)[2] = &tpetra::kkstest::prec_eta_;
+
+    if( 2 == numeta){
+      (*preconfunc_)[3] = &tpetra::kkstest::prec_eta_;
+    }
+
+    if( 3 == numeta){
+      (*preconfunc_)[3] = &tpetra::kkstest::prec_eta_;
+      (*preconfunc_)[4] = &tpetra::kkstest::prec_eta_;
+    }
+
     if( 4 == numeta){
-      (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
-      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
-      (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[3] = &tpetra::kkstest::prec_eta_;
+      (*preconfunc_)[4] = &tpetra::kkstest::prec_eta_;
+      (*preconfunc_)[5] = &tpetra::kkstest::prec_eta_;
     }
 
 
@@ -2550,6 +2568,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[0] = &tpetra::pfhub2::init_c_;
     (*initfunc_)[1] = &tpetra::pfhub2::init_mu_;
     (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
+    if( 2 == numeta){
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+    }
+    if( 3 == numeta){
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
+    }
     if( 4 == numeta){
       (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
       (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
@@ -2560,6 +2585,14 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[0] = "c";
     (*varnames_)[1] = "mu";
     (*varnames_)[2] = "eta0";
+    
+    if( 2 == numeta){
+      (*varnames_)[3] = "eta1";
+    }
+    if( 3 == numeta){
+      (*varnames_)[3] = "eta1";
+      (*varnames_)[4] = "eta2";
+    }
     if( 4 == numeta){
       (*varnames_)[3] = "eta1";
       (*varnames_)[4] = "eta2";
@@ -2572,16 +2605,21 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(1);
-    paramfunc_[0] = &tpetra::pfhub2::param_;
+    paramfunc_.resize(3);
+    paramfunc_[0] = &tpetra::kkstest::param_;
+    paramfunc_[1] = &tpetra::kks::param_;
+    paramfunc_[2] = &tpetra::pfhub2::param_;//for N_, N_MAX for h(phi), g(phi)
 
-    post_proc.push_back(new post_process(mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-    post_proc.push_back(new post_process(mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
-#endif
-    exit(0);
+    //we should have a function in kkstest that computes these values
+    //we should also have an option to compute total free energy
+
+
+//     post_proc.push_back(new post_process(mesh_,(int)0));
+//     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
+
+//     post_proc.push_back(new post_process(mesh_,(int)1));
+//     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
   }else if("kkstestold" == paramList.get<std::string> (TusastestNameString)){
 

@@ -520,6 +520,10 @@ PPR_FUNC(postproc_u2err_)
 
 
 
+//cn 7-03-25
+//This version of KKs is for one phase transition right now. Need to look into this.
+
+
 /*
 Implementation of KKS solver for binary single phase alloys found in:
 
@@ -550,7 +554,7 @@ Note that cb corrsponds to solid with phi = 1 and ca corresponds to liquid with 
 and the solution is ceq_b when phi = 1 and ceq_a when phi = 0, so in theory solver
 should return in a single iteration in either case.
 
-Could we implenet a matrix-free version? Might make sense for ternary.
+Could we implement a matrix-free version? Might make sense for ternary.
 
 See kkstest for implementation details.
 
@@ -580,7 +584,7 @@ int solve_kks(const double &c, //input c
 	      KKSFUNC D2FALPHADC2, //f_alpha'(c)
 	      const double &T = 0.) //input T
   {
-    //if(phi[0] > .999 || phi[0] < .001) return 0; //hack for single phase; leads to more iters but comparable cpu time
+    //if(phi[0] > .999 || phi[0] < .001) return 0; //hack for single phase; leads to more global iters but comparable cpu time
     double delta_c_b = 0.;
     double delta_c_a = 0.;
     const int max_iter = kks_max_iter_;
@@ -603,8 +607,20 @@ int solve_kks(const double &c, //input c
       //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<cb<<" "<<ca<<" "<<hh*cb + (1.- hh)*ca<<" "<<c<<std::endl;
       if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return 0;
     }
-//     std::cout<<"###################################  solve_kks falied to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
+    printf("###################################  solve_kks failed to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = %f  ###################################\n",
+       delta_c_a * delta_c_a + delta_c_b * delta_c_b);
+    printf("  hh  = %f \n",hh);
+    printf("  cb  = %f \n",cb);
+    printf("  ca  = %f \n",ca);
+    printf("################################### \n\n\n\n");
+//     std::cout<<"###################################"
+// 	     <<"  solve_kks failed to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
 // 	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
+// 	     <<"    c  = "<<c<<std::endl
+// 	     <<"    hh = "<<hh<<std::endl
+// 	     <<"    cb = "<<cb<<std::endl
+// 	     <<"    ca = "<<ca<<std::endl
+// 	     <<"  ###################################"<<std::endl;
     exit(0);
     return 1;
   }
@@ -2064,7 +2080,7 @@ INI_FUNC(init_phase_pfhub3_)
 namespace pfhub2
 {
   TUSAS_DEVICE
-  const int N_MAX = 1;
+  const int N_MAX = 2;
   TUSAS_DEVICE
   int N_ = 1;
   TUSAS_DEVICE
@@ -2637,7 +2653,9 @@ namespace kkstest
   TUSAS_DEVICE
   double k_c_ = 0.;//1.e-4;
   TUSAS_DEVICE
-  double M_ = .7;
+  double M_beta_ = .7;
+  TUSAS_DEVICE
+  double M_alpha_ = .7;
   TUSAS_DEVICE
   double L_ = .7;
   TUSAS_DEVICE
@@ -2653,7 +2671,7 @@ namespace kkstest
   //number of phases to compute
   //N_ETA_ = 1 for two phases
   TUSAS_DEVICE
-  const int N_ETA_MAX = 1;
+  const int N_ETA_MAX = 2;
   TUSAS_DEVICE
   int N_ETA_ = 1;
   TUSAS_DEVICE
@@ -2688,6 +2706,11 @@ namespace kkstest
   //with 2*N_C_ x 2*N_C_ KKS system
   //or possibly two 2 X 2 KKS systems???
 
+  //also we need to specify mobility as 
+  //M = M_beta h + M_alpha (1 - h)
+
+  //to accomodate corrosion and our eventual movement of kks to real binary alloys
+
 PARAM_FUNC(param_)
 {
   //c_alpha_ is c^eq_L
@@ -2701,7 +2724,8 @@ PARAM_FUNC(param_)
   w_ = plist->get<double>("w_",1.);
   k_eta_ = plist->get<double>("k_eta_",1.);
   k_c_ = plist->get<double>("k_c_",0.);
-  M_ = plist->get<double>("M_",.7);
+  M_beta_ = plist->get<double>("M_beta_",.7);
+  M_alpha_ = plist->get<double>("M_alpha_",.7);
   L_ = plist->get<double>("L_",.7);
 
   rho_alpha = plist->get<double>("rho_alpha_",rho_alpha);
@@ -2942,7 +2966,7 @@ RES_FUNC_TPETRA(residual_allencahn_bin_quad_kks_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_allencahn_bin_quad_kks_dp_)) = residual_allencahn_bin_quad_kks_;
 
-
+  //do we need to do anything special to have this support kks beyond binary?
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_trans_)
 {
@@ -2995,7 +3019,11 @@ RES_FUNC_TPETRA(residual_c_trans_)
   const double f[3] = {df_dc[0] + divgradc[0],
 		       df_dc[1] + divgradc[1],
 		       df_dc[2] + divgradc[2]};
-  return -mu*test + f[0];
+ 
+  //return -mu*test + t_theta_*f[0] + (1.-t_theta_)*f[1];  
+  return (-mu*test + (1.-t_theta2_)*t_theta_*f[0]
+	  + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3006,17 +3034,11 @@ RES_FUNC_TPETRA(residual_c_)
   //M_ divgrad mu
 
   //mu is not time dependant so this makes no sense for theta .ne. 1
-  const double f[3] = {M_*(basis[mui_]->duudx()*basis[0]->dphidx(i)
+  const double f[3] = {M_beta_*(basis[mui_]->duudx()*basis[0]->dphidx(i)
 			   + basis[mui_]->duudy()*basis[0]->dphidy(i)
 			   + basis[mui_]->duudz()*basis[0]->dphidz(i)),
 		       0,
 		       0};
-// 		       M_*(basis[mui_]->duuolddx()*basis[0]->dphidx(i)
-// 			   + basis[mui_]->duuolddy()*basis[0]->dphidy(i)
-// 			   + basis[mui_]->duuolddz()*basis[0]->dphidz(i)),
-// 		       M_*(basis[mui_]->duuoldolddx()*basis[0]->dphidx(i)
-// 			   + basis[mui_]->duuoldolddy()*basis[0]->dphidy(i)
-// 			   + basis[mui_]->duuoldolddz()*basis[0]->dphidz(i))};
 
   return (ut + (1.-t_theta2_)*t_theta_*f[0]
 	  + (1.-t_theta2_)*(1.-t_theta_)*f[1]
@@ -3026,6 +3048,7 @@ RES_FUNC_TPETRA(residual_c_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_c_dp_)) = residual_c_;
 
+  //do we need to do anything special to have this support kks beyond binary?
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_mu_trans_)
 {
@@ -3034,16 +3057,18 @@ RES_FUNC_TPETRA(residual_mu_trans_)
   const double ut = (basis[c_id]->uu()-basis[c_id]->uuold())/dt_*basis[0]->phi(i);
   //M_ divgrad mu
 
-  //mu is not time dependant so this makes no sense for theta .ne. 1
-  const double f[3] = {M_*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
-			   + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
-			   + basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
-		       0,
-		       0};
+  const double f[3] = {M_beta_*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
+			       + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
+				+ basis[eqn_id]->duudz()*basis[0]->dphidz(i)),0.,0.};
+// 		       M_beta_*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i),
+// 				    + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
+// 				    + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
+// 		       M_beta_*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
+// 				    + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
+// 				    + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
 
-  return (ut + (1.-t_theta2_)*t_theta_*f[0]
-	  + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
+  const double s = 1.;
+  return (ut + f[0])*s;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3055,7 +3080,7 @@ PRE_FUNC_TPETRA(prec_c_)
   //might need to fix this?
   const double d2 = d2falphadc2()*basis[0]->phi(j)*basis[0]->phi(i);
 
-  return divgrad + d2;
+  return t_theta_*(divgrad + L_*d2);
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3067,7 +3092,10 @@ PRE_FUNC_TPETRA(prec_c_trans_)
   //might need to fix this?
   const double d2 = d2falphadc2()*basis[0]->phi(j)*basis[0]->phi(i);
 
-  return divgrad + d2;
+  //note we need d2 equal to something here, for when k_c_ = 0
+  
+  //return (divgrad + L_*d2);
+  return t_theta_*(divgrad + L_*d2);
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3076,18 +3104,19 @@ PRE_FUNC_TPETRA(prec_mu_)
   //cn having basis[1]->dphidx(j)*basis[0]->dphidx(i)
   //with            ^      and          ^
   //was causing major underflow problems... need to look into this 6-11-25
-  const double divgrad = M_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
-			    + basis[0]->dphidy(j)*basis[0]->dphidy(i)
-			    + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+  const double divgrad = M_beta_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
+				 + basis[0]->dphidy(j)*basis[0]->dphidy(i)
+				 + basis[0]->dphidz(j)*basis[0]->dphidz(i));
   return divgrad;
 }
 
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_mu_trans_)
 {
-  const double divgrad = M_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
-			    + basis[0]->dphidy(j)*basis[0]->dphidy(i)
-			    + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+  const double divgrad = M_beta_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
+				 + basis[0]->dphidy(j)*basis[0]->dphidy(i)
+				 + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+  //return t_theta_*divgrad;
   return divgrad;
 }
 
@@ -3102,9 +3131,10 @@ PRE_FUNC_TPETRA(prec_eta_)
 //   const double c = basis[0]->uu();
 //   const double g1 = L_*(2. - 12.*eta + 12.*eta*eta)*basis[0]->phi(j)*basis[0]->phi(i);
 //   const double h1 = L_*(-f_alpha(c)+f_beta(c))*(60.*eta-180.*eta*eta+120.*eta*eta*eta)*basis[0]->phi(j)*basis[0]->phi(i);
-  return ut + divgrad;// + t_theta_*(g1+h1);
+  return ut + t_theta_*divgrad;// + t_theta_*(g1+h1);
 }
 
+//note these functions are uniqe to our analytic test case
 const double sqrt2 = std::sqrt(2.0);
 const double sqrtw = std::sqrt(w_);
 const double exact_c_test_(const double &x)
@@ -3161,6 +3191,11 @@ PPR_FUNC(postproc_eta_error_)
   const double d = eta - exact_eta_test_(x);
   return d;
 }
+//end analytic test case
+
+//we should have functions that solve for c_a and c_b
+
+//and also a computation of total free energy
 
 PPR_FUNC(postproc_mu_)
 {

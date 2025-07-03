@@ -23,7 +23,7 @@
     <Parameter name="c_alpha_" type="double" value=".1"/>   
     <Parameter name="c_beta_" type="double" value=".9"/>
     <Parameter name="k_eta_" type="double" value="1."/>
-    <Parameter name="M_" type="double" value=".7"/>
+    <Parameter name="M_beta_" type="double" value=".7"/>
     <Parameter name="L_" type="double" value=".7"/>
   </ParameterList>
 

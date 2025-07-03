@@ -2070,7 +2070,7 @@ INI_FUNC(init_phase_pfhub3_)
 namespace pfhub2
 {
   TUSAS_DEVICE
-  const int N_MAX = 3;
+  const int N_MAX = 4;
   TUSAS_DEVICE
   int N_ = 1;
   TUSAS_DEVICE
@@ -2132,6 +2132,7 @@ namespace pfhub2
     L_ = plist->get<double>("L_",5.);
     //eps_ and eps_eta_ seem to only reside in some init cond
     //eps_ = plist->get<double>("eps_",.05);
+    if(N_ > N_MAX) exit(0);
 
   }
  
@@ -2661,7 +2662,7 @@ namespace kkstest
   //number of phases to compute
   //N_ETA_ = 1 for two phases
   TUSAS_DEVICE
-  const int N_ETA_MAX = 3;
+  const int N_ETA_MAX = 4;
   TUSAS_DEVICE
   int N_ETA_ = 1;
   TUSAS_DEVICE
@@ -2688,7 +2689,6 @@ namespace kkstest
   double f_alpha_delta = 0.;
   TUSAS_DEVICE
   double f_beta_delta = 0.;
-
 
   //for binary with one phase there is 1 eq for c, mu 1 eq for eta
   //with (N_C_ + 1) x (N_C_ + 1) KKS system
@@ -2732,6 +2732,8 @@ PARAM_FUNC(param_)
     eqn_off_ = eqn_off_p;
 #endif
   N_ETA_ = plist->get<int>("N_ETA_",N_ETA_);
+
+  if(N_ETA_ > N_ETA_MAX) exit(0);
   
 }
  

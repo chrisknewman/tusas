@@ -520,9 +520,6 @@ PPR_FUNC(postproc_u2err_)
 
 
 
-//cn 7-03-25
-//This version of KKs is for one phase transition right now. Need to look into this.
-
 
 /*
 Implementation of KKS solver for binary single phase alloys found in:
@@ -556,7 +553,7 @@ should return in a single iteration in either case.
 
 Could we implement a matrix-free version? Might make sense for ternary.
 
-See kkstest for implementation details.
+See kkstest and pfhub2kks for implementation details.
 
 */
 namespace kks
@@ -613,14 +610,7 @@ int solve_kks(const double &c, //input c
     printf("  cb  = %f \n",cb);
     printf("  ca  = %f \n",ca);
     printf("################################### \n\n\n\n");
-//     std::cout<<"###################################"
-// 	     <<"  solve_kks failed to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = "
-// 	     <<delta_c_a*delta_c_a+delta_c_b*delta_c_b<<"  ###################################"<<std::endl;
-// 	     <<"    c  = "<<c<<std::endl
-// 	     <<"    hh = "<<hh<<std::endl
-// 	     <<"    cb = "<<cb<<std::endl
-// 	     <<"    ca = "<<ca<<std::endl
-// 	     <<"  ###################################"<<std::endl;
+
     exit(0);
     return 1;
   }
@@ -2080,7 +2070,7 @@ INI_FUNC(init_phase_pfhub3_)
 namespace pfhub2
 {
   TUSAS_DEVICE
-  const int N_MAX = 2;
+  const int N_MAX = 3;
   TUSAS_DEVICE
   int N_ = 1;
   TUSAS_DEVICE
@@ -2671,7 +2661,7 @@ namespace kkstest
   //number of phases to compute
   //N_ETA_ = 1 for two phases
   TUSAS_DEVICE
-  const int N_ETA_MAX = 2;
+  const int N_ETA_MAX = 3;
   TUSAS_DEVICE
   int N_ETA_ = 1;
   TUSAS_DEVICE
@@ -2741,6 +2731,7 @@ PARAM_FUNC(param_)
 #else
     eqn_off_ = eqn_off_p;
 #endif
+  N_ETA_ = plist->get<int>("N_ETA_",N_ETA_);
   
 }
  
@@ -2869,6 +2860,8 @@ RES_FUNC_TPETRA(residual_dfdeta_bin_quad_kks_)
     eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   }
   const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
+
+  //std::cout<<hh[0]<<" "<<hh[1]<<" "<<hh[2]<<std::endl;
 
   tpetra::kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],df_betadc,df_alphadc,d2fbetadc2,d2falphadc2);
   tpetra::kks::solve_kks(c[1],hh[1],c_b[1],c_a[1],df_betadc,df_alphadc,d2fbetadc2,d2falphadc2);

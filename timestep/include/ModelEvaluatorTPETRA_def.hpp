@@ -57,7 +57,7 @@
 #define TUSAS_RUN_ON_CPU
 
 // IMPORTANT!!! this macro should be set to TUSAS_MAX_NUMEQS * BASIS_NODES_PER_ELEM
-#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 135 // 5 * 27 for HexQ
+#define TUSAS_MAX_NUMEQS_X_BASIS_NODES_PER_ELEM 162 // 6 * 27 for HexQ
 
 std::string getmypidstring(const int mypid, const int numproc);
 

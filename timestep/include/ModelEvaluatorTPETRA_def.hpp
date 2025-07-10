@@ -2621,6 +2621,65 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 //     post_proc.push_back(new post_process(mesh_,(int)1));
 //     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
+  }else if("masstest" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    int ui_ = 0;
+    int vi_ = 1;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::heat::init_zero_;
+    if( 2 == numeqs_)
+      (*initfunc_)[1] = &tpetra::heat::init_zero_;
+    
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::masstest::residual_mass1_test_;
+    if( 2 == numeqs_)
+      (*residualfunc_)[1] = tpetra::masstest::residual_mass2_test_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = tpetra::pfhub3::prec_heat_pfhub3_dp_;
+    if( 2 == numeqs_)
+      (*preconfunc_)[1] = tpetra::pfhub3::prec_phase_pfhub3_dp_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "u1";
+    if( 2 == numeqs_)
+      (*varnames_)[1] = "u2";
+
+    dirichletfunc_ = NULL;
+#if 0					 
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);    
+    //  cubit nodesets start at 1; exodus nodesets start at 0, hence off by one here
+    //               [numeq][nodeset id]
+    //  [variable index][nodeset index]
+    (*dirichletfunc_)[0][1] = &tpetra::heat::dbc_zero_;
+    (*dirichletfunc_)[0][3] = &tpetra::heat::dbc_zero_;	
+    (*dirichletfunc_)[1][1] = &tpetra::heat::dbc_zero_;						 
+    (*dirichletfunc_)[1][3] = &tpetra::heat::dbc_zero_;
+#endif
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::masstest::param_;
+
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(mesh_,(int)0,post_process::NORM2,false,ui_,"pp",16));
+    post_proc[0].postprocfunc_ = &tpetra::masstest::postproc_f1_exact_;
+
+    post_proc.push_back(new post_process(mesh_,(int)1,post_process::NORM2,false,ui_,"pp",16));
+    post_proc[1].postprocfunc_ = &tpetra::masstest::postproc_u1_error_;
+
+    if( 2 == numeqs_){
+      
+      post_proc.push_back(new post_process(mesh_,(int)2,post_process::NORM2,false,vi_,"pp",16));
+      post_proc[2].postprocfunc_ = &tpetra::masstest::postproc_f2_exact_;
+      
+      post_proc.push_back(new post_process(mesh_,(int)3,post_process::NORM2,false,vi_,"pp",16));
+      post_proc[3].postprocfunc_ = &tpetra::masstest::postproc_u2_error_;
+    }
+
+
   }else if("kkstestold" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

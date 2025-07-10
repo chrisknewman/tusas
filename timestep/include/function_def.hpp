@@ -2643,6 +2643,11 @@ namespace kkstest
   double k_eta_ = 1.;
   TUSAS_DEVICE
   double k_c_ = 0.;//1.e-4;
+
+  //we will probably need a single M
+  //probably as a function since M is typically given by:
+  //M = D(eta) / (d2f/dc2)
+  //where D is a function of eta
   TUSAS_DEVICE
   double M_beta_ = .7;
   TUSAS_DEVICE
@@ -3014,11 +3019,21 @@ RES_FUNC_TPETRA(residual_c_trans_)
   const double f[3] = {df_dc[0] + divgradc[0],
 		       df_dc[1] + divgradc[1],
 		       df_dc[2] + divgradc[2]};
- 
+
+  double val = 0;
+//   if(t_theta_ > 1.e-6 )
+//     val = -mu*test + f[0];
+//   else
+//     val = -mu*test + f[1];
+
+
+  val = (t_theta_ > 1.e-6)  ? -mu*test + f[0] : -mu*test + f[1];
+  return val;
+    
   //return -mu*test + t_theta_*f[0] + (1.-t_theta_)*f[1];  
-  return (-mu*test + (1.-t_theta2_)*t_theta_*f[0]
-	  + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
+//   return (-mu*test + (1.-t_theta2_)*t_theta_*f[0]
+// 	  + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+// 	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3049,21 +3064,23 @@ RES_FUNC_TPETRA(residual_mu_trans_)
 {
   // c_t + M grad mu grad test
   const int c_id = 0;
-  const double ut = (basis[c_id]->uu()-basis[c_id]->uuold())/dt_*basis[0]->phi(i);
+  const double ct = (basis[c_id]->uu()-basis[c_id]->uuold())/dt_*basis[0]->phi(i);
   //M_ divgrad mu
 
   const double f[3] = {M_beta_*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
 			       + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
-				+ basis[eqn_id]->duudz()*basis[0]->dphidz(i)),0.,0.};
-// 		       M_beta_*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i),
-// 				    + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
-// 				    + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
-// 		       M_beta_*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
-// 				    + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
-// 				    + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
+				+ basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
+		       M_beta_*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i),
+				    + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
+				    + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
+		       M_beta_*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
+				    + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
+				    + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
 
-  const double s = 1.;
-  return (ut + f[0])*s;
+  //return (ct + f[0]); 
+  return (ct + (1.-t_theta2_)*t_theta_*f[0]
+	  + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3089,8 +3106,8 @@ PRE_FUNC_TPETRA(prec_c_trans_)
 
   //note we need d2 equal to something here, for when k_c_ = 0
   
-  //return (divgrad + L_*d2);
-  return t_theta_*(divgrad + L_*d2);
+  return (divgrad + L_*d2);
+  //return t_theta_*(divgrad + L_*d2);
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3111,8 +3128,8 @@ PRE_FUNC_TPETRA(prec_mu_trans_)
   const double divgrad = M_beta_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
 				 + basis[0]->dphidy(j)*basis[0]->dphidy(i)
 				 + basis[0]->dphidz(j)*basis[0]->dphidz(i));
-  //return t_theta_*divgrad;
-  return divgrad;
+  return t_theta_*divgrad;
+  //return divgrad;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3129,7 +3146,7 @@ PRE_FUNC_TPETRA(prec_eta_)
   return ut + t_theta_*divgrad;// + t_theta_*(g1+h1);
 }
 
-//note these functions are uniqe to our analytic test case
+//note these functions are unique to our analytic test case
 const double sqrt2 = std::sqrt(2.0);
 const double sqrtw = std::sqrt(w_);
 const double exact_c_test_(const double &x)
@@ -3220,6 +3237,74 @@ DBC_FUNC(dbc_c_beta_)
 }
 
 }//kkstest
+
+namespace masstest
+{
+int ui_ = 0;
+int vi_ = 1;
+
+PARAM_FUNC(param_)
+{
+  ui_ = plist->get<int>("ui_",ui_);
+  vi_ = plist->get<int>("vi_",vi_);
+}
+
+
+TUSAS_DEVICE
+const double pi = 3.141592653589793;
+
+KOKKOS_INLINE_FUNCTION 
+const double f1(const double &x)
+{
+  return sin(pi*x/25.);
+  //return (x-25.)*(x+25.)/25./25.;
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double f2(const double &x)
+{
+  return cos(pi*x/50.);
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_mass1_test_)
+{
+  return ( basis[ui_]->uu() - f1(basis[0]->xx()))*basis[0]->phi(i);
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_mass2_test_)
+{
+  return ( basis[vi_]->uu() - f2(basis[0]->xx()) )*basis[0]->phi(i);
+}
+
+PPR_FUNC(postproc_f1_exact_)
+{
+  const double x = xyz[0];
+  return f1(x);
+}
+
+PPR_FUNC(postproc_f2_exact_)
+{
+  const double x = xyz[0];
+  return f2(x);
+}
+
+PPR_FUNC(postproc_u1_error_)
+{
+  const double x = xyz[0];
+  const double u1 = u[ui_];
+  return u1 - f1(x);
+}
+
+PPR_FUNC(postproc_u2_error_)
+{
+  const double x = xyz[0];
+  const double u2 = u[vi_];
+  return u2 - f2(x);
+}
+
+}//namespace masstest
 
 
 namespace cahnhilliard

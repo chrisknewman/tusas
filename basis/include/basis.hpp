@@ -2448,6 +2448,7 @@ protected:
   // Functions to evaluate 1D coordinates at Gauss points
   KOKKOS_INLINE_FUNCTION
   void xibasisFunctions1D(const int gp){
+#if 0
     if (pd() == 1){
       xibasisatqp[0] = (1 - xip[gp])/2.;
       xibasisatqp[1] = (1 + xip[gp])/2.;
@@ -2461,10 +2462,34 @@ protected:
       dxibasisatqp[1] = xip[gp] + 1/2.;
       dxibasisatqp[2] = -2*xip[gp];
     }
+#else
+  constexpr double half = 0.5;
+  const double xi = xip[gp];
+
+  if (pd() == 1) {
+    xibasisatqp[0] = (1.0 - xi) * half;
+    xibasisatqp[1] = (1.0 + xi) * half;
+
+    dxibasisatqp[0] = -half;
+    dxibasisatqp[1] =  half;
+  } 
+  else if (pd() == 2) {
+    const double xi_sq = xi * xi;
+
+    xibasisatqp[0] = -xi * (1.0 - xi) * half; // = -0.5 * xi * (1 - xi)
+    xibasisatqp[1] =  xi * (1.0 + xi) * half; // =  0.5 * xi * (1 + xi)
+    xibasisatqp[2] = 1.0 - xi_sq;
+
+    dxibasisatqp[0] = xi - half;
+    dxibasisatqp[1] = xi + half;
+    dxibasisatqp[2] = -2.0 * xi;
+  }
+#endif
   }
 
   KOKKOS_INLINE_FUNCTION
   void etabasisFunctions1D(const int gp){
+#if 0
     if (pd() == 1){
       etabasisatqp[0] = (1 - etap[gp])/2.;
       etabasisatqp[1] = (1 + etap[gp])/2.;
@@ -2478,10 +2503,34 @@ protected:
       detabasisatqp[1] = etap[gp] + 1/2.;
       detabasisatqp[2] = -2*etap[gp];
     }
+#else
+  constexpr double half = 0.5;
+  const double eta = etap[gp];
+
+  if (pd() == 1) {
+    etabasisatqp[0] = (1.0 - eta) * half;
+    etabasisatqp[1] = (1.0 + eta) * half;
+
+    detabasisatqp[0] = -half;
+    detabasisatqp[1] =  half;
+  } 
+  else if (pd() == 2) {
+    const double eta_sq = eta * eta;
+
+    etabasisatqp[0] = -eta * (1.0 - eta) * half;
+    etabasisatqp[1] =  eta * (1.0 + eta) * half;
+    etabasisatqp[2] = 1.0 - eta_sq;
+
+    detabasisatqp[0] = eta - half;
+    detabasisatqp[1] = eta + half;
+    detabasisatqp[2] = -2.0 * eta;
+  }
+#endif
   }
 
   KOKKOS_INLINE_FUNCTION
   void ztabasisFunctions1D(const int gp){
+#if 0
     if (pd() == 1){
       ztabasisatqp[0] = (1 - ztap[gp])/2.;
       ztabasisatqp[1] = (1 + ztap[gp])/2.;
@@ -2495,11 +2544,35 @@ protected:
       dztabasisatqp[1] = ztap[gp] + 1/2.;
       dztabasisatqp[2] = -2*ztap[gp];
     }
+#else
+  constexpr double half = 0.5;
+  const double zta = ztap[gp];
+
+  if (pd() == 1) {
+    ztabasisatqp[0] = (1.0 - zta) * half;
+    ztabasisatqp[1] = (1.0 + zta) * half;
+
+    dztabasisatqp[0] = -half;
+    dztabasisatqp[1] =  half;
+  } 
+  else if (pd() == 2) {
+    const double zta_sq = zta * zta;
+
+    ztabasisatqp[0] = -zta * (1.0 - zta) * half;
+    ztabasisatqp[1] =  zta * (1.0 + zta) * half;
+    ztabasisatqp[2] = 1.0 - zta_sq;
+
+    dztabasisatqp[0] = zta - half;
+    dztabasisatqp[1] = zta + half;
+    dztabasisatqp[2] = -2.0 * zta;
+  }
+#endif
   }
 
   /// 1D quadrature rule
   KOKKOS_INLINE_FUNCTION
   int computeQuadratureData(const int n){
+#if 0
     sngp = n;
     if( 3 == n){
       abscissa[0] = -3.872983346207417/5.0;
@@ -2528,6 +2601,58 @@ protected:
       weight[1] = 1.0;
     }
     return sngp;
+#else
+  constexpr double inv_sqrt3 = 1.0 / 1.732050807568877; // ≈ 1/√3
+  constexpr double sqrt15 = 3.872983346207417;          // ≈ √15
+  constexpr double sqrt30 = 5.477225575051661;          // ≈ √30
+
+  sngp = n;
+
+  if (n == 2) {
+    // Gauss-Legendre 2-point
+    abscissa[0] = -inv_sqrt3;
+    abscissa[1] =  inv_sqrt3;
+    weight[0] = 1.0;
+    weight[1] = 1.0;
+  } 
+  else if (n == 3) {
+    // Gauss-Legendre 3-point
+    abscissa[0] = -sqrt15 / 5.0;
+    abscissa[1] =  0.0;
+    abscissa[2] =  sqrt15 / 5.0;
+
+    weight[0] = 5.0 / 9.0;
+    weight[1] = 8.0 / 9.0;
+    weight[2] = 5.0 / 9.0;
+  } 
+  else if (n == 4) {
+    // Gauss-Legendre 4-point
+    abscissa[0] = -30.13977090579184 / 35.0;
+    abscissa[1] = -11.89933652546997 / 35.0;
+    abscissa[2] =  11.89933652546997 / 35.0;
+    abscissa[3] =  30.13977090579184 / 35.0;
+
+    const double w0 = (18.0 - sqrt30) / 36.0;
+    const double w1 = (18.0 + sqrt30) / 36.0;
+
+    weight[0] = w0;
+    weight[1] = w1;
+    weight[2] = w1;
+    weight[3] = w0;
+  } 
+  else {
+    // Fallback to Gauss-Legendre 2-point
+    sngp = 2;
+    std::cout << "WARNING: only 1 < N < 5 Gauss points supported. Defaulting to N = 2.\n";
+
+    abscissa[0] = -inv_sqrt3;
+    abscissa[1] =  inv_sqrt3;
+    weight[0] = 1.0;
+    weight[1] = 1.0;
+  }
+
+  return sngp;
+#endif
   }
 };
 
@@ -2618,6 +2743,7 @@ protected:
   // Set up reference element coordinate values at quadrature points
   KOKKOS_INLINE_FUNCTION
   void computeCoordinateData(const int sngp){
+#if 0
     int c = 0;
     for( int i = 0; i < sngp; i++ ){
       for( int j = 0; j < sngp; j++ ){
@@ -2628,10 +2754,22 @@ protected:
       }
       c = c + sngp - 1;
     }
+#else
+  for (int i = 0; i < sngp; ++i) {
+    for (int j = 0; j < sngp; ++j) {
+      const int idx = i * sngp + j;
+
+      xip[idx]   = abscissa[i];        // xi varies along rows
+      etap[idx]  = abscissa[j];        // eta varies along columns
+      nwtp[idx]  = weight[i] * weight[j];
+    }
+  }
+#endif
   }
 
   KOKKOS_INLINE_FUNCTION
   void computeBasisFunctions(const int ngpp, const int nbnp, const int nl[2][9]){
+#if 0
     for(int gp = 0; gp < ngpp; gp++){
       // Compute basis function evaluations at gauss point coordinate
       xibasisFunctions1D(gp);
@@ -2643,6 +2781,29 @@ protected:
           dphidztanewp[gp][bn] = 0;
       }
     }
+#else
+  for (int gp = 0; gp < ngpp; ++gp) {
+    // Evaluate 1D basis functions at current Gauss point
+    xibasisFunctions1D(gp);
+    etabasisFunctions1D(gp);
+
+    for (int bn = 0; bn < nbnp; ++bn) {
+      const int xi_idx   = nl[0][bn];
+      const int eta_idx  = nl[1][bn];
+
+      const double phi_xi    = xibasisatqp[xi_idx];
+      const double phi_eta   = etabasisatqp[eta_idx];
+      const double dphi_xi   = dxibasisatqp[xi_idx];
+      const double dphi_eta  = detabasisatqp[eta_idx];
+
+      // Tensor product basis assembly
+      phinewp[gp][bn]        = phi_xi * phi_eta;
+      dphidxinewp[gp][bn]    = dphi_xi * phi_eta;
+      dphidetanewp[gp][bn]   = phi_xi * dphi_eta;
+      dphidztanewp[gp][bn]   = 0.0;
+    }
+  }
+#endif
   }
 };
 
@@ -2703,6 +2864,7 @@ protected:
   // Set up reference element coordinate values at quadrature points
   KOKKOS_INLINE_FUNCTION
   void computeCoordinateData(const int sngp){
+#if 0
     int c = 0;
     for( int i = 0; i < sngp; i++ ){
       for( int j = 0; j < sngp; j++ ){
@@ -2717,10 +2879,25 @@ protected:
       }
       c = c + sngp - 1;
     }
+#else
+  for (int i = 0; i < sngp; ++i) {
+    for (int j = 0; j < sngp; ++j) {
+      for (int k = 0; k < sngp; ++k) {
+        const int idx = i * sngp * sngp + j * sngp + k;
+
+        xip[idx]   = abscissa[i];                         // ξ direction
+        etap[idx]  = abscissa[j];                         // η direction
+        ztap[idx]  = abscissa[k];                         // ζ direction
+        nwtp[idx]  = weight[i] * weight[j] * weight[k];   // Tensor-product weight
+      }
+    }
+  }
+#endif
   }
 
   KOKKOS_INLINE_FUNCTION
   void computeBasisFunctions(const int ngpp, const int nbnp, const int nl[3][27]){
+#if 0
     for(int gp = 0; gp < ngpp; gp++){
       // Compute basis function evaluations at coordinate
       xibasisFunctions1D(gp);
@@ -2733,6 +2910,34 @@ protected:
         dphidztanewp[gp][bn] = xibasisatqp[nl[0][bn]]*etabasisatqp[nl[1][bn]]*dztabasisatqp[nl[2][bn]];
       }
     }
+#else
+  for (int gp = 0; gp < ngpp; ++gp) {
+    // Evaluate 1D basis functions at this quadrature point
+    xibasisFunctions1D(gp);
+    etabasisFunctions1D(gp);
+    ztabasisFunctions1D(gp);
+
+    for (int bn = 0; bn < nbnp; ++bn) {
+      const int xi_idx  = nl[0][bn];
+      const int eta_idx = nl[1][bn];
+      const int zta_idx = nl[2][bn];
+
+      const double phi_xi     = xibasisatqp[xi_idx];
+      const double phi_eta    = etabasisatqp[eta_idx];
+      const double phi_zta    = ztabasisatqp[zta_idx];
+
+      const double dphi_xi    = dxibasisatqp[xi_idx];
+      const double dphi_eta   = detabasisatqp[eta_idx];
+      const double dphi_zta   = dztabasisatqp[zta_idx];
+
+      // Tensor-product basis function and derivatives
+      phinewp[gp][bn]        = phi_xi * phi_eta * phi_zta;
+      dphidxinewp[gp][bn]    = dphi_xi * phi_eta * phi_zta;
+      dphidetanewp[gp][bn]   = phi_xi * dphi_eta * phi_zta;
+      dphidztanewp[gp][bn]   = phi_xi * phi_eta * dphi_zta;
+    }
+  }
+#endif
   }
 
 };
@@ -2803,6 +3008,7 @@ protected:
   /// abscissae contain coordinates for both xi and eta, need to combine appropriately in computeCoordinateData
   KOKKOS_INLINE_FUNCTION
   int computeQuadratureData(const int n){
+#if 0
     ngp = n;
     if( 4 == n){
       abscissa[0] = 1/3.;
@@ -2826,6 +3032,43 @@ protected:
       weight[0] = 1/2.;
     }
     return ngp;
+#else
+  constexpr double one_third = 1.0 / 3.0;
+  constexpr double one_fifth = 1.0 / 5.0;
+  constexpr double three_fifths = 3.0 / 5.0;
+  constexpr double one_sixth = 1.0 / 6.0;
+  constexpr double two_thirds = 2.0 / 3.0;
+
+  ngp = n;
+
+  if (n == 4) {
+    abscissa[0] = one_third;
+    abscissa[1] = one_fifth;
+    abscissa[2] = three_fifths;
+
+    weight[0] = -9.0 / 32.0;
+    weight[1] = 25.0 / 96.0;
+    // weight[2] is assumed unused or symmetric (not set in original code)
+  } 
+  else if (n == 3) {
+    abscissa[0] = one_sixth;
+    abscissa[1] = two_thirds;
+
+    weight[0] = one_sixth;
+    // weight[1] may be set elsewhere or used symmetrically
+  } 
+  else {
+    ngp = 1;
+    if (n != 1) {
+      std::cout << "WARNING: only 1, 3, or 4 Gauss points supported. Defaulting to 1.\n";
+    }
+
+    abscissa[0] = one_third;
+    weight[0] = 0.5;
+  }
+
+  return ngp;
+#endif
   }
 
   // Set up reference element coordinate values at quadrature points
@@ -2921,7 +3164,8 @@ public:
   ~GPURefBasisQTri(){}
 private:
   KOKKOS_INLINE_FUNCTION
-  virtual void computeBasisFunctions(const int ngpp){
+  virtual void computeBasisFunctions(const int ngpp) {
+#if 0
     for(int gp = 0; gp < ngpp; gp++){
       phinewp[gp][0]= 2. * (1. - xip[gp] - etap[gp]) * (0.5 - xip[gp] - etap[gp]);
       phinewp[gp][1]= 2. * xip[gp] * (xip[gp] - 0.5);
@@ -2948,6 +3192,48 @@ private:
       dphidztanewp[gp][4]= 0.;
       dphidztanewp[gp][5]= 0.;
     }
+#else
+  constexpr double half = 0.5;
+
+  for (int gp = 0; gp < ngpp; ++gp) {
+    const double xi   = xip[gp];
+    const double eta  = etap[gp];
+    const double zeta = 1.0 - xi - eta;
+
+    const double xi_m_half   = xi - half;
+    const double eta_m_half  = eta - half;
+    const double zeta_m_half = zeta - half;
+
+    // Shape functions (P2 triangle, 6 nodes)
+    phinewp[gp][0] = 2.0 * zeta * zeta_m_half;
+    phinewp[gp][1] = 2.0 * xi   * xi_m_half;
+    phinewp[gp][2] = 2.0 * eta  * eta_m_half;
+    phinewp[gp][3] = 4.0 * zeta * xi;
+    phinewp[gp][4] = 4.0 * xi   * eta;
+    phinewp[gp][5] = 4.0 * zeta * eta;
+
+    // Derivatives w.r.t ξ
+    dphidxinewp[gp][0] = -2.0 * zeta_m_half - 2.0 * zeta;
+    dphidxinewp[gp][1] =  2.0 * xi_m_half + 2.0 * xi;
+    dphidxinewp[gp][2] =  0.0;
+    dphidxinewp[gp][3] =  4.0 * (zeta - xi);
+    dphidxinewp[gp][4] =  4.0 * eta;
+    dphidxinewp[gp][5] = -4.0 * eta;
+
+    // Derivatives w.r.t η
+    dphidetanewp[gp][0] = -2.0 * zeta_m_half - 2.0 * zeta;
+    dphidetanewp[gp][1] =  0.0;
+    dphidetanewp[gp][2] =  2.0 * eta + 2.0 * eta_m_half;
+    dphidetanewp[gp][3] = -4.0 * xi;
+    dphidetanewp[gp][4] =  4.0 * xi;
+    dphidetanewp[gp][5] =  4.0 * (zeta - eta);
+
+    // Derivatives w.r.t ζ (not used for 2D triangle)
+    for (int i = 0; i < 6; ++i) {
+      dphidztanewp[gp][i] = 0.0;
+    }
+  }
+#endif
   }
 };
 
@@ -2972,6 +3258,7 @@ protected:
   /// abscissae contain coordinates for both xi and eta, need to combine appropriately in computeCoordinateData
   KOKKOS_INLINE_FUNCTION
   int computeQuadratureData(const int n){
+#if 0
     ngp = n;
     if ( 5 == n) {
       abscissa[0] = 0.25;
@@ -2989,6 +3276,41 @@ protected:
       weight[0] = 0.041666666667;
     }
     return ngp;
+#else
+  constexpr double one_fourth     = 0.25;
+  constexpr double one_half       = 0.5;
+  constexpr double one_sixth      = 1.0 / 6.0;
+  constexpr double abscissa4_a    = 0.13819660;
+  constexpr double abscissa4_b    = 0.58541020;
+
+  ngp = n;
+
+  if (n == 5) {
+    // 5-point quadrature for tetrahedra
+    abscissa[0] = one_fourth;
+    abscissa[1] = one_half;
+    abscissa[2] = one_sixth;
+
+    weight[0] = -0.1333333333333333; // -4/30
+    weight[1] =  0.075;              //  3/40
+    // weight[2] may be implied for symmetry
+  } 
+  else {
+    // Default to 4-point quadrature
+    ngp = 4;
+
+    if (n != 4) {
+      std::cout << "WARNING: only 4 or 5 Gauss points supported for tetrahedra. Defaulting to 4.\n";
+    }
+
+    abscissa[0] = abscissa4_a;
+    abscissa[1] = abscissa4_b;
+
+    weight[0] = 0.041666666667; // 1/24
+  }
+
+  return ngp;
+#endif
   }
 
   // Set up reference element coordinate values at quadrature points
@@ -3106,6 +3428,7 @@ private:
   // 4 at zta = 1
   KOKKOS_INLINE_FUNCTION
   virtual void computeBasisFunctions(const int ngpp){
+#if 0
     for(int gp = 0; gp < ngpp; gp++){
       phinewp[gp][0] = (1 - xip[gp] - etap[gp] - ztap[gp])*(1 - 2*(xip[gp] + etap[gp] + ztap[gp]));
       phinewp[gp][1] = xip[gp]*(2*xip[gp] - 1);
@@ -3151,6 +3474,68 @@ private:
       dphidztanewp[gp][8] = 4*xip[gp];
       dphidztanewp[gp][9] = 4*etap[gp];
     }
+#else
+  for (int gp = 0; gp < ngpp; ++gp) {
+    const double xi   = xip[gp];
+    const double eta  = etap[gp];
+    const double zta  = ztap[gp];
+    const double sum  = xi + eta + zta;
+    const double lam0 = 1.0 - sum;
+
+    const double fma_xi     = std::fma(2.0, xi, -1.0);  // 2*xi - 1
+    const double fma_eta    = std::fma(2.0, eta, -1.0); // 2*eta - 1
+    const double fma_zta    = std::fma(2.0, zta, -1.0); // 2*zta - 1
+    const double lam0_fma   = std::fma(-2.0, sum, 1.0); // 1 - 2*sum
+
+    // --- Shape Functions (φ) ---
+    phinewp[gp][0] = lam0 * lam0_fma;
+    phinewp[gp][1] = xi * fma_xi;
+    phinewp[gp][2] = eta * fma_eta;
+    phinewp[gp][3] = zta * fma_zta;
+    phinewp[gp][4] = 4.0 * lam0 * xi;
+    phinewp[gp][5] = 4.0 * xi * eta;
+    phinewp[gp][6] = 4.0 * eta * lam0;
+    phinewp[gp][7] = 4.0 * lam0 * zta;
+    phinewp[gp][8] = 4.0 * xi * zta;
+    phinewp[gp][9] = 4.0 * eta * zta;
+
+    // --- Derivatives ∂φ/∂ξ ---
+    dphidxinewp[gp][0] = std::fma(4.0, sum, -3.0);
+    dphidxinewp[gp][1] = 4.0 * xi - 1.0;
+    dphidxinewp[gp][2] = 0.0;
+    dphidxinewp[gp][3] = 0.0;
+    dphidxinewp[gp][4] = 4.0 * (lam0 - xi);
+    dphidxinewp[gp][5] = 4.0 * eta;
+    dphidxinewp[gp][6] = -4.0 * eta;
+    dphidxinewp[gp][7] = -4.0 * zta;
+    dphidxinewp[gp][8] = 4.0 * zta;
+    dphidxinewp[gp][9] = 0.0;
+
+    // --- Derivatives ∂φ/∂η ---
+    dphidetanewp[gp][0] = std::fma(4.0, sum, -3.0);
+    dphidetanewp[gp][1] = 0.0;
+    dphidetanewp[gp][2] = 4.0 * eta - 1.0;
+    dphidetanewp[gp][3] = 0.0;
+    dphidetanewp[gp][4] = -4.0 * xi;
+    dphidetanewp[gp][5] = 4.0 * xi;
+    dphidetanewp[gp][6] = 4.0 * (lam0 - eta);
+    dphidetanewp[gp][7] = -4.0 * zta;
+    dphidetanewp[gp][8] = 0.0;
+    dphidetanewp[gp][9] = 4.0 * zta;
+
+    // --- Derivatives ∂φ/∂ζ ---
+    dphidztanewp[gp][0] = std::fma(4.0, sum, -3.0);
+    dphidztanewp[gp][1] = 0.0;
+    dphidztanewp[gp][2] = 0.0;
+    dphidztanewp[gp][3] = 4.0 * zta - 1.0;
+    dphidztanewp[gp][4] = -4.0 * xi;
+    dphidztanewp[gp][5] = 0.0;
+    dphidztanewp[gp][6] = -4.0 * eta;
+    dphidztanewp[gp][7] = std::fma(-2.0, zta, 1.0 - xi - eta) * 4.0;
+    dphidztanewp[gp][8] = 4.0 * xi;
+    dphidztanewp[gp][9] = 4.0 * eta;
+  }
+#endif
   }
 };
 

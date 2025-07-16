@@ -767,6 +767,9 @@ int solve_kks(const double &c1, //input c1
   }
 }//namespace kksternary
 
+
+  //#define TUSAS_OLD_FARZADI
+
 namespace farzadi3d
 {
 
@@ -1039,10 +1042,45 @@ double a(const double &p,const double &px,const double &py,const double &pz, con
 KOKKOS_INLINE_FUNCTION 
 double ap(const double &p,const double &px,const double &py,const double &pz,const double &pd, const double ep)
 {
+#if TUSAS_OLD_FARZADI
   return (p*p < farzadi3d::absphi)&&(p*p > 1.-farzadi3d::absphi) ? 4.*ep*
 				    (4.*pd*pd*pd*(px*px+py*py+pz*pz)-4.*pd*(px*px*px*px+py*py*py*py+pz*pz*pz*pz))
 				    /(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)/(px*px+py*py+pz*pz)
     : 0.;
+#else
+  const double p2 = p * p;
+  const double norm2 = px * px + py * py + pz * pz;
+
+  // Logical masks
+  const double in_range  = static_cast<double>((p2 < farzadi3d::absphi) && (p2 > 1.0 - farzadi3d::absphi));
+  const double nonzero   = static_cast<double>(norm2 > 1e-12); // robust threshold
+
+  // Use these two masks to zero output if unsafe
+  const double mask = in_range * nonzero;
+
+  const double pd2 = pd * pd;
+  const double pd3 = pd2 * pd;
+
+  const double px2 = px * px;
+  const double py2 = py * py;
+  const double pz2 = pz * pz;
+
+  const double px4 = px2 * px2;
+  const double py4 = py2 * py2;
+  const double pz4 = pz2 * pz2;
+
+  const double norm4 = norm2 * norm2;
+  const double norm6 = norm2 * norm4;  // norm2^3
+
+  // Avoid dividing by zero by only computing denominator when norm2 > 1e-12
+  const double denom_inv = (nonzero > 0.5) ? (1.0 / norm6) : 0.0;
+
+  const double numerator = 4.0 * ep *
+    (std::fma(4.0 * pd3, norm2, -4.0 * pd * (px4 + py4 + pz4)));
+
+  // Fully masked output
+  return mask * numerator * denom_inv;
+#endif
 }
 
 //the current ordering in set_test_case is conc (u), phase (phi)
@@ -1050,6 +1088,7 @@ double ap(const double &p,const double &px,const double &py,const double &pz,con
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_conc_farzadi_)
 {
+#if TUSAS_OLD_FARZADI
   //right now, if explicit, we will have some problems with time derivates below
   const double dtestdx = basis[0]->dphidx(i);
   const double dtestdy = basis[0]->dphidy(i);
@@ -1069,9 +1108,22 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
 		       D_liquid_*(1.-phi[1])/2.+D_solid_*(1.-phi[1])/2.,
 		       D_liquid_*(1.-phi[2])/2.+D_solid_*(1.-phi[2])/2.};
 
-  const double divgradu[3] = {D[0]*(basis[eqn_id]->duudx()*dtestdx + basis[eqn_id]->duudy()*dtestdy + basis[eqn_id]->duudz()*dtestdz),
-			      D[1]*(basis[eqn_id]->duuolddx()*dtestdx + basis[eqn_id]->duuolddy()*dtestdy + basis[eqn_id]->duuolddz()*dtestdz),
-			      D[2]*(basis[eqn_id]->duuoldolddx()*dtestdx + basis[eqn_id]->duuoldolddy()*dtestdy + basis[eqn_id]->duuoldolddz()*dtestdz)};//(grad u,grad phi)
+//   const double divgradu[3] = {D[0]*(basis[eqn_id]->duudx()*dtestdx + basis[eqn_id]->duudy()*dtestdy + basis[eqn_id]->duudz()*dtestdz),
+// 			      D[1]*(basis[eqn_id]->duuolddx()*dtestdx + basis[eqn_id]->duuolddy()*dtestdy + basis[eqn_id]->duuolddz()*dtestdz),
+// 			      D[2]*(basis[eqn_id]->duuoldolddx()*dtestdx + basis[eqn_id]->duuoldolddy()*dtestdy + basis[eqn_id]->duuoldolddz()*dtestdz)};//(grad u,grad phi)
+
+  const double divgradu[3] = {kdivgrad(basis[eqn_id]->duudx(), basis[0]->dphidx(i),
+				       basis[eqn_id]->duudy(), basis[0]->dphidy(i),
+				       basis[eqn_id]->duudz(), basis[0]->dphidz(i),
+				       D[0]),
+			      kdivgrad(basis[eqn_id]->duuolddx(), basis[0]->dphidx(i),
+				       basis[eqn_id]->duuolddy(), basis[0]->dphidy(i),
+				       basis[eqn_id]->duuolddz(), basis[0]->dphidz(i),
+				       D[1]),
+			      kdivgrad(basis[eqn_id]->duuoldolddx(), basis[0]->dphidx(i),
+				       basis[eqn_id]->duuoldolddy(), basis[0]->dphidy(i),
+				       basis[eqn_id]->duuoldolddz(), basis[0]->dphidz(i),
+				       D[2])};
 
   const double normd[3] = {(phi[0]*phi[0] < absphi)&&(phi[0]*phi[0] > 0.) ? 1./sqrt(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0]) : 0.,
 			   (phi[1]*phi[1] < absphi)&&(phi[1]*phi[1] > 0.) ? 1./sqrt(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1]) : 0.,
@@ -1100,7 +1152,121 @@ RES_FUNC_TPETRA(residual_conc_farzadi_)
   return (ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
+#else
+  // Basis function and gradient values
+  const double dtestdx = basis[0]->dphidx(i);
+  const double dtestdy = basis[0]->dphidy(i);
+  const double dtestdz = basis[0]->dphidz(i);
+  const double test    = basis[0]->phi(i);
 
+  // Concentration field and phase field
+  const int phi_id = eqn_id + 1;
+
+  const double u[3] = {
+    basis[eqn_id]->uu(),
+    basis[eqn_id]->uuold(),
+    basis[eqn_id]->uuoldold()
+  };
+
+  const double phi[3] = {
+    basis[phi_id]->uu(),
+    basis[phi_id]->uuold(),
+    basis[phi_id]->uuoldold()
+  };
+
+  const double dphidx[3] = {
+    basis[phi_id]->duudx(),
+    basis[phi_id]->duuolddx(),
+    basis[phi_id]->duuoldolddx()
+  };
+
+  const double dphidy[3] = {
+    basis[phi_id]->duudy(),
+    basis[phi_id]->duuolddy(),
+    basis[phi_id]->duuoldolddy()
+  };
+
+  const double dphidz[3] = {
+    basis[phi_id]->duudz(),
+    basis[phi_id]->duuolddz(),
+    basis[phi_id]->duuoldolddz()
+  };
+
+  // Time derivative term (implicit-explicit blend)
+  const double ut = FMA(-1.0, phi[0], 1.0 + k) * 0.5 *
+                    (u[0] - u[1]) / dt_ * test;
+
+  // Diffusivity D[time-level]
+  const double D[3] = {
+    0.5 * (FMA(-D_liquid_, phi[0], D_liquid_) + FMA(D_solid_, phi[0], D_solid_)),
+    0.5 * (FMA(-D_liquid_, phi[1], D_liquid_) + FMA(D_solid_, phi[1], D_solid_)),
+    0.5 * (FMA(-D_liquid_, phi[2], D_liquid_) + FMA(D_solid_, phi[2], D_solid_))
+  };
+
+  // div(grad u) terms at each time level
+  const double divgradu[3] = {
+    kdivgrad(basis[eqn_id]->duudx(),        dtestdx,
+             basis[eqn_id]->duudy(),        dtestdy,
+             basis[eqn_id]->duudz(),        dtestdz,
+             D[0]),
+    kdivgrad(basis[eqn_id]->duuolddx(),     dtestdx,
+             basis[eqn_id]->duuolddy(),     dtestdy,
+             basis[eqn_id]->duuolddz(),     dtestdz,
+             D[1]),
+    kdivgrad(basis[eqn_id]->duuoldolddx(),  dtestdx,
+             basis[eqn_id]->duuoldolddy(),  dtestdy,
+             basis[eqn_id]->duuoldolddz(),  dtestdz,
+             D[2])
+  };
+
+  // Normalized gradient magnitude
+//   double normd[3];
+//   for (int t = 0; t < 3; ++t) {
+//     const double phisq = phi[t] * phi[t];
+//     if (phisq < absphi && phisq > 0.0) {
+//       const double mag2 = FMA(dphidx[t], dphidx[t],
+//                           FMA(dphidy[t], dphidy[t], dphidz[t] * dphidz[t]));
+//       normd[t] = 1.0 / std::sqrt(mag2);
+//     } else {
+//       normd[t] = 0.0;
+//     }
+//   } 
+  const double normd[3] = {(phi[0]*phi[0] < absphi)&&(phi[0]*phi[0] > 0.) ? 1./sqrt(dphidx[0]*dphidx[0] + dphidy[0]*dphidy[0] + dphidz[0]*dphidz[0]) : 0.,
+			   (phi[1]*phi[1] < absphi)&&(phi[1]*phi[1] > 0.) ? 1./sqrt(dphidx[1]*dphidx[1] + dphidy[1]*dphidy[1] + dphidz[1]*dphidz[1]) : 0.,
+			   (phi[2]*phi[2] < absphi)&&(phi[2]*phi[2] > 0.) ? 1./sqrt(dphidx[2]*dphidx[2] + dphidy[2]*dphidy[2] + dphidz[2]*dphidz[2]) : 0.}; //cn lim grad phi/|grad phi| may -> 1 here?
+
+
+  // ∂φ/∂t
+  const double phit = (phi[0] - phi[1]) / dt_;
+
+  // Phase-driven flux j_coef and its divergence
+  double divj[3];
+  for (int t = 0; t < 3; ++t) {
+    const double fac = FMA((1.0 - k), u[t], 1.0); // 1 + (1 - k) * u
+    const double j = fac * normd[t] * phit / std::sqrt(8.0);
+    const double grad_dot = FMA(dphidx[t], dtestdx,
+                           FMA(dphidy[t], dtestdy, dphidz[t] * dtestdz));
+    divj[t] = at_coef_ * j * grad_dot;
+  }
+
+  // Phase-time coupling term
+  double phitu[3];
+  for (int t = 0; t < 3; ++t) {
+    phitu[t] = -0.5 * phit * FMA((1.0 - k), u[t], 1.0) * test;
+  }
+
+  // Total contribution at each time level
+  double f[3];
+  for (int t = 0; t < 3; ++t) {
+    f[t] = divgradu[t] + divj[t] + phitu[t];
+  }
+
+  // Final time-integrated value (second-order time integration)
+  return ut +
+         (1.0 - t_theta2_) * t_theta_ * f[0] +
+         (1.0 - t_theta2_) * (1.0 - t_theta_) * f[1] +
+         0.5 * t_theta2_ * FMA((2.0 + dt_ / dtold_), f[1], -dt_ / dtold_ * f[2]);
+#endif
 }
 
 TUSAS_DEVICE
@@ -1109,6 +1275,7 @@ RES_FUNC_TPETRA((*residual_conc_farzadi_dp_)) = residual_conc_farzadi_;
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_)
 {
+#if TUSAS_OLD_FARZADI
   //derivatives of the test function
   const double dtestdx = basis[0]->dphidx(i);
   const double dtestdy = basis[0]->dphidy(i);
@@ -1128,9 +1295,23 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
 			a(phi[1],dphidx[1],dphidy[1],dphidz[1],eps),
 			a(phi[2],dphidx[2],dphidy[2],dphidz[2],eps)};
 
-  const double divgradphi[3] = {as[0]*as[0]*(dphidx[0]*dtestdx + dphidy[0]*dtestdy + dphidz[0]*dtestdz),
-				as[1]*as[1]*(dphidx[1]*dtestdx + dphidy[1]*dtestdy + dphidz[1]*dtestdz),
-				as[2]*as[2]*(dphidx[2]*dtestdx + dphidy[2]*dtestdy + dphidz[2]*dtestdz)};//(grad u,grad phi)
+//   const double divgradphi[3] = {as[0]*as[0]*(dphidx[0]*dtestdx + dphidy[0]*dtestdy + dphidz[0]*dtestdz),
+// 				as[1]*as[1]*(dphidx[1]*dtestdx + dphidy[1]*dtestdy + dphidz[1]*dtestdz),
+// 				as[2]*as[2]*(dphidx[2]*dtestdx + dphidy[2]*dtestdy + dphidz[2]*dtestdz)};//(grad u,grad phi) 
+  
+
+  const double divgradphi[3] = {kdivgrad(dphidx[0],dtestdx,
+					 dphidy[0],dtestdy,
+					 dphidz[0],dtestdz,
+					 as[0]*as[0]),
+				kdivgrad(dphidx[1],dtestdx,
+					 dphidy[1],dtestdy,
+					 dphidz[1],dtestdz,
+					 as[1]*as[1]),
+				kdivgrad(dphidx[2],dtestdx,
+					 dphidy[2],dtestdy,
+					 dphidz[2],dtestdz,
+					 as[2]*as[2])};
 
   const double mob[3] = {(1.+(1.-k)*u[0])*as[0]*as[0],(1.+(1.-k)*u[1])*as[1]*as[1],(1.+(1.-k)*u[2])*as[2]*as[2]};
   const double phit = (t_theta_*mob[0]+(1.-t_theta_)*mob[1])*(phi[0]-phi[1])/dt_*test;
@@ -1174,6 +1355,89 @@ RES_FUNC_TPETRA(residual_phase_farzadi_)
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
 
   return val;
+#else
+  // Test function and its derivatives
+  const double test    = basis[0]->phi(i);
+  const double dtestdx = basis[0]->dphidx(i);
+  const double dtestdy = basis[0]->dphidy(i);
+  const double dtestdz = basis[0]->dphidz(i);
+
+  const int u_id = eqn_id - 1;
+
+  double u[3], phi[3];
+  double dphidx[3], dphidy[3], dphidz[3], as[3];
+  double divgradphi[3], curlgrad[3], gp1[3], hp1u[3], noise_term[3];
+
+  const double noise_amp = tpetra::noise::interface_noise_amplitude_d * std::sqrt(dt_ / vol) * rand * test;
+
+  for (int t = 0; t < 3; ++t) {
+    // Solution and gradients
+    u[t]      = (t == 0) ? basis[u_id]->uu() :
+                (t == 1) ? basis[u_id]->uuold() : basis[u_id]->uuoldold();
+
+    phi[t]    = (t == 0) ? basis[eqn_id]->uu() :
+                (t == 1) ? basis[eqn_id]->uuold() : basis[eqn_id]->uuoldold();
+
+    dphidx[t] = (t == 0) ? basis[eqn_id]->duudx() :
+                (t == 1) ? basis[eqn_id]->duuolddx() : basis[eqn_id]->duuoldolddx();
+    dphidy[t] = (t == 0) ? basis[eqn_id]->duudy() :
+                (t == 1) ? basis[eqn_id]->duuolddy() : basis[eqn_id]->duuoldolddy();
+    dphidz[t] = (t == 0) ? basis[eqn_id]->duudz() :
+                (t == 1) ? basis[eqn_id]->duuolddz() : basis[eqn_id]->duuoldolddz();
+
+    // Anisotropic coefficient
+    as[t] = a(phi[t], dphidx[t], dphidy[t], dphidz[t], eps);
+    const double as2 = as[t] * as[t];
+
+    // (∇phi · ∇test) * as²
+    divgradphi[t] = kdivgrad(dphidx[t], dtestdx,
+                             dphidy[t], dtestdy,
+                             dphidz[t], dtestdz,
+                             as2);
+
+    // Gradient norm squared
+    const double gradnorm2 = FMA(dphidx[t], dphidx[t],
+                            FMA(dphidy[t], dphidy[t], dphidz[t] * dphidz[t]));
+
+    // Curl-like anisotropy term
+    const double curl =
+      ap(phi[t], dphidx[t], dphidy[t], dphidz[t], dphidx[t], eps) * dtestdx +
+      ap(phi[t], dphidx[t], dphidy[t], dphidz[t], dphidy[t], eps) * dtestdy +
+      ap(phi[t], dphidx[t], dphidy[t], dphidz[t], dphidz[t], eps) * dtestdz;
+
+    curlgrad[t] = as[t] * gradnorm2 * curl;
+
+    // Bulk potential term: -φ + φ³
+    const double phi2 = phi[t] * phi[t];
+    gp1[t] = -phi[t] * (1.0 - phi2) * test;
+
+    // λ*(1 - φ²)² * u * test
+    const double one_minus_phi2 = 1.0 - phi2;
+    const double phi_term_sq = one_minus_phi2 * one_minus_phi2;
+    hp1u[t] = lambda * phi_term_sq * u[t] * test;
+
+    // Noise only at t=0
+    noise_term[t] = (t == 0) ? noise_amp * one_minus_phi2 : 0.0;
+  }
+
+  // Mobility-weighted time derivative term (implicit-explicit)
+  const double mob0 = FMA((1.0 - k), u[0], 1.0) * as[0] * as[0];
+  const double mob1 = FMA((1.0 - k), u[1], 1.0) * as[1] * as[1];
+  const double phit = (t_theta_ * mob0 + (1.0 - t_theta_) * mob1) * (phi[0] - phi[1]) / dt_ * test;
+
+  // Total f[t] = all source terms
+  double f[3];
+  for (int t = 0; t < 3; ++t)
+    f[t] = divgradphi[t] + curlgrad[t] + gp1[t] + hp1u[t] + noise_term[t];
+
+  // Full residual value (2nd-order time integration)
+  const double val = phit
+    + (1.0 - t_theta2_) * t_theta_ * f[0]
+    + (1.0 - t_theta2_) * (1.0 - t_theta_) * f[1]
+    + 0.5 * t_theta2_ * FMA((2.0 + dt_ / dtold_), f[1], -dt_ / dtold_ * f[2]);
+
+  return val;
+#endif
 }
 
 TUSAS_DEVICE
@@ -1260,6 +1524,7 @@ const double gradT(const double &phi){
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
 {
+#if TUSAS_OLD_FARZADI
   //test function
   const double test = basis[0]->phi(i);
   //u, phi
@@ -1308,6 +1573,67 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
     +.5*t_theta2_*((2.+dt_/dtold_)*hp1g4[1]-dt_/dtold_*hp1g4[2]);
 
   return rv;
+#else
+  // Test function
+  const double test = basis[0]->phi(i);
+  const int u_id = eqn_id - 1;
+
+  // Field values, gradients, and a(phi)
+  double u[3], phi[3], dphidx[3], dphidy[3], dphidz[3], as[3];
+  for (int t = 0; t < 3; ++t) {
+    const int o = (t == 0) ? 0 : (t == 1 ? 1 : 2);  // for clarity, could be omitted
+
+    u[t]      = (t == 0) ? basis[u_id]->uu()       : (t == 1 ? basis[u_id]->uuold()       : basis[u_id]->uuoldold());
+    phi[t]    = (t == 0) ? basis[eqn_id]->uu()     : (t == 1 ? basis[eqn_id]->uuold()     : basis[eqn_id]->uuoldold());
+    dphidx[t] = (t == 0) ? basis[eqn_id]->duudx()  : (t == 1 ? basis[eqn_id]->duuolddx()  : basis[eqn_id]->duuoldolddx());
+    dphidy[t] = (t == 0) ? basis[eqn_id]->duudy()  : (t == 1 ? basis[eqn_id]->duuolddy()  : basis[eqn_id]->duuoldolddy());
+    dphidz[t] = (t == 0) ? basis[eqn_id]->duudz()  : (t == 1 ? basis[eqn_id]->duuolddz()  : basis[eqn_id]->duuoldolddz());
+
+    as[t] = a(phi[t], dphidx[t], dphidy[t], dphidz[t], eps);
+  }
+
+  // Mesh and time scaling
+  const double x = basis[0]->xx();
+  const double xx = x * w0;
+
+  const double tt[3] = {
+    (time + dt_)    * tau0,
+    time            * tau0,
+    (time - dtold_) * tau0
+  };
+
+  // Smooth, branchless frozen temperature gradient
+  const double use_frozen = (dT < 0.001); // 0 or 1 (branchless)
+  const double dT_mask = static_cast<double>(use_frozen);
+
+  double g4[3];
+  for (int t = 0; t < 3; ++t) {
+    const double shift = FMA(-R, tt[t], xx); // xx - R * tt
+    const double g_frozen = gradT(phi[t]) * shift / delta_T0;
+    g4[t] = FMA(dT_mask, g_frozen - dT, dT); // dT_mask * g_frozen + (1 - dT_mask) * dT
+  }
+
+  // Phase-dependent thermal driving force: λ * (1 - φ²)² * g4 * test
+  double hp1g4[3];
+  for (int t = 0; t < 3; ++t) {
+    const double phi2 = phi[t] * phi[t];
+    const double coeff = (1.0 - phi2) * (1.0 - phi2);
+    hp1g4[t] = lambda * coeff * g4[t] * test;
+  }
+
+  // Get residual from main equation system
+  const double val = tpetra::farzadi3d::residual_phase_farzadi_dp_(
+    basis, i, dt_, dtold_, t_theta_, t_theta2_, time, eqn_id, vol, rand
+  );
+
+  // Time-integrated source term using second-order scheme
+  const double weighted_hp1g4 =
+      (1.0 - t_theta2_) * t_theta_        * hp1g4[0]
+    + (1.0 - t_theta2_) * (1.0 - t_theta_) * hp1g4[1]
+    + 0.5 * t_theta2_ * FMA((2.0 + dt_ / dtold_), hp1g4[1], -dt_ / dtold_ * hp1g4[2]);
+
+  return val + weighted_hp1g4;
+#endif
 }
 
 TUSAS_DEVICE
@@ -1474,6 +1800,7 @@ RES_FUNC_TPETRA((*residual_phase_farzadi_coupled_activated_dp_)) = residual_phas
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_conc_farzadi_)
 {
+#if TUSAS_OLD_FARZADI
   const double dtestdx = basis[0]->dphidx(i);
   const double dtestdy = basis[0]->dphidy(i);
   const double dtestdz = basis[0]->dphidz(i);
@@ -1482,14 +1809,57 @@ PRE_FUNC_TPETRA(prec_conc_farzadi_)
   const double dbasisdz = basis[0]->dphidz(j);
 
   const double test = basis[0]->phi(i);
-  const double divgrad = (D_liquid_*(1.-basis[1]->uu())/2.+D_solid_*(1.+basis[1]->uu())/2.)*(dbasisdx * dtestdx + dbasisdy * dtestdy + dbasisdz * dtestdz);
+  const double coef = (D_liquid_*(1.-basis[1]->uu())/2.+D_solid_*(1.+basis[1]->uu())/2.);
+  const double divgrad = kdivgrad(dbasisdx,dtestdx,
+				  dbasisdy,dtestdy,
+				  dbasisdz,dtestdz,
+				  coef);
 
   const int phi_id = eqn_id+1;
   const double phi = basis[phi_id]->uu();
   const double u_t = (1. + k - (1.0 - k) * phi) / 2. *basis[0]->phi(j)  / dt_ * test;
 
   return u_t + t_theta_*(divgrad);
+#else
+  const double dtestdx   = basis[0]->dphidx(i);
+  const double dtestdy   = basis[0]->dphidy(i);
+  const double dtestdz   = basis[0]->dphidz(i);
 
+  const double dbasisdx  = basis[0]->dphidx(j);
+  const double dbasisdy  = basis[0]->dphidy(j);
+  const double dbasisdz  = basis[0]->dphidz(j);
+
+  // Test function value
+  const double test      = basis[0]->phi(i);
+
+  // Solution field phi (used in both coef and u_t)
+  const double uu_phi    = basis[1]->uu();
+
+  // Compute coefficient: 0.5 * (D_liquid * (1 - uu) + D_solid * (1 + uu))
+  const double coef_liquid = FMA(-D_liquid_, uu_phi, D_liquid_);
+  const double coef_solid  = FMA(D_solid_, uu_phi, D_solid_);
+  const double coef        = 0.5 * (coef_liquid + coef_solid);
+
+  // Diffusion term: ∇ϕ · ∇test * coef
+  const double divgrad     = kdivgrad(dbasisdx, dtestdx,
+                                      dbasisdy, dtestdy,
+                                      dbasisdz, dtestdz,
+                                      coef);
+
+  // Phase-field value for time derivative
+  const int phi_id = eqn_id + 1;
+  const double phi = basis[phi_id]->uu();
+
+  // Time derivative: 0.5 * (1 + k - (1 - k) * phi) * basis(j)/dt * test
+  const double one_minus_k = 1.0 - k;
+  const double weighted_k_term = FMA(-one_minus_k, phi, 1.0 + k);
+  const double u_t = 0.5 * weighted_k_term *
+                     (basis[0]->phi(j) / dt_) *
+                     test;
+
+  // Final result
+  return FMA(t_theta_, divgrad, u_t);
+#endif
 }
 
 TUSAS_DEVICE
@@ -1498,6 +1868,7 @@ PRE_FUNC_TPETRA((*prec_conc_farzadi_dp_)) = prec_conc_farzadi_;
 KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_phase_farzadi_)
 {
+#if TUSAS_OLD_FARZADI
   const double dtestdx = basis[0]->dphidx(i);
   const double dtestdy = basis[0]->dphidy(i);
   const double dtestdz = basis[0]->dphidz(i);
@@ -1519,9 +1890,48 @@ PRE_FUNC_TPETRA(prec_phase_farzadi_)
   const double m = (1.+(1.-k)*u)*as*as;
   const double phit = (basis[0]->phi(j))/dt_*test;
 
-  const double divgrad = as*as*(dbasisdx*dtestdx + dbasisdy*dtestdy + dbasisdz*dtestdz);
+  const double divgrad = kdivgrad(dbasisdx,dtestdx,
+				  dbasisdy,dtestdy,
+				  dbasisdz,dtestdz,
+				  as*as);
 
   return (phit + t_theta_*(divgrad)/m)*m;
+#else
+  const double dtestdx   = basis[0]->dphidx(i);
+  const double dtestdy   = basis[0]->dphidy(i);
+  const double dtestdz   = basis[0]->dphidz(i);
+
+  const double dbasisdx  = basis[0]->dphidx(j);
+  const double dbasisdy  = basis[0]->dphidy(j);
+  const double dbasisdz  = basis[0]->dphidz(j);
+
+  const double test      = basis[0]->phi(i);
+  const double u         = basis[0]->uu();
+
+  const double phi       = basis[1]->uu();
+  const double dphidx    = basis[1]->duudx();
+  const double dphidy    = basis[1]->duudy();
+  const double dphidz    = basis[1]->duudz();
+
+  // Compute anisotropic coefficient and square
+  const double as        = a(phi, dphidx, dphidy, dphidz, eps);
+  const double as2       = as * as;
+
+  // Compute mobility term: m = (1 + (1 - k) * u) * as²
+  const double mobility  = FMA((1.0 - k), u, 1.0) * as2;
+
+  // Time derivative term: phi(j)/dt * test
+  const double phit      = basis[0]->phi(j) / dt_ * test;
+
+  // Divergence of grad: as²-weighted inner product
+  const double divgrad   = kdivgrad(dbasisdx, dtestdx,
+                                    dbasisdy, dtestdy,
+                                    dbasisdz, dtestdz,
+                                    as2);
+
+  // Final assembled value
+  return FMA(t_theta_ * divgrad / mobility, mobility, phit);
+#endif
 }
 
 TUSAS_DEVICE
@@ -1631,6 +2041,7 @@ INI_FUNC(init_conc_farzadi_)
 
 PPR_FUNC(postproc_c_)
 {
+#if TUSAS_OLD_FARZADI
   // return the physical concentration
   const double uu = u[0];
   const double phi = u[1];
@@ -1638,10 +2049,29 @@ PPR_FUNC(postproc_c_)
   return -c_inf*(1.+k-phi+k*phi)*(-1.-uu+k*uu)/2./k;
   //normalize, ie divide by c_inf
   //return -(1.+k-phi+k*phi)*(-1.-uu+k*uu)/2./k;
+#else
+  // Extract inputs
+  const double uu  = u[0];
+  const double phi = u[1];
+
+  // Numerator: (1 + k - phi + k * phi) * (-1 - uu + k * uu)
+  // Simplify:
+  // expr = -c_inf * (1 + k - phi + k*phi) * (-1 - uu + k*uu) / (2 * k)
+
+  const double term1 = FMA(-1.0, phi, 1.0 + k);        // (1 + k - phi)
+  const double term2 = FMA(k, phi, term1);             // (1 + k - phi + k*phi)
+
+  const double inner = FMA(k, uu, -1.0 - uu);          // (-1 - uu + k*uu)
+
+  const double numerator = term2 * inner;
+
+  return (-c_inf / (2.0 * k)) * numerator;
+#endif
 }
 
 PPR_FUNC(postproc_t_)
 {
+#if TUSAS_OLD_FARZADI
   // return the physical temperature in K here
   const double x = xyz[0];
   const double phi = u[1];
@@ -1650,6 +2080,23 @@ PPR_FUNC(postproc_t_)
   const double tt = time*tau0;
   //return ((dT < 0.001) ? 877.3 + (xx-R*tt)/l_T0*delta_T0 : 877.3);
   return ((dT < 0.001) ? T_ref + gradT(phi)*(xx-R*tt) : T_ref);
+#else
+  // Extract values
+  const double x    = xyz[0];
+  const double phi  = u[1];
+
+  // Precompute scaled quantities
+  const double xx   = x * w0;
+  const double tt   = time * tau0;
+
+  // Compute spatial-time coupling term: xx - R * tt
+  const double xxtt = FMA(-R, tt, xx);
+
+  // Compute temperature
+  return (dT < 0.001)
+    ? FMA(gradT(phi), xxtt, T_ref)
+    : T_ref;
+#endif
 }
 }//namespace farzadi3d
 

@@ -161,6 +161,13 @@
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
 
+  double kdivgrad(double gradx, double gradxt,
+		  double grady, double gradyt,
+		  double gradz, double gradzt,
+		  double k) {
+    return FMA(k, FMA(gradz, gradzt, FMA(grady, gradyt, gradx * gradxt)), 0.0);
+}
+
 namespace noise
 {
 TUSAS_DEVICE
@@ -245,15 +252,19 @@ RES_FUNC_TPETRA(residual_heat_test_)
   // theta = (T-T_s)/(T_l-T_s) external to this module by multiplication of (T_l-T_s)=delta T
 
   const double ut = rho_d*cp_d/tau0_d*deltau_d*(basis[eqn_id]->uu()-basis[eqn_id]->uuold())/dt_*basis[0]->phi(i);
-  const double f[3] = {k_d/W0_d/W0_d*deltau_d*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
-			    + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
-			    + basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
-		       k_d/W0_d/W0_d*deltau_d*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i)
-			    + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
-			    + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
-		       k_d/W0_d/W0_d*deltau_d*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
-			    + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
-			    + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
+
+  const double f[3] = {kdivgrad(basis[eqn_id]->duudx(), basis[0]->dphidx(i),
+				basis[eqn_id]->duudy(), basis[0]->dphidy(i),
+				basis[eqn_id]->duudz(), basis[0]->dphidz(i),
+				k_d/W0_d/W0_d*deltau_d),
+		       kdivgrad(basis[eqn_id]->duuolddx(), basis[0]->dphidx(i),
+				basis[eqn_id]->duuolddy(), basis[0]->dphidy(i),
+				basis[eqn_id]->duuolddz(), basis[0]->dphidz(i),
+				k_d/W0_d/W0_d*deltau_d),
+		       kdivgrad(basis[eqn_id]->duuoldolddx(), basis[0]->dphidx(i),
+				basis[eqn_id]->duuoldolddy(), basis[0]->dphidy(i),
+				basis[eqn_id]->duuoldolddz(), basis[0]->dphidz(i),
+				k_d/W0_d/W0_d*deltau_d)};
   //std::cout<<std::scientific<<f[0]<<std::endl<<std::defaultfloat;
   return ut + (1.-t_theta2_)*t_theta_*f[0]
     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
@@ -267,9 +278,10 @@ KOKKOS_INLINE_FUNCTION
 PRE_FUNC_TPETRA(prec_heat_test_)
 {
   return rho_d*cp_d/tau0_d*deltau_d*basis[0]->phi(j)/dt_*basis[0]->phi(i)
-    + t_theta_*k_d/W0_d/W0_d*deltau_d*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
-       + basis[0]->dphidy(j)*basis[0]->dphidy(i)
-       + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+    + t_theta_*kdivgrad(basis[0]->dphidx(j),basis[0]->dphidx(i),
+			basis[0]->dphidy(j),basis[0]->dphidy(i),
+			basis[0]->dphidz(j),basis[0]->dphidz(i),
+			k_d/W0_d/W0_d*deltau_d);
 }
 
 TUSAS_DEVICE

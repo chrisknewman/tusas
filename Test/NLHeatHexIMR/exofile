@@ -1,7 +1,7 @@
 NODAL VARIABLES all
-	grad0x floor 7.6e-5
-	grad0y floor 5.e-5
-	grad0z floor 2.1e-5
+	!grad0x floor 7.6e-5
+	!grad0y floor 5.e-5
+	!grad0z floor 2.1e-5
 	u floor 2.6e-5
 	pp0 floor 3.0e-5
 ELEMENT VARIABLES all

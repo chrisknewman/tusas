@@ -13,6 +13,8 @@
 	
 #include <Kokkos_Core.hpp>
 
+#include <cmath>
+
 // gaw // KOKKOS_INLINE_FUNCTION is defined as __host__ __device__ inline
 // Use KOKKOS_INLINE_FUNCTION instead of TUSAS_CUDA_CALLABLE_MEMBER, want
 // to inline functions defined in header
@@ -23,6 +25,18 @@
 #endif
 
 #define TUSAS_MAX_NUMEQS 6
+
+#define TUSAS_FMA
+KOKKOS_INLINE_FUNCTION
+double FMA(double A, double B, double C)
+{
+#ifdef TUSAS_FMA
+  return std::fma(A,B,C);
+#else
+  return A*B+C;
+#endif
+}
+
 
 /// Base class for computation of finite element basis.
 /** All basis classes inherit from this. */
@@ -3176,7 +3190,7 @@ public:
                 const double u[BASIS_NODES_PER_ELEM],
                 const double uold[BASIS_NODES_PER_ELEM],
                 const double uoldold[BASIS_NODES_PER_ELEM]) {
-  
+#if 0  
   uup=0.0;
   uuoldp=0.0;
   uuoldoldp=0.0;
@@ -3212,6 +3226,47 @@ public:
       duuoldolddzp += uoldold[i] * basis->dphidz(i);
     }
     }
+#else
+  // Initialize all accumulators
+  uup = uuoldp = uuoldoldp = 0.0;
+  duudxp = duudyp = duudzp = 0.0;
+  duuolddxp = duuolddyp = duuolddzp = 0.0;
+  duuoldolddxp = duuoldolddyp = duuoldolddzp = 0.0;
+
+  const int nbn = basisp->nbn();
+
+  const bool has_u = (u != nullptr);
+  const bool has_uold = (uold != nullptr);
+  const bool has_uoldold = (uoldold != nullptr);
+
+  for (int i = 0; i < nbn; ++i) {
+    const double phi     = basis->phi(i);
+    const double dphidx  = basis->dphidx(i);
+    const double dphidy  = basis->dphidy(i);
+    const double dphidz  = basis->dphidz(i);
+
+    if (has_u) {
+      uup     = FMA(u[i], phi, uup);
+      duudxp  = FMA(u[i], dphidx, duudxp);
+      duudyp  = FMA(u[i], dphidy, duudyp);
+      duudzp  = FMA(u[i], dphidz, duudzp);
+    }
+
+    if (has_uold) {
+      uuoldp      = FMA(uold[i], phi, uuoldp);
+      duuolddxp   = FMA(uold[i], dphidx, duuolddxp);
+      duuolddyp   = FMA(uold[i], dphidy, duuolddyp);
+      duuolddzp   = FMA(uold[i], dphidz, duuolddzp);
+    }
+
+    if (has_uoldold) {
+      uuoldoldp       = FMA(uoldold[i], phi, uuoldoldp);
+      duuoldolddxp    = FMA(uoldold[i], dphidx, duuoldolddxp);
+      duuoldolddyp    = FMA(uoldold[i], dphidy, duuoldolddyp);
+      duuoldolddzp    = FMA(uoldold[i], dphidz, duuoldolddzp);
+    }
+  }
+#endif
   }
 
   /// Access volume of current element.
@@ -3366,7 +3421,7 @@ public:
 						                const double x[BASIS_NODES_PER_ELEM], 
 						                const double y[BASIS_NODES_PER_ELEM],  
 						                const double z[BASIS_NODES_PER_ELEM]) {
-
+#if 0
   // Calculate partial coordinate derivatives for Jacobian and phi derivatives
   // we could make these protected, ove this jac and volp to computeElemData as an optimization
   // Reference cell goes from -1 to 1, so need factor of .5
@@ -3399,6 +3454,41 @@ public:
   }
 
   return jac*basisp->nwt(gp);
+#else
+  // Compute derivatives of position with respect to reference coordinate
+  const double dxdxi = 0.5 * nodaldiff[0];
+  const double dydxi = 0.5 * nodaldiff[1];
+  const double dzdxi = 0.5 * nodaldiff[2];
+
+  // Compute Jacobian and inverse components
+  const double jac = std::sqrt(dxdxi * dxdxi + dydxi * dydxi + dzdxi * dzdxi);
+  volp = jac * basisp->canonical_vol();
+
+  const double dxidx = 1.0 / dxdxi;
+  const double dxidy = 1.0 / dydxi;
+  const double dxidz = 1.0 / dzdxi;
+
+  // Initialize global coordinates at Gauss point
+  xxp = yyp = zzp = 0.0;
+
+  const int nbn = basisp->nbn();
+
+  for (int i = 0; i < nbn; ++i) {
+    const double phi      = basisp->phinew(gp, i);
+    const double dphidxi  = basisp->dphidxinew(gp, i);
+
+    phip[i]     = phi;
+    dphidxp[i]  = dphidxi * dxidx;
+    dphidyp[i]  = dphidxi * dxidy;
+    dphidzp[i]  = dphidxi * dxidz;
+
+    xxp = FMA(x[i], phi, xxp);
+    yyp = FMA(y[i], phi, yyp);
+    zzp = FMA(z[i], phi, zzp);
+  }
+
+  return jac * basisp->nwt(gp);
+#endif
   }
 
 protected:
@@ -3445,6 +3535,7 @@ public:
 						                const double y[BASIS_NODES_PER_ELEM],  
 						                const double z[BASIS_NODES_PER_ELEM]) {
 
+#if 0
   // Calculate partial coordinate derivatives for Jacobian and phi derivatives
   // we could make these protected, ove this jac and volp to computeElemData as an optimization
   xi = basisp->xi(gp);
@@ -3491,6 +3582,60 @@ public:
   }
 
   return jac*basisp->nwt(gp);
+#else
+  // Retrieve reference coordinates
+  const double xi   = basisp->xi(gp);
+  const double eta  = basisp->eta(gp);
+
+  const double one_minus_xi  = 1.0 - xi;
+  const double one_plus_xi   = 1.0 + xi;
+  const double one_minus_eta = 1.0 - eta;
+  const double one_plus_eta  = 1.0 + eta;
+
+  // Compute partial derivatives of coordinates w.r.t. xi, eta
+  const double dxdxi  = 0.25 * (nodaldiff[0] * one_minus_eta + nodaldiff[6] * one_plus_eta);
+  const double dxdeta = 0.25 * (nodaldiff[1] * one_minus_xi  + nodaldiff[7] * one_plus_xi);
+  const double dydxi  = 0.25 * (nodaldiff[2] * one_minus_eta + nodaldiff[8] * one_plus_eta);
+  const double dydeta = 0.25 * (nodaldiff[3] * one_minus_xi  + nodaldiff[9] * one_plus_xi);
+  const double dzdxi  = 0.25 * (nodaldiff[4] * one_minus_eta + nodaldiff[10] * one_plus_eta);
+  const double dzdeta = 0.25 * (nodaldiff[5] * one_minus_xi  + nodaldiff[11] * one_plus_xi);
+
+  // Compute Jacobian using 2-norm of 2x2 sub-determinants (Cauchy-Binet)
+  const double t1 = dzdxi * dxdeta - dxdxi * dzdeta;
+  const double t2 = dydxi * dzdeta - dzdxi * dydeta;
+  const double t3 = dxdxi * dydeta - dxdeta * dydxi;
+
+  const double jac = std::sqrt(t1 * t1 + t2 * t2 + t3 * t3);
+  volp = jac * basisp->canonical_vol();
+
+  // Inverse Jacobian terms for transforming derivatives
+  const double dxidx   = dydeta / jac;
+  const double dxidy   = -dxdeta / jac;
+  const double detadx  = -dydxi / jac;
+  const double detady  = dxdxi / jac;
+
+  // Initialize physical coordinate accumulators
+  xxp = yyp = zzp = 0.0;
+
+  const int nbn = basisp->nbn();
+
+  for (int i = 0; i < nbn; ++i) {
+    const double phi       = basisp->phinew(gp, i);
+    const double dphidxi   = basisp->dphidxinew(gp, i);
+    const double dphideta  = basisp->dphidetanew(gp, i);
+
+    phip[i]      = phi;
+    dphidxp[i]   = FMA(dphidxi, dxidx, dphideta * detadx);
+    dphidyp[i]   = FMA(dphidxi, dxidy, dphideta * detady);
+    dphidzp[i]   = 0.0; // No z-variation for 2D basis in xy plane
+
+    xxp = FMA(x[i], phi, xxp);
+    yyp = FMA(y[i], phi, yyp);
+    zzp = FMA(z[i], phi, zzp);
+  }
+
+  return jac * basisp->nwt(gp);
+#endif
   }
 
 protected:
@@ -3560,7 +3705,7 @@ public:
                             const double x[BASIS_NODES_PER_ELEM], 
                             const double y[BASIS_NODES_PER_ELEM],  
                             const double z[BASIS_NODES_PER_ELEM]) {
-
+#if 0
   // Calculate partial coordinate derivatives for Jacobian and phi derivatives
   // we could make these protected, ove this jac and volp to computeElemData as an optimization
   xi = basisp->xi(gp);
@@ -3620,6 +3765,113 @@ public:
   }
 
   return jac*basisp->nwt(gp);
+#else
+  // Get reference coordinates at Gauss point
+  const double xi  = basisp->xi(gp);
+  const double eta = basisp->eta(gp);
+  const double zta = basisp->zta(gp);
+
+  const double one_minus_xi  = 1.0 - xi;
+  const double one_plus_xi   = 1.0 + xi;
+  const double one_minus_eta = 1.0 - eta;
+  const double one_plus_eta  = 1.0 + eta;
+  const double one_minus_zta = 1.0 - zta;
+  const double one_plus_zta  = 1.0 + zta;
+
+  // Compute coordinate derivatives ∂x/∂ξ, ∂x/∂η, ∂x/∂ζ, etc.
+  auto blend = [](double a, double b) { return 0.125 * a * b; };
+
+  const double dxdxi   = blend(nodaldiff[0],  one_minus_eta * one_minus_zta) + 
+                         blend(nodaldiff[9],  one_plus_eta  * one_minus_zta) +
+                         blend(nodaldiff[18], one_minus_eta * one_plus_zta) + 
+                         blend(nodaldiff[27], one_plus_eta  * one_plus_zta);
+
+  const double dxdeta  = blend(nodaldiff[1],  one_minus_xi * one_minus_zta) + 
+                         blend(nodaldiff[10], one_plus_xi  * one_minus_zta) +
+                         blend(nodaldiff[19], one_minus_xi * one_plus_zta) + 
+                         blend(nodaldiff[28], one_plus_xi  * one_plus_zta);
+
+  const double dxdzta  = blend(nodaldiff[2],  one_minus_xi * one_minus_eta) + 
+                         blend(nodaldiff[11], one_plus_xi  * one_minus_eta) +
+                         blend(nodaldiff[20], one_plus_xi  * one_plus_eta) + 
+                         blend(nodaldiff[29], one_minus_xi * one_plus_eta);
+
+  const double dydxi   = blend(nodaldiff[3],  one_minus_eta * one_minus_zta) + 
+                         blend(nodaldiff[12], one_plus_eta  * one_minus_zta) +
+                         blend(nodaldiff[21], one_minus_eta * one_plus_zta) + 
+                         blend(nodaldiff[30], one_plus_eta  * one_plus_zta);
+
+  const double dydeta  = blend(nodaldiff[4],  one_minus_xi * one_minus_zta) + 
+                         blend(nodaldiff[13], one_plus_xi  * one_minus_zta) +
+                         blend(nodaldiff[22], one_minus_xi * one_plus_zta) + 
+                         blend(nodaldiff[31], one_plus_xi  * one_plus_zta);
+
+  const double dydzta  = blend(nodaldiff[5],  one_minus_xi * one_minus_eta) + 
+                         blend(nodaldiff[14], one_plus_xi  * one_minus_eta) +
+                         blend(nodaldiff[23], one_plus_xi  * one_plus_eta) + 
+                         blend(nodaldiff[32], one_minus_xi * one_plus_eta);
+
+  const double dzdxi   = blend(nodaldiff[6],  one_minus_eta * one_minus_zta) + 
+                         blend(nodaldiff[15], one_plus_eta  * one_minus_zta) +
+                         blend(nodaldiff[24], one_minus_eta * one_plus_zta) + 
+                         blend(nodaldiff[33], one_plus_eta  * one_plus_zta);
+
+  const double dzdeta  = blend(nodaldiff[7],  one_minus_xi * one_minus_zta) + 
+                         blend(nodaldiff[16], one_plus_xi  * one_minus_zta) +
+                         blend(nodaldiff[25], one_minus_xi * one_plus_zta) + 
+                         blend(nodaldiff[34], one_plus_xi  * one_plus_zta);
+
+  const double dzdzta  = blend(nodaldiff[8],  one_minus_xi * one_minus_eta) + 
+                         blend(nodaldiff[17], one_plus_xi  * one_minus_eta) +
+                         blend(nodaldiff[26], one_plus_xi  * one_plus_eta) + 
+                         blend(nodaldiff[35], one_minus_xi * one_plus_eta);
+
+  // Compute Jacobian determinant (scalar triple product)
+  const double jac = 
+    dxdxi  * (dydeta * dzdzta - dydzta * dzdeta) -
+    dxdeta * (dydxi  * dzdzta - dydzta * dzdxi ) +
+    dxdzta * (dydxi  * dzdeta - dydeta * dzdxi );
+
+  volp = jac * basisp->canonical_vol();
+
+  // Inverse Jacobian: entries for transforming gradient basis
+  const double inv_jac = 1.0 / jac;
+
+  const double dxidx   = inv_jac * (-dydzta * dzdeta + dydeta * dzdzta);
+  const double dxidy   = inv_jac * ( dxdzta * dzdeta - dxdeta * dzdzta);
+  const double dxidz   = inv_jac * (-dxdzta * dydeta + dxdeta * dydzta);
+
+  const double detadx  = inv_jac * ( dydzta * dzdxi  - dydxi  * dzdzta);
+  const double detady  = inv_jac * (-dxdzta * dzdxi  + dxdxi  * dzdzta);
+  const double detadz  = inv_jac * ( dxdzta * dydxi  - dxdxi  * dydzta);
+
+  const double dztadx  = inv_jac * ( dydxi  * dzdeta - dydeta * dzdxi );
+  const double dztady  = inv_jac * (-dxdxi  * dzdeta + dxdeta * dzdxi );
+  const double dztadz  = inv_jac * ( dxdxi  * dydeta - dxdeta * dydxi );
+
+  // Compute global coordinates and gradients at Gauss point
+  xxp = yyp = zzp = 0.0;
+
+  const int nbn = basisp->nbn();
+  for (int i = 0; i < nbn; ++i) {
+    const double phi      = basisp->phinew(gp, i);
+    const double dphidxi  = basisp->dphidxinew(gp, i);
+    const double dphideta = basisp->dphidetanew(gp, i);
+    const double dphidzta = basisp->dphidztanew(gp, i);
+
+    phip[i] = phi;
+
+    dphidxp[i] = FMA(dphidxi, dxidx,  FMA(dphideta, detadx,  dphidzta * dztadx));
+    dphidyp[i] = FMA(dphidxi, dxidy,  FMA(dphideta, detady,  dphidzta * dztady));
+    dphidzp[i] = FMA(dphidxi, dxidz,  FMA(dphideta, detadz,  dphidzta * dztadz));
+
+    xxp = FMA(x[i], phi, xxp);
+    yyp = FMA(y[i], phi, yyp);
+    zzp = FMA(z[i], phi, zzp);
+  }
+
+  return jac * basisp->nwt(gp);
+#endif
   }
 
 protected:
@@ -3655,7 +3907,7 @@ public:
 						                const double x[BASIS_NODES_PER_ELEM], 
 						                const double y[BASIS_NODES_PER_ELEM],  
 						                const double z[BASIS_NODES_PER_ELEM]) {
-
+#if 0
   // Calculate partial coordinate derivatives for Jacobian and phi derivatives
   dxdxi  = nodaldiff[0];
   dxdeta = nodaldiff[1];
@@ -3693,6 +3945,54 @@ public:
   }
 
   return jac*basisp->nwt(gp);
+#else
+  // Load precomputed geometric differentials
+  const double dxdxi   = nodaldiff[0];
+  const double dxdeta  = nodaldiff[1];
+  const double dydxi   = nodaldiff[2];
+  const double dydeta  = nodaldiff[3];
+  const double dzdxi   = nodaldiff[4];
+  const double dzdeta  = nodaldiff[5];
+
+  // Compute Jacobian using 2-norm of 2x2 sub-determinants (Cauchy-Binet)
+  const double t1 = dzdxi * dxdeta - dxdxi * dzdeta;
+  const double t2 = dydxi * dzdeta - dzdxi * dydeta;
+  const double t3 = dxdxi * dydeta - dxdeta * dydxi;
+
+  const double jac = std::sqrt(t1 * t1 + t2 * t2 + t3 * t3);
+  volp = jac * basisp->canonical_vol();
+
+  // Inverse Jacobian terms (for projection of gradient to physical space)
+  const double inv_jac = 1.0 / jac;
+  const double dxidx   =  dydeta * inv_jac;
+  const double dxidy   = -dxdeta * inv_jac;
+  const double detadx  = -dydxi  * inv_jac;
+  const double detady  =  dxdxi  * inv_jac;
+
+  // Initialize physical coordinate accumulators
+  xxp = yyp = zzp = 0.0;
+
+  const int nbn = basisp->nbn();
+  for (int i = 0; i < nbn; ++i) {
+    const double phi       = basisp->phinew(gp, i);
+    const double dphidxi   = basisp->dphidxinew(gp, i);
+    const double dphideta  = basisp->dphidetanew(gp, i);
+
+    phip[i] = phi;
+
+    // Use fused multiply-add for gradient projection
+    dphidxp[i] = FMA(dphidxi, dxidx, dphideta * detadx);
+    dphidyp[i] = FMA(dphidxi, dxidy, dphideta * detady);
+    dphidzp[i] = 0.0; // No derivative in z for 2D triangle in 3D
+
+    // Interpolate physical coordinates
+    xxp = FMA(x[i], phi, xxp);
+    yyp = FMA(y[i], phi, yyp);
+    zzp = FMA(z[i], phi, zzp);
+  }
+
+  return jac * basisp->nwt(gp);
+#endif
   }
 
   /// difference in nodal coordinates
@@ -3731,7 +4031,7 @@ public:
 						                const double x[BASIS_NODES_PER_ELEM], 
 						                const double y[BASIS_NODES_PER_ELEM],  
 						                const double z[BASIS_NODES_PER_ELEM]) {
-
+#if 0
   // Calculate partial coordinate derivatives for Jacobian and phi derivatives
   dxdxi  = nodaldiff[0];
   dxdeta = nodaldiff[1];
@@ -3774,6 +4074,72 @@ public:
   }
 
   return jac*basisp->nwt(gp);
+#else
+  // Load geometric derivatives
+  const double dxdxi   = nodaldiff[0];
+  const double dxdeta  = nodaldiff[1];
+  const double dxdzta  = nodaldiff[2];
+  const double dydxi   = nodaldiff[3];
+  const double dydeta  = nodaldiff[4];
+  const double dydzta  = nodaldiff[5];
+  const double dzdxi   = nodaldiff[6];
+  const double dzdeta  = nodaldiff[7];
+  const double dzdzta  = nodaldiff[8];
+
+  // Compute Jacobian determinant (scalar triple product)
+  const double jac = 
+      dxdxi  * (dydeta * dzdzta - dydzta * dzdeta) -
+      dxdeta * (dydxi  * dzdzta - dydzta * dzdxi ) +
+      dxdzta * (dydxi  * dzdeta - dydeta * dzdxi );
+
+  volp = jac * basisp->canonical_vol();
+
+  // Inverse Jacobian transformation components
+  const double inv_jac = 1.0 / jac;
+
+  const double dxidx   = inv_jac * (-dydzta * dzdeta + dydeta * dzdzta);
+  const double dxidy   = inv_jac * ( dxdzta * dzdeta - dxdeta * dzdzta);
+  const double dxidz   = inv_jac * (-dxdzta * dydeta + dxdeta * dydzta);
+
+  const double detadx  = inv_jac * ( dydzta * dzdxi  - dydxi  * dzdzta);
+  const double detady  = inv_jac * (-dxdzta * dzdxi  + dxdxi  * dzdzta);
+  const double detadz  = inv_jac * ( dxdzta * dydxi  - dxdxi  * dydzta);
+
+  const double dztadx  = inv_jac * ( dydxi  * dzdeta - dydeta * dzdxi );
+  const double dztady  = inv_jac * (-dxdxi  * dzdeta + dxdeta * dzdxi );
+  const double dztadz  = inv_jac * ( dxdxi  * dydeta - dxdeta * dydxi );
+
+  // Initialize interpolated coordinates
+  xxp = yyp = zzp = 0.0;
+
+  const int nbn = basisp->nbn();
+  for (int i = 0; i < nbn; ++i) {
+    const double phi       = basisp->phinew(gp, i);
+    const double dphidxi   = basisp->dphidxinew(gp, i);
+    const double dphideta  = basisp->dphidetanew(gp, i);
+    const double dphidzta  = basisp->dphidztanew(gp, i);
+
+    phip[i] = phi;
+
+    dphidxp[i] = FMA(dphidxi, dxidx, 
+                    FMA(dphideta, detadx, 
+                      dphidzta * dztadx));
+
+    dphidyp[i] = FMA(dphidxi, dxidy, 
+                    FMA(dphideta, detady, 
+                      dphidzta * dztady));
+
+    dphidzp[i] = FMA(dphidxi, dxidz, 
+                    FMA(dphideta, detadz, 
+                      dphidzta * dztadz));
+
+    xxp = FMA(x[i], phi, xxp);
+    yyp = FMA(y[i], phi, yyp);
+    zzp = FMA(z[i], phi, zzp);
+  }
+
+  return jac * basisp->nwt(gp);
+#endif
   }
 
   /// difference in nodal coordinates

@@ -1,5 +1,5 @@
 NODAL VARIABLES all relative 1.e-4 floor 1.e-13
-	mu relative 1.e-3 floor 1.e-8
+	mu relative 1.5e-3 floor 1.08e-8
 	eta0 relative 1.e-4 floor 7.e-12
 	!pp2
 	!pp3

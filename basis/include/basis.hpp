@@ -26,11 +26,11 @@
 
 #define TUSAS_MAX_NUMEQS 6
 
-#define TUSAS_FMA
+#define TUSAS_NO_FMA
 KOKKOS_INLINE_FUNCTION
 double FMA(double A, double B, double C)
 {
-#ifdef TUSAS_FMA
+#ifdef TUSAS_NO_FMA
   return std::fma(A,B,C);
 #else
   return A*B+C;

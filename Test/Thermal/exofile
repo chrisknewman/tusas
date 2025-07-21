@@ -1,4 +1,4 @@
-TIME STEPS relative 5.6e-13 floor 1e-11
+TIME STEPS relative 6.6e-13 floor 1e-11
 NODAL VARIABLES
 	!temperror0
 	!tempnorm0

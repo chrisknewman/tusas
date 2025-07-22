@@ -131,7 +131,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   Comm(comm)
 {
 
-
+  //std::cout<<FP_FAST_FMA<<" "<<FP_FAST_FMAF<<" "<<FP_FAST_FMAL<<std::endl<<__FMA__<<" "<<__AVX__<<" "<<__AVX2__<<std::endl;exit(0);
   dt_ = paramList.get<double> (TusasdtNameString);
   dtold_ = dt_;
   t_theta_ = paramList.get<double> (TusasthetaNameString);

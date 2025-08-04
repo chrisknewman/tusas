@@ -2621,6 +2621,62 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 //     post_proc.push_back(new post_process(mesh_,(int)1));
 //     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
+  }else if("sheng1kks" == paramList.get<std::string> (TusastestNameString)){
+
+    //https://www.sciencedirect.com/science/article/pii/S0927025616304712?via%3Dihub
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    const int numeta = 1;//problemList->get<int>("N_");
+
+    numeqs_ = numeta+2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::kkstest::residual_c_trans_;
+    (*residualfunc_)[1] = tpetra::sheng::residual_mu_trans_;
+    (*residualfunc_)[2] = tpetra::kkstest::residual_allencahn_bin_quad_kks_;
+
+    preconfunc_ = NULL;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::kkstest::prec_c_trans_;
+    (*preconfunc_)[1] = &tpetra::kkstest::prec_mu_trans_;
+    (*preconfunc_)[2] = &tpetra::kkstest::prec_eta_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::sheng::init_c_;
+    (*initfunc_)[1] = &tpetra::sheng::init_mu_;
+    (*initfunc_)[2] = &tpetra::sheng::init_eta_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "mu";
+    (*varnames_)[2] = "eta0";
+
+
+    // numeqs_ number of variables(equations) 
+    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(4);
+    paramfunc_[2] = &tpetra::kkstest::param_;
+    paramfunc_[1] = &tpetra::kks::param_;
+    paramfunc_[0] = &tpetra::pfhub2::param_;//for N_, N_MAX for h(phi), g(phi)
+    paramfunc_[3] = &tpetra::sheng::param_;
+
+
+    //we should have a function in kkstest that computes these values
+    //we should also have an option to compute total free energy
+
+
+    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::sheng::postproc_s_;
+
+//     post_proc.push_back(new post_process(mesh_,(int)1));
+//     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
+
   }else if("masstest" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;

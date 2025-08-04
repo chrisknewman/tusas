@@ -3154,6 +3154,13 @@ namespace kkstest
   TUSAS_DEVICE
   double f_beta_delta = 0.;
 
+  TUSAS_DEVICE
+  double f0_ = 1.;
+  TUSAS_DEVICE
+  double x0_ = 1.;
+  TUSAS_DEVICE
+  double t0_ = 1.;
+
   //for binary with one phase there is 1 eq for c, mu 1 eq for eta
   //with (N_C_ + 1) x (N_C_ + 1) KKS system
   //for ternary with one phase there are 2 eq for c, mu, 1 eq for eta
@@ -3167,6 +3174,9 @@ namespace kkstest
 
 PARAM_FUNC(param_)
 {
+  f0_ = plist->get<double>("f0_",f0_);//nondim free energy density, J/m^3
+  x0_ = plist->get<double>("x0_",x0_);//nondim spatial scaling, m
+
   //c_alpha_ is c^eq_L
   //c_beta_ is c^eq_S
   c_alpha_[0] = plist->get<double>("c_alpha_",.1);    
@@ -3175,6 +3185,7 @@ PARAM_FUNC(param_)
   f_beta_const = plist->get<double>("f_beta_const_",0.);
   f_alpha_delta = plist->get<double>("f_alpha_delta_",0.);
   f_beta_delta = plist->get<double>("f_beta_delta_",0.);
+
   w_ = plist->get<double>("w_",1.);
   k_eta_ = plist->get<double>("k_eta_",1.);
   k_c_ = plist->get<double>("k_c_",0.);
@@ -3184,6 +3195,19 @@ PARAM_FUNC(param_)
 
   rho_alpha = plist->get<double>("rho_alpha_",rho_alpha);
   rho_beta = plist->get<double>("rho_beta",rho_beta);
+
+  const double MM = std::max(M_alpha_,M_beta_);
+  t0_ = x0_*x0_/MM/f0_;
+  M_alpha_ = M_alpha_*t0_*f0_/x0_/x0_;
+  M_beta_ = M_beta_*t0_*f0_/x0_/x0_;
+  w_ = w_/f0_;
+  k_eta_ = k_eta_/x0_/x0_/f0_;
+  k_c_ = k_c_/x0_/x0_/f0_;
+  L_ = L_*t0_*f0_;
+  rho_alpha = rho_alpha/std::sqrt(f0_);
+  rho_beta = rho_beta/std::sqrt(f0_); 
+  f_alpha_const = f_alpha_const/f0_;
+  f_beta_const = f_beta_const/f0_;
 
   ci_ = 0;
   mui_ = 1;
@@ -3223,13 +3247,13 @@ double dfdc(const double c, const double *eta)
 KOKKOS_INLINE_FUNCTION 
 const double f_alpha(const double c)
 {
-  return rho_alpha*rho_alpha*(c - (c_alpha_[0] + f_alpha_delta))*(c - (c_alpha_[0] + f_alpha_delta)) + f_alpha_const;
+  return (rho_alpha*rho_alpha*(c - (c_alpha_[0] + f_alpha_delta))*(c - (c_alpha_[0] + f_alpha_delta)) + f_alpha_const);
 }
  
 KOKKOS_INLINE_FUNCTION 
 const double f_beta(const double c)
 {
-  return rho_beta*rho_beta*(c - (c_beta_[0] + f_beta_delta))*(c - (c_beta_[0] + f_beta_delta)) + f_beta_const;
+  return (rho_beta*rho_beta*(c - (c_beta_[0] + f_beta_delta))*(c - (c_beta_[0] + f_beta_delta)) + f_beta_const);
 }
  
 KOKKOS_INLINE_FUNCTION 
@@ -6288,6 +6312,162 @@ INI_FUNC(init_heat_)
 }
 
 }//namespace yang
+
+namespace sheng
+{
+
+  const double S_ = 0.05;
+
+  const double initial_c_alpha_ = .05;
+
+  const double small_ = 1.e-8;//m
+  //const double h_ = 5.e-8;//m
+  const double r_ = 5.e-8;//m
+
+PARAM_FUNC(param_)
+{
+    std::ofstream outfile;
+    outfile.open("sheng.dat");
+    outfile 
+      <<"f0:           "<<tpetra::kkstest::f0_<<std::endl
+      <<"x0:           "<<tpetra::kkstest::x0_<<std::endl
+      <<"t0:           "<<tpetra::kkstest::t0_<<std::endl
+      <<"w:            "<<tpetra::kkstest::w_<<std::endl
+      <<std::endl
+      <<"M_alpha:      "<<tpetra::kkstest::M_alpha_<<std::endl
+      <<"M_beta:       "<<tpetra::kkstest::M_beta_<<std::endl
+      <<"k_eta:        "<<tpetra::kkstest::k_eta_<<std::endl
+      <<"c_eta:        "<<tpetra::kkstest::k_c_<<std::endl
+      <<"L:            "<<tpetra::kkstest::L_<<std::endl
+      <<"rho_alpha     "<<tpetra::kkstest::rho_alpha<<std::endl
+      <<"rho_beta      "<<tpetra::kkstest::rho_beta<<std::endl
+      <<"f_alpha_const "<<tpetra::kkstest::f_alpha_const<<std::endl
+      <<"f_beta_const  "<<tpetra::kkstest::f_beta_const<<std::endl
+      <<std::endl;
+    outfile.close(); 
+
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double init_eta_(const double rr){
+  const double x0 = tpetra::kkstest::x0_;
+  const double sqrt2 = std::sqrt(2.0);
+  const double sqrtw = std::sqrt(tpetra::kkstest::w_);
+  const double sqrtketa = tpetra::kkstest::k_eta_;
+  
+  return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(sqrt(tpetra::kkstest::k_eta_)*sqrt2)));
+  //return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(tpetra::kkstest::k_eta_*sqrt2)));
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double S(const double y){
+  return S_*init_eta_(y);
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_mu_trans_)
+{
+const double val = tpetra::kkstest::residual_mu_trans_(basis,
+					   i,
+					   dt_,
+					   dtold_,
+					   t_theta_,
+					   t_theta2_,
+					   time,
+					   eqn_id,
+					   vol,
+					   rand);
+  //y is negative; ie top of domain is y=0, but we really want sqrt(y^2)
+ const double y = -(basis[0]->yy());
+ //const double y = -(basis[0]->yy()+4.*small_);
+		    
+ return val - tpetra::kkstest::t0_*S(y)*basis[0]->phi(i);
+
+}
+#if 0
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_allencahn_bin_quad_kks_)
+{
+return tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_(basis,
+				  i,
+				  dt_,
+				  dtold_,
+				  t_theta_,
+				  t_theta2_,
+				  time,
+				  eqn_id,
+				  vol,
+				  rand);
+}
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_mu_trans_)
+{
+return tpetra::kkstest::prec_mu_trans_(basis,
+				       i,
+				       j,
+				       dt_,
+				       t_theta_,
+				       eqn_id);
+
+}
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_eta_)
+{
+return tpetra::kkstest::prec_eta_(basis,
+				       i,
+				       j,
+				       dt_,
+				       t_theta_,
+				       eqn_id);
+}
+#endif
+
+INI_FUNC(init_eta_)
+{
+  //const double x0 = tpetra::kkstest::x0_;
+  const double rr = sqrt(x*x + y*y + z*z);
+  return init_eta_(rr);
+}
+
+const double init_c_(const double rr){
+  const double eta = init_eta_(rr);
+  const double hh = tpetra::pfhub2::h(&eta);
+//   return tpetra::kkstest::c_beta_[0]*hh  + tpetra::kkstest::c_alpha_[0]*(1.-hh);
+  return tpetra::kkstest::c_beta_[0]*hh  + initial_c_alpha_ *(1.-hh);
+}
+
+INI_FUNC(init_c_)
+{
+  const double rr = sqrt(x*x + y*y + z*z);
+  return init_c_(rr);
+}
+
+INI_FUNC(init_mu_)
+{
+  //this will need the eta_array version
+//   const double c = init_c_(x,y,z,eqn_id,lid);
+//   const double eta = init_eta_(x,y,z,2,lid);
+  //return dfdc(c,&eta);
+  const double rr = sqrt(x*x + y*y + z*z);
+  const double c = init_c_(rr);
+  const double eta = init_eta_(rr);
+  return tpetra::kkstest::dfdc(c,&eta);;
+}
+
+PPR_FUNC(postproc_s_)
+{
+  //y is negative; ie top of domain is y=0, but we really want sqrt(y^2)
+  const double y = -(xyz[1]);
+  //const double y = -(xyz[1]+4.*small_);
+  return S(y);
+}
+
+
+}//namespace sheng
+
+
 }//namespace tpetra
 
 

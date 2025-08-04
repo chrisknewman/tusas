@@ -6355,8 +6355,8 @@ const double init_eta_(const double rr){
   const double sqrtw = std::sqrt(tpetra::kkstest::w_);
   const double sqrtketa = tpetra::kkstest::k_eta_;
   
-  return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(sqrt(tpetra::kkstest::k_eta_)*sqrt2)));
-  //return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(tpetra::kkstest::k_eta_*sqrt2)));
+  //return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(sqrt(tpetra::kkstest::k_eta_)*sqrt2)));
+  return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(tpetra::kkstest::k_eta_*sqrt2)));
 }
 
 KOKKOS_INLINE_FUNCTION 

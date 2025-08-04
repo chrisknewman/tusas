@@ -6343,6 +6343,8 @@ PARAM_FUNC(param_)
       <<"rho_beta      "<<tpetra::kkstest::rho_beta<<std::endl
       <<"f_alpha_const "<<tpetra::kkstest::f_alpha_const<<std::endl
       <<"f_beta_const  "<<tpetra::kkstest::f_beta_const<<std::endl
+      <<"dx            "<<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/7.<<" - - "
+      <<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/5.<<std::endl
       <<std::endl;
     outfile.close(); 
 
@@ -6453,7 +6455,8 @@ INI_FUNC(init_mu_)
   const double rr = sqrt(x*x + y*y + z*z);
   const double c = init_c_(rr);
   const double eta = init_eta_(rr);
-  return tpetra::kkstest::dfdc(c,&eta);;
+  //return tpetra::kkstest::dfdc(c,&eta);
+  return 0.;
 }
 
 PPR_FUNC(postproc_s_)

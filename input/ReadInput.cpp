@@ -53,6 +53,8 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
 
   paramList.set(TusasnoxacceptNameString,(bool)false,TusasnoxacceptDocString);
 
+  paramList.set(TusasnoxforcestepNameString,(bool)false,TusasnoxforcestepDocString);
+
   paramList.set(TusasoutputfreqNameString,(int)(1e9),TusasoutputfreqDocString);
 
   //paramList.set(TusasrestartstepNameString,(int)0,TusasrestartstepDocString);

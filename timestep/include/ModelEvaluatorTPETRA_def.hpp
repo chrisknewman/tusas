@@ -45,6 +45,8 @@
 
 #include "NOX_Thyra_MatrixFreeJacobianOperator.hpp"
 #include "NOX_MatrixFree_ModelEvaluatorDecorator.hpp"
+#include <NOX_StatusTest_NStep.H>
+#include <NOX_Solver_SingleStep.H>
 
 #include <algorithm>
 
@@ -1434,7 +1436,6 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   }else{
     nox_group =
       Teuchos::rcp(new NOX::Thyra::Group(*initial_guess, thyraModel, jfnkOp, lowsFactory, precOp, Teuchos::null, scaling_, Teuchos::null));
-
   }
   
   nox_group->computeF();
@@ -1461,6 +1462,11 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   //converged->addStatusTest(absresid);
   converged->addStatusTest(relresid);
   //converged->addStatusTest(wrms);
+  Teuchos::RCP<NOX::StatusTest::NStep> onestep =
+    Teuchos::rcp(new NOX::StatusTest::NStep(1));
+  if( paramList.get<bool> (TusasnoxforcestepNameString)){
+    converged->addStatusTest(onestep);
+  }
 
   int maxit = 200;
   maxit = paramList.get<int> (TusasnoxmaxiterNameString);
@@ -1686,6 +1692,27 @@ double ModelEvaluatorTPETRA<scalar_type>::advance()
 	  exit(0);
 	}
       }//if
+#if 0
+      if((0 == solver_->getNumIterations() ) && ( paramList.get<bool> (TusasnoxforcestepNameString))){
+	
+	if( 0 == mypid )
+	  std::cout<<" Using NOX forcing stepsolver."<<std::endl<<std::endl;
+
+	Teuchos::RCP<NOX::Abstract::Group> groupCopy = solver_->getSolutionGroupPtr()->clone();
+	Teuchos::RCP<Teuchos::ParameterList> plCopy = Teuchos::rcp(new Teuchos::ParameterList(*(solver_->getListPtr()))); 
+
+	NOX::Solver::SingleStep stepsolver(groupCopy, plCopy);
+	solvStatus = stepsolver.solve();
+	//stepsolver.printUpdate ();
+	exit(0);
+
+	//Teuchos::RCP<NOX::StatusTest::NormF> relresid1 = 
+	//Teuchos::rcp(new NOX::StatusTest::NormF(*nox_group.get(), relrestol));
+
+	if( 0 == mypid )
+	  std::cout<<" NOX forcing stepsolver. Status = "<<solvStatus<<std::endl<<std::endl;
+      }
+#endif
       if( 0 == mypid )
 	std::cout<<" Corrector step ended"<<std::endl;
       numit++;

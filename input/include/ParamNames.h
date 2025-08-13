@@ -58,6 +58,10 @@ std::string const TusasnoxmaxiterDocString = "nox max number iterations (int): d
 std::string const TusasnoxacceptNameString = "noxacceptfailed";
 /// Nox accept failed solve
 std::string const TusasnoxacceptDocString = "nox accept failed solve (bool): true; false (default)";
+/// Nox accept failed solve
+std::string const TusasnoxforcestepNameString = "noxforcestep";
+/// Nox accept failed solve
+std::string const TusasnoxforcestepDocString = "nox force a step if num iterations is 0 (bool): true; false (default)";
 /// Write exodusII output every int steps.
 std::string const TusasoutputfreqNameString = "outputfreq";
 /// Write exodusII output every int steps.

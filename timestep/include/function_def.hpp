@@ -2617,16 +2617,31 @@ KOKKOS_INLINE_FUNCTION
 double dhdeta(const double eta)
 {
   //return 30.*eta[eqn_id]*eta[eqn_id] - 60.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id] + 30.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
+#if 0  
   return 30.*eta*eta - 60.*eta*eta*eta + 30.*eta*eta*eta*eta;
+#endif  
+  const double eta2 = eta * eta;
+  return eta2 * ((30.0 * eta - 60.0) * eta + 30.0);
 }
  
 KOKKOS_INLINE_FUNCTION 
 const double h(const double *eta)
   {
+#if 0
     //printf("%d h\n\n\n\n\n\n",N_);
     double val = 0.;
     for (int i = 0; i < N_; i++){
       val += eta[i]*eta[i]*eta[i]*(6.*eta[i]*eta[i] - 15.*eta[i] + 10.);
+    }
+    return val;  
+#endif
+    double val = 0.;
+    for (int i = 0; i < N_; i++) {
+      const double e = eta[i];
+      const double e2 = e * e;
+      const double e3 = e2 * e;
+      const double poly = ((6.0 * e - 15.0) * e + 10.0);
+      val += e3 * poly;
     }
     return val;
   }
@@ -3247,15 +3262,26 @@ double dfdc(const double c, const double *eta)
 KOKKOS_INLINE_FUNCTION 
 const double f_alpha(const double c)
 {
-  return (rho_alpha*rho_alpha*(c - (c_alpha_[0] + f_alpha_delta))*(c - (c_alpha_[0] + f_alpha_delta)) + f_alpha_const);
+  //return rho_alpha*rho_alpha*(c - (c_alpha_[0] + f_alpha_delta))*(c - (c_alpha_[0] + f_alpha_delta)) + f_alpha_const;  
+  const double diff = c - (c_alpha_[0] + f_alpha_delta);
+  return rho_alpha * rho_alpha * (diff * diff) + f_alpha_const;
 }
  
 KOKKOS_INLINE_FUNCTION 
 const double f_beta(const double c)
 {
-  return (rho_beta*rho_beta*(c - (c_beta_[0] + f_beta_delta))*(c - (c_beta_[0] + f_beta_delta)) + f_beta_const);
+  //return rho_beta*rho_beta*(c - (c_beta_[0] + f_beta_delta))*(c - (c_beta_[0] + f_beta_delta)) + f_beta_const;
+  const double diff = c - (c_beta_[0] + f_beta_delta);
+  return rho_beta * rho_beta * (diff * diff) + f_beta_const;
 }
  
+KOKKOS_INLINE_FUNCTION 
+double f(const double c, const double *eta)
+{
+  const double hh = tpetra::pfhub2::h(eta);
+  return f_alpha(c)*(1.-hh) + f_beta(c)*hh;
+}
+
 KOKKOS_INLINE_FUNCTION 
 const double d2falphadc2(const double c = 0, const double T = 0.)
 {
@@ -3266,6 +3292,17 @@ KOKKOS_INLINE_FUNCTION
 const double d2fbetadc2(const double c = 0, const double T = 0.)
 {
   return 2.*rho_beta*rho_beta;
+}
+
+//cn this needs to be generalize to f_a, f_b
+KOKKOS_INLINE_FUNCTION 
+const double d2fdc2(const double *eta, const double c = 0, const double T = 0.)
+{
+  const double hh = tpetra::pfhub2::h(eta);
+  //return d2falphadc2(c,T)*(1.-hh) + d2fbetadc2(c,T)*hh;
+  const double val = 2.*rho_alpha*rho_alpha*(1.-hh)+2.*rho_beta*rho_beta*hh;
+  //std::cout<<val<<" "<<2.*rho_alpha*rho_alpha<<" "<<2.*rho_beta*rho_beta<<" "<<hh<<std::endl;
+  return val;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -6316,7 +6353,7 @@ INI_FUNC(init_heat_)
 namespace sheng
 {
 
-  const double S_ = 0.05;
+  const double S_ = 5.e-1;//0.05
 
   const double initial_c_alpha_ = .05;
 
@@ -6341,10 +6378,12 @@ PARAM_FUNC(param_)
       <<"L:            "<<tpetra::kkstest::L_<<std::endl
       <<"rho_alpha     "<<tpetra::kkstest::rho_alpha<<std::endl
       <<"rho_beta      "<<tpetra::kkstest::rho_beta<<std::endl
+      <<"rho_alpha^2   "<<tpetra::kkstest::rho_alpha*tpetra::kkstest::rho_alpha<<std::endl
+      <<"rho_beta^2    "<<tpetra::kkstest::rho_beta*tpetra::kkstest::rho_beta<<std::endl
       <<"f_alpha_const "<<tpetra::kkstest::f_alpha_const<<std::endl
       <<"f_beta_const  "<<tpetra::kkstest::f_beta_const<<std::endl
       <<"dx            "<<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/7.<<" - - "
-      <<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/5.<<std::endl
+      <<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/5.<<std::endl<<std::endl
       <<std::endl;
     outfile.close(); 
 
@@ -6363,29 +6402,81 @@ const double init_eta_(const double rr){
 
 KOKKOS_INLINE_FUNCTION 
 const double S(const double y){
-  return S_*init_eta_(y);
+
+  //return S_*init_eta_(y);
+  return (-y > -r_/tpetra::kkstest::x0_) ? S_ : 0;
+
 }
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_mu_trans_)
 {
-const double val = tpetra::kkstest::residual_mu_trans_(basis,
-					   i,
-					   dt_,
-					   dtold_,
-					   t_theta_,
-					   t_theta2_,
-					   time,
-					   eqn_id,
-					   vol,
-					   rand);
+// const double val = tpetra::kkstest::residual_mu_trans_(basis,
+// 					   i,
+// 					   dt_,
+// 					   dtold_,
+// 					   t_theta_,
+// 					   t_theta2_,
+// 					   time,
+// 					   eqn_id,
+// 					   vol,
+// 					   rand);
+  // c_t + M grad mu grad test
+  const int c_id = 0;
+  const double ct = (basis[c_id]->uu()-basis[c_id]->uuold())/dt_*basis[0]->phi(i);
+  //M_ divgrad mu
+  const int eta_id = 2;
+  const double eta[3] = {basis[eta_id]->uu(),basis[eta_id]->uuold(),basis[eta_id]->uuoldold()};
+  const double D = 3.23695e-10;//m^2/s
+  const double M[3] = {tpetra::kkstest::t0_/tpetra::kkstest::x0_/tpetra::kkstest::x0_*
+		       D/tpetra::kkstest::d2fdc2(&eta[0], 0., 0.),
+		       tpetra::kkstest::t0_/tpetra::kkstest::x0_/tpetra::kkstest::x0_*
+		       D/tpetra::kkstest::d2fdc2(&eta[1], 0., 0.),
+		       tpetra::kkstest::t0_/tpetra::kkstest::x0_/tpetra::kkstest::x0_*
+		       D/tpetra::kkstest::d2fdc2(&eta[2], 0., 0.)};
+
+  const double f[3] = {kdivgrad(basis[eqn_id]->duudx(),basis[0]->dphidx(i),
+				basis[eqn_id]->duudy(),basis[0]->dphidy(i),
+				basis[eqn_id]->duudz(),basis[0]->dphidz(i),
+				M[0]),		       
+		       kdivgrad(basis[eqn_id]->duuolddx(),basis[0]->dphidx(i),
+				basis[eqn_id]->duuolddy(),basis[0]->dphidy(i),
+				basis[eqn_id]->duuolddz(),basis[0]->dphidz(i),
+				M[1]),
+		       kdivgrad(basis[eqn_id]->duuoldolddx(),basis[0]->dphidx(i),
+				basis[eqn_id]->duuoldolddy(),basis[0]->dphidy(i),
+				basis[eqn_id]->duuoldolddz(),basis[0]->dphidz(i),
+				M[2])};
+
+  //return (ct + f[0]); 
+  const double val =  (ct + (1.-t_theta2_)*t_theta_*f[0]
+	  + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+	  +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
   //y is negative; ie top of domain is y=0, but we really want sqrt(y^2)
  const double y = -(basis[0]->yy());
  //const double y = -(basis[0]->yy()+4.*small_);
 		    
  return val - tpetra::kkstest::t0_*S(y)*basis[0]->phi(i);
+ //return val - tpetra::kkstest::t0_*S_*basis[0]->phi(i);
 
 }
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_mu_trans_)
+{
+  const int eta_id = 2;
+  const double eta = basis[eta_id]->uu();
+  const double D = 3.23695e-10;//m^2/s
+  const double M = tpetra::kkstest::t0_/tpetra::kkstest::x0_/tpetra::kkstest::x0_*
+		       D/tpetra::kkstest::d2fdc2(&eta, 0., 0.);
+  const double divgrad = kdivgrad(basis[0]->dphidx(j),basis[0]->dphidx(i),
+				  basis[0]->dphidy(j),basis[0]->dphidy(i),
+				  basis[0]->dphidz(j),basis[0]->dphidz(i),
+				  M);
+  return t_theta_*divgrad;
+
+}
+
 #if 0
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_allencahn_bin_quad_kks_)
@@ -6400,18 +6491,6 @@ return tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_(basis,
 				  eqn_id,
 				  vol,
 				  rand);
-}
-
-KOKKOS_INLINE_FUNCTION 
-PRE_FUNC_TPETRA(prec_mu_trans_)
-{
-return tpetra::kkstest::prec_mu_trans_(basis,
-				       i,
-				       j,
-				       dt_,
-				       t_theta_,
-				       eqn_id);
-
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -6463,8 +6542,42 @@ PPR_FUNC(postproc_s_)
 {
   //y is negative; ie top of domain is y=0, but we really want sqrt(y^2)
   const double y = -(xyz[1]);
-  //const double y = -(xyz[1]+4.*small_);
   return S(y);
+}
+
+PPR_FUNC(postproc_f_)
+{
+  const double c = u[0];
+  const double eta = u[2];
+  const double val = tpetra::kkstest::f(c,&eta);
+
+  if(val > 20.){
+    std::cout<<val<<" "<<c<<" "<<eta<<std::endl;
+  }
+
+  return val;
+}
+
+PPR_FUNC(postproc_dfdc_)
+{
+  const double c = u[0];
+  const double eta = u[2];
+  return tpetra::kkstest::dfdc(c,&eta);
+}
+
+PPR_FUNC(postproc_d2fdc2_)
+{
+  const double c = u[0];
+  const double eta = u[2];
+  //different order
+  return tpetra::kkstest::d2fdc2(&eta);
+}
+
+PPR_FUNC(postproc_eta_)
+{
+  //const double c = u[0];
+  const double eta = u[2];
+  return tpetra::pfhub2::h(&eta);
 }
 
 

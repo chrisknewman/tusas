@@ -32,9 +32,9 @@ public:
   /// Write solution to exodusII file.
   virtual void write_exodus() = 0;
   /// Return the current number of timesteps taken.
-  virtual int get_cur_step(){return cur_step;};
+  virtual int64_t get_cur_step(){return cur_step;};
   /// Return the timestep index for restart.
-  virtual int get_start_step(){return start_step;};
+  virtual int64_t get_start_step(){return start_step;};
   /// Return the timestep for restart.
   virtual double get_start_time(){return start_time;};
   
@@ -43,9 +43,9 @@ public:
   /// Start timestep for restart.
   double start_time;
   /// Timestep index for restart.
-  int start_step;
+  int64_t start_step;
   /// Count of total number of timesteps taken.
-  int cur_step;
+  int64_t cur_step;
   
 };
 

@@ -21,7 +21,11 @@ std::string const TusasdtDocString = "timestep size (double): default .001";
 /// Number of timesteps.
 std::string const TusasntNameString = "nt";
 /// Number of timesteps.
-std::string const TusasntDocString = "number of timesteps (int): default 140";
+std::string const TusasntDocString = "number of timesteps (int): default 0";
+/// Number of timesteps.
+std::string const Tusasnt64NameString = "nt64";
+/// Number of timesteps.
+std::string const Tusasnt64DocString = "number of timesteps (int64_t): default -99";
 /// ExodusII mesh file.
 std::string const TusasmeshNameString = "meshfile";
 /// ExodusII mesh file.

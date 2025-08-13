@@ -147,7 +147,11 @@ int main(int argc, char *argv[])
     in_mesh->set_global_file_name(paramList.get<std::string> (TusasmeshNameString) );
     
     double dt = paramList.get<double> (TusasdtNameString);
-    int numSteps = paramList.get<int> (TusasntNameString);
+
+    const int intnumSteps = paramList.get<int> (TusasntNameString);
+    int64_t numSteps = static_cast<int64_t>(intnumSteps);
+    const int64_t int64numSteps = paramList.get<int64_t> (Tusasnt64NameString);
+    if( (int64numSteps > 0 ) && (0 ==intnumSteps)) numSteps = int64numSteps;
     
     timestep<double> * model;
 
@@ -168,8 +172,8 @@ int main(int argc, char *argv[])
     model->initialize();
     
     double curTime = model->get_start_time();
-    int elapsedSteps = model->get_start_step();
-    double endTime = numSteps*dt;//curTime + ((double)numSteps-elapsedSteps)*dt;
+    int64_t elapsedSteps = model->get_start_step();
+    double endTime = static_cast<double>(numSteps)*dt;//curTime + ((double)numSteps-elapsedSteps)*dt;
     
     bool timeadapt = paramList.get<bool>(TusasadaptiveTimestepNameString);
     while ( ( curTime <= endTime ) && ( ( elapsedSteps < numSteps ) || ( timeadapt ) ) ) {
@@ -187,7 +191,7 @@ int main(int argc, char *argv[])
 	    << "  ( "<<(float)curTime/(float)endTime*100. <<" % )   t = "
 	    <<curTime<<"  t final = "<<endTime<< endl<<endl<<endl;
       }
-      int outputfreq = paramList.get<int> (TusasoutputfreqNameString);
+      int64_t outputfreq = static_cast<int64_t>(paramList.get<int> (TusasoutputfreqNameString));
       if(0 == outputfreq ) outputfreq = numSteps;
       if(0 == elapsedSteps%outputfreq &&
 	 curTime <= endTime &&

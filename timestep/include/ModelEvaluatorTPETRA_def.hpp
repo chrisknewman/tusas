@@ -2640,7 +2640,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &tpetra::kkstest::prec_c_trans_;
-    (*preconfunc_)[1] = &tpetra::kkstest::prec_mu_trans_;
+    (*preconfunc_)[1] = &tpetra::sheng::prec_mu_trans_;
     (*preconfunc_)[2] = &tpetra::kkstest::prec_eta_;
 
     initfunc_ = new  std::vector<INITFUNC>(numeqs_);
@@ -2672,10 +2672,18 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
 
     post_proc.push_back(new post_process(mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::sheng::postproc_s_;
+    //post_proc[0].postprocfunc_ = &tpetra::sheng::postproc_s_;
+    post_proc[0].postprocfunc_ = &tpetra::sheng::postproc_f_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)1));
-//     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
+    post_proc.push_back(new post_process(mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::sheng::postproc_dfdc_;
+
+    post_proc.push_back(new post_process(mesh_,(int)2));
+    post_proc[2].postprocfunc_ = &tpetra::sheng::postproc_s_;
+//     post_proc[2].postprocfunc_ = &tpetra::sheng::postproc_d2fdc2_;
+
+//     post_proc.push_back(new post_process(mesh_,(int)3));
+//     post_proc[3].postprocfunc_ = &tpetra::sheng::postproc_eta_;
 
   }else if("masstest" == paramList.get<std::string> (TusastestNameString)){
 
@@ -4044,12 +4052,16 @@ template<class scalar_type>
   }
 
   const double dt = paramList.get<double> (TusasdtNameString);
-  const int numSteps = paramList.get<int> (TusasntNameString);
+  
+  const int intnumSteps = paramList.get<int> (TusasntNameString);
+  int64_t numSteps = static_cast<int64_t>(intnumSteps);
+  const int64_t int64numSteps = paramList.get<int64_t> (Tusasnt64NameString);
+  if( (int64numSteps > 0 ) && (0 ==intnumSteps)) numSteps = int64numSteps;
 
-  if( step > numSteps || time >numSteps*dt ){
+  if( step > numSteps || time >static_cast<double>(numSteps)*dt ){
     if( 0 == mypid ){
       std::cout<<"  Error reading restart last time = "<<time<<std::endl;
-      std::cout<<"    is greater than    "<<numSteps*dt<<std::endl<<std::endl<<std::endl;
+      std::cout<<"    is greater than    "<<static_cast<double>(numSteps)*dt<<std::endl<<std::endl<<std::endl;
       exit(0);
     }
   }

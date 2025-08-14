@@ -4081,8 +4081,8 @@ template<class scalar_type>
   const double dt = paramList.get<double> (TusasdtNameString);
   
   const int intnumSteps = paramList.get<int> (TusasntNameString);
-  int64_t numSteps = static_cast<int64_t>(intnumSteps);
-  const int64_t int64numSteps = paramList.get<int64_t> (Tusasnt64NameString);
+  long long numSteps = static_cast<long long>(intnumSteps);
+  const long long int64numSteps = paramList.get<long long> (Tusasnt64NameString);
   if( (int64numSteps > 0 ) && (0 ==intnumSteps)) numSteps = int64numSteps;
 
   if( step > numSteps || time >static_cast<double>(numSteps)*dt ){

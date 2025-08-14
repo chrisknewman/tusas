@@ -32,7 +32,7 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   //paramList.set(TusasdtNameString,(double).00001,TusasdtDocString);
 
   paramList.set(TusasntNameString,(int)0,TusasntDocString);
-  paramList.set(Tusasnt64NameString,(int64_t)-99,Tusasnt64DocString);
+  paramList.set(Tusasnt64NameString,(long long)-99LL,Tusasnt64DocString);
   //paramList.set(TusasntNameString,(int)1,TusasntDocString);
   //paramList.set(TusasntNameString,(int)14000,TusasntDocString);
   //std::cout<<paramList<<"\n"<<std::endl;

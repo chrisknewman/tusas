@@ -1263,21 +1263,31 @@ const GPURefBasis * BGPURef = BGPURefB;
 
 
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
-    {
+    
+//#define NEWDBC
+
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precdirichlet);
+#ifdef NEWDBC
+    P_->resumeFill();
+#else
     P->resumeFill();//P is overlap, P_ is owned
+#endif
 
     // local nodeset ids are on overlap
    
 #if (TRILINOS_MAJOR_VERSION < 14) 
-    auto PV = P->getLocalMatrix();
+    auto PV_overlap = P->getLocalMatrix();
 #else
-    auto PV = P->getLocalMatrixHost();
+#ifdef NEWDBC
+    auto PV_owned = P_->getLocalMatrixHost();
+    const size_t ncol_max = P_->getLocalMaxNumRowEntries();
+#else
+    auto PV_overlap = P->getLocalMatrixHost();
+    const size_t ncol_max = P->getLocalMaxNumRowEntries();
 #endif
-    const size_t ncol_max = P->getLocalMaxNumRowEntries();	
+#endif	
 
     Kokkos::View <local_ordinal_type*,Kokkos::DefaultExecutionSpace> inds_view("iv",ncol_max);
-
     std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
     std::map<int,DBCFUNC>::iterator it;
     for( int k = 0; k < numeqs_; k++ ){
@@ -1285,25 +1295,48 @@ const GPURefBasis * BGPURef = BGPURefB;
 	const int ns_id = it->first;
 	const int num_node_ns = mesh_->get_node_set(ns_id).size();
   
-	auto node_set_vec = mesh_->get_node_set(ns_id);
-	const size_t ns_size = node_set_vec.size();
-	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view("nsv",ns_size);
+	//node_set_vec is local node id in overlap_map
+	auto node_set_vec_overlap = mesh_->get_node_set(ns_id);
+	const size_t ns_size = node_set_vec_overlap.size();
+
+#ifdef NEWDBC
+	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view_owned("nsv",ns_size);
+#else
+	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view_overlap("nsv",ns_size);
+#endif
+
 	for (size_t i = 0; i < ns_size; ++i) {
-	  node_set_view(i) = node_set_vec[i];
+#ifdef NEWDBC
+	  //owned row ie local node id in owned map
+	  const local_ordinal_type lid_owned = x_owned_map_->getLocalElement(x_overlap_map_->getGlobalElement(node_set_vec_overlap[i]));
+	  node_set_view_owned(i) = lid_owned;
+#else
+	  node_set_view_overlap(i) = node_set_vec_overlap[i];
+#endif
         }
 	
  	//for ( int j = 0; j < num_node_ns; j++ ){
 	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
+#ifdef NEWDBC
+	  const double d_zero = 0.; const double d_one = 1.;
+	  const local_ordinal_type lid_owned = node_set_view_owned(j);
+	  const local_ordinal_type row_owned = numeqs*lid_owned + k;
+	  auto RV_owned = PV_owned.row(row_owned);
+	  size_t ncol_owned = RV_owned.length;
 
-	  const int lid_overlap = node_set_view(j);
-	  //const global_ordinal_type gid_overlap = x_overlap_map_->getGlobalElement(lid_overlap);
-	  //const local_ordinal_type lrow = x_owned_map_->getLocalElement(gid_overlap);
-	  const local_ordinal_type lrow = (local_ordinal_type)lid_overlap;
+	  for(size_t i = 0; i<ncol_owned; i++){
+	    inds_view[i] = RV_owned.colidx(i);
+	    ( inds_view[i] == row_owned ) ? ( RV_owned.value(i) = d_one ) : ( RV_owned.value(i) = d_zero );
+	  }
+#else
+	  const int lid_overlap = node_set_view_overlap(j);
+
+	  const local_ordinal_type lrow_overlap = (local_ordinal_type)lid_overlap;
 	 
 	  size_t ncol = 0;
-	  const local_ordinal_type row = numeqs*lrow + k;
-	  
-	  auto RV = PV.row(row);
+	  const local_ordinal_type row = numeqs*lrow_overlap + k;
+
+	  auto RV = PV_overlap.row(row);
 	  //const Kokkos::SparseRowView<Kokkos::CrsMatrix> RV = PV.row(row);
 	  ncol = RV.length;
 	  
@@ -1311,28 +1344,23 @@ const GPURefBasis * BGPURef = BGPURefB;
 	    inds_view[i] = RV.colidx(i);
 	    ( inds_view[i] == row ) ? ( RV.value(i) = 1.0 ) : ( RV.value(i) = 0.0 );
 	  }
-	  
-	  //P_->replaceLocalValues(row, ncol, vals, inds );	    
-	  //PV.replaceValues(row, inds, ncol, vals );
-	  
+#endif
+
 	  });//parallel_for
 	//}//j
-
       }//it
     }//k
-    }
+    
+#ifdef NEWDBC
+#else
     P->fillComplete();
-    //P->fillComplete();
-    //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-//     exit(0);
-
     P_->resumeFill();
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);  
       P_->doExport(*P, *exporter_, Tpetra::REPLACE);
-      //P_->doExport(*P, *exporter_, Tpetra::INSERT);
     }
-
+#endif
+    
     P_->fillComplete();
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 

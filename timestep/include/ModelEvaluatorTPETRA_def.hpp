@@ -1264,7 +1264,7 @@ const GPURefBasis * BGPURef = BGPURefB;
 
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
     
-//#define NEWDBC
+    //#define NEWDBC
 
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precdirichlet);
 #ifdef NEWDBC
@@ -1292,12 +1292,17 @@ const GPURefBasis * BGPURef = BGPURefB;
     std::map<int,DBCFUNC>::iterator it;
     for( int k = 0; k < numeqs_; k++ ){
       for(it = (*dirichletfunc_)[k].begin();it != (*dirichletfunc_)[k].end(); ++it){
-	const int ns_id = it->first;
-	const int num_node_ns = mesh_->get_node_set(ns_id).size();
+	const int index = it->first;
+
+	int ns_id = -99;
+	
+	mesh_->node_set_found(index, ns_id);
   
 	//node_set_vec is local node id in overlap_map
 	auto node_set_vec_overlap = mesh_->get_node_set(ns_id);
 	const size_t ns_size = node_set_vec_overlap.size();
+
+	//std::cout<<comm_->getRank()<<" "<<k<<" "<<ns_id<<" "<<ns_size<<std::endl<<std::endl;
 
 #ifdef NEWDBC
 	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view_owned("nsv",ns_size);
@@ -1308,26 +1313,33 @@ const GPURefBasis * BGPURef = BGPURefB;
 	for (size_t i = 0; i < ns_size; ++i) {
 #ifdef NEWDBC
 	  //owned row ie local node id in owned map
-	  const local_ordinal_type lid_owned = x_owned_map_->getLocalElement(x_overlap_map_->getGlobalElement(node_set_vec_overlap[i]));
-	  node_set_view_owned(i) = lid_owned;
+	  const local_ordinal_type gid_owned = x_overlap_map_->getGlobalElement((local_ordinal_type)node_set_vec_overlap[i]);
+	  const local_ordinal_type lid_owned = x_owned_map_->getLocalElement(gid_owned);
+	  //std::cout<<node_set_vec_overlap[i]<<" "<<gid_owned<<" "<<lid_owned<<std::endl<<std::endl;
+	  node_set_view_owned(i) = (int)lid_owned;
 #else
 	  node_set_view_overlap(i) = node_set_vec_overlap[i];
 #endif
         }
-	
  	//for ( int j = 0; j < num_node_ns; j++ ){
-	Kokkos::parallel_for(num_node_ns,KOKKOS_LAMBDA(const size_t j){
+	Kokkos::parallel_for(ns_size,KOKKOS_LAMBDA(const size_t j){
 #ifdef NEWDBC
-	  const double d_zero = 0.; const double d_one = 1.;
-	  const local_ordinal_type lid_owned = node_set_view_owned(j);
-	  const local_ordinal_type row_owned = numeqs*lid_owned + k;
-	  auto RV_owned = PV_owned.row(row_owned);
-	  size_t ncol_owned = RV_owned.length;
-
-	  for(size_t i = 0; i<ncol_owned; i++){
-	    inds_view[i] = RV_owned.colidx(i);
-	    ( inds_view[i] == row_owned ) ? ( RV_owned.value(i) = d_one ) : ( RV_owned.value(i) = d_zero );
-	  }
+			       //const double d_zero = 0.; const double d_one = 1.;
+	  const int lid_owned = node_set_view_owned(j);
+	  const local_ordinal_type row_owned = numeqs*(local_ordinal_type)lid_owned + k;
+	  //if(lid_owned > -1){
+	    auto RV_owned = PV_owned.row(row_owned);
+	    //const size_t ncol_owned = RV_owned.length;
+	    auto ncol_owned = RV_owned.length;
+	    
+	    std::cout<<comm_->getRank()<<" "<<lid_owned<<" "<<ncol_owned<<" "<< RV_owned.length<<" "<<ncol_max<<std::endl<<std::endl;
+	    //if(ncol_owned > -1 ){
+	      for(size_t i = 0; i<(size_t)ncol_owned; i++){
+		inds_view[i] = (int)(RV_owned.colidx(i));
+		( inds_view[i] == row_owned ) ? ( RV_owned.value(i) = 1.0 ) : ( RV_owned.value(i) = 0.0 );
+	      }
+	      //}
+	      //}
 #else
 	  const int lid_overlap = node_set_view_overlap(j);
 
@@ -1350,7 +1362,7 @@ const GPURefBasis * BGPURef = BGPURefB;
 	//}//j
       }//it
     }//k
-    
+
 #ifdef NEWDBC
 #else
     P->fillComplete();

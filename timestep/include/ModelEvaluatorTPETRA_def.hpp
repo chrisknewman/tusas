@@ -361,8 +361,12 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   ts_time_precimport= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Import Time");
   ts_time_resfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Fill Time");
   ts_time_resdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Dirichlet Fill Time");
+  ts_time_resdirichletimport= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Residual Dirichlet Import Time");
+
   ts_time_precfill= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Fill Time");
   ts_time_precdirichlet= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Dirichlet Fill Time");
+  ts_time_precdirichletimport= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Preconditioner Dirichlet Import Time");
+
   ts_time_nsolve= Teuchos::TimeMonitor::getNewTimer("Tusas: Total Nonlinear Solver Time");
   ts_time_view= Teuchos::TimeMonitor::getNewTimer("Tusas: Total View Time");
   ts_time_iowrite= Teuchos::TimeMonitor::getNewTimer("Tusas: Total IO Write Time");
@@ -1008,7 +1012,7 @@ const GPURefBasis * BGPURef = BGPURefB;
     
     Teuchos::RCP<vector_type> f_overlap = Teuchos::rcp(new vector_type(x_overlap_map_));
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resdirichletimport);
       f_overlap->doImport(*f_vec,*importer_,Tpetra::INSERT);
     }
     {
@@ -1053,7 +1057,7 @@ const GPURefBasis * BGPURef = BGPURefB;
     }//k
     }
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_resimport);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_resdirichletimport);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::REPLACE);//REPLACE ???
     }
   }//get_f
@@ -1265,7 +1269,7 @@ const GPURefBasis * BGPURef = BGPURefB;
   if(nonnull(outArgs.get_W_prec() ) && NULL != dirichletfunc_){
     
     //#define NEWDBC
-
+    {
     Teuchos::TimeMonitor PrecFillTimer(*ts_time_precdirichlet);
 #ifdef NEWDBC
     P_->resumeFill();
@@ -1315,6 +1319,7 @@ const GPURefBasis * BGPURef = BGPURefB;
 	  //owned row ie local node id in owned map
 	  const local_ordinal_type gid_owned = x_overlap_map_->getGlobalElement((local_ordinal_type)node_set_vec_overlap[i]);
 	  const local_ordinal_type lid_owned = x_owned_map_->getLocalElement(gid_owned);
+	  //const local_ordinal_type lid_owned = (local_ordinal_type)node_set_vec_overlap[i];
 	  //std::cout<<node_set_vec_overlap[i]<<" "<<gid_owned<<" "<<lid_owned<<std::endl<<std::endl;
 	  node_set_view_owned(i) = (int)lid_owned;
 #else
@@ -1362,13 +1367,13 @@ const GPURefBasis * BGPURef = BGPURefB;
 	//}//j
       }//it
     }//k
-
+    }
 #ifdef NEWDBC
 #else
     P->fillComplete();
     P_->resumeFill();
     {
-      Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);  
+      Teuchos::TimeMonitor ImportTimer(*ts_time_precdirichletimport);  
       P_->doExport(*P, *exporter_, Tpetra::REPLACE);
     }
 #endif

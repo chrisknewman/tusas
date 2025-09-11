@@ -157,7 +157,10 @@ private:
   Teuchos::RCP<crs_graph_type>  W_graph_;
   Teuchos::RCP<crs_graph_type>  W_overlap_graph_;
   Teuchos::RCP<matrix_type> P_;
-  Teuchos::RCP<matrix_type> P;
+  Teuchos::RCP<matrix_type> P;//overlap
+
+  Teuchos::RCP<matrix_type> Ptest;
+
 //Teuchos::RCP<MueLu::HierarchyManager<scalar_type,local_ordinal_type, global_ordinal_type, node_type>> mueluFactory_;
   Teuchos::RCP<MueLu::TpetraOperator<scalar_type,local_ordinal_type, global_ordinal_type, node_type> > prec_;
   

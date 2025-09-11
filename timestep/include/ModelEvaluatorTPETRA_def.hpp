@@ -27,6 +27,7 @@
 #include <Tpetra_Map_decl.hpp>
 #include <Tpetra_Import.hpp>
 #include <Tpetra_replaceDiagonalCrsMatrix_decl.hpp>
+#include <Tpetra_CrsMatrix_decl.hpp>
 #include <Thyra_TpetraThyraWrappers.hpp>
 #include <Thyra_VectorBase.hpp>
 #include "Thyra_PreconditionerFactoryBase.hpp"
@@ -287,14 +288,17 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
     W_graph_ = createGraph();
     W_overlap_graph_ = createOverlapGraph();
     P = rcp(new matrix_type(W_overlap_graph_));
-    P_ = rcp(new matrix_type(W_graph_));
     P->setAllToScalar((scalar_type)1.0); 
     P->fillComplete();
     //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+
+
     //cn we need to fill the matrix for muelu
+    P_ = rcp(new matrix_type(W_graph_));
     init_P_();
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
     
+
     Teuchos::ParameterList mueluParamList;
 
     std::string optionsFile = "mueluOptions.xml";  
@@ -1060,7 +1064,7 @@ const GPURefBasis * BGPURef = BGPURefB;
       Teuchos::TimeMonitor ImportTimer(*ts_time_resdirichletimport);  
       f_vec->doExport(*f_overlap, *exporter_, Tpetra::REPLACE);//REPLACE ???
     }
-  }//get_f
+  }//get_f dirichletfunc_
 
 
 
@@ -1248,10 +1252,6 @@ const GPURefBasis * BGPURef = BGPURefB;
     //cn we need to do a similar comm here...
     P->fillComplete();
 
-    //P->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
-  
-//     P_->fillComplete();
-//     P_->resumeFill();
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_precimport);  
       P_->doExport(*P, *exporter_, Tpetra::ADD); 
@@ -1375,10 +1375,19 @@ const GPURefBasis * BGPURef = BGPURefB;
     {
       Teuchos::TimeMonitor ImportTimer(*ts_time_precdirichletimport);  
       P_->doExport(*P, *exporter_, Tpetra::REPLACE);
+      P_->fillComplete();
+#if 0
+      Teuchos::RCP<const matrix_type> PP_;
+      PP_ = Tpetra::exportAndFillCompleteCrsMatrix<matrix_type>(P, *exporter_);
+      //Ptest = Teuchos::rcp_dynamic_cast<matrix_type>(PP_);
+      //Ptest = Teuchos::rcp_dynamic_cast<matrix_type>(Tpetra::exportAndFillCompleteCrsMatrix<matrix_type>(P, *exporter_));
+      //Ptest = Teuchos::rcp(new matrix_type(Tpetra::exportAndFillCompleteCrsMatrix<matrix_type>(P, *exporter_)));
+      Teuchos::RCP<matrix_type> Pt = rcp(new matrix_type(*PP_ ) );
+      Ptest = rcp(new matrix_type(*PP_ ) );
+#endif
     }
 #endif
     
-    P_->fillComplete();
     //P_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
 
 

@@ -2047,6 +2047,9 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
 			 );//parallel_for
 
   }//k
+  
+  // write initial conditions out to exodus
+  postprocess();
 
   if(localprojectionindices_.size() > 0 ){
     

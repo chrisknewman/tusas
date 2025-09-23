@@ -3533,7 +3533,6 @@ RES_FUNC_TPETRA(residual_c_trans_)
 // 			   tpetra::pfhub2::df_betadc(c_b[1])*test,
 // 			   tpetra::pfhub2::df_betadc(c_b[2])*test};
   
-//this term is unique to binary; dfloc/dc
   const double df_dc[3] = {dfdc(c[0],eta_array)*test,
 			   dfdc(c[1],eta_array_old)*test,
 			   dfdc(c[2],eta_array_oldold)*test};
@@ -6579,6 +6578,18 @@ PPR_FUNC(postproc_eta_)
   const double eta = u[2];
   return tpetra::pfhub2::h(&eta);
 }
+
+PPR_FUNC(postproc_c_kks_)
+{
+  const double c = u[0];
+  const double eta = u[2];
+  double c_a = tpetra::kkstest::c_alpha_[0];
+  double c_b = tpetra::kkstest::c_beta_[0];
+  const double hh = tpetra::pfhub2::h(&eta);
+  tpetra::kks::solve_kks(c,hh,c_b,c_a,tpetra::kkstest::df_betadc,tpetra::kkstest::df_alphadc,tpetra::kkstest::d2fbetadc2,tpetra::kkstest::d2falphadc2);
+  return (1.-hh)*c_a + hh*c_b;
+}
+
 
 
 }//namespace sheng

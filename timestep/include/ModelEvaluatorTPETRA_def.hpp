@@ -2799,7 +2799,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[2].postprocfunc_ = &tpetra::sheng::postproc_s_;
 //     post_proc[2].postprocfunc_ = &tpetra::sheng::postproc_d2fdc2_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)3));
+    post_proc.push_back(new post_process(mesh_,(int)3));
+    post_proc[3].postprocfunc_ = &tpetra::sheng::postproc_c_kks_;
 //     post_proc[3].postprocfunc_ = &tpetra::sheng::postproc_eta_;
 
   }else if("masstest" == paramList.get<std::string> (TusastestNameString)){

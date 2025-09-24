@@ -3409,6 +3409,44 @@ RES_FUNC_TPETRA(residual_dfdeta_bin_quad_kks_)
     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]));
 }
 
+
+
+KOKKOS_INLINE_FUNCTION 
+const double dfdeta(const double c, const double eta)
+{
+  //this does not include the w g' term
+
+  //dh(eta1,eta2)/deta1 is a function of eta1 only
+  const double dh_deta = tpetra::pfhub2::dhdeta(eta);
+  return f_alpha(c)*(-dh_deta)+f_beta(c)*dh_deta;
+}
+
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_dfdeta_bin_quad_wbm_)
+{
+  const double test = basis[0]->phi(i);
+  const double c[3] = {basis[0]->uu(), basis[0]->uuold(), basis[0]->uuoldold()};
+  const double eta[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
+
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
+  }
+
+  const double F[3] = {L_*(dfdeta(c[0],eta[0]) )*test,
+		       L_*(dfdeta(c[1],eta[1]) )*test,
+		       L_*(dfdeta(c[2],eta[2]) )*test};
+
+
+  return 0.;
+}
+
   //this is eta' test + L(grad eta grad test + w g' test) for multiple eta
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_)
@@ -3486,16 +3524,41 @@ RES_FUNC_TPETRA(residual_allencahn_bin_quad_kks_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_allencahn_bin_quad_kks_dp_)) = residual_allencahn_bin_quad_kks_;
 
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_allencahn_bin_quad_wbm_)
+{
+  return residual_eta_kks_(basis,
+			   i,
+			   dt_,
+			   dtold_,
+			   t_theta_,
+			   t_theta2_,
+			   time,
+			   eqn_id,
+			   vol,
+			   rand) +
+    residual_dfdeta_bin_quad_wbm_(basis,
+				  i,
+				  dt_,
+				  dtold_,
+				  t_theta_,
+				  t_theta2_,
+				  time,
+				  eqn_id,
+				  vol,
+				  rand);
+}
+
+
   //do we need to do anything special to have this support kks beyond binary?
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_trans_)
 {
-  //-mu + df/dc +div c grad test
+  //-mu*test + df/dc*test + (k_c grad c *grad test)
   //std::cout<<basis[0]->uu()<<" "<<basis[1]->uu()<<" "<<basis[2]->uu()<<std::endl;
   const int mu_id = 1;
   const double c[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
   const double mu = basis[mu_id]->uu();
-  //const double eta = basis[2]->uu();
   const double test = basis[0]->phi(i);
 
   const double divgradc[3] = {kdivgrad(basis[eqn_id]->duudx(),basis[0]->dphidx(i),
@@ -3520,23 +3583,27 @@ RES_FUNC_TPETRA(residual_c_trans_)
     eta_array_old[kk] = basis[kk_off]->uuold();
     eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   };
+#if 0
+  const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
+  double c_a[3] = {c_alpha_[0], c_alpha_[0],c_alpha_[0]};
+  double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};
 
-//   const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
-//   double c_a[3] = {c_alpha_[0], c_alpha_[0],c_alpha_[0]};
-//   double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};
+  tpetra::kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],tpetra::kkstest::df_betadc,tpetra::kkstest::df_alphadc,tpetra::kkstest::d2fbetadc2,tpetra::kkstest::d2falphadc2);
+  tpetra::kks::solve_kks(c[1],hh[1],c_b[1],c_a[1],tpetra::kkstest::df_betadc,tpetra::kkstest::df_alphadc,tpetra::kkstest::d2fbetadc2,tpetra::kkstest::d2falphadc2);
+  tpetra::kks::solve_kks(c[2],hh[2],c_b[2],c_a[2],tpetra::kkstest::df_betadc,tpetra::kkstest::df_alphadc,tpetra::kkstest::d2fbetadc2,tpetra::kkstest::d2falphadc2);
 
-//   tpetra::pfhub2::solve_kks(c[0],h[0],c_b[0],c_a[0]);
-//   tpetra::pfhub2::solve_kks(c[1],h[1],c_b[1],c_a[1]);
-//   tpetra::pfhub2::solve_kks(c[2],h[2],c_b[2],c_a[2]);
-
-//   const double df_dc[3] = {tpetra::pfhub2::df_betadc(c_b[0])*test,
-// 			   tpetra::pfhub2::df_betadc(c_b[1])*test,
-// 			   tpetra::pfhub2::df_betadc(c_b[2])*test};
-  
-  const double df_dc[3] = {dfdc(c[0],eta_array)*test,
-			   dfdc(c[1],eta_array_old)*test,
-			   dfdc(c[2],eta_array_oldold)*test};
+  const double df_dc[3] = {tpetra::kkstest::df_betadc(c_b[0])*test,
+			   tpetra::kkstest::df_betadc(c_b[1])*test,
+			   tpetra::kkstest::df_betadc(c_b[2])*test};
+#else  
+  const double df_dc[3] = {tpetra::kkstest::dfdc(c[0],eta_array)*test,
+			   tpetra::kkstest::dfdc(c[1],eta_array_old)*test,
+			   tpetra::kkstest::dfdc(c[2],eta_array_oldold)*test};
   //note that either form of df_dc is equivalent; second is cheaper
+#endif
+
+  //const double eta = basis[2]->uu();
+  //df_dc[0] = dfdc(c[0],&eta)*test;
 
   const double f[3] = {df_dc[0] + divgradc[0],
 		       df_dc[1] + divgradc[1],
@@ -3549,7 +3616,7 @@ RES_FUNC_TPETRA(residual_c_trans_)
 //     val = -mu*test + f[1];
 
 
-  val = (t_theta_ > 1.e-6)  ? -mu*test + f[0] : -mu*test + f[1];
+  val = (t_theta_ > 1.e-8)  ? -mu*test + f[0] : -mu*test + f[1];
   return val;
     
   //return -mu*test + t_theta_*f[0] + (1.-t_theta_)*f[1];  
@@ -6454,9 +6521,11 @@ RES_FUNC_TPETRA(residual_mu_trans_)
   //y is negative; ie top of domain is y=0, but we really want sqrt(y^2)
  const double y = -(basis[0]->yy());
  //const double y = -(basis[0]->yy()+4.*small_);
-		    
- return val - tpetra::kkstest::t0_*S(y)*basis[0]->phi(i);
+
  //return val - tpetra::kkstest::t0_*S_*basis[0]->phi(i);
+		    
+ return val - tpetra::kkstest::t0_*S(y)*basis[0]->phi(i);	    
+ //return val;
 
 }
 
@@ -6533,8 +6602,8 @@ INI_FUNC(init_mu_)
   const double rr = sqrt(x*x + y*y + z*z);
   const double c = init_c_(rr);
   const double eta = init_eta_(rr);
-  //return tpetra::kkstest::dfdc(c,&eta);
-  return 0.;
+  return tpetra::kkstest::dfdc(c,&eta);
+  //return 0.;
 }
 
 PPR_FUNC(postproc_s_)
@@ -6588,6 +6657,14 @@ PPR_FUNC(postproc_c_kks_)
   const double hh = tpetra::pfhub2::h(&eta);
   tpetra::kks::solve_kks(c,hh,c_b,c_a,tpetra::kkstest::df_betadc,tpetra::kkstest::df_alphadc,tpetra::kkstest::d2fbetadc2,tpetra::kkstest::d2falphadc2);
   return (1.-hh)*c_a + hh*c_b;
+}
+
+PPR_FUNC(postproc_D_)
+{
+  //const double c = u[0];
+  const double eta = u[2];
+  const double D = 3.23695e-10;//m^2/s
+  return D/tpetra::kkstest::d2fdc2(&eta, 0., 0.);
 }
 
 

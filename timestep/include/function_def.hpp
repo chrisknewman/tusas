@@ -394,9 +394,10 @@ RES_FUNC_TPETRA(residual_nlheatimr_test_)
   const double x = basis[0]->xx();
   const double y = basis[0]->yy();
 
-  const double divgrad = u_m*(dudx_m*basis[0]->dphidx(i) 
-			      + dudy_m*basis[0]->dphidy(i) 
-			      + dudz_m*basis[0]->dphidz(i));
+  const double divgrad = kdivgrad(dudx_m, basis[0]->dphidx(i),
+				  dudy_m, basis[0]->dphidy(i),
+				  dudz_m, basis[0]->dphidz(i),
+				  u_m);
 
   return (basis[eqn_id]->uu()-basis[eqn_id]->uuold())/dt_*basis[0]->phi(i)
     + divgrad
@@ -407,6 +408,19 @@ RES_FUNC_TPETRA(residual_nlheatimr_test_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_nlheatimr_test_dp_)) = residual_nlheatimr_test_;
 
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_nlheatimr_test_)
+{
+  return basis[0]->phi(j)/dt_*basis[0]->phi(i)
+    + t_theta_*kdivgrad(basis[0]->dphidx(j),basis[0]->dphidx(i),
+			basis[0]->dphidy(j),basis[0]->dphidy(i),
+			basis[0]->dphidz(j),basis[0]->dphidz(i),
+			basis[eqn_id]->uu())
+    + t_theta_*kdivgrad(basis[eqn_id]->duudx(),basis[0]->dphidx(i),
+			basis[eqn_id]->duudy(),basis[0]->dphidy(i),
+			basis[eqn_id]->duudz(),basis[0]->dphidz(i),
+			basis[0]->phi(j));
+}
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_nlheatcn_test_)

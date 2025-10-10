@@ -3,6 +3,7 @@ NODAL VARIABLES all
 	grad0y floor 3.e-9
 	grad0z floor 3.e-9
 	u floor 1.e-17
+	pp0 floor 1.e-16
 ELEMENT VARIABLES
 	!color
 	error0 floor 3.e-9

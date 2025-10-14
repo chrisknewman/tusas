@@ -430,25 +430,24 @@ RES_FUNC_TPETRA(residual_nlheatcn_test_)
   const double dudy[2] = {basis[eqn_id]->duudy(), basis[eqn_id]->duuolddy()};
   const double dudz[2] = {basis[eqn_id]->duudz(), basis[eqn_id]->duuolddz()};
   //const double dudz_m = t_theta_*basis[eqn_id].duudz() + (1. - t_theta_)*basis[eqn_id].duuolddz();
-  const double t[2] = {time, time+dt_};
+  const double t[2] = {time+dt_, time};
   const double x = basis[0]->xx();
   const double y = basis[0]->yy();
 
-  const double divgrad = t_theta_*
-    u[0]*(dudx[0]*basis[0]->dphidx(i) 
-	  + dudy[0]*basis[0]->dphidy(i) 
-	  + dudz[0]*basis[0]->dphidz(i))
-    + (1. - t_theta_)*
-    u[1]*(dudx[1]*basis[0]->dphidx(i) 
-	  + dudy[1]*basis[0]->dphidy(i) 
-	  + dudz[1]*basis[0]->dphidz(i));
+  const double divgrad = t_theta_*kdivgrad(dudx[0],basis[0]->dphidx(i),
+					   dudy[0],basis[0]->dphidy(i),
+					   dudz[0],basis[0]->dphidz(i),
+					   u[0])
+    + (1. - t_theta_)*kdivgrad(dudx[1],basis[0]->dphidx(i), 
+			       dudy[1],basis[0]->dphidy(i), 
+			       dudz[1],basis[0]->dphidz(i),
+			       u[1]);
+
 
   return (basis[eqn_id]->uu()-basis[eqn_id]->uuold())/dt_*basis[0]->phi(i)
     + divgrad
-    + (t_theta_*f1(u[0])
-       + (1. - t_theta_)*f1(u[1]))*basis[0]->phi(i)
-    + (t_theta_*f2(x,y,t[0])
-       + (1. - t_theta_)*f2(x,y,t[1]))*basis[0]->phi(i);
+    + (t_theta_*f1(u[0]) + (1. - t_theta_)*f1(u[1]))*basis[0]->phi(i)
+    + (t_theta_*f2(x,y,t[0]) + (1. - t_theta_)*f2(x,y,t[1]))*basis[0]->phi(i);
 }
 
 TUSAS_DEVICE

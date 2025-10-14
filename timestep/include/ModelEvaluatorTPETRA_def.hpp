@@ -2307,7 +2307,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[0] = tpetra::residual_nlheatcn_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = tpetra::prec_nlheatcn_test_dp_;
+    //(*preconfunc_)[0] = tpetra::prec_nlheatcn_test_dp_;
+    (*preconfunc_)[0] = tpetra::prec_nlheatimr_test_;
     
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "u";

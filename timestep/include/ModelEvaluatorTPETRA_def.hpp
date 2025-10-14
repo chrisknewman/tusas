@@ -2054,8 +2054,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init(Teuchos::RCP<vector_type> u)
   // into a temporary variable, because
   // it needs to be set to u when postprocess()
   // is called
-  Teuchos::RCP< vector_type> u_temp = Teuchos::rcp(new vector_type(x_overlap_map_));
-  u_temp = u_new_;
+  Teuchos::RCP<vector_type> u_temp = u_new_;
   u_new_ = u; 
   postprocess();
   u_new_ = u_temp;

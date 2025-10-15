@@ -7,7 +7,6 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
-
 #ifndef BASIS_H
 #define BASIS_H
 	
@@ -26,11 +25,15 @@
 
 #define TUSAS_MAX_NUMEQS 6
 
-#define TUSAS_NO_FMA
+//
+//#define TUSAS_FMA
+
+//cn probably better ways to do this...
 KOKKOS_INLINE_FUNCTION
 double FMA(double A, double B, double C)
 {
-#ifdef TUSAS_NO_FMA
+#ifdef TUSAS_FMA
+  //std::cout<<FP_FAST_FMA<<std::endl;
   return std::fma(A,B,C);
 #else
   return A*B+C;

@@ -161,11 +161,34 @@
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
 
-  double kdivgrad(double gradx, double gradxt,
+KOKKOS_INLINE_FUNCTION 
+double kdivgrad(double gradx, double gradxt,
 		  double grady, double gradyt,
 		  double gradz, double gradzt,
 		  double k) {
     return FMA(k, FMA(gradz, gradzt, FMA(grady, gradyt, gradx * gradxt)), 0.0);
+}
+
+  //A fused version of
+//   return ut + (1.-t_theta2_)*t_theta_*f[0]
+//     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+//     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+KOKKOS_INLINE_FUNCTION 
+double retval(const double ut,
+	      const double t_theta_,
+	      const double t_theta2_,
+	      const double dt_,
+	      const double dtold_,
+	      const double* __restrict f) {
+  const double e  = dt_ / dtold_;
+  const double a  = 1.0 - t_theta2_;
+  const double c  = 1.0 - t_theta_;
+  const double hd = 0.5 * t_theta2_;
+  
+  const double inner1 = FMA(t_theta_, f[0], c * f[1]);          // tθ*f0 + c*f1
+  const double acc    = FMA(a,        inner1,  ut);              // a*inner1 + ut
+  const double inner2 = FMA(e,        (f[1] - f[2]), 2.0 * f[1]); // 2*f1 + e*(f1 - f2)
+  return FMA(hd, inner2, acc);                                   // hd*inner2 + acc
 }
 
 namespace noise
@@ -266,9 +289,16 @@ RES_FUNC_TPETRA(residual_heat_test_)
 				basis[eqn_id]->duuoldolddz(), basis[0]->dphidz(i),
 				k_d/W0_d/W0_d*deltau_d)};
   //std::cout<<std::scientific<<f[0]<<std::endl<<std::defaultfloat;
-  return ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+//   return ut + (1.-t_theta2_)*t_theta_*f[0]
+//     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+//     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+
+  return retval(ut,
+		t_theta_,
+		t_theta2_,
+		dt_,
+		dtold_,
+		f);
 }
 
 TUSAS_DEVICE

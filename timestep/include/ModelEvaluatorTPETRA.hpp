@@ -196,33 +196,33 @@ private:
   //do we want to move these typedefs to function_def.hpp? would need to do it for nemesis class as well
   //typedef double (*RESFUNC)(const GPUBasis * const * basis, 
   typedef const double (*RESFUNC)(GPUBasis * basis[], 
-				  const int &i, 
-				  const double &dt_, 
-				  const double &dtold_, 
-				  const double &t_theta_, 
-				  const double &t_theta2_, 
-				  const double &time,
-				  const int &eqn_id, 
-				  const double &vol, 
-				  const double &rand);
+				  const int i, 
+				  const double dt_, 
+				  const double dtold_, 
+				  const double t_theta_, 
+				  const double t_theta2_, 
+				  const double time,
+				  const int eqn_id, 
+				  const double vol, 
+				  const double rand);
 
   std::vector<RESFUNC> *residualfunc_;
 
 
   typedef const double (*PREFUNC)(GPUBasis *basis[], 
-				  const int &i,
-				  const int &j, 
-				  const double &dt_, 
-				  const double &t_theta_, 
-				  const int &eqn_id);
+				  const int i,
+				  const int j, 
+				  const double dt_, 
+				  const double t_theta_, 
+				  const int eqn_id);
 
   std::vector<PREFUNC> *preconfunc_;
 
 
-  typedef const double (*DBCFUNC)(const double &x,
-				  const double &y,
-				  const double &z,
-				  const double &t);
+  typedef const double (*DBCFUNC)(const double x,
+				  const double y,
+				  const double z,
+				  const double t);
 
   std::vector<std::map<int,DBCFUNC>> *dirichletfunc_;
 
@@ -233,12 +233,12 @@ private:
 				   const int &lid);
 
   typedef const double (*NBCFUNC)(const GPUBasis *basis,
-				  const int &i, 
-				  const double &dt_, 
-				  const double &dtold_, 
-				  const double &t_theta_,
-				  const double &t_theta2_,
-				  const double &time);
+				  const int i, 
+				  const double dt_, 
+				  const double dtold_, 
+				  const double t_theta_,
+				  const double t_theta2_,
+				  const double time);
 
   std::vector<std::map<int,NBCFUNC>> *neumannfunc_;
 

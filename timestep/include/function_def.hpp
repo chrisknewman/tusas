@@ -45,17 +45,24 @@
 
 
 */
+//might be better to pass scalars by value here, according to chatgpt:
+//double, float, and other trivially copyable scalars are passed in registers by value on all mainstream ABIs. 
+//A const double& is actually a pointer under the hood, so it adds an indirection (and potential aliasing) with zero copy-saving advantage.
+//In hot loops, extra aliasing from references/pointers can block some optimizations and vectorization.
 
+//rather easy to do, change here and ModelEvaluatorTPETRA.hpp and not needed in ModelEvaluatorNEMESIS.hpp
+//however it seems that there are other places that are affected--there are some init funcs called from TPETRA that live in NEMESIS now
+//and PPR_FUNC is defined in post_process
 #define RES_FUNC_TPETRA(NAME)  const double NAME(GPUBasis * basis[],	\
-						 const int &i,		\
-						 const double &dt_,	\
-						 const double &dtold_,	\
-						 const double &t_theta_, \
-						 const double &t_theta2_, \
-						 const double &time,	\
-						 const int &eqn_id,	\
-						 const double &vol,	\
-						 const double &rand)
+						 const int i,		\
+						 const double dt_,	\
+						 const double dtold_,	\
+						 const double t_theta_, \
+						 const double t_theta2_, \
+						 const double time,	\
+						 const int eqn_id,	\
+						 const double vol,	\
+						 const double rand)
 
 
 /** Definition for precondition function. Each precondition function is called at each Gauss point for each equation with this signature:
@@ -72,11 +79,11 @@
 */
 
 #define PRE_FUNC_TPETRA(NAME)  const double NAME(GPUBasis *basis[], \
-						 const int &i,	    \
-						 const int &j,	    \
-						 const double &dt_, \
-						 const double &t_theta_, \
-						 const int &eqn_id)
+						 const int i,	    \
+						 const int j,	    \
+						 const double dt_, \
+						 const double t_theta_, \
+						 const int eqn_id)
 
 
 /** Definition for initialization function. Each initialization function is called at each node for each equation at the beginning of the simualtaion with this signature:
@@ -105,10 +112,10 @@
 
 */
 
-#define DBC_FUNC(NAME)  const double NAME(const double &x,\
-					  const double &y,	\
-					  const double &z,	\
-					  const double &t) 
+#define DBC_FUNC(NAME)  const double NAME(const double x,\
+					  const double y,	\
+					  const double z,	\
+					  const double t) 
 
 /** Definition for Neumann function. Each Neumann function is called at each Gauss point for the current equation with this signature:
 - NAME:     name of function to call
@@ -122,12 +129,12 @@
 */
 
 #define NBC_FUNC_TPETRA(NAME)  const double NAME(const GPUBasis *basis,\
-						 const int &i,	       \
-						 const double &dt_,    \
-						 const double &dtold_, \
-						 const double &t_theta_, \
-						 const double &t_theta2_, \
-						 const double &time)
+						 const int i,	       \
+						 const double dt_,    \
+						 const double dtold_, \
+						 const double t_theta_, \
+						 const double t_theta2_, \
+						 const double time)
 
 /** Definition for post-process function. Each post-process function is called at each node for each equation at the end of each timestep with this signature:
 - NAME:     name of function to call

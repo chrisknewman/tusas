@@ -180,7 +180,9 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   //std::vector<global_ordinal_type> node_num_map(node_num_int.begin(),node_num_int.end());
   std::vector<global_ordinal_type> node_num_map(node_num_int.size());
+#pragma omp simd
   for( int i = 0; i < node_num_int.size(); i++ ) node_num_map[i] = (global_ordinal_type)node_num_int[i];
+
   std::vector<global_ordinal_type>::iterator maxg;
   std::vector<global_ordinal_type>::iterator ming;
   maxg = std::max_element(node_num_map.begin(), node_num_map.end());
@@ -195,6 +197,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   //if( 0 == comm_->getRank()) std::cout<<"node_num_map constructed"<<std::endl;
   
   std::vector<global_ordinal_type> my_global_nodes(numeqs_*node_num_map.size());
+#pragma omp simd
   for(int i = 0; i < node_num_map.size(); i++){    
     global_ordinal_type ngid = node_num_map[i];
     for( int k = 0; k < numeqs_; k++ ){
@@ -564,9 +567,11 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   Kokkos::View<int*,Kokkos::DefaultExecutionSpace> meshc_1d("meshc_1d",((mesh_->connect)[0]).size());
 
-  for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {
-    meshc_1d(i)=(mesh_->connect)[0][i];
-  }
+  //for(int i = 0; i<((mesh_->connect)[0]).size(); i++) {meshc_1d(i)=(mesh_->connect)[0][i];}
+  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,(mesh_->connect[0]).size()),[=](const int& i){
+			 meshc_1d(i)=(mesh_->connect)[0][i];
+		       });
+
   Kokkos::View<const int*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> meshc_1dra(meshc_1d);
 
   const double dt = dt_; //cuda 8 lambdas dont capture private data
@@ -694,6 +699,7 @@ const GPURefBasis * BGPURef = BGPURefB;
 	
 	Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
 	//Kokkos::vector<int> elem_map_k(num_elem);
+#pragma omp simd
 	for(int i = 0; i<num_elem; i++) {
 	  //elem_map_k[i] = elem_map[i]; 
 	  elem_map_1d(i) = elem_map[i]; 
@@ -1039,9 +1045,10 @@ const GPURefBasis * BGPURef = BGPURefB;
 
 	Kokkos::View <int*,Kokkos::DefaultExecutionSpace> node_set_view("sv",ns_size);
 	//could make this a 2d view and construct outside the k loop
-	for (size_t i = 0; i < ns_size; ++i) {
+	//for (size_t i = 0; i < ns_size; ++i) {node_set_view(i) = node_set_vec[i];}
+	Kokkos::parallel_for(ns_size,KOKKOS_LAMBDA (const size_t& i){
 	  node_set_view(i) = node_set_vec[i];
-        }
+			     });
 
 	Kokkos::parallel_for(ns_size,KOKKOS_LAMBDA (const size_t& j){
 
@@ -1128,12 +1135,12 @@ const GPURefBasis * BGPURef = BGPURefB;
 	const int num_elem = elem_map.size();
 	
 	Kokkos::View<int*,Kokkos::DefaultExecutionSpace> elem_map_1d("elem_map_1d",num_elem);
-	//Kokkos::vector<int> elem_map_k(num_elem);
-	for(int i = 0; i<num_elem; i++) {
-	  //elem_map_k[i] = elem_map[i];
-	  elem_map_1d(i) = elem_map[i]; 
-	  //std::cout<<comm_->getRank()<<" "<<c<<" "<<i<<" "<<elem_map_k[i]<<std::endl;
-	}
+
+	//for(int i = 0; i<num_elem; i++) {elem_map_1d(i) = elem_map[i]; }
+	Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& i){
+	  elem_map_1d(i) = elem_map[i];
+			     });
+
 	//exit(0);	
 
 	Kokkos::parallel_for(num_elem,KOKKOS_LAMBDA(const int& ne){
@@ -4392,6 +4399,7 @@ void ModelEvaluatorTPETRA<Scalar>::temporalpostprocess(boost::ptr_vector<post_pr
   Teuchos::ArrayRCP<const scalar_type> unewview = u_new_->get1dView();
   Teuchos::ArrayRCP<const scalar_type> uoldview = u_old_->get1dView();
   Teuchos::ArrayRCP<const scalar_type> predtempview = pred_temp_->get1dView();
+
   for (int nn=0; nn < num_owned_nodes_; nn++) {
   //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_owned_nodes_),[=](const int& nn){
     for( int k = 0; k < numeqs; k++ ){

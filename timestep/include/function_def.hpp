@@ -3633,7 +3633,7 @@ RES_FUNC_TPETRA(residual_c_trans_)
     eta_array_old[kk] = basis[kk_off]->uuold();
     eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   };
-#if 0
+#if 1
   const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
   double c_a[3] = {c_alpha_[0], c_alpha_[0],c_alpha_[0]};
   double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};

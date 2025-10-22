@@ -45,17 +45,24 @@
 
 
 */
+//might be better to pass scalars by value here, according to chatgpt:
+//double, float, and other trivially copyable scalars are passed in registers by value on all mainstream ABIs. 
+//A const double& is actually a pointer under the hood, so it adds an indirection (and potential aliasing) with zero copy-saving advantage.
+//In hot loops, extra aliasing from references/pointers can block some optimizations and vectorization.
 
+//rather easy to do, change here and ModelEvaluatorTPETRA.hpp and not needed in ModelEvaluatorNEMESIS.hpp
+//however it seems that there are other places that are affected--there are some init funcs called from TPETRA that live in NEMESIS now
+//and PPR_FUNC is defined in post_process
 #define RES_FUNC_TPETRA(NAME)  const double NAME(GPUBasis * basis[],	\
-						 const int &i,		\
-						 const double &dt_,	\
-						 const double &dtold_,	\
-						 const double &t_theta_, \
-						 const double &t_theta2_, \
-						 const double &time,	\
-						 const int &eqn_id,	\
-						 const double &vol,	\
-						 const double &rand)
+						 const int i,		\
+						 const double dt_,	\
+						 const double dtold_,	\
+						 const double t_theta_, \
+						 const double t_theta2_, \
+						 const double time,	\
+						 const int eqn_id,	\
+						 const double vol,	\
+						 const double rand)
 
 
 /** Definition for precondition function. Each precondition function is called at each Gauss point for each equation with this signature:
@@ -72,11 +79,11 @@
 */
 
 #define PRE_FUNC_TPETRA(NAME)  const double NAME(GPUBasis *basis[], \
-						 const int &i,	    \
-						 const int &j,	    \
-						 const double &dt_, \
-						 const double &t_theta_, \
-						 const int &eqn_id)
+						 const int i,	    \
+						 const int j,	    \
+						 const double dt_, \
+						 const double t_theta_, \
+						 const int eqn_id)
 
 
 /** Definition for initialization function. Each initialization function is called at each node for each equation at the beginning of the simualtaion with this signature:
@@ -105,10 +112,10 @@
 
 */
 
-#define DBC_FUNC(NAME)  const double NAME(const double &x,\
-					  const double &y,	\
-					  const double &z,	\
-					  const double &t) 
+#define DBC_FUNC(NAME)  const double NAME(const double x,\
+					  const double y,	\
+					  const double z,	\
+					  const double t) 
 
 /** Definition for Neumann function. Each Neumann function is called at each Gauss point for the current equation with this signature:
 - NAME:     name of function to call
@@ -122,12 +129,12 @@
 */
 
 #define NBC_FUNC_TPETRA(NAME)  const double NAME(const GPUBasis *basis,\
-						 const int &i,	       \
-						 const double &dt_,    \
-						 const double &dtold_, \
-						 const double &t_theta_, \
-						 const double &t_theta2_, \
-						 const double &time)
+						 const int i,	       \
+						 const double dt_,    \
+						 const double dtold_, \
+						 const double t_theta_, \
+						 const double t_theta2_, \
+						 const double time)
 
 /** Definition for post-process function. Each post-process function is called at each node for each equation at the end of each timestep with this signature:
 - NAME:     name of function to call
@@ -161,11 +168,34 @@
 
 namespace tpetra{//we can just put the KOKKOS... around the other dbc_zero_ later...
 
-  double kdivgrad(double gradx, double gradxt,
+KOKKOS_INLINE_FUNCTION 
+double kdivgrad(double gradx, double gradxt,
 		  double grady, double gradyt,
 		  double gradz, double gradzt,
 		  double k) {
     return FMA(k, FMA(gradz, gradzt, FMA(grady, gradyt, gradx * gradxt)), 0.0);
+}
+
+  //A fused version of
+//   return ut + (1.-t_theta2_)*t_theta_*f[0]
+//     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+//     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+KOKKOS_INLINE_FUNCTION 
+double retval(const double ut,
+	      const double t_theta_,
+	      const double t_theta2_,
+	      const double dt_,
+	      const double dtold_,
+	      const double* __restrict f) {
+  const double e  = dt_ / dtold_;
+  const double a  = 1.0 - t_theta2_;
+  const double c  = 1.0 - t_theta_;
+  const double hd = 0.5 * t_theta2_;
+  
+  const double inner1 = FMA(t_theta_, f[0], c * f[1]);          // tθ*f0 + c*f1
+  const double acc    = FMA(a,        inner1,  ut);              // a*inner1 + ut
+  const double inner2 = FMA(e,        (f[1] - f[2]), 2.0 * f[1]); // 2*f1 + e*(f1 - f2)
+  return FMA(hd, inner2, acc);                                   // hd*inner2 + acc
 }
 
 namespace noise
@@ -266,9 +296,16 @@ RES_FUNC_TPETRA(residual_heat_test_)
 				basis[eqn_id]->duuoldolddz(), basis[0]->dphidz(i),
 				k_d/W0_d/W0_d*deltau_d)};
   //std::cout<<std::scientific<<f[0]<<std::endl<<std::defaultfloat;
-  return ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+//   return ut + (1.-t_theta2_)*t_theta_*f[0]
+//     + (1.-t_theta2_)*(1.-t_theta_)*f[1]
+//     +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+
+  return retval(ut,
+		t_theta_,
+		t_theta2_,
+		dt_,
+		dtold_,
+		f);
 }
 
 TUSAS_DEVICE
@@ -430,25 +467,24 @@ RES_FUNC_TPETRA(residual_nlheatcn_test_)
   const double dudy[2] = {basis[eqn_id]->duudy(), basis[eqn_id]->duuolddy()};
   const double dudz[2] = {basis[eqn_id]->duudz(), basis[eqn_id]->duuolddz()};
   //const double dudz_m = t_theta_*basis[eqn_id].duudz() + (1. - t_theta_)*basis[eqn_id].duuolddz();
-  const double t[2] = {time, time+dt_};
+  const double t[2] = {time+dt_, time};
   const double x = basis[0]->xx();
   const double y = basis[0]->yy();
 
-  const double divgrad = t_theta_*
-    u[0]*(dudx[0]*basis[0]->dphidx(i) 
-	  + dudy[0]*basis[0]->dphidy(i) 
-	  + dudz[0]*basis[0]->dphidz(i))
-    + (1. - t_theta_)*
-    u[1]*(dudx[1]*basis[0]->dphidx(i) 
-	  + dudy[1]*basis[0]->dphidy(i) 
-	  + dudz[1]*basis[0]->dphidz(i));
+  const double divgrad = t_theta_*kdivgrad(dudx[0],basis[0]->dphidx(i),
+					   dudy[0],basis[0]->dphidy(i),
+					   dudz[0],basis[0]->dphidz(i),
+					   u[0])
+    + (1. - t_theta_)*kdivgrad(dudx[1],basis[0]->dphidx(i), 
+			       dudy[1],basis[0]->dphidy(i), 
+			       dudz[1],basis[0]->dphidz(i),
+			       u[1]);
+
 
   return (basis[eqn_id]->uu()-basis[eqn_id]->uuold())/dt_*basis[0]->phi(i)
     + divgrad
-    + (t_theta_*f1(u[0])
-       + (1. - t_theta_)*f1(u[1]))*basis[0]->phi(i)
-    + (t_theta_*f2(x,y,t[0])
-       + (1. - t_theta_)*f2(x,y,t[1]))*basis[0]->phi(i);
+    + (t_theta_*f1(u[0]) + (1. - t_theta_)*f1(u[1]))*basis[0]->phi(i)
+    + (t_theta_*f2(x,y,t[0]) + (1. - t_theta_)*f2(x,y,t[1]))*basis[0]->phi(i);
 }
 
 TUSAS_DEVICE
@@ -3597,7 +3633,7 @@ RES_FUNC_TPETRA(residual_c_trans_)
     eta_array_old[kk] = basis[kk_off]->uuold();
     eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   };
-#if 0
+#if 1
   const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
   double c_a[3] = {c_alpha_[0], c_alpha_[0],c_alpha_[0]};
   double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};

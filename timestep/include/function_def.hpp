@@ -33,6 +33,11 @@
 #endif
 
 
+#define TPETRA_DEPRECATED 0
+
+#if TPETRA_DEPRECATED
+joaijjpjgpre
+#endif
 
 /** Definition for residual function. Each residual function is called at each Gauss point for each equation with this signature:
 - NAME:     name of function to call
@@ -2775,7 +2780,7 @@ RES_FUNC_TPETRA(residual_c_)
   //M_ divgrad mu
 
   //
-  //mu is not time dependant so this makes no sense for theta .ne. 1
+  //mu is not time dependent so this makes no sense for theta .ne. 1
   //
 
   const double f[3] = {M_*(basis[mui_]->duudx()*basis[0]->dphidx(i)

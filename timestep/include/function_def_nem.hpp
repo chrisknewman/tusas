@@ -17,6 +17,13 @@
 #include "Teuchos_ParameterList.hpp"
 
 
+#define NEMESIS_DEPRECATED 0
+
+#if NEMESIS_DEPRECATED
+joaijjpjgpre
+#endif
+
+
 
 /** Definition for residual function. Each residual function is called at each Gauss point for each equation with this signature:
 - NAME:     name of function to call

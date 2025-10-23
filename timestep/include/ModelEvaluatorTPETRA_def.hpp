@@ -3162,7 +3162,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 //     post_proc.push_back(new post_process(mesh_,(int)3,post_process::NORM2,false,2,"pp",16));
 //     post_proc[3].postprocfunc_ = &tpetra::kkstest::postproc_eta_error_;
 
-  }else if("pfhub2" == paramList.get<std::string> (TusastestNameString)){
+  }else if("pfhub2uncoupled" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
@@ -3176,6 +3176,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_dp_;
     (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
 
+    if( 2 == numeta){
+      (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
+    }
+    if( 3 == numeta){
+      (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
+      (*residualfunc_)[4] = tpetra::pfhub2::residual_eta_dp_;
+    }
     if( 4 == numeta){
       (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
       (*residualfunc_)[4] = tpetra::pfhub2::residual_eta_dp_;
@@ -3188,6 +3195,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*preconfunc_)[1] = &tpetra::pfhub2::prec_ut_;
     (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
 
+    if( 2 == numeta){
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+    }
+    if( 3 == numeta){
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
+    }
     if( 4 == numeta){
       (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
       (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
@@ -3198,6 +3212,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[0] = &tpetra::pfhub2::init_c_;
     (*initfunc_)[1] = &tpetra::pfhub2::init_mu_;
     (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
+    if( 2 == numeta){
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+    }
+    if( 3 == numeta){
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
+    }
     if( 4 == numeta){
       (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
       (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
@@ -3208,8 +3229,15 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[0] = "c";
     (*varnames_)[1] = "mu";
     (*varnames_)[2] = "eta0";
+    if( 2 == numeta){
+      (*varnames_)[3] = "eta1";
+    }
+    if( 3 == numeta){
+      (*varnames_)[3] = "eta1";
+      (*varnames_)[4] = "eta2";
+    }
     if( 4 == numeta){
-      (*varnames_)[2] = "eta1";
+      (*varnames_)[3] = "eta1";
       (*varnames_)[4] = "eta2";
       (*varnames_)[5] = "eta3";
     }

@@ -4910,7 +4910,7 @@ PPR_FUNC(postproc_error)
 namespace pfhub2 {
 
   int N_ = 1;
-  int eqn_off_ =1;
+  int eqn_off_ = 1;
   const double c0_ = .5;
   const double eps_ = .05;
   const double eps_eta_ = .1;
@@ -4919,8 +4919,8 @@ namespace pfhub2 {
   const double c_alpha_ = .3;
   const double c_beta_ = .7;
   const double alpha_ = 5.;
-  const double k_c_ = 0.;//3.
-  const double k_eta_ = 3.;
+  double k_c_ = 0.;//3.
+  double k_eta_ = 6.;//was 3 but assume k_eta_ = k_eta_ + k_c_ ie div grad phi ~ div grad c
   const double M_ = 5.;
   const double L_ = 5.;
   const double w_ = 1.;
@@ -4929,8 +4929,10 @@ namespace pfhub2 {
 
   PARAM_FUNC(param_)
   {
-    N_ = plist->get<int>("N");
-    eqn_off_ = plist->get<int>("OFFSET");
+    N_ = plist->get<int>("N",N_);
+    eqn_off_ = plist->get<int>("OFFSET", eqn_off_);
+    k_c_ =  plist->get<double>("k_c", k_c_);
+    k_eta_ =  plist->get<double>("k_eta", k_eta_);
   }
 
   double f_alpha(const double c){

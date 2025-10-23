@@ -2606,7 +2606,7 @@ namespace pfhub2
   const double alpha_ = 5.;
   TUSAS_DEVICE
   //const double k_c_ = 3.;
-  const double k_c_ = 0.0;
+  double k_c_ = 0.0;
   TUSAS_DEVICE
   double k_eta_ = 3.;
   TUSAS_DEVICE
@@ -2620,7 +2620,7 @@ namespace pfhub2
 
   PARAM_FUNC(param_)
   {
-    int N_p = plist->get<int>("N");
+    int N_p = plist->get<int>("N",N_);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
 #else
@@ -2636,6 +2636,7 @@ namespace pfhub2
     rho_ = plist->get<double>("rho_",1.414213562373095);
     c_alpha_ = plist->get<double>("c_alpha_",.3);    
     c_beta_ = plist->get<double>("c_beta_",.7);
+    k_c_ = plist->get<double>("k_c_",0.);
     k_eta_ = plist->get<double>("k_eta_",3.);
     M_ = plist->get<double>("M_",5.);
     L_ = plist->get<double>("L_",5.);
@@ -2669,22 +2670,23 @@ double dhdeta(const double eta)
   //return 30.*eta[eqn_id]*eta[eqn_id] - 60.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id] + 30.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
 #if 0  
   return 30.*eta*eta - 60.*eta*eta*eta + 30.*eta*eta*eta*eta;
-#endif  
+#else 
   const double eta2 = eta * eta;
   return eta2 * ((30.0 * eta - 60.0) * eta + 30.0);
+#endif  
 }
  
 KOKKOS_INLINE_FUNCTION 
 const double h(const double *eta)
   {
-#if 0
+#if 1
     //printf("%d h\n\n\n\n\n\n",N_);
     double val = 0.;
     for (int i = 0; i < N_; i++){
       val += eta[i]*eta[i]*eta[i]*(6.*eta[i]*eta[i] - 15.*eta[i] + 10.);
     }
     return val;  
-#endif
+#else
     double val = 0.;
     for (int i = 0; i < N_; i++) {
       const double e = eta[i];
@@ -2693,7 +2695,8 @@ const double h(const double *eta)
       const double poly = ((6.0 * e - 15.0) * e + 10.0);
       val += e3 * poly;
     }
-    return val;
+    return val; 
+#endif
   }
  
 KOKKOS_INLINE_FUNCTION 
@@ -2771,7 +2774,10 @@ RES_FUNC_TPETRA(residual_c_)
   const double ut = (basis[ci_]->uu()-basis[ci_]->uuold())/dt_*basis[0]->phi(i);
   //M_ divgrad mu
 
+  //
   //mu is not time dependant so this makes no sense for theta .ne. 1
+  //
+
   const double f[3] = {M_*(basis[mui_]->duudx()*basis[0]->dphidx(i)
 			   + basis[mui_]->duudy()*basis[0]->dphidy(i)
 			   + basis[mui_]->duudz()*basis[0]->dphidz(i)),
@@ -2960,7 +2966,6 @@ RES_FUNC_TPETRA(residual_mu_)
   const double divgradc = k_c_*(basis[ci_]->duudx()*basis[0]->dphidx(i)
 				+ basis[ci_]->duudy()*basis[0]->dphidy(i)
 				+ basis[ci_]->duudz()*basis[0]->dphidz(i));
-
   double eta_array[N_MAX];
   for( int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
@@ -2968,7 +2973,6 @@ RES_FUNC_TPETRA(residual_mu_)
   };
 
   const double df_dc = dfdc(c,eta_array)*test;
-
   //return dt_*(-mu*test + df_dc + divgradc);
   return -mu*test + df_dc + divgradc;
 }

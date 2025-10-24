@@ -2611,149 +2611,127 @@ namespace pfhub2
   const double alpha_ = 5.;
   TUSAS_DEVICE
   //const double k_c_ = 3.;
-  double k_c_ = 0.0;
+  double k_c_ = 0.;
   TUSAS_DEVICE
-  double k_eta_ = 3.;
+  // technically k_eta_ = 3, but we set k_c_ = 0 to 
+  // avoid a fourth order term, then assume that
+  // div(grad(phi)) ~ div(grad(c)),
+  // so we can use k_eta_ := k_eta + k_c_
+  double k_eta_ = 6.;
   TUSAS_DEVICE
   double M_ = 5.;
   TUSAS_DEVICE
   double L_ = 5.;
   TUSAS_DEVICE
   const double w_ = 1.;
-//   double c_a[2] = {0., 0.};
-//   double c_b[2] = {0., 0.};
+  //double c_a[2] = {0., 0.};
+  //double c_b[2] = {0., 0.};
 
-  PARAM_FUNC(param_)
-  {
-    int N_p = plist->get<int>("N",N_);
+PARAM_FUNC(param_)
+{
+  int N_p = plist->get<int>("N",N_);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
 #else
-    N_ = N_p;
+  N_ = N_p;
 #endif
-    int eqn_off_p = plist->get<int>("OFFSET");
+  int eqn_off_p = plist->get<int>("OFFSET");
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
 #else
-    eqn_off_ = eqn_off_p;
+  eqn_off_ = eqn_off_p;
 #endif
-
-    rho_ = plist->get<double>("rho_",1.414213562373095);
-    c_alpha_ = plist->get<double>("c_alpha_",.3);    
-    c_beta_ = plist->get<double>("c_beta_",.7);
-    k_c_ = plist->get<double>("k_c_",0.);
-    k_eta_ = plist->get<double>("k_eta_",3.);
-    M_ = plist->get<double>("M_",5.);
-    L_ = plist->get<double>("L_",5.);
-    //eps_ and eps_eta_ seem to only reside in some init cond
-    //eps_ = plist->get<double>("eps_",.05);
-    if(N_ > N_MAX) exit(0);
-
-  }
+  rho_ = plist->get<double>("rho_",1.414213562373095);
+  c_alpha_ = plist->get<double>("c_alpha_",.3);    
+  c_beta_ = plist->get<double>("c_beta_",.7);
+  k_c_ = plist->get<double>("k_c_",0.);
+  k_eta_ = plist->get<double>("k_eta_",3.);
+  M_ = plist->get<double>("M_",5.);
+  L_ = plist->get<double>("L_",5.);
+  // eps_ and eps_eta_ seem to only reside in some init cond
+  //eps_ = plist->get<double>("eps_",.05);
+  if(N_ > N_MAX) exit(0);
+}
  
-  PARAM_FUNC(param_trans_)
-  {
-    int N_p = plist->get<int>("N");
+PARAM_FUNC(param_trans_)
+{
+  int N_p = plist->get<int>("N");
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
 #else
-    N_ = N_p;
+  N_ = N_p;
 #endif
-    int eqn_off_p = plist->get<int>("OFFSET");
+  int eqn_off_p = plist->get<int>("OFFSET");
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
 #else
-    eqn_off_ = eqn_off_p;
+  eqn_off_ = eqn_off_p;
 #endif
-    ci_ = 1;
-    mui_ = 0;
+  ci_ = 1;
+  mui_ = 0;
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double h(const double *eta)
+{
+  double val = 0.;
+  for (int i = 0; i < N_; i++){
+    val += eta[i]*eta[i]*eta[i]*(6.*eta[i]*eta[i] - 15.*eta[i] + 10.);
   }
- 
+  return val;  
+}
+
 KOKKOS_INLINE_FUNCTION 
 double dhdeta(const double eta)
 {
-  //return 30.*eta[eqn_id]*eta[eqn_id] - 60.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id] + 30.*eta[eqn_id]*eta[eqn_id]*eta[eqn_id]*eta[eqn_id];
-#if 0  
-  return 30.*eta*eta - 60.*eta*eta*eta + 30.*eta*eta*eta*eta;
-#else 
   const double eta2 = eta * eta;
   return eta2 * ((30.0 * eta - 60.0) * eta + 30.0);
-#endif  
 }
- 
-KOKKOS_INLINE_FUNCTION 
-const double h(const double *eta)
-  {
-#if 1
-    //printf("%d h\n\n\n\n\n\n",N_);
-    double val = 0.;
-    for (int i = 0; i < N_; i++){
-      val += eta[i]*eta[i]*eta[i]*(6.*eta[i]*eta[i] - 15.*eta[i] + 10.);
-    }
-    return val;  
-#else
-    double val = 0.;
-    for (int i = 0; i < N_; i++) {
-      const double e = eta[i];
-      const double e2 = e * e;
-      const double e3 = e2 * e;
-      const double poly = ((6.0 * e - 15.0) * e + 10.0);
-      val += e3 * poly;
-    }
-    return val; 
-#endif
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-const double d2fdc2(const double c = 0)
-  {
-    return 2.*rho_*rho_;
-  }
- 
-KOKKOS_INLINE_FUNCTION 
-const double df_alphadc(const double c)
-  {
-    return 2.*rho_*rho_*(c - c_alpha_);
-  }
 
 KOKKOS_INLINE_FUNCTION 
-const double df_betadc(const double c)
-  {
-    //note this is the pfhub function
-    //return -2.*rho_*rho_*(c_beta_ - c);
-
-    //this is the analytical solution function, here it is identical
-    return 2.*rho_*rho_*(-c_beta_ + c);
+const double dgdeta(const double *eta, const int eqn_id)
+{
+  double aval =0.;
+  for (int i = 0; i < N_; i++){
+    aval += eta[i]*eta[i];
   }
+  aval = aval - eta[eqn_id]* eta[eqn_id];
+  return 2.*eta[eqn_id]*(1. - eta[eqn_id])*(1. - eta[eqn_id])  
+         - 2.*eta[eqn_id]*eta[eqn_id]*(1. - eta[eqn_id])
+         + 4.*alpha_*eta[eqn_id]*aval;
+}
 
 KOKKOS_INLINE_FUNCTION 
 const double f_alpha(const double c)
-  {
-    return rho_*rho_*(c - c_alpha_)*(c - c_alpha_);
-  }
- 
+{
+  return rho_*rho_*(c - c_alpha_)*(c - c_alpha_);
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double df_alphadc(const double c)
+{
+  return 2.*rho_*rho_*(c - c_alpha_);
+}
+   
 KOKKOS_INLINE_FUNCTION 
 const double f_beta(const double c)
-  {
-    //note this is the pfhub function
-    //return rho_*rho_*(c_beta_ - c)*(c_beta_ - c);
+{
+  // note this is the pfhub function
+  //return rho_*rho_*(c_beta_ - c)*(c_beta_ - c);
 
-    //this is the analytical solution function here it is identical
-    return rho_*rho_*(-c_beta_ + c)*(-c_beta_ + c);
-  }
- 
+  // this is the analytical solution function, here it is identical
+  return rho_*rho_*(-c_beta_ + c)*(-c_beta_ + c);
+}
+
 KOKKOS_INLINE_FUNCTION 
-const double dgdeta(const double *eta, const int eqn_id){
+const double df_betadc(const double c)
+{
+  // note this is the pfhub function
+  //return -2.*rho_*rho_*(c_beta_ - c);
 
-    double aval =0.;
-    for (int i = 0; i < N_; i++){
-      aval += eta[i]*eta[i];
-    }
-    aval = aval - eta[eqn_id]* eta[eqn_id];
-    return 2.*eta[eqn_id]*(1. - eta[eqn_id])*(1. - eta[eqn_id])  
-      - 2.* eta[eqn_id]* eta[eqn_id]* (1. - eta[eqn_id])
-      + 4.*alpha_*eta[eqn_id] *aval;
-  }
+  // this is the analytical solution function, here it is identical
+  return 2.*rho_*rho_*(-c_beta_ + c);
+}
 
 KOKKOS_INLINE_FUNCTION 
 double dfdc(const double c, const double *eta)
@@ -2763,11 +2741,17 @@ double dfdc(const double c, const double *eta)
 }
 
 KOKKOS_INLINE_FUNCTION 
+const double d2fdc2(const double c = 0)
+{
+  return 2.*rho_*rho_;
+}
+
+KOKKOS_INLINE_FUNCTION 
 const double dfdeta(const double c, const double eta)
 {
-  //this does not include the w g' term
+  // this does not include the w g' term
 
-  //dh(eta1,eta2)/deta1 is a function of eta1 only
+  // dh(eta1,eta2)/deta1 is a function of eta1 only
   const double dh_deta = dhdeta(eta);
   return f_alpha(c)*(-dh_deta)+f_beta(c)*dh_deta;
 }
@@ -2775,42 +2759,88 @@ const double dfdeta(const double c, const double eta)
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_)
 {
-  // c_t + M grad mu grad test
-  const double ut = (basis[ci_]->uu()-basis[ci_]->uuold())/dt_*basis[0]->phi(i);
-  //M_ divgrad mu
+  // derivatives of the test function
+  double dtestdx = basis[0]->dphidx(i);
+  double dtestdy = basis[0]->dphidy(i);
+  // test function
+  double test = basis[0]->phi(i);
+  // u, phi
+  double c[2] = {basis[0]->uu(), basis[0]->uuold()};
+  double dcdx[2] = {basis[0]->duudx(), basis[0]->duuolddx()};
+  double dcdy[2] = {basis[0]->duudy(), basis[0]->duuolddy()};
 
-  //
-  //mu is not time dependent so this makes no sense for theta .ne. 1
-  //
+  double dhdx[2] = {0., 0.};
+  double dhdy[2] = {0., 0.};
 
-  const double f[3] = {M_*(basis[mui_]->duudx()*basis[0]->dphidx(i)
-			   + basis[mui_]->duudy()*basis[0]->dphidy(i)
-			   + basis[mui_]->duudz()*basis[0]->dphidz(i)),
-		       M_*(basis[mui_]->duuolddx()*basis[0]->dphidx(i)
-			   + basis[mui_]->duuolddy()*basis[0]->dphidy(i)
-			   + basis[mui_]->duuolddz()*basis[0]->dphidz(i)),
-		       M_*(basis[mui_]->duuoldolddx()*basis[0]->dphidx(i)
-			   + basis[mui_]->duuoldolddy()*basis[0]->dphidy(i)
-			   + basis[mui_]->duuoldolddz()*basis[0]->dphidz(i))};
+  for(int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    dhdx[0] += dhdeta(basis[kk_off]->uu())*basis[kk_off]->duudx();
+    dhdx[1] += dhdeta(basis[kk_off]->uuold())*basis[kk_off]->duuolddx();
+    dhdy[0] += dhdeta(basis[kk_off]->uu())*basis[kk_off]->duudy();
+    dhdy[1] += dhdeta(basis[kk_off]->uuold())*basis[kk_off]->duuolddy();
+  }
+  
+  double eta_array[N_MAX];
+  double eta_array_old[N_MAX];
+  for(int kk = 0; kk < N_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+  }
 
-  return ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+  double ct = (c[0] - c[1])/dt_*test;
+
+  double DfDc[2] = {df_betadc(c[0]) - df_alphadc(c[0]),
+		            df_betadc(c[1]) - df_alphadc(c[1])};
+  double D2fDc2 = d2fdc2();
+
+  double dfdx[2] = {DfDc[0]*dhdx[0] + D2fDc2*dcdx[0],
+		            DfDc[1]*dhdx[1] + D2fDc2*dcdx[1]};
+  double dfdy[2] = {DfDc[0]*dhdy[0] + D2fDc2*dcdy[0],
+		            DfDc[1]*dhdy[1] + D2fDc2*dcdy[1]};
+  double divgradc[2] = {M_*(dfdx[0]*dtestdx + dfdy[0]*dtestdy),
+			            M_*(dfdx[1]*dtestdx + dfdy[1]*dtestdy)};
+
+  return ct + t_theta_*divgradc[0] + (1. - t_theta_)*divgradc[1];
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_c_dp_)) = residual_c_;
 
 KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_c_uncoupled_)
+{
+  // c_t + M grad mu grad test
+  const double ut = (basis[ci_]->uu() - basis[ci_]->uuold())/dt_*basis[0]->phi(i);
+  // M_ divgrad mu
+  // mu is not time dependent so this makes no sense for theta .ne. 1
+  const double f[3] = {M_*(basis[mui_]->duudx()*basis[0]->dphidx(i)
+			             + basis[mui_]->duudy()*basis[0]->dphidy(i)
+			             + basis[mui_]->duudz()*basis[0]->dphidz(i)),
+		               M_*(basis[mui_]->duuolddx()*basis[0]->dphidx(i)
+			             + basis[mui_]->duuolddy()*basis[0]->dphidy(i)
+			             + basis[mui_]->duuolddz()*basis[0]->dphidz(i)),
+		               M_*(basis[mui_]->duuoldolddx()*basis[0]->dphidx(i)
+			             + basis[mui_]->duuoldolddy()*basis[0]->dphidy(i)
+			             + basis[mui_]->duuoldolddz()*basis[0]->dphidz(i))};
+  return ut + (1. - t_theta2_)*t_theta_*f[0]
+         + (1. - t_theta2_)*(1. - t_theta_)*f[1]
+         +.5*t_theta2_*((2.+dt_/dtold_)*f[1] - dt_/dtold_*f[2]);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_uncoupled_dp_)) = residual_c_uncoupled_;
+
+KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_kks_)
 {
-  //derivatives of the test function
+  // derivatives of the test function
   const double dtestdx = basis[0]->dphidx(i);
   const double dtestdy = basis[0]->dphidy(i);
   //double dtestdz = basis[0]->dphidz(i);
-  //test function
+  // test function
   const double test = basis[0]->phi(i);
-  //u, phi
+  // u, phi
   const double c[2] = {basis[0]->uu(), basis[0]->uuold()};
   const double dcdx[2] = {basis[0]->duudx(), basis[0]->duuolddx()};
   const double dcdy[2] = {basis[0]->duudy(), basis[0]->duuolddy()};
@@ -2821,7 +2851,7 @@ RES_FUNC_TPETRA(residual_c_kks_)
   double c_a[2] = {0., 0.};
   double c_b[2] = {0., 0.};
 
-  for( int kk = 0; kk < N_; kk++){
+  for(int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
     dhdx[0] += dhdeta(basis[kk_off]->uu())*basis[kk_off]->duudx();
     dhdx[1] += dhdeta(basis[kk_off]->uuold())*basis[kk_off]->duuolddx();
@@ -2829,11 +2859,11 @@ RES_FUNC_TPETRA(residual_c_kks_)
     dhdy[1] += dhdeta(basis[kk_off]->uuold())*basis[kk_off]->duuolddy();
   }
 
-  const double ct = (c[0]-c[1])/dt_*test;
+  const double ct = (c[0] - c[1])/dt_*test;
 
   double eta_array[N_MAX];
   double eta_array_old[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
+  for(int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
@@ -2842,20 +2872,18 @@ RES_FUNC_TPETRA(residual_c_kks_)
   //solve_kks(c[0],eta_array,c_b[0],c_a[0],NULL,NULL,NULL);
 
   const double DfDc[2] = {-c_b[0] + c_a[0],
- 		    -c_b[1] + c_a[1]};
-
+ 		                  -c_b[1] + c_a[1]};
   const double D2fDc2 = 1.;
   //double D2fDc2 = 1.*d2fdc2();
 
   const double dfdx[2] = {DfDc[0]*dhdx[0] + D2fDc2*dcdx[0],
-		    DfDc[1]*dhdx[1] + D2fDc2*dcdx[1]};
+		                  DfDc[1]*dhdx[1] + D2fDc2*dcdx[1]};
   const double dfdy[2] = {DfDc[0]*dhdy[0] + D2fDc2*dcdy[0],
-		    DfDc[1]*dhdy[1] + D2fDc2*dcdy[1]};
-
+		                  DfDc[1]*dhdy[1] + D2fDc2*dcdy[1]};
   const double divgradc[2] = {M_*(dfdx[0]*dtestdx + dfdy[0]*dtestdy),
-			M_*(dfdx[1]*dtestdx + dfdy[1]*dtestdy)};
+			                  M_*(dfdx[1]*dtestdx + dfdy[1]*dtestdy)};
 
-  return ct + t_theta_*divgradc[0] + (1.-t_theta_)*divgradc[1];
+  return ct + t_theta_*divgradc[0] + (1. - t_theta_)*divgradc[1];
 }
 
 TUSAS_DEVICE
@@ -2864,22 +2892,20 @@ RES_FUNC_TPETRA((*residual_c_kks_dp_)) = residual_c_kks_;
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_)
 {
-  //test function
+  // test function
   const double test = basis[0]->phi(i);
-  //u, phi
+  // u, phi
   const double c[3] = {basis[ci_]->uu(), basis[ci_]->uuold(), basis[ci_]->uuoldold()};
-
   const double eta[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
-
   const double divgradeta[3] = {L_*k_eta_*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
-				    + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
-				    + basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
-				L_*k_eta_*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i)
-				    + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
-				    + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
-				L_*k_eta_*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
-				    + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
-				    + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
+				                  + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
+				                  + basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
+			 	                L_*k_eta_*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i)
+				                  + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
+				                  + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
+				                L_*k_eta_*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
+				                  + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
+				                  + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
 
   double eta_array[N_MAX];
   double eta_array_old[N_MAX];
@@ -2892,19 +2918,22 @@ RES_FUNC_TPETRA(residual_eta_)
   }
   const int k = eqn_id - eqn_off_;
 
-  const double df_deta[3] = {L_*(dfdeta(c[0],eta[0]) + w_*dgdeta(eta_array,k))*test,
-			     L_*(dfdeta(c[1],eta[1]) + w_*dgdeta(eta_array_old,k))*test,
-			     L_*(dfdeta(c[2],eta[2]) + w_*dgdeta(eta_array_oldold,k))*test};
+  const double df_deta[3] = {L_*(dfdeta(c[0],eta[0])
+                               + w_*dgdeta(eta_array,k))*test,
+			                 L_*(dfdeta(c[1],eta[1])
+                               + w_*dgdeta(eta_array_old,k))*test,
+			                 L_*(dfdeta(c[2],eta[2])
+                               + w_*dgdeta(eta_array_oldold,k))*test};
   
   const double f[3] = {df_deta[0] + divgradeta[0],
-		       df_deta[1] + divgradeta[1],
-		       df_deta[2] + divgradeta[2]};
+		               df_deta[1] + divgradeta[1],
+		               df_deta[2] + divgradeta[2]};
 
-  const double ut = (eta[0]-eta[1])/dt_*test;
+  const double ut = (eta[0] - eta[1])/dt_*test;
 
-  return ut + (1.-t_theta2_)*t_theta_*f[0]
-    + (1.-t_theta2_)*(1.-t_theta_)*f[1]
-    +.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+  return ut + (1. - t_theta2_)*t_theta_*f[0]
+         + (1. - t_theta2_)*(1. - t_theta_)*f[1]
+         + .5*t_theta2_*((2. + dt_/dtold_)*f[1] - dt_/dtold_*f[2]);
 }
 
 TUSAS_DEVICE
@@ -2914,13 +2943,13 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_eta_kks_)
 {
 
-  //derivatives of the test function
+  // derivatives of the test function
   const double dtestdx = basis[0]->dphidx(i);
   const double dtestdy = basis[0]->dphidy(i);
   //double dtestdz = basis[0].dphidz(i);
-  //test function
+  // test function
   const double test = basis[0]->phi(i);
-  //u, phi
+  // u, phi
   const double c[2] = {basis[0]->uu(), basis[0]->uuold()};
 
   const double eta[2] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold()};
@@ -2940,20 +2969,26 @@ RES_FUNC_TPETRA(residual_eta_kks_)
 
   //solve_kks(c[0],eta_array,c_b[0],c_a[0],NULL,NULL,NULL);
 
-  const double etat = (eta[0]-eta[1])/dt_*test;
+  const double etat = (eta[0] - eta[1])/dt_*test;
 
-
-  const double F[2] = {f_beta(c_b[0]) - f_alpha(c_a[0]) - (c_b[0] - c_a[0])*df_betadc(c_b[0]),
-		       f_beta(c_b[1]) - f_alpha(c_a[1]) - (c_b[1] - c_a[1])*df_betadc(c_b[1])};
+  const double F[2] = {f_beta(c_b[0]) - f_alpha(c_a[0])
+                         - (c_b[0] - c_a[0])*df_betadc(c_b[0]),
+		               f_beta(c_b[1]) - f_alpha(c_a[1])
+                         - (c_b[1] - c_a[1])*df_betadc(c_b[1])};
 
   const int k = eqn_id - eqn_off_;
-  const double dfdeta[2] = {L_*(F[0]*dhdeta(eta[0]) + w_*dgdeta(eta_array,k)    )*test,
-			    L_*(F[1]*dhdeta(eta[1]) + w_*dgdeta(eta_array_old,k))*test};
+  const double dfdeta[2] = {L_*(F[0]*dhdeta(eta[0])
+                              + w_*dgdeta(eta_array,k))*test,
+			                L_*(F[1]*dhdeta(eta[1])
+                              + w_*dgdeta(eta_array_old,k))*test};
 
-  const double divgradeta[2] = {L_*k_eta_ *(detadx[0]*dtestdx + detady[0]*dtestdy), 
-				L_*k_eta_ *(detadx[1]*dtestdx + detady[1]*dtestdy)};//(grad u,grad phi)
+  const double divgradeta[2] = {L_*k_eta_*(detadx[0]*dtestdx
+                                  + detady[0]*dtestdy), 
+				                L_*k_eta_*(detadx[1]*dtestdx
+                                  + detady[1]*dtestdy)};  // (grad u, grad phi)
  
-  return etat + t_theta_*divgradeta[0] + t_theta_*dfdeta[0] + (1.-t_theta_)*divgradeta[1] + (1.-t_theta_)*dfdeta[1];
+  return etat + t_theta_*divgradeta[0] + t_theta_*dfdeta[0] 
+         + (1.-t_theta_)*divgradeta[1] + (1. - t_theta_)*dfdeta[1];
 }
 
 TUSAS_DEVICE
@@ -2962,17 +2997,17 @@ RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_mu_)
 {
-  //-mu + df/dc +div c grad test
+  // -mu + df/dc + div c grad test
   const double c = basis[ci_]->uu();
   const double mu = basis[mui_]->uu();
   //const double eta = basis[2]->uu();
   const double test = basis[0]->phi(i);
 
   const double divgradc = k_c_*(basis[ci_]->duudx()*basis[0]->dphidx(i)
-				+ basis[ci_]->duudy()*basis[0]->dphidy(i)
-				+ basis[ci_]->duudz()*basis[0]->dphidz(i));
+				          + basis[ci_]->duudy()*basis[0]->dphidy(i)
+				          + basis[ci_]->duudz()*basis[0]->dphidz(i));
   double eta_array[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
+  for(int kk = 0; kk < N_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
   };
@@ -2986,6 +3021,18 @@ TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_mu_dp_)) = residual_mu_;
 
 KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_mu_)
+{
+  const double D = M_;
+  //const double test = basis[0]->phi(i);
+  //const double u_t =test * basis[0]->phi(j)/dt_;
+  const double divgrad = D*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
+                         + basis[0]->dphidy(j)*basis[0]->dphidy(i)
+                         + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+  return divgrad;
+}
+
+KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_c_)
 {
   //const int ci = 1;
@@ -2994,22 +3041,10 @@ PRE_FUNC_TPETRA(prec_c_)
   const double test = basis[0]->phi(i);
   //const double u_t =test * basis[0]->phi(j)/dt_;
   const double divgrad = D*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
-       + basis[0]->dphidy(j)*basis[0]->dphidy(i)
-       + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+                         + basis[0]->dphidy(j)*basis[0]->dphidy(i)
+                         + basis[0]->dphidz(j)*basis[0]->dphidz(i));
   const double d2 = d2fdc2()*basis[0]->phi(j)*test;
   return divgrad + d2;
-}
-
-KOKKOS_INLINE_FUNCTION 
-PRE_FUNC_TPETRA(prec_mu_)
-{
-  const double D = M_;
-  //const double test = basis[0]->phi(i);
-  //const double u_t =test * basis[0]->phi(j)/dt_;
-  const double divgrad = D*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
-       + basis[0]->dphidy(j)*basis[0]->dphidy(i)
-       + basis[0]->dphidz(j)*basis[0]->dphidz(i));
-  return divgrad;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -3017,12 +3052,12 @@ PRE_FUNC_TPETRA(prec_eta_)
 {
   const double ut = basis[0]->phi(j)/dt_*basis[0]->phi(i);
   const double divgrad = L_*k_eta_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
-       + basis[0]->dphidy(j)*basis[0]->dphidy(i)
-       + basis[0]->dphidz(j)*basis[0]->dphidz(i));
-//   const double eta = basis[eqn_id]->uu();
-//   const double c = basis[0]->uu();
-//   const double g1 = L_*(2. - 12.*eta + 12.*eta*eta)*basis[0]->phi(j)*basis[0]->phi(i);
-//   const double h1 = L_*(-f_alpha(c)+f_beta(c))*(60.*eta-180.*eta*eta+120.*eta*eta*eta)*basis[0]->phi(j)*basis[0]->phi(i);
+                         + basis[0]->dphidy(j)*basis[0]->dphidy(i)
+                         + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+  //const double eta = basis[eqn_id]->uu();
+  //const double c = basis[0]->uu();
+  //const double g1 = L_*(2. - 12.*eta + 12.*eta*eta)*basis[0]->phi(j)*basis[0]->phi(i);
+  //const double h1 = L_*(-f_alpha(c)+f_beta(c))*(60.*eta-180.*eta*eta+120.*eta*eta*eta)*basis[0]->phi(j)*basis[0]->phi(i);
   return ut + t_theta_*divgrad;// + t_theta_*(g1+h1);
 }
 
@@ -3030,14 +3065,13 @@ KOKKOS_INLINE_FUNCTION
 PRE_FUNC_TPETRA(prec_ut_)
 {
   const double test = basis[0]->phi(i);
-  const double u_t =test * basis[0]->phi(j)/dt_;
+  const double u_t = test * basis[0]->phi(j)/dt_;
   return u_t;
 }
 
 PPR_FUNC(postproc_c_a_)
 {
-
-  //cn will need eta_array here...
+  // cn will need eta_array here...
   const double cc = u[0];
   double phi = u[2];
   double c_a = 0.;
@@ -3050,7 +3084,7 @@ PPR_FUNC(postproc_c_a_)
 
 PPR_FUNC(postproc_c_b_)
 {
-  //cn will need eta_array here...
+  // cn will need eta_array here...
   const double cc = u[0];
   double phi = u[2];
   double c_a = 0.;
@@ -3064,37 +3098,33 @@ PPR_FUNC(postproc_c_b_)
 INI_FUNC(init_c_)
 {
   return c0_ + eps_*(cos(0.105*x)*cos(0.11*y)
-		     + cos(0.13*x)*cos(0.087*y)*cos(0.13*x)*cos(0.087*y)
-		     + cos(0.025*x-0.15*y)*cos(0.07*x-0.02*y)
-		     );
+		             + cos(0.13*x)*cos(0.087*y)*cos(0.13*x)*cos(0.087*y)
+		             + cos(0.025*x - 0.15*y)*cos(0.07*x - 0.02*y));
 }
 
 INI_FUNC(init_eta_)
 {
   const double i = (double)(eqn_id - eqn_off_ + 1);
   return eps_eta_*std::pow(cos((0.01*i)*x-4.)*cos((0.007+0.01*i)*y)
-			   + cos((0.11+0.01*i)*x)*cos((0.11+0.01*i)*y)		   
-			   + psi_*std::pow(cos((0.046+0.001*i)*x+(0.0405+0.001*i)*y)
-					   *cos((0.031+0.001*i)*x-(0.004+0.001*i)*y),2
-					   ),2
-			   );
+			               + cos((0.11+0.01*i)*x)*cos((0.11+0.01*i)*y)		   
+			               + psi_*std::pow(cos((0.046+0.001*i)*x + (0.0405+0.001*i)*y)
+					       *cos((0.031+0.001*i)*x - (0.004+0.001*i)*y),2),2);
 }
 
 INI_FUNC(init_mu_)
 {
-  //this will need the eta_array version
+  // this will need the eta_array version
   const double c = init_c_(x,y,z,eqn_id,lid);
   const double eta = init_eta_(x,y,z,2,lid);
   return dfdc(c,&eta);
-//   return 0.;
 }
 
 INI_FUNC(init_mu_test_)
 {
   //this will need the eta_array version
-//   const double c = init_c_(x,y,z,eqn_id,lid);
-//   const double eta = init_eta_(x,y,z,2,lid);
-//   return dfdc(c,&eta);
+  //const double c = init_c_(x,y,z,eqn_id,lid);
+  //const double eta = init_eta_(x,y,z,2,lid);
+  //return dfdc(c,&eta);
   return 0.;
 }
 

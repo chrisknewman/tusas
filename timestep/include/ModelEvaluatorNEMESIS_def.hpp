@@ -3861,7 +3861,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
 						 
     //exit(0);
 
-  }else if("pfhub2" == paramList.get<std::string> (TusastestNameString)){
+  }
+#if NEMESIS_DEPRECATED
+    else if("pfhub2" == paramList.get<std::string> (TusastestNameString)){
 
     //this is pfhub2 as described on website. WBM model with k_c=0, no kks
 
@@ -3926,7 +3928,9 @@ void ModelEvaluatorNEMESIS<Scalar>::set_test_case()
     post_proc.push_back(new post_process(mesh_,(int)2));
     post_proc[2].postprocfunc_ = &pfhub2::postproc_c_;
 
-  }else if("pfhub2wbmkks_g" == paramList.get<std::string> (TusastestNameString)){
+  }
+#endif  // NEMESIS_DEPRECATED
+else if("pfhub2wbmkks_g" == paramList.get<std::string> (TusastestNameString)){
 
     //same WBM model as above with c_alpha and c_beta globally coupled via the global kks equations
 

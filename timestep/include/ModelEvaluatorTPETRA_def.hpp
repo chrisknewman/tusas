@@ -3171,7 +3171,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     // set residuals
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_dp_;  // causes seg fault in init_nox()
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_dp_;
     (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_dp_;
     if (2 == numeta) {
       (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;

@@ -2661,8 +2661,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta+2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::kkstest::residual_c_trans_;
-    (*residualfunc_)[1] = tpetra::kkstest::residual_mu_trans_;
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_;
+    (*residualfunc_)[1] = tpetra::kkstest::residual_mu_kks_;
     (*residualfunc_)[2] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
 
     if( 2 == numeta){
@@ -2681,23 +2681,23 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     preconfunc_ = NULL;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::kkstest::prec_c_trans_;
-    (*preconfunc_)[1] = &tpetra::kkstest::prec_mu_trans_;
-    (*preconfunc_)[2] = &tpetra::kkstest::prec_eta_;
+    (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[1] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
 
     if( 2 == numeta){
-      (*preconfunc_)[3] = &tpetra::kkstest::prec_eta_;
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
     }
 
     if( 3 == numeta){
-      (*preconfunc_)[3] = &tpetra::kkstest::prec_eta_;
-      (*preconfunc_)[4] = &tpetra::kkstest::prec_eta_;
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
     }
 
     if( 4 == numeta){
-      (*preconfunc_)[3] = &tpetra::kkstest::prec_eta_;
-      (*preconfunc_)[4] = &tpetra::kkstest::prec_eta_;
-      (*preconfunc_)[5] = &tpetra::kkstest::prec_eta_;
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[5] = &tpetra::pfhub2::prec_eta_;
     }
 
 

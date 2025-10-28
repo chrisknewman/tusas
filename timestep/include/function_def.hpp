@@ -623,6 +623,8 @@ Could we implement a matrix-free version? Might make sense for ternary.
 See kkstest and pfhub2kks for implementation details.
 
 */
+typedef const double (*KKSFUNC)(const double c, const double T);
+
 namespace kks
 {
 double kks_tol_ = 1e-10;
@@ -635,7 +637,7 @@ PARAM_FUNC(param_)
   kks_max_iter_ = plist->get<double>("kks_max_iter_",kks_max_iter_);
 }
   
-  typedef const double (*KKSFUNC)(const double c, const double T);
+  //  typedef const double (*KKSFUNC)(const double c, const double T);
 
 KOKKOS_INLINE_FUNCTION 
 int solve_kks(const double &c, //input c
@@ -3265,6 +3267,8 @@ namespace kkstest
   TUSAS_DEVICE
   double t0_ = 1.;
 
+  TUSAS_DEVICE
+  KKSFUNC kksfunc;
   //for binary with one phase there is 1 eq for c, mu 1 eq for eta
   //with (N_C_ + 1) x (N_C_ + 1) KKS system
   //for ternary with one phase there are 2 eq for c, mu, 1 eq for eta
@@ -3276,59 +3280,6 @@ namespace kkstest
 
   //to accomodate corrosion and our eventual movement of kks to real binary alloys
 
-PARAM_FUNC(param_)
-{
-  f0_ = plist->get<double>("f0_",f0_);//nondim free energy density, J/m^3
-  x0_ = plist->get<double>("x0_",x0_);//nondim spatial scaling, m
-
-  //c_alpha_ is c^eq_L
-  //c_beta_ is c^eq_S
-  c_alpha_[0] = plist->get<double>("c_alpha_",.1);    
-  c_beta_[0] = plist->get<double>("c_beta_",.9);
-  f_alpha_const = plist->get<double>("f_alpha_const_",0.);
-  f_beta_const = plist->get<double>("f_beta_const_",0.);
-  f_alpha_delta = plist->get<double>("f_alpha_delta_",0.);
-  f_beta_delta = plist->get<double>("f_beta_delta_",0.);
-
-  w_ = plist->get<double>("w_",1.);
-  k_eta_ = plist->get<double>("k_eta_",1.);
-  k_c_ = plist->get<double>("k_c_",0.);
-  M_beta_ = plist->get<double>("M_beta_",.7);
-  M_alpha_ = plist->get<double>("M_alpha_",.7);
-  L_ = plist->get<double>("L_",.7);
-
-  rho_alpha = plist->get<double>("rho_alpha_",rho_alpha);
-  rho_beta = plist->get<double>("rho_beta",rho_beta);
-
-  const double MM = std::max(M_alpha_,M_beta_);
-  t0_ = x0_*x0_/MM/f0_;
-  M_alpha_ = M_alpha_*t0_*f0_/x0_/x0_;
-  M_beta_ = M_beta_*t0_*f0_/x0_/x0_;
-  w_ = w_/f0_;
-  k_eta_ = k_eta_/x0_/x0_/f0_;
-  k_c_ = k_c_/x0_/x0_/f0_;
-  L_ = L_*t0_*f0_;
-  rho_alpha = rho_alpha/std::sqrt(f0_);
-  rho_beta = rho_beta/std::sqrt(f0_); 
-  f_alpha_const = f_alpha_const/f0_;
-  f_beta_const = f_beta_const/f0_;
-
-  ci_ = 0;
-  mui_ = 1;
-  //plist->set("ci_",ci_);
-  //plist->set("mui_",mui_);
-  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
-#ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
-#else
-    eqn_off_ = eqn_off_p;
-#endif
-  N_ETA_ = plist->get<int>("N_ETA_",N_ETA_);
-
-  if(N_ETA_ > N_ETA_MAX) exit(0);
-  
-}
- 
 KOKKOS_INLINE_FUNCTION 
 const double df_alphadc(const double c, const double T = 0.)
 {
@@ -3393,7 +3344,62 @@ const double d2fdc2(const double *eta, const double c = 0, const double T = 0.)
   //std::cout<<val<<" "<<2.*rho_alpha*rho_alpha<<" "<<2.*rho_beta*rho_beta<<" "<<hh<<std::endl;
   return val;
 }
+PARAM_FUNC(param_)
+{
+  f0_ = plist->get<double>("f0_",f0_);//nondim free energy density, J/m^3
+  x0_ = plist->get<double>("x0_",x0_);//nondim spatial scaling, m
 
+  //c_alpha_ is c^eq_L
+  //c_beta_ is c^eq_S
+  c_alpha_[0] = plist->get<double>("c_alpha_",.1);    
+  c_beta_[0] = plist->get<double>("c_beta_",.9);
+  f_alpha_const = plist->get<double>("f_alpha_const_",0.);
+  f_beta_const = plist->get<double>("f_beta_const_",0.);
+  f_alpha_delta = plist->get<double>("f_alpha_delta_",0.);
+  f_beta_delta = plist->get<double>("f_beta_delta_",0.);
+
+  w_ = plist->get<double>("w_",1.);
+  k_eta_ = plist->get<double>("k_eta_",1.);
+  k_c_ = plist->get<double>("k_c_",0.);
+  M_beta_ = plist->get<double>("M_beta_",.7);
+  M_alpha_ = plist->get<double>("M_alpha_",.7);
+  L_ = plist->get<double>("L_",.7);
+
+  rho_alpha = plist->get<double>("rho_alpha_",rho_alpha);
+  rho_beta = plist->get<double>("rho_beta",rho_beta);
+
+  const double MM = std::max(M_alpha_,M_beta_);
+  t0_ = x0_*x0_/MM/f0_;
+  M_alpha_ = M_alpha_*t0_*f0_/x0_/x0_;
+  M_beta_ = M_beta_*t0_*f0_/x0_/x0_;
+  w_ = w_/f0_;
+  k_eta_ = k_eta_/x0_/x0_/f0_;
+  k_c_ = k_c_/x0_/x0_/f0_;
+  L_ = L_*t0_*f0_;
+  rho_alpha = rho_alpha/std::sqrt(f0_);
+  rho_beta = rho_beta/std::sqrt(f0_); 
+  f_alpha_const = f_alpha_const/f0_;
+  f_beta_const = f_beta_const/f0_;
+
+  ci_ = 0;
+  mui_ = 1;
+  //plist->set("ci_",ci_);
+  //plist->set("mui_",mui_);
+  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
+#else
+    eqn_off_ = eqn_off_p;
+#endif
+  N_ETA_ = plist->get<int>("N_ETA_",N_ETA_);
+
+  if(N_ETA_ > N_ETA_MAX) exit(0);
+
+  //should be able to use function pointers for solve_kks
+  kksfunc = df_betadc;
+  
+}
+ 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_mu_kks_)
 {
@@ -3479,7 +3485,7 @@ RES_FUNC_TPETRA(residual_dfdeta_bin_quad_kks_)
 
   //std::cout<<hh[0]<<" "<<hh[1]<<" "<<hh[2]<<std::endl;
 
-  tpetra::kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],df_betadc,df_alphadc,d2fbetadc2,d2falphadc2);
+  tpetra::kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],kksfunc,df_alphadc,d2fbetadc2,d2falphadc2);
   tpetra::kks::solve_kks(c[1],hh[1],c_b[1],c_a[1],df_betadc,df_alphadc,d2fbetadc2,d2falphadc2);
   tpetra::kks::solve_kks(c[2],hh[2],c_b[2],c_a[2],df_betadc,df_alphadc,d2fbetadc2,d2falphadc2);
 

@@ -2590,7 +2590,7 @@ namespace pfhub2
   TUSAS_DEVICE
   int N_ = 1;
   TUSAS_DEVICE
-  int eqn_off_ = 2;
+  int eqn_off_ = 1;
   TUSAS_DEVICE
   int ci_ = 0;
   TUSAS_DEVICE
@@ -2603,6 +2603,12 @@ namespace pfhub2
   const double eps_eta_ = .1;
   TUSAS_DEVICE
   const double psi_ = 1.5;
+  TUSAS_DEVICE
+  double t0_ = 1.;
+  TUSAS_DEVICE
+  double x0_ = 1.;
+  TUSAS_DEVICE
+  double f0_ = 1.;
   TUSAS_DEVICE
   double rho_ = 1.414213562373095;//std::sqrt(2.);
   TUSAS_DEVICE
@@ -2637,7 +2643,7 @@ PARAM_FUNC(param_)
 #else
   N_ = N_p;
 #endif
-  int eqn_off_p = plist->get<int>("OFFSET");
+  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
 #else
@@ -2654,7 +2660,48 @@ PARAM_FUNC(param_)
   //eps_ = plist->get<double>("eps_",.05);
   if(N_ > N_MAX) exit(0);
 }
- 
+
+PARAM_FUNC(param_nondim_)
+{
+  int N_p = plist->get<int>("N",N_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
+#else
+  N_ = N_p;
+#endif
+  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
+#else
+  eqn_off_ = eqn_off_p;
+#endif
+
+  // nondim free energy density, J/m^3
+  f0_ = plist->get<double>("f0_",f0_);
+  //nondim spatial scaling, m
+  x0_ = plist->get<double>("x0_",x0_);
+
+  // c_alpha_ is c^eq_L
+  // c_beta_ is c^eq_S
+  rho_ = plist->get<double>("rho_",1.414213562373095);
+  c_alpha_ = plist->get<double>("c_alpha_",.3);
+  c_beta_ = plist->get<double>("c_beta_",.7);
+  k_c_ = plist->get<double>("k_c_",0.);
+  k_eta_ = plist->get<double>("k_eta_",3.);
+  M_ = plist->get<double>("M_",5.);
+  L_ = plist->get<double>("L_",5.);
+
+  // nondimensionalize
+  t0_ = x0_*x0_/M_/f0_;
+  rho_ = rho_/std::sqrt(f0_);
+  k_c_ = k_c_/x0_/x0_/f0_;
+  k_eta_ = k_eta_/x0_/x0_/f0_;
+  M_ = M_*t0_*f0_/x0_/x0_;
+  L_ = L_*t0_*f0_;
+
+  if(N_ > N_MAX) exit(0);
+}
+
 PARAM_FUNC(param_trans_)
 {
   int N_p = plist->get<int>("N");
@@ -2782,14 +2829,6 @@ RES_FUNC_TPETRA(residual_c_)
     dhdy[1] += dhdeta(basis[kk_off]->uuold())*basis[kk_off]->duuolddy();
   }
   
-  double eta_array[N_MAX];
-  double eta_array_old[N_MAX];
-  for(int kk = 0; kk < N_; kk++){
-    int kk_off = kk + eqn_off_;
-    eta_array[kk] = basis[kk_off]->uu();
-    eta_array_old[kk] = basis[kk_off]->uuold();
-  }
-
   double ct = (c[0] - c[1])/dt_*test;
 
   double DfDc[2] = {df_betadc(c[0]) - df_alphadc(c[0]),

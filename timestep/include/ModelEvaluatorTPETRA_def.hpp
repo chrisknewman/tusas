@@ -3201,7 +3201,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     }
 
     // set init functions
-    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &tpetra::pfhub2::init_c_;
     (*initfunc_)[1] = &tpetra::pfhub2::init_eta_;
     if (2 == numeta) {
@@ -3236,6 +3236,82 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::pfhub2::param_;
+
+  }else if("pfhub2nondim" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ("ProblemParams", false);
+    int numeta = problemList->get<int>("N");
+    numeqs_ = numeta + 1;
+
+    // set residuals
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_dp_;
+    (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_dp_;
+    if (2 == numeta) {
+      (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
+    }
+    else if (3 == numeta) {
+      (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
+      (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
+    }
+    else if (4 == numeta) {
+      (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
+      (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
+      (*residualfunc_)[4] = tpetra::pfhub2::residual_eta_dp_;
+    }
+
+    // set preconditioners
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[1] = &tpetra::pfhub2::prec_eta_;
+    if (2 == numeta) {
+      (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+    } else if (3 == numeta) {
+      (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+    } else if (4 == numeta) {
+      (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
+    }
+
+    // set init functions
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::pfhub2::init_c_;
+    (*initfunc_)[1] = &tpetra::pfhub2::init_eta_;
+    if (2 == numeta) {
+      (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
+    } else if (3 == numeta) {
+      (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+    } else if (4 == numeta) {
+      (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
+    }
+
+    // set variable names
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "eta0";
+    if (2 == numeta) {
+      (*varnames_)[2] = "eta1";
+    } else if (3 == numeta) {
+      (*varnames_)[2] = "eta1";
+      (*varnames_)[3] = "eta2";
+    } else if (4 == numeta) {
+      (*varnames_)[2] = "eta1";
+      (*varnames_)[3] = "eta2";
+      (*varnames_)[4] = "eta3";
+    }
+
+    // set boundary conditions
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::pfhub2::param_nondim_;
 
   }else if("pfhub2uncoupled" == paramList.get<std::string> (TusastestNameString)){
 

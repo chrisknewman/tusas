@@ -2655,15 +2655,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
 
-    const int numeta = problemList->get<int>("N_");
-
-    numeqs_ = numeta+2;
+    const int numeta = problemList->get<int>("N_ETA");
+    numeqs_ = numeta + 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_;
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_uncoupled_dp_;
     (*residualfunc_)[1] = tpetra::kkstest::residual_mu_kks_;
     (*residualfunc_)[2] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
-
     if( 2 == numeta){
       (*residualfunc_)[3] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
     }
@@ -2678,7 +2676,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     }
 
     preconfunc_ = NULL;
-
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
     (*preconfunc_)[1] = &tpetra::pfhub2::prec_ut_;
@@ -2721,7 +2718,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[0] = "c";
     (*varnames_)[1] = "mu";
     (*varnames_)[2] = "eta0";
-    
     if( 2 == numeta){
       (*varnames_)[3] = "eta1";
     }
@@ -2738,7 +2734,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     // numeqs_ number of variables(equations) 
     //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
     dirichletfunc_ = NULL;
-
     neumannfunc_ = NULL;
 
     paramfunc_.resize(3);
@@ -3165,7 +3160,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ("ProblemParams", false);
-    int numeta = problemList->get<int>("N");
+    int numeta = problemList->get<int>("N_ETA");
     numeqs_ = numeta + 1;
 
     // set residuals
@@ -3241,7 +3236,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ("ProblemParams", false);
-    int numeta = problemList->get<int>("N");
+    int numeta = problemList->get<int>("N_ETA");
     numeqs_ = numeta + 1;
 
     // set residuals
@@ -3318,7 +3313,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
 
-    int numeta = problemList->get<int>("N");
+    int numeta = problemList->get<int>("N_ETA");
 
     numeqs_ = numeta+2;
 
@@ -3413,7 +3408,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
 
-    int numeta = problemList->get<int>("N");
+    int numeta = problemList->get<int>("N_ETA");
 
     numeqs_ = numeta+2;
 

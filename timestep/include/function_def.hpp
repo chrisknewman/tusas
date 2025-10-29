@@ -2586,9 +2586,9 @@ INI_FUNC(init_phase_pfhub3_)
 namespace pfhub2
 {
   TUSAS_DEVICE
-  const int N_MAX = 4;
+  const int N_ETA_MAX = 4;
   TUSAS_DEVICE
-  int N_ = 1;
+  int N_ETA_ = 1;
   TUSAS_DEVICE
   int eqn_off_ = 1;
   TUSAS_DEVICE
@@ -2637,11 +2637,11 @@ namespace pfhub2
 
 PARAM_FUNC(param_)
 {
-  int N_p = plist->get<int>("N",N_);
+  int N_p = plist->get<int>("N_ETA",N_ETA_);
 #ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
+  cudaMemcpyToSymbol(N_ETA_,&N_p,sizeof(int));
 #else
-  N_ = N_p;
+  N_ETA_ = N_p;
 #endif
   int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
 #ifdef TUSAS_HAVE_CUDA
@@ -2658,16 +2658,16 @@ PARAM_FUNC(param_)
   L_ = plist->get<double>("L_",5.);
   // eps_ and eps_eta_ seem to only reside in some init cond
   //eps_ = plist->get<double>("eps_",.05);
-  if(N_ > N_MAX) exit(0);
+  if(N_ETA_ > N_ETA_MAX) exit(0);
 }
 
 PARAM_FUNC(param_nondim_)
 {
-  int N_p = plist->get<int>("N",N_);
+  int N_p = plist->get<int>("N_ETA",N_ETA_);
 #ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
+  cudaMemcpyToSymbol(N_ETA_,&N_p,sizeof(int));
 #else
-  N_ = N_p;
+  N_ETA_ = N_p;
 #endif
   int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
 #ifdef TUSAS_HAVE_CUDA
@@ -2699,16 +2699,16 @@ PARAM_FUNC(param_nondim_)
   M_ = M_*t0_*f0_/x0_/x0_;
   L_ = L_*t0_*f0_;
 
-  if(N_ > N_MAX) exit(0);
+  if(N_ETA_ > N_ETA_MAX) exit(0);
 }
 
 PARAM_FUNC(param_trans_)
 {
-  int N_p = plist->get<int>("N");
+  int N_p = plist->get<int>("N_ETA");
 #ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(N_,&N_p,sizeof(int));
+  cudaMemcpyToSymbol(N_ETA_,&N_p,sizeof(int));
 #else
-  N_ = N_p;
+  N_ETA_ = N_p;
 #endif
   int eqn_off_p = plist->get<int>("OFFSET");
 #ifdef TUSAS_HAVE_CUDA
@@ -2724,7 +2724,7 @@ KOKKOS_INLINE_FUNCTION
 const double h(const double *eta)
 {
   double val = 0.;
-  for (int i = 0; i < N_; i++){
+  for (int i = 0; i < N_ETA_; i++){
     val += eta[i]*eta[i]*eta[i]*(6.*eta[i]*eta[i] - 15.*eta[i] + 10.);
   }
   return val;  
@@ -2741,7 +2741,7 @@ KOKKOS_INLINE_FUNCTION
 const double dgdeta(const double *eta, const int eqn_id)
 {
   double aval =0.;
-  for (int i = 0; i < N_; i++){
+  for (int i = 0; i < N_ETA_; i++){
     aval += eta[i]*eta[i];
   }
   aval = aval - eta[eqn_id]* eta[eqn_id];
@@ -2821,7 +2821,7 @@ RES_FUNC_TPETRA(residual_c_)
   double dhdx[2] = {0., 0.};
   double dhdy[2] = {0., 0.};
 
-  for(int kk = 0; kk < N_; kk++){
+  for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     dhdx[0] += dhdeta(basis[kk_off]->uu())*basis[kk_off]->duudx();
     dhdx[1] += dhdeta(basis[kk_off]->uuold())*basis[kk_off]->duuolddx();
@@ -2892,7 +2892,7 @@ RES_FUNC_TPETRA(residual_c_kks_)
   double c_a[2] = {0., 0.};
   double c_b[2] = {0., 0.};
 
-  for(int kk = 0; kk < N_; kk++){
+  for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     dhdx[0] += dhdeta(basis[kk_off]->uu())*basis[kk_off]->duudx();
     dhdx[1] += dhdeta(basis[kk_off]->uuold())*basis[kk_off]->duuolddx();
@@ -2902,9 +2902,9 @@ RES_FUNC_TPETRA(residual_c_kks_)
 
   const double ct = (c[0] - c[1])/dt_*test;
 
-  double eta_array[N_MAX];
-  double eta_array_old[N_MAX];
-  for(int kk = 0; kk < N_; kk++){
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
@@ -2948,10 +2948,10 @@ RES_FUNC_TPETRA(residual_eta_)
 				                  + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
 				                  + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
 
-  double eta_array[N_MAX];
-  double eta_array_old[N_MAX];
-  double eta_array_oldold[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
@@ -3000,9 +3000,9 @@ RES_FUNC_TPETRA(residual_eta_kks_)
   double c_a[2] = {0., 0.};
   double c_b[2] = {0., 0.};
 
-  double eta_array[N_MAX];
-  double eta_array_old[N_MAX];
-  for( int kk = 0; kk < N_; kk++){
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
@@ -3047,8 +3047,8 @@ RES_FUNC_TPETRA(residual_mu_)
   const double divgradc = k_c_*(basis[ci_]->duudx()*basis[0]->dphidx(i)
 				          + basis[ci_]->duudy()*basis[0]->dphidy(i)
 				          + basis[ci_]->duudz()*basis[0]->dphidz(i));
-  double eta_array[N_MAX];
-  for(int kk = 0; kk < N_; kk++){
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
   };
@@ -3430,7 +3430,7 @@ PARAM_FUNC(param_)
 #else
     eqn_off_ = eqn_off_p;
 #endif
-  N_ETA_ = plist->get<int>("N_ETA_",N_ETA_);
+  N_ETA_ = plist->get<int>("N_ETA",N_ETA_);
 
   if(N_ETA_ > N_ETA_MAX) exit(0);
 

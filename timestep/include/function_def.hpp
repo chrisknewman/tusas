@@ -2592,6 +2592,8 @@ namespace pfhub2
   TUSAS_DEVICE
   int eqn_off_ = 1;
   TUSAS_DEVICE
+  const int eqn_off_uncoupled_ = 2;
+  TUSAS_DEVICE
   int ci_ = 0;
   TUSAS_DEVICE
   int mui_ = 1;
@@ -2710,7 +2712,7 @@ PARAM_FUNC(param_trans_)
 #else
   N_ETA_ = N_p;
 #endif
-  int eqn_off_p = plist->get<int>("OFFSET");
+  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
 #else
@@ -2718,6 +2720,16 @@ PARAM_FUNC(param_trans_)
 #endif
   ci_ = 1;
   mui_ = 0;
+}
+
+PARAM_FUNC(param_uncoupled_offset_)
+{
+  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_uncoupled_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
+#else
+  eqn_off_ = eqn_off_p;
+#endif
 }
 
 KOKKOS_INLINE_FUNCTION 

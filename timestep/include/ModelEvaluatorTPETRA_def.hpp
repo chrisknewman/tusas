@@ -2736,21 +2736,21 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(3);
-    paramfunc_[0] = &tpetra::kkstest::param_;
-    paramfunc_[1] = &tpetra::kks::param_;
-    paramfunc_[2] = &tpetra::pfhub2::param_;//for N_, N_MAX for h(phi), g(phi)
+    paramfunc_.resize(4);
+    paramfunc_[0] = &tpetra::pfhub2::param_uncoupled_offset_;
+    paramfunc_[1] = &tpetra::kkstest::param_;
+    paramfunc_[2] = &tpetra::kks::param_;
+    paramfunc_[3] = &tpetra::pfhub2::param_;  // for N_ETA, N_ETA_MAX for h(phi), g(phi)
 
 
-    //we should have a function in kkstest that computes these values
-    //we should also have an option to compute total free energy
+    // we should have a function in kkstest that computes these values
+    // we should also have an option to compute total free energy
 
+    //post_proc.push_back(new post_process(mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)0));
-//     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
-
-//     post_proc.push_back(new post_process(mesh_,(int)1));
-//     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
+    //post_proc.push_back(new post_process(mesh_,(int)1));
+    //post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
   }else if("sheng1kks" == paramList.get<std::string> (TusastestNameString)){
 
@@ -3314,14 +3314,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     problemList = &paramList.sublist ( "ProblemParams", false );
 
     int numeta = problemList->get<int>("N_ETA");
-
-    numeqs_ = numeta+2;
+    numeqs_ = numeta + 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::pfhub2::residual_c_uncoupled_dp_;
     (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_dp_;
     (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
-
     if( 2 == numeta){
       (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
     }
@@ -3335,12 +3333,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
       (*residualfunc_)[5] = tpetra::pfhub2::residual_eta_dp_;
     }
 
-    preconfunc_ = NULL;
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
     (*preconfunc_)[1] = &tpetra::pfhub2::prec_ut_;
     (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
-
     if( 2 == numeta){
       (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
     }
@@ -3388,20 +3384,22 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
       (*varnames_)[5] = "eta3";
     }
 
-    // numeqs_ number of variables(equations) 
-    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
     dirichletfunc_ = NULL;
-
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(1);
-    paramfunc_[0] = &tpetra::pfhub2::param_;
+    // pfhub2::param_uncoupled_offset_ sets eqn_off_ to 2,
+    // this needs to come before pfhub2::param_ in the paramfunc_
+    // array, otherwise the Teuchos::ParameterList will record
+    // OFFSET as 1 when pfhub2::param_ is called
+    paramfunc_.resize(2);
+    paramfunc_[0] = &tpetra::pfhub2::param_uncoupled_offset_;
+    paramfunc_[1] = &tpetra::pfhub2::param_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)0));
-//     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
+    //post_proc.push_back(new post_process(mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)1));
-//     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
+    //post_proc.push_back(new post_process(mesh_,(int)1));
+    //post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
   }else if("pfhub2trans" == paramList.get<std::string> (TusastestNameString)){
 
@@ -3409,14 +3407,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     problemList = &paramList.sublist ( "ProblemParams", false );
 
     int numeta = problemList->get<int>("N_ETA");
-
-    numeqs_ = numeta+2;
+    numeqs_ = numeta + 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::pfhub2::residual_c_uncoupled_dp_;
     (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_dp_;
     (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
-
     if( 4 == numeta){
       (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
       (*residualfunc_)[4] = tpetra::pfhub2::residual_eta_dp_;
@@ -3428,7 +3424,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*preconfunc_)[0] = &tpetra::pfhub2::prec_mu_;
     (*preconfunc_)[1] = &tpetra::pfhub2::prec_c_;
     (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
-
     if( 4 == numeta){
       (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
       (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
@@ -3456,20 +3451,18 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     }
 
     // numeqs_ number of variables(equations) 
-    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
     dirichletfunc_ = NULL;
-
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(1);
-    paramfunc_[0] = &tpetra::pfhub2::param_trans_;
+    paramfunc_.resize(2);
+    paramfunc_[0] = &tpetra::pfhub2::param_uncoupled_offset_;
+    paramfunc_[1] = &tpetra::pfhub2::param_trans_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)0));
-//     post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
+    //post_proc.push_back(new post_process(mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
 
-//     post_proc.push_back(new post_process(mesh_,(int)1));
-//     post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
-
+    //post_proc.push_back(new post_process(mesh_,(int)1));
+    //post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
 
   }else if("cahnhilliard" == paramList.get<std::string> (TusastestNameString)){
     //std::cout<<"cahnhilliard"<<std::endl;

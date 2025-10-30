@@ -603,7 +603,7 @@ with
 J = [ h          (1-h) ]
     [ f''(cb) -f''(ca) ]
 
-det J = h*(-f_alpha'(ca)) - (1-h)*f_beta'(cb)
+det J = h*(-f_alpha''(ca)) - (1-h)*f_beta''(cb)
 
 inv J = 1/det [ -f_alpha''(ca) -(h-1) ]
               [ -f_beta''(cb)      hh ]
@@ -650,7 +650,7 @@ int solve_kks(const double &c, //input c
 	      KKSFUNC D2FALPHADC2, //f_alpha'(c)
 	      const double &T = 0.) //input T
   {
-    //if(phi[0] > .999 || phi[0] < .001) return 0; //hack for single phase; leads to more global iters but comparable cpu time
+    //if(hh > .999 || hh < .001) return 0; //hack for single phase; leads to more global iters but comparable cpu time
     double delta_c_b = 0.;
     double delta_c_a = 0.;
     const int max_iter = kks_max_iter_;
@@ -3405,7 +3405,7 @@ PARAM_FUNC(param_)
   L_ = plist->get<double>("L_",.7);
 
   rho_alpha = plist->get<double>("rho_alpha_",rho_alpha);
-  rho_beta = plist->get<double>("rho_beta",rho_beta);
+  rho_beta = plist->get<double>("rho_beta_",rho_beta);
 
   const double MM = std::max(M_alpha_,M_beta_);
   t0_ = x0_*x0_/MM/f0_;
@@ -3468,27 +3468,29 @@ RES_FUNC_TPETRA(residual_mu_kks_)
     eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   };
 
-//   const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
-//   double c_a[3] = {c_alpha_, c_alpha_,c_alpha_};
-//   double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};
+#if 1
+  const double hh[3] = {tpetra::pfhub2::h(eta_array),tpetra::pfhub2::h(eta_array_old),tpetra::pfhub2::h(eta_array_oldold)};
+  double c_a[3] = {c_alpha_[0], c_alpha_[0],c_alpha_[0]};
+  double c_b[3] = {c_beta_[0], c_beta_[0], c_beta_[0]};
 
-//   tpetra::pfhub2::solve_kks(c[0],h[0],c_b[0],c_a[0]);
-//   tpetra::pfhub2::solve_kks(c[1],h[1],c_b[1],c_a[1]);
-//   tpetra::pfhub2::solve_kks(c[2],h[2],c_b[2],c_a[2]);
+  tpetra::kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],kksfunc,  df_alphadc,d2fbetadc2,d2falphadc2);
+  tpetra::kks::solve_kks(c[1],hh[1],c_b[1],c_a[1],df_betadc,df_alphadc,d2fbetadc2,d2falphadc2);
+  tpetra::kks::solve_kks(c[2],hh[2],c_b[2],c_a[2],df_betadc,df_alphadc,d2fbetadc2,d2falphadc2);
 
-//   const double df_dc[3] = {tpetra::pfhub2::df_betadc(c_b[0])*test,
-// 			   tpetra::pfhub2::df_betadc(c_b[1])*test,
-// 			   tpetra::pfhub2::df_betadc(c_b[2])*test};
-  
+  const double df_dc[3] = {tpetra::pfhub2::df_betadc(c_b[0])*test,
+			   tpetra::pfhub2::df_betadc(c_b[1])*test,
+			   tpetra::pfhub2::df_betadc(c_b[2])*test};
+#else  
 //this term is also unique to our binary alloy; dfloc/dc
   const double df_dc[3] = {dfdc(c[0],eta_array)*test,
 			   dfdc(c[1],eta_array_old)*test,
 			   dfdc(c[2],eta_array_oldold)*test};
   //note that either form of df_dc is equivalent; second is cheaper
-
-  const double f[3] = {df_dc[0] + divgradc[0],
-		       df_dc[1] + divgradc[1],
-		       df_dc[2] + divgradc[2]};
+#endif
+  const double df2dc2 = 4.;
+  const double f[3] = {(df_dc[0] + divgradc[0])/df2dc2,
+		       (df_dc[1] + divgradc[1])/df2dc2,
+		       (df_dc[2] + divgradc[2])/df2dc2};
 
   const double ds =1.;
   return (-mu*test + (1.-t_theta2_)*t_theta_*f[0]
@@ -3533,7 +3535,10 @@ RES_FUNC_TPETRA(residual_dfdeta_bin_quad_kks_)
 		       f_beta(c_b[1]) - f_alpha(c_a[1]) - (c_b[1] - c_a[1])*df_betadc(c_b[1]),
 		       f_beta(c_b[2]) - f_alpha(c_a[2]) - (c_b[2] - c_a[2])*df_betadc(c_b[2])};
 
-  const int k = eqn_id - eqn_off_;
+//   const double F[3] = {f_alpha(c_a[0]) - f_beta(c_b[0]) - (c_a[0] - c_b[0])*df_alphadc(c_a[0]),
+// 		       f_alpha(c_a[1]) - f_beta(c_b[1]) - (c_a[1] - c_b[1])*df_alphadc(c_a[1]),
+// 		       f_alpha(c_a[2]) - f_beta(c_b[2]) - (c_a[2] - c_b[2])*df_alphadc(c_a[2])};
+
   const double f[3] = {L_*F[0]*tpetra::pfhub2::dhdeta(eta[0])*test,
 		       L_*F[1]*tpetra::pfhub2::dhdeta(eta[1])*test,
 		       L_*F[2]*tpetra::pfhub2::dhdeta(eta[2])*test};

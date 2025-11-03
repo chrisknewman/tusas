@@ -3495,7 +3495,7 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 			   dfdc(c[2],eta_array_oldold)*test};
   //note that either form of df_dc is equivalent; second is cheaper
 #endif
-  const double df2dc2 = 4.;
+  const double df2dc2 = 1.;
   const double f[3] = {(df_dc[0] + divgradc[0])/df2dc2,
 		       (df_dc[1] + divgradc[1])/df2dc2,
 		       (df_dc[2] + divgradc[2])/df2dc2};

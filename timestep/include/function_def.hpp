@@ -32,12 +32,8 @@
 #define TUSAS_HAVE_HIP
 #endif
 
-
 #define TPETRA_DEPRECATED 0
 
-#if TPETRA_DEPRECATED
-joaijjpjgpre
-#endif
 
 /** Definition for residual function. Each residual function is called at each Gauss point for each equation with this signature:
 - NAME:     name of function to call
@@ -1579,7 +1575,7 @@ const double gradT(const double &phi){
 }
 
 KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
+RES_FUNC_TPETRA(residual_phase_farzadi_split_)
 {
 #if TUSAS_OLD_FARZADI
   //test function
@@ -1694,11 +1690,11 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_)
 }
 
 TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_phase_farzadi_uncoupled_dp_)) = residual_phase_farzadi_uncoupled_;
+RES_FUNC_TPETRA((*residual_phase_farzadi_split_dp_)) = residual_phase_farzadi_split_;
 
 
 KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_new_)
+RES_FUNC_TPETRA(residual_phase_farzadi_split_new_)
 {
   //test function
   const double test = basis[0]->phi(i);
@@ -1751,7 +1747,7 @@ RES_FUNC_TPETRA(residual_phase_farzadi_uncoupled_new_)
 }
 
 TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_phase_farzadi_uncoupled_new_dp_)) = residual_phase_farzadi_uncoupled_new_;
+RES_FUNC_TPETRA((*residual_phase_farzadi_split_new_dp_)) = residual_phase_farzadi_split_new_;
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_phase_farzadi_coupled_)
@@ -2592,7 +2588,7 @@ namespace pfhub2
   TUSAS_DEVICE
   int eqn_off_ = 1;
   TUSAS_DEVICE
-  const int eqn_off_uncoupled_ = 2;
+  const int eqn_off_split_ = 2;
   TUSAS_DEVICE
   int ci_ = 0;
   TUSAS_DEVICE
@@ -2722,9 +2718,9 @@ PARAM_FUNC(param_trans_)
   mui_ = 0;
 }
 
-PARAM_FUNC(param_uncoupled_offset_)
+PARAM_FUNC(param_split_offset_)
 {
-  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_uncoupled_);
+  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_split_);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
 #else
@@ -2861,7 +2857,7 @@ TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_c_dp_)) = residual_c_;
 
 KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_c_uncoupled_)
+RES_FUNC_TPETRA(residual_c_split_)
 {
   // c_t + M grad mu grad test
   const double ut = (basis[ci_]->uu() - basis[ci_]->uuold())/dt_*basis[0]->phi(i);
@@ -2882,7 +2878,7 @@ RES_FUNC_TPETRA(residual_c_uncoupled_)
 }
 
 TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_c_uncoupled_dp_)) = residual_c_uncoupled_;
+RES_FUNC_TPETRA((*residual_c_split_dp_)) = residual_c_split_;
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_kks_)
@@ -4581,7 +4577,7 @@ TUSAS_DEVICE
 double scaling_constant_d = 1.;
 
 KOKKOS_INLINE_FUNCTION 
-void dfldt_uncoupled(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
+void dfldt_split(GPUBasis * basis[], const int index, const double dt_, const double dtold_, double *a)
 {
   //the latent heat term is zero outside of the mushy region (ie outside Te < T < Tl)
 
@@ -4692,7 +4688,7 @@ TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_test_dp_)) = residual_test_;
 
 KOKKOS_INLINE_FUNCTION
-RES_FUNC_TPETRA(residual_uncoupled_test_)
+RES_FUNC_TPETRA(residual_split_test_)
 {
   //u_t,v + grad u,grad v + dfldt,v - qdot,v = 0
 
@@ -4708,7 +4704,7 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 						 rand);
 
   double dfldu_d[3];
-  dfldt_uncoupled(basis,eqn_id,dt_,dtold_,dfldu_d);
+  dfldt_split(basis,eqn_id,dt_,dtold_,dfldu_d);
 
   const double dfldt[3] = {dfldu_d[0]*basis[0]->phi(i),
 			   dfldu_d[1]*basis[0]->phi(i),
@@ -4723,7 +4719,7 @@ RES_FUNC_TPETRA(residual_uncoupled_test_)
 }
 
 TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_uncoupled_test_dp_)) = residual_uncoupled_test_;
+RES_FUNC_TPETRA((*residual_split_test_dp_)) = residual_split_test_;
 
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_coupled_test_)

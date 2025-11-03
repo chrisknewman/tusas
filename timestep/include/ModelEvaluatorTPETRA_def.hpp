@@ -2425,7 +2425,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
-    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_uncoupled_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_split_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
@@ -2461,7 +2461,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
-    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_uncoupled_new_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_split_new_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
@@ -2571,7 +2571,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::farzadi3d::residual_conc_farzadi_dp_;
-    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_uncoupled_dp_;
+    (*residualfunc_)[1] = tpetra::farzadi3d::residual_phase_farzadi_split_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::farzadi3d::prec_conc_farzadi_dp_;
@@ -2659,7 +2659,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta + 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_uncoupled_dp_;
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_split_dp_;
     (*residualfunc_)[1] = tpetra::kkstest::residual_mu_kks_;
     (*residualfunc_)[2] = tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_;
     if( 2 == numeta){
@@ -2737,7 +2737,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
     paramfunc_.resize(4);
-    paramfunc_[0] = &tpetra::pfhub2::param_uncoupled_offset_;
+    paramfunc_[0] = &tpetra::pfhub2::param_split_offset_;
     paramfunc_[1] = &tpetra::kkstest::param_;
     paramfunc_[2] = &tpetra::kks::param_;
     paramfunc_[3] = &tpetra::pfhub2::param_;  // for N_ETA, N_ETA_MAX for h(phi), g(phi)
@@ -3308,7 +3308,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::pfhub2::param_nondim_;
 
-  }else if("pfhub2uncoupled" == paramList.get<std::string> (TusastestNameString)){
+  }else if("pfhub2split" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
@@ -3317,7 +3317,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta + 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_uncoupled_dp_;
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_split_dp_;
     (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_dp_;
     (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
     if( 2 == numeta){
@@ -3387,12 +3387,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    // pfhub2::param_uncoupled_offset_ sets eqn_off_ to 2,
+    // pfhub2::param_split_offset_ sets eqn_off_ to 2,
     // this needs to come before pfhub2::param_ in the paramfunc_
     // array, otherwise the Teuchos::ParameterList will record
     // OFFSET as 1 when pfhub2::param_ is called
     paramfunc_.resize(2);
-    paramfunc_[0] = &tpetra::pfhub2::param_uncoupled_offset_;
+    paramfunc_[0] = &tpetra::pfhub2::param_split_offset_;
     paramfunc_[1] = &tpetra::pfhub2::param_;
 
     //post_proc.push_back(new post_process(mesh_,(int)0));
@@ -3410,7 +3410,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta + 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_uncoupled_dp_;
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_split_dp_;
     (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_dp_;
     (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
     if( 4 == numeta){
@@ -3455,7 +3455,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
     paramfunc_.resize(2);
-    paramfunc_[0] = &tpetra::pfhub2::param_uncoupled_offset_;
+    paramfunc_[0] = &tpetra::pfhub2::param_split_offset_;
     paramfunc_[1] = &tpetra::pfhub2::param_trans_;
 
     //post_proc.push_back(new post_process(mesh_,(int)0));
@@ -3676,7 +3676,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 1;
     
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::goldak::residual_uncoupled_test_dp_;
+    (*residualfunc_)[0] = tpetra::goldak::residual_split_test_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = tpetra::goldak::prec_test_dp_;

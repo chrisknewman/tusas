@@ -2629,7 +2629,7 @@ namespace pfhub2
   TUSAS_DEVICE
   double L_ = 5.;
   TUSAS_DEVICE
-  const double w_ = 1.;
+  double w_ = 1.;
   //double c_a[2] = {0., 0.};
   //double c_b[2] = {0., 0.};
 
@@ -2675,9 +2675,12 @@ PARAM_FUNC(param_nondim_)
 #endif
 
   // nondim free energy density, J/m^3
+  // generally, should be ~ rho^2
   f0_ = plist->get<double>("f0_",f0_);
-  //nondim spatial scaling, m
+  // nondim spatial scaling, m
   x0_ = plist->get<double>("x0_",x0_);
+  // nondim temporal scaling, s
+  t0_ = plist->get<double>("t0_",t0_);
 
   // c_alpha_ is c^eq_L
   // c_beta_ is c^eq_S
@@ -2688,14 +2691,15 @@ PARAM_FUNC(param_nondim_)
   k_eta_ = plist->get<double>("k_eta_",3.);
   M_ = plist->get<double>("M_",5.);
   L_ = plist->get<double>("L_",5.);
+  w_ = plist->get<double>("w_",1.);
 
   // nondimensionalize
-  t0_ = x0_*x0_/M_/f0_;
   rho_ = rho_/std::sqrt(f0_);
   k_c_ = k_c_/x0_/x0_/f0_;
   k_eta_ = k_eta_/x0_/x0_/f0_;
   M_ = M_*t0_*f0_/x0_/x0_;
   L_ = L_*t0_*f0_;
+  w_ = w_/f0_;
 
   if(N_ETA_ > N_ETA_MAX) exit(0);
 }

@@ -2579,6 +2579,80 @@ INI_FUNC(init_phase_pfhub3_)
 
 }//namespace pfhub3
 
+namespace energydensity
+{
+  TUSAS_DEVICE
+  double A_alpha_ = 1.;
+  TUSAS_DEVICE
+  double A_beta_ = 1.;
+  TUSAS_DEVICE
+  double c1_ = 0.5;
+  TUSAS_DEVICE
+  double c2_ = 0.5;
+  TUSAS_DEVICE
+  double delta_c1_ = 0.;
+  TUSAS_DEVICE
+  double delta_c2_ = 0.;
+  TUSAS_DEVICE
+  double f1_ = 0.;
+  TUSAS_DEVICE
+  double f2_ = 0.;
+
+PARAM_FUNC(param_)
+{
+  A_alpha_ = plist->get<double>("A_alpha",A_alpha_);
+  A_beta_ = plist->get<double>("A_beta",A_beta_);
+  c1_ = plist->get<double>("c1",c1_);
+  c2_ = plist->get<double>("c2",c2_);
+  delta_c1_ = plist->get<double>("delta_c1",delta_c1_);
+  delta_c2_ = plist->get<double>("delta_c2",delta_c2_);
+  f1_ = plist->get<double>("f1",f1_);
+  f2_ = plist->get<double>("f2",f2_);
+}
+
+KOKKOS_INLINE_FUNCTION
+const double f_alpha(const double c_alpha)
+{
+  // f_alpha(c_alpha) from Sheng 2022, eqn 8
+  // altered to be more general as eqn 9
+  return A_alpha_*(c_alpha - (c1_ - delta_c1_))
+                 *(c_alpha - (c1_ - delta_c1_)) + f1_;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double f_beta(const double c_beta)
+{
+  // f_beta(c_beta) from Sheng 2022, eqn 9
+  return A_beta_*(c_beta - (c2_ - delta_c2_))
+                *(c_beta - (c2_ - delta_c2_)) + f2_;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double df_alphadc_alpha(const double c_alpha)
+{
+  return 2*A_alpha_*(c_alpha - (c1_ - delta_c1_));
+}
+
+KOKKOS_INLINE_FUNCTION
+const double df_betadc_beta(const double c_beta)
+{
+  return 2*A_beta_*(c_beta - (c2_ - delta_c2_));
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2f_alphadc_alpha2()
+{
+  return 2*A_alpha_;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2f_betadc_beta2()
+{
+  return 2*A_beta_;
+}
+
+}  // namespace energydensity
+
 namespace pfhub2
 {
   TUSAS_DEVICE

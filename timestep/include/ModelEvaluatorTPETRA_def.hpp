@@ -3230,7 +3230,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
     paramfunc_.resize(1);
-    paramfunc_[0] = &tpetra::pfhub2::param_nondim_;
+    paramfunc_[0] = &tpetra::pfhub2::param_;
 
   }else if("pfhub2split" == paramList.get<std::string> (TusastestNameString)){
 

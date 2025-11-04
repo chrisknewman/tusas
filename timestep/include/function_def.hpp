@@ -2647,32 +2647,6 @@ PARAM_FUNC(param_)
 #else
   eqn_off_ = eqn_off_p;
 #endif
-  rho_ = plist->get<double>("rho_",1.414213562373095);
-  c_alpha_ = plist->get<double>("c_alpha_",.3);    
-  c_beta_ = plist->get<double>("c_beta_",.7);
-  k_c_ = plist->get<double>("k_c_",0.);
-  k_eta_ = plist->get<double>("k_eta_",3.);
-  M_ = plist->get<double>("M_",5.);
-  L_ = plist->get<double>("L_",5.);
-  // eps_ and eps_eta_ seem to only reside in some init cond
-  //eps_ = plist->get<double>("eps_",.05);
-  if(N_ETA_ > N_ETA_MAX) exit(0);
-}
-
-PARAM_FUNC(param_nondim_)
-{
-  int N_p = plist->get<int>("N_ETA",N_ETA_);
-#ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(N_ETA_,&N_p,sizeof(int));
-#else
-  N_ETA_ = N_p;
-#endif
-  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
-#ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
-#else
-  eqn_off_ = eqn_off_p;
-#endif
 
   // nondim free energy density, J/m^3
   // generally, should be ~ rho^2
@@ -2694,6 +2668,10 @@ PARAM_FUNC(param_nondim_)
   w_ = plist->get<double>("w_",1.);
 
   // nondimensionalize
+  // note that if x0_, t0_, and f0_ are not
+  // set by the user in an input file, these
+  // values default to 1 and the original
+  // dimensional equations are preserved
   rho_ = rho_/std::sqrt(f0_);
   k_c_ = k_c_/x0_/x0_/f0_;
   k_eta_ = k_eta_/x0_/x0_/f0_;

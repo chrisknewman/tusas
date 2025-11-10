@@ -8,7 +8,7 @@
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="testcase" type="string" value="pfhub2split"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
-  <Parameter name="theta" type="double" value=".5"/>
+  <Parameter name="theta" type="double" value="1."/>
   <Parameter name="noxmaxiter" type="int" value = "200"/>
   <Parameter name="noxacceptfailed" type="bool" value = "false"/>
   <Parameter name="ltpquadord" type="int" value = "3"/>

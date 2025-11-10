@@ -1,0 +1,8 @@
+NODAL VARIABLES all relative 1.e-2 floor 1.e-6
+	c
+        mu
+	eta0
+        eta1
+ELEMENT VARIABLES all
+	!color
+	!processor_id

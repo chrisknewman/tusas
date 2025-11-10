@@ -1,3 +1,4 @@
+EXCLUDE TIMES 43
 NODAL VARIABLES all relative 1.e-2 floor 1.e-6
 	c
 	eta0

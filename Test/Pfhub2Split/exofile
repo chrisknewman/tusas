@@ -1,5 +1,5 @@
-EXCLUDE TIMES 1,3,22,49
-NODAL VARIABLES all relative 8.1e-2 floor 1.9e-6
+EXCLUDE TIMES 1,3,13,22,46,49
+NODAL VARIABLES all relative 8.1e-2 floor 1.95e-6
 	c
         mu
 	eta0

@@ -2813,18 +2813,6 @@ PARAM_FUNC(param_)
 
 PARAM_FUNC(param_trans_)
 {
-  int N_p = plist->get<int>("N_ETA");
-#ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(N_ETA_,&N_p,sizeof(int));
-#else
-  N_ETA_ = N_p;
-#endif
-  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
-#ifdef TUSAS_HAVE_CUDA
-  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
-#else
-  eqn_off_ = eqn_off_p;
-#endif
   ci_ = 1;
   mui_ = 0;
 }

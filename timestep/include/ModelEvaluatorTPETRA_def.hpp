@@ -3334,9 +3334,16 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta + 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_split_dp_;
-    (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_dp_;
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_mu_dp_;
+    (*residualfunc_)[1] = tpetra::pfhub2::residual_c_split_dp_;
     (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
+    if( 2 == numeta){
+      (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
+    }
+    if( 3 == numeta){
+      (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
+      (*residualfunc_)[4] = tpetra::pfhub2::residual_eta_dp_;
+    }
     if( 4 == numeta){
       (*residualfunc_)[3] = tpetra::pfhub2::residual_eta_dp_;
       (*residualfunc_)[4] = tpetra::pfhub2::residual_eta_dp_;
@@ -3348,6 +3355,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*preconfunc_)[0] = &tpetra::pfhub2::prec_mu_;
     (*preconfunc_)[1] = &tpetra::pfhub2::prec_c_;
     (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+    if( 2 == numeta){
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+    }
+    if( 3 == numeta){
+      (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
+      (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
+    }
     if( 4 == numeta){
       (*preconfunc_)[3] = &tpetra::pfhub2::prec_eta_;
       (*preconfunc_)[4] = &tpetra::pfhub2::prec_eta_;
@@ -3358,6 +3372,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*initfunc_)[0] = &tpetra::pfhub2::init_mu_;
     (*initfunc_)[1] = &tpetra::pfhub2::init_c_;
     (*initfunc_)[2] = &tpetra::pfhub2::init_eta_;
+    if( 2 == numeta){
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+    }
+    if( 3 == numeta){
+      (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
+      (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
+    }
     if( 4 == numeta){
       (*initfunc_)[3] = &tpetra::pfhub2::init_eta_;
       (*initfunc_)[4] = &tpetra::pfhub2::init_eta_;
@@ -3374,19 +3395,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
       (*varnames_)[5] = "eta3";
     }
 
-    // numeqs_ number of variables(equations) 
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(2);
+    paramfunc_.resize(3);
     paramfunc_[0] = &tpetra::pfhub2::param_split_offset_;
     paramfunc_[1] = &tpetra::pfhub2::param_trans_;
-
-    //post_proc.push_back(new post_process(mesh_,(int)0));
-    //post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
-
-    //post_proc.push_back(new post_process(mesh_,(int)1));
-    //post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
+    paramfunc_[2] = &tpetra::pfhub2::param_;
 
   }else if("cahnhilliard" == paramList.get<std::string> (TusastestNameString)){
     //std::cout<<"cahnhilliard"<<std::endl;

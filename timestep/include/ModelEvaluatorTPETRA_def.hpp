@@ -2754,13 +2754,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
   }else if("sheng1kks" == paramList.get<std::string> (TusastestNameString)){
 
-    //https://www.sciencedirect.com/science/article/pii/S0927025616304712?via%3Dihub
+    // https://www.sciencedirect.com/science/article/pii/S0927025616304712?via%3Dihub
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist ( "ProblemParams", false );
 
-    const int numeta = 1;//problemList->get<int>("N_");
-
-    numeqs_ = numeta+2;
+    const int numeta = 1;  // problemList->get<int>("N_");
+    numeqs_ = numeta + 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::kkstest::residual_c_trans_;
@@ -2785,10 +2784,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*varnames_)[2] = "eta0";
 
 
-    // numeqs_ number of variables(equations) 
-    //dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_); 
     dirichletfunc_ = NULL;
-
     neumannfunc_ = NULL;
 
     paramfunc_.resize(4);
@@ -2824,8 +2820,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     problemList = &paramList.sublist ( "ProblemParams", false );
 
     const int numeta = 1;//problemList->get<int>("N_");
-
-    numeqs_ = numeta+2;
+    numeqs_ = numeta + 2;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::kkstest::residual_c_trans_;

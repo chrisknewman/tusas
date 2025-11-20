@@ -581,9 +581,6 @@ PPR_FUNC(postproc_u2err_)
 }
 }//namespace localprojection
 
-
-
-
 /*
 Implementation of KKS solver for binary single phase alloys found in:
 
@@ -619,13 +616,11 @@ Could we implement a matrix-free version? Might make sense for ternary.
 See kkstest and pfhub2kks for implementation details.
 
 */
-typedef const double (*KKSFUNC)(const double c);
 
 namespace kks
 {
 double kks_tol_ = 1e-10;
 int kks_max_iter_ = 20;
-
 
 PARAM_FUNC(param_)
 {
@@ -633,8 +628,6 @@ PARAM_FUNC(param_)
   kks_max_iter_ = plist->get<double>("kks_max_iter_",kks_max_iter_);
 }
   
-  //  typedef const double (*KKSFUNC)(const double c, const double T);
-
 KOKKOS_INLINE_FUNCTION 
 int solve_kks(const double &c, //input c
 	      const double &hh, //input h(phi)
@@ -679,7 +672,7 @@ int solve_kks(const double &c, //input c
     exit(0);
     return 1;
   }
-}//namespace kks
+}  // namespace kks
 
 /*
 Implementation of KKS solver for single phase 3 component alloys:
@@ -701,10 +694,6 @@ with J = [hh, 1 - hh, 0, 0 ]
         [D2(FBETA)/DC1/DC2[c1b,c2b,T], -D2(FALPHA)/DC1/DC2[c1a,c2a,T], D2(FBETADC2)/D2[c1b,c2b,T], -D2(FALPHADC2)/D2[c1a,c2a,T] ]
 
 delta x = xnew - xold = inv J (-f)
-        
-
-
-
 */
 
 namespace kksternary
@@ -3289,10 +3278,6 @@ namespace kkstest
   double M_alpha_ = .7;
   TUSAS_DEVICE
   double L_ = .7;
-  TUSAS_DEVICE
-  /*double rho_beta = 1.;
-  TUSAS_DEVICE
-  double rho_alpha = 1.;*/
 
   TUSAS_DEVICE
   int ci_ = 0;
@@ -3323,8 +3308,6 @@ namespace kkstest
   TUSAS_DEVICE
   double t0_ = 1.;
 
-  TUSAS_DEVICE
-  KKSFUNC kksfunc;
   // for binary with one phase there is 1 eq for c, mu 1 eq for eta
   // with (N_C_ + 1) x (N_C_ + 1) KKS system
   // for ternary with one phase there are 2 eq for c, mu, 1 eq for eta
@@ -3484,7 +3467,7 @@ RES_FUNC_TPETRA(residual_dfdeta_bin_quad_kks_)
                         energydensity::h(eta_array_oldold)};
 
   tpetra::kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],
-                         kksfunc,
+                         energydensity::df_betadc_beta,
                          energydensity::df_alphadc_alpha,
                          energydensity::d2f_betadc_beta2,
                          energydensity::d2f_alphadc_alpha2);
@@ -3722,7 +3705,7 @@ RES_FUNC_TPETRA(residual_c_trans_)
   double c_b[3] = {energydensity::c2_, energydensity::c2_, energydensity::c2_};
 
   tpetra::kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],
-                         kksfunc,
+                         energydensity::df_betadc_beta,
                          energydensity::df_alphadc_alpha,
                          energydensity::d2f_betadc_beta2,
                          energydensity::d2f_alphadc_alpha2);
@@ -6567,6 +6550,9 @@ PARAM_FUNC(param_)
       <<"f2:           "<<energydensity::f2_<<std::endl
       <<"dx            "<<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/7.<<" - - "
       <<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/5.<<std::endl<<std::endl
+      <<std::endl
+      <<"L*t0*f0        "<<tpetra::kkstest::L_*tpetra::kkstest::t0_*tpetra::kkstest::f0_<<std::endl
+      <<"M*t0*f0*x0^-2  "<<tpetra::kkstest::M_alpha_*tpetra::kkstest::t0_*tpetra::kkstest::f0_/tpetra::kkstest::x0_/tpetra::kkstest::x0_<<std::endl
       <<std::endl;
     outfile.close();
 }
@@ -6576,7 +6562,6 @@ const double init_eta_(const double rr){
   const double x0 = tpetra::kkstest::x0_;
   const double sqrt2 = std::sqrt(2.0);
   const double sqrtw = std::sqrt(tpetra::kkstest::w_);
-  const double sqrtketa = tpetra::kkstest::k_eta_;
   
   //return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(sqrt(tpetra::kkstest::k_eta_)*sqrt2)));
   return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(tpetra::kkstest::k_eta_*sqrt2)));

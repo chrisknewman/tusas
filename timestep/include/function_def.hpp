@@ -6520,24 +6520,106 @@ INI_FUNC(init_heat_)
 
 namespace sheng
 {
-
-  const double S_ = 5.e-1;//0.05
-
+  TUSAS_DEVICE
+  const double S_ = 5.e-1;
+  TUSAS_DEVICE
   const double initial_c_alpha_ = .05;
+  TUSAS_DEVICE
+  const double r_ = 5.e-8;  // m
 
-  const double small_ = 1.e-8;//m
-  //const double h_ = 5.e-8;//m
-  const double r_ = 5.e-8;//m
+PARAM_FUNC(param_write_)
+{
+    std::ofstream outfile;
+    outfile.open("sheng.dat");
+    outfile 
+      <<"f0:           "<<pfhub2::f0_<<std::endl
+      <<"x0:           "<<pfhub2::x0_<<std::endl
+      <<"t0:           "<<pfhub2::t0_<<std::endl
+      <<std::endl
+      <<"M_:           "<<pfhub2::M_<<std::endl
+      <<"k_eta:        "<<pfhub2::k_eta_<<std::endl
+      <<"k_c:          "<<pfhub2::k_c_<<std::endl
+      <<"L:            "<<pfhub2::L_<<std::endl
+      <<"w:            "<<pfhub2::w_<<std::endl
+      <<"A_alpha:      "<<energydensity::A_alpha_<<std::endl
+      <<"A_beta:       "<<energydensity::A_beta_<<std::endl
+      <<"f1:           "<<energydensity::f1_<<std::endl
+      <<"f2:           "<<energydensity::f2_<<std::endl
+      <<std::endl
+      <<"dx            "<<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/7.<<" -- "
+                        <<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/5.<<std::endl;
+    outfile.close();
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double init_eta_(const double rr){
+  const double x0 = pfhub2::x0_;
+  const double sqrt2 = std::sqrt(2.0);
+  const double sqrtw = std::sqrt(pfhub2::w_);
+  return 0.5*(1.0 - tanh(((rr - r_/x0)*sqrtw)/(pfhub2::k_eta_*sqrt2)));
+}
+
+INI_FUNC(init_eta_)
+{
+  const double rr = sqrt(x*x + y*y + z*z);
+  return init_eta_(rr);
+}
+
+const double init_c_(const double rr){
+  const double eta = init_eta_(rr);
+  const double hh = energydensity::h(&eta);
+  return energydensity::c2_*hh + initial_c_alpha_ *(1. - hh);
+}
+
+INI_FUNC(init_c_)
+{
+  const double rr = sqrt(x*x + y*y + z*z);
+  return init_c_(rr);
+}
+
+INI_FUNC(init_mu_)
+{
+  const double rr = sqrt(x*x + y*y + z*z);
+  const double c = init_c_(rr);
+  const double eta = init_eta_(rr);
+  return energydensity::dfdc(c,&eta);
+}
+
+KOKKOS_INLINE_FUNCTION 
+const double S(const double y){
+  return (-y > -r_/pfhub2::x0_) ? S_ : 0;
+}
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_c_)
+{
+  const double val = pfhub2::residual_c_(basis,
+                                         i,
+                                         dt_,
+                                         dtold_,
+                                         t_theta_,
+                                         t_theta2_,
+                                         time,
+                                         eqn_id,
+                                         vol,
+                                         rand);
+  const double y = -(basis[0]->yy());
+  return val - pfhub2::t0_*S(y)*basis[0]->phi(i);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_dp_)) = residual_c_;
+
+/* old functions below, to be removed */
 
 PARAM_FUNC(param_)
 {
     std::ofstream outfile;
     outfile.open("sheng.dat");
     outfile 
-      <<"f0:           "<<tpetra::kkstest::f0_<<std::endl
-      <<"x0:           "<<tpetra::kkstest::x0_<<std::endl
-      <<"t0:           "<<tpetra::kkstest::t0_<<std::endl
-      <<"w:            "<<tpetra::kkstest::w_<<std::endl
+      <<"f0:           "<<pfhub2::f0_<<std::endl
+      <<"x0:           "<<pfhub2::x0_<<std::endl
+      <<"t0:           "<<pfhub2::t0_<<std::endl
       <<std::endl
       <<"M_alpha:      "<<tpetra::kkstest::M_alpha_<<std::endl
       <<"M_beta:       "<<tpetra::kkstest::M_beta_<<std::endl
@@ -6548,31 +6630,11 @@ PARAM_FUNC(param_)
       <<"A_beta:       "<<energydensity::A_beta_<<std::endl
       <<"f1:           "<<energydensity::f1_<<std::endl
       <<"f2:           "<<energydensity::f2_<<std::endl
+      <<"w:            "<<tpetra::kkstest::w_<<std::endl
       <<"dx            "<<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/7.<<" - - "
       <<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/5.<<std::endl<<std::endl
-      <<std::endl
-      <<"L*t0*f0        "<<tpetra::kkstest::L_*tpetra::kkstest::t0_*tpetra::kkstest::f0_<<std::endl
-      <<"M*t0*f0*x0^-2  "<<tpetra::kkstest::M_alpha_*tpetra::kkstest::t0_*tpetra::kkstest::f0_/tpetra::kkstest::x0_/tpetra::kkstest::x0_<<std::endl
       <<std::endl;
     outfile.close();
-}
-
-KOKKOS_INLINE_FUNCTION 
-const double init_eta_(const double rr){
-  const double x0 = tpetra::kkstest::x0_;
-  const double sqrt2 = std::sqrt(2.0);
-  const double sqrtw = std::sqrt(tpetra::kkstest::w_);
-  
-  //return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(sqrt(tpetra::kkstest::k_eta_)*sqrt2)));
-  return 0.5*(1.0-tanh(((rr-r_/x0)*sqrtw)/(tpetra::kkstest::k_eta_*sqrt2)));
-}
-
-KOKKOS_INLINE_FUNCTION 
-const double S(const double y){
-
-  //return S_*init_eta_(y);
-  return (-y > -r_/tpetra::kkstest::x0_) ? S_ : 0;
-
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -6646,66 +6708,6 @@ PRE_FUNC_TPETRA(prec_mu_trans_)
 
 }
 
-#if 0
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_allencahn_bin_quad_kks_)
-{
-return tpetra::kkstest::residual_allencahn_bin_quad_kks_dp_(basis,
-				  i,
-				  dt_,
-				  dtold_,
-				  t_theta_,
-				  t_theta2_,
-				  time,
-				  eqn_id,
-				  vol,
-				  rand);
-}
-
-KOKKOS_INLINE_FUNCTION 
-PRE_FUNC_TPETRA(prec_eta_)
-{
-return tpetra::kkstest::prec_eta_(basis,
-				       i,
-				       j,
-				       dt_,
-				       t_theta_,
-				       eqn_id);
-}
-#endif
-
-INI_FUNC(init_eta_)
-{
-  //const double x0 = tpetra::kkstest::x0_;
-  const double rr = sqrt(x*x + y*y + z*z);
-  return init_eta_(rr);
-}
-
-const double init_c_(const double rr){
-  const double eta = init_eta_(rr);
-  const double hh = energydensity::h(&eta);
-//   return tpetra::kkstest::c_beta_[0]*hh  + tpetra::kkstest::c_alpha_[0]*(1.-hh);
-  return energydensity::c2_*hh  + initial_c_alpha_ *(1.-hh);
-}
-
-INI_FUNC(init_c_)
-{
-  const double rr = sqrt(x*x + y*y + z*z);
-  return init_c_(rr);
-}
-
-INI_FUNC(init_mu_)
-{
-  //this will need the eta_array version
-//   const double c = init_c_(x,y,z,eqn_id,lid);
-//   const double eta = init_eta_(x,y,z,2,lid);
-  //return dfdc(c,&eta);
-  const double rr = sqrt(x*x + y*y + z*z);
-  const double c = init_c_(rr);
-  const double eta = init_eta_(rr);
-  return energydensity::dfdc(c,&eta);
-  //return 0.;
-}
 
 PPR_FUNC(postproc_s_)
 {

@@ -2871,6 +2871,37 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[3].postprocfunc_ = &tpetra::sheng::postproc_c_kks_;
 //     post_proc[3].postprocfunc_ = &tpetra::sheng::postproc_eta_;
 
+  }else if("sheng" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist ( "ProblemParams", false );
+
+    const int numeta = 1;
+    numeqs_ = numeta + 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::sheng::residual_c_dp_;
+    (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::pfhub2::prec_c_;
+    (*preconfunc_)[1] = &tpetra::pfhub2::prec_eta_;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::sheng::init_c_;
+    (*initfunc_)[1] = &tpetra::sheng::init_eta_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(2);
+    paramfunc_[0] = &tpetra::pfhub2::param_;
+    paramfunc_[1] = &tpetra::sheng::param_write_;  // temporary, just writes nondim values out
+    
   }else if("masstest" == paramList.get<std::string> (TusastestNameString)){
 
     numeqs_ = 1;

@@ -2874,7 +2874,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
   }else if("sheng" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
-    problemList = &paramList.sublist ( "ProblemParams", false );
+    problemList = &paramList.sublist("ProblemParams", false);
 
     const int numeta = 1;
     numeqs_ = numeta + 1;
@@ -2884,7 +2884,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::pfhub2::prec_c_;
+    (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
     (*preconfunc_)[1] = &tpetra::pfhub2::prec_eta_;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
@@ -2900,7 +2900,49 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(2);
     paramfunc_[0] = &tpetra::pfhub2::param_;
-    paramfunc_[1] = &tpetra::sheng::param_write_;  // temporary, just writes nondim values out
+    paramfunc_[1] = &tpetra::sheng::param_write_;
+
+    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::sheng::postproc_mu_;
+    
+  }else if("shengsplit" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    const int numeta = 1;
+    numeqs_ = numeta + 2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_split_dp_;
+    (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_dp_;
+    (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[1] = &tpetra::pfhub2::prec_ut_;
+    (*preconfunc_)[2] = &tpetra::pfhub2::prec_eta_;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::sheng::init_c_;
+    (*initfunc_)[1] = &tpetra::sheng::init_mu_;
+    (*initfunc_)[2] = &tpetra::sheng::init_eta_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "mu";
+    (*varnames_)[2] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &tpetra::pfhub2::param_split_offset_;
+    paramfunc_[1] = &tpetra::pfhub2::param_;
+    paramfunc_[2] = &tpetra::sheng::param_write_;
+
+    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::sheng::postproc_mu_;
     
   }else if("masstest" == paramList.get<std::string> (TusastestNameString)){
 

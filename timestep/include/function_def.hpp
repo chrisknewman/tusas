@@ -6521,42 +6521,45 @@ INI_FUNC(init_heat_)
 namespace sheng
 {
   TUSAS_DEVICE
-  const double S_ = 5.e-1;
-  TUSAS_DEVICE
   const double initial_c_alpha_ = .05;
   TUSAS_DEVICE
-  const double r_ = 5.e-8;  // m
+  double r_ = 5.e-8;  // m
+  TUSAS_DEVICE
+  double S_ = 5.e-2;  // was 0.5, but is 0.05 in Sheng 2022
 
 PARAM_FUNC(param_write_)
 {
-    std::ofstream outfile;
-    outfile.open("sheng.dat");
-    outfile 
-      <<"f0:           "<<pfhub2::f0_<<std::endl
-      <<"x0:           "<<pfhub2::x0_<<std::endl
-      <<"t0:           "<<pfhub2::t0_<<std::endl
-      <<std::endl
-      <<"M_:           "<<pfhub2::M_<<std::endl
-      <<"k_eta:        "<<pfhub2::k_eta_<<std::endl
-      <<"k_c:          "<<pfhub2::k_c_<<std::endl
-      <<"L:            "<<pfhub2::L_<<std::endl
-      <<"w:            "<<pfhub2::w_<<std::endl
-      <<"A_alpha:      "<<energydensity::A_alpha_<<std::endl
-      <<"A_beta:       "<<energydensity::A_beta_<<std::endl
-      <<"f1:           "<<energydensity::f1_<<std::endl
-      <<"f2:           "<<energydensity::f2_<<std::endl
-      <<std::endl
-      <<"dx            "<<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/7.<<" -- "
-                        <<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/5.<<std::endl;
-    outfile.close();
+  
+  r_ /= pfhub2::x0_;
+  S_ *= pfhub2::t0_;
+
+  std::ofstream outfile;
+  outfile.open("sheng.dat");
+  outfile 
+    <<"f0:           "<<pfhub2::f0_<<std::endl
+    <<"x0:           "<<pfhub2::x0_<<std::endl
+    <<"t0:           "<<pfhub2::t0_<<std::endl
+    <<std::endl
+    <<"M_:           "<<pfhub2::M_<<std::endl
+    <<"k_eta:        "<<pfhub2::k_eta_<<std::endl
+    <<"k_c:          "<<pfhub2::k_c_<<std::endl
+    <<"L:            "<<pfhub2::L_<<std::endl
+    <<"w:            "<<pfhub2::w_<<std::endl
+    <<"A_alpha:      "<<energydensity::A_alpha_<<std::endl
+    <<"A_beta:       "<<energydensity::A_beta_<<std::endl
+    <<"f1:           "<<energydensity::f1_<<std::endl
+    <<"f2:           "<<energydensity::f2_<<std::endl
+    <<std::endl
+    <<"dx            "<<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/7.<<" -- "
+                      <<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/5.<<std::endl;
+  outfile.close();
 }
 
 KOKKOS_INLINE_FUNCTION 
 const double init_eta_(const double rr){
-  const double x0 = pfhub2::x0_;
   const double sqrt2 = std::sqrt(2.0);
   const double sqrtw = std::sqrt(pfhub2::w_);
-  return 0.5*(1.0 - tanh(((rr - r_/x0)*sqrtw)/(pfhub2::k_eta_*sqrt2)));
+  return 0.5*(1.0 - tanh(((rr - r_)*sqrtw)/(pfhub2::k_eta_*sqrt2)));
 }
 
 INI_FUNC(init_eta_)
@@ -6568,7 +6571,7 @@ INI_FUNC(init_eta_)
 const double init_c_(const double rr){
   const double eta = init_eta_(rr);
   const double hh = energydensity::h(&eta);
-  return energydensity::c2_*hh + initial_c_alpha_ *(1. - hh);
+  return energydensity::c2_*hh + initial_c_alpha_*(1. - hh);
 }
 
 INI_FUNC(init_c_)
@@ -6587,7 +6590,7 @@ INI_FUNC(init_mu_)
 
 KOKKOS_INLINE_FUNCTION 
 const double S(const double y){
-  return (-y > -r_/pfhub2::x0_) ? S_ : 0;
+  return (-y > -r_) ? S_ : 0;
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -6604,11 +6607,38 @@ RES_FUNC_TPETRA(residual_c_)
                                          vol,
                                          rand);
   const double y = -(basis[0]->yy());
-  return val - pfhub2::t0_*S(y)*basis[0]->phi(i);
+  return val - S(y)*basis[0]->phi(i);
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_c_dp_)) = residual_c_;
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_mu_)
+{
+  const double val = pfhub2::residual_mu_(basis,
+                                          i,
+                                          dt_,
+                                          dtold_,
+                                          t_theta_,
+                                          t_theta2_,
+                                          time,
+                                          eqn_id,
+                                          vol,
+                                          rand);
+  const double y = -(basis[0]->yy());
+  return val - S(y)*basis[0]->phi(i);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_mu_dp_)) = residual_mu_;
+
+PPR_FUNC(postproc_mu_)
+{
+  const double c = u[pfhub2::ci_];
+  const double eta[1] = {u[2]};
+  return energydensity::dfdc(c,eta);
+}
 
 /* old functions below, to be removed */
 

@@ -2915,7 +2915,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
     (*residualfunc_)[0] = tpetra::pfhub2::residual_c_split_dp_;
-    (*residualfunc_)[1] = tpetra::pfhub2::residual_mu_dp_;
+    (*residualfunc_)[1] = tpetra::sheng::residual_mu_dp_;
     (*residualfunc_)[2] = tpetra::pfhub2::residual_eta_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);

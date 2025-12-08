@@ -6527,9 +6527,11 @@ namespace sheng
   TUSAS_DEVICE
   double S_ = 5.e-2;  // was 0.5, but is 0.05 in Sheng 2022
 
-PARAM_FUNC(param_write_)
+PARAM_FUNC(param_)
 {
-  
+  S_ = plist->get<double>("S_",S_);
+
+  // nondim sheng parameters
   r_ /= pfhub2::x0_;
   S_ *= pfhub2::t0_;
 
@@ -6549,6 +6551,9 @@ PARAM_FUNC(param_write_)
     <<"A_beta:       "<<energydensity::A_beta_<<std::endl
     <<"f1:           "<<energydensity::f1_<<std::endl
     <<"f2:           "<<energydensity::f2_<<std::endl
+    <<std::endl
+    <<"S:            "<<S_<<std::endl
+    <<"r:            "<<r_<<std::endl
     <<std::endl
     <<"dx            "<<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/7.<<" -- "
                       <<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/5.<<std::endl;
@@ -6641,31 +6646,6 @@ PPR_FUNC(postproc_mu_)
 }
 
 /* old functions below, to be removed */
-
-PARAM_FUNC(param_)
-{
-    std::ofstream outfile;
-    outfile.open("sheng.dat");
-    outfile 
-      <<"f0:           "<<pfhub2::f0_<<std::endl
-      <<"x0:           "<<pfhub2::x0_<<std::endl
-      <<"t0:           "<<pfhub2::t0_<<std::endl
-      <<std::endl
-      <<"M_alpha:      "<<tpetra::kkstest::M_alpha_<<std::endl
-      <<"M_beta:       "<<tpetra::kkstest::M_beta_<<std::endl
-      <<"k_eta:        "<<tpetra::kkstest::k_eta_<<std::endl
-      <<"c_eta:        "<<tpetra::kkstest::k_c_<<std::endl
-      <<"L:            "<<tpetra::kkstest::L_<<std::endl
-      <<"A_alpha:      "<<energydensity::A_alpha_<<std::endl
-      <<"A_beta:       "<<energydensity::A_beta_<<std::endl
-      <<"f1:           "<<energydensity::f1_<<std::endl
-      <<"f2:           "<<energydensity::f2_<<std::endl
-      <<"w:            "<<tpetra::kkstest::w_<<std::endl
-      <<"dx            "<<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/7.<<" - - "
-      <<tpetra::kkstest::k_eta_/std::sqrt(tpetra::kkstest::w_)/5.<<std::endl<<std::endl
-      <<std::endl;
-    outfile.close();
-}
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_mu_trans_)

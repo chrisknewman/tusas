@@ -2787,11 +2787,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(4);
+    paramfunc_.resize(3);
     paramfunc_[2] = &tpetra::kkstest::param_;
     paramfunc_[1] = &tpetra::kks::param_;
     paramfunc_[0] = &tpetra::pfhub2::param_;//for N_, N_MAX for h(phi), g(phi)
-    paramfunc_[3] = &tpetra::sheng::param_;
 
 
     //we should have a function in kkstest that computes these values
@@ -2845,10 +2844,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(3);
+    paramfunc_.resize(2);
     paramfunc_[0] = &tpetra::kks::param_;
     paramfunc_[1] = &tpetra::kkstest::param_;
-    paramfunc_[2] = &tpetra::sheng::param_;  // temporary, just writes nondim values out
 
 
     //we should have a function in kkstest that computes these values
@@ -2900,7 +2898,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(2);
     paramfunc_[0] = &tpetra::pfhub2::param_;
-    paramfunc_[1] = &tpetra::sheng::param_write_;
+    paramfunc_[1] = &tpetra::sheng::param_;
 
     post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::sheng::postproc_mu_;
@@ -2939,7 +2937,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(3);
     paramfunc_[0] = &tpetra::pfhub2::param_split_offset_;
     paramfunc_[1] = &tpetra::pfhub2::param_;
-    paramfunc_[2] = &tpetra::sheng::param_write_;
+    paramfunc_[2] = &tpetra::sheng::param_;
 
     post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::sheng::postproc_mu_;

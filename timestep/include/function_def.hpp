@@ -648,6 +648,7 @@ int solve_kks(const double &c, //input c
     ca = (1.-hh)*ca;
     cb=hh*cb;
 
+    int n = 0;
     //std::cout<<"-1"<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
     for(int i = 0; i < max_iter; i++){
       const double d2falphadc2 = (*D2FALPHADC2)();
@@ -659,6 +660,7 @@ int solve_kks(const double &c, //input c
       delta_c_a = (d2fbetadc2*f1 - hh*f2)/det;
       cb = delta_c_b + cb;
       ca = delta_c_a + ca;
+      ++n;
       //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<cb<<" "<<ca<<" "<<hh*cb + (1.- hh)*ca<<" "<<c<<std::endl;
       if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return 0;
     }
@@ -670,7 +672,7 @@ int solve_kks(const double &c, //input c
     printf("################################### \n\n\n\n");
 
     exit(0);
-    return 1;
+    return n;
   }
 }  // namespace kks
 
@@ -6526,6 +6528,8 @@ namespace sheng
   double r_ = 5.e-8;  // m
   TUSAS_DEVICE
   double S_ = 5.e-2;  // was 0.5, but is 0.05 in Sheng 2022
+  TUSAS_DEVICE
+  double D_ = 0.019*std::exp(-5840./673.)/100./100.;  // cm2/s m/100cm m/100/cm = m^2/s
 
 PARAM_FUNC(param_)
 {
@@ -6534,6 +6538,7 @@ PARAM_FUNC(param_)
   // nondim sheng parameters
   r_ /= pfhub2::x0_;
   S_ *= pfhub2::t0_;
+  D_ = D_*pfhub2::t0_*pfhub2::f0_/pfhub2::x0_/pfhub2::x0_;
 
   std::ofstream outfile;
   outfile.open("sheng.dat");
@@ -6543,6 +6548,7 @@ PARAM_FUNC(param_)
     <<"t0:           "<<pfhub2::t0_<<std::endl
     <<std::endl
     <<"M_:           "<<pfhub2::M_<<std::endl
+    <<"D_:           "<<D_<<std::endl
     <<"k_eta:        "<<pfhub2::k_eta_<<std::endl
     <<"k_c:          "<<pfhub2::k_c_<<std::endl
     <<"L:            "<<pfhub2::L_<<std::endl
@@ -6637,15 +6643,6 @@ RES_FUNC_TPETRA(residual_mu_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_mu_dp_)) = residual_mu_;
-
-PPR_FUNC(postproc_mu_)
-{
-  const double c = u[pfhub2::ci_];
-  const double eta[1] = {u[2]};
-  return energydensity::dfdc(c,eta);
-}
-
-/* old functions below, to be removed */
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_mu_trans_)
@@ -6780,6 +6777,366 @@ PPR_FUNC(postproc_D_)
   return D/energydensity::d2fdc2(&eta);
 }
 
+PPR_FUNC(postproc_mu_)
+{
+  const double c = u[pfhub2::ci_];
+  const double eta[1] = {u[2]};
+  return energydensity::dfdc(c,eta);
+}
+
+PPR_FUNC(postproc_dfdc_kks_)
+{
+  const double c = u[0];
+  const double eta = u[2];
+  double c_a = energydensity::c1_;
+  double c_b = energydensity::c2_;
+  const double hh = energydensity::h(&eta);
+  tpetra::kks::solve_kks(c,
+			 hh,
+			 c_b,
+			 c_a,
+			 energydensity::df_betadc_beta,
+			 energydensity::df_alphadc_alpha,
+			 energydensity::d2f_betadc_beta2,
+			 energydensity::d2f_alphadc_alpha2);
+  //return (1.-hh)*energydensity::df_alphadc_alpha(c_a) + hh*energydensity::df_betadc_beta(c_b);  
+  //return energydensity::df_alphadc_alpha(c_a);
+  return energydensity::df_betadc_beta(c_b);
+}
+
+INI_FUNC(init_mu_kks_)
+{
+  const double rr = sqrt(x*x + y*y + z*z);
+  const double c = init_c_(rr);
+  const double eta = init_eta_(rr);
+  //return energydensity::dfdc(c,&eta);
+  double c_a = energydensity::c1_;
+  double c_b = energydensity::c2_;
+  const double hh = energydensity::h(&eta);
+  tpetra::kks::solve_kks(c,
+			 hh,
+			 c_b,
+			 c_a,
+			 energydensity::df_betadc_beta,
+			 energydensity::df_alphadc_alpha,
+			 energydensity::d2f_betadc_beta2,
+			 energydensity::d2f_alphadc_alpha2);
+  //return (1.-hh)*energydensity::df_alphadc_alpha(c_a) + hh*energydensity::df_betadc_beta(c_b);  
+  //return energydensity::df_alphadc_alpha(c_a);
+  return energydensity::df_betadc_beta(c_b);
+}
+
+PPR_FUNC(postproc_d2fdc2_kks_)
+{
+  const double eta = u[2];
+  const double hh = energydensity::h(&eta);
+  const double den =  (1.-hh)*energydensity::d2f_alphadc_alpha2() + hh*energydensity::d2f_betadc_beta2();  
+  const double val = energydensity::d2f_betadc_beta2()*energydensity::d2f_alphadc_alpha2()/den;
+  return val;
+  //return 1./val;
+}
+
+PPR_FUNC(postproc_m_kks_)
+{
+  const double eta = u[2];
+  const double hh = energydensity::h(&eta);
+  const double den =  (1.-hh)*energydensity::d2f_alphadc_alpha2() + hh*energydensity::d2f_betadc_beta2();  
+  //return den/energydensity::d2f_betadc_beta2()*energydensity::d2f_alphadc_alpha2();
+  return pfhub2::M_*den/energydensity::d2f_betadc_beta2()*energydensity::d2f_alphadc_alpha2();
+}
+
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_mu_kks_)
+{
+  const double test = basis[0]->phi(i);
+  const double c = basis[0]->uu();
+  const double mu = basis[1]->uu();
+
+//   double eta_array[pfhub2::N_ETA_MAX];
+//   for(int kk = 0; kk < pfhub2::N_ETA_; kk++){
+//     int kk_off = kk + pfhub2::eqn_off_;
+//     eta_array[kk] = basis[kk_off]->uu();
+//   };
+//   const double hh = energydensity::h(eta_array);
+
+  const double eta = basis[2]->uu();;
+  const double hh = energydensity::h(&eta);
+
+  double c_a = energydensity::c1_;
+  double c_b = energydensity::c2_;
+  //int err = 
+  tpetra::kks::solve_kks(c,
+				   hh,
+				   c_b,
+				   c_a,
+				   energydensity::df_betadc_beta,
+				   energydensity::df_alphadc_alpha,
+				   energydensity::d2f_betadc_beta2,
+				   energydensity::d2f_alphadc_alpha2);
+  //if(err > 0 ) exit(0);
+  const double f1  = energydensity::df_betadc_beta(c_b);
+  const double dh_deta = energydensity::dhdeta(eta);
+  const double f2 = c + dh_deta*(c_a-c_b)*eta;
+  const double f3 = (1.-hh)*c_a + hh*c_b;
+
+  double f = f1;
+  //double f = f2;
+  //double f = f3;
+  return (-mu + f)*test;
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_c_kks_split_)
+{
+  const int ci_ = 0;
+  const int mui_ = 1;
+  // c_t + M grad mu grad test
+  const double ut = (basis[ci_]->uu() - basis[ci_]->uuold())/dt_*basis[0]->phi(i);
+  // M_ divgrad mu
+  // mu is not time dependent so this makes no sense for theta .ne. 1
+
+  const double eta = basis[2]->uu();
+  const double hh = energydensity::h(&eta);
+  const double den =  (1.-hh)*energydensity::d2f_alphadc_alpha2() + hh*energydensity::d2f_betadc_beta2();  
+
+  const double M = pfhub2::M_*den/energydensity::d2f_betadc_beta2()*energydensity::d2f_alphadc_alpha2();
+  //const double M = 1.*den/energydensity::d2f_betadc_beta2()*energydensity::d2f_alphadc_alpha2();
+
+  const double y = -(basis[0]->yy());
+  const double val = S(y)*basis[0]->phi(i);
+
+  const double f[3] = {M*(basis[mui_]->duudx()*basis[0]->dphidx(i)
+                         + basis[mui_]->duudy()*basis[0]->dphidy(i)
+                         + basis[mui_]->duudz()*basis[0]->dphidz(i)) - val,
+                       M*(basis[mui_]->duuolddx()*basis[0]->dphidx(i)
+                         + basis[mui_]->duuolddy()*basis[0]->dphidy(i)
+                         + basis[mui_]->duuolddz()*basis[0]->dphidz(i)) - val,
+                       M*(basis[mui_]->duuoldolddx()*basis[0]->dphidx(i)
+                         + basis[mui_]->duuoldolddy()*basis[0]->dphidy(i)
+                         + basis[mui_]->duuoldolddz()*basis[0]->dphidz(i)) - val};
+  return ut + (1. - t_theta2_)*t_theta_*f[0]
+         + (1. - t_theta2_)*(1. - t_theta_)*f[1]
+         +.5*t_theta2_*((2.+dt_/dtold_)*f[1] - dt_/dtold_*f[2]);
+}
+
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_eta_kks_)
+{
+  const int ci_ = 0;
+  // test function
+  const double test = basis[0]->phi(i);
+  // u, phi
+  const double c[3] = {basis[ci_]->uu(), basis[ci_]->uuold(), basis[ci_]->uuoldold()};
+  const double eta[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
+  const double divgradeta[3] = {pfhub2::L_*pfhub2::k_eta_*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
+                                pfhub2::L_*pfhub2::k_eta_*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
+                                pfhub2::L_*pfhub2::k_eta_*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
+
+  double eta_array[pfhub2::N_ETA_MAX];
+  double eta_array_old[pfhub2::N_ETA_MAX];
+  double eta_array_oldold[pfhub2::N_ETA_MAX];
+  for( int kk = 0; kk < pfhub2::N_ETA_; kk++){
+    int kk_off = kk + pfhub2::eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
+  }
+  const int k = eqn_id - pfhub2::eqn_off_;
+
+  const double hh[3] = {energydensity::h(&eta[0]),
+			energydensity::h(&eta[1]),
+			energydensity::h(&eta[2])};
+
+  double c_a = energydensity::c1_;
+  double c_b = energydensity::c2_;
+  tpetra::kks::solve_kks(c[0],
+			 hh[0],
+			 c_b,
+			 c_a,
+			 energydensity::df_betadc_beta,
+			 energydensity::df_alphadc_alpha,
+			 energydensity::d2f_betadc_beta2,
+			 energydensity::d2f_alphadc_alpha2);
+
+  const double dh_deta[3] = {energydensity::dhdeta(eta[0]),
+			     energydensity::dhdeta(eta[1]),
+			     energydensity::dhdeta(eta[2])};
+
+  const double df1[3] = {dh_deta[0]*(
+				     energydensity::f_beta(c_b) - energydensity::f_alpha(c_a) 
+				     -energydensity::df_betadc_beta(c_b)*(c_b - c_a)
+				     ),
+			 0,0};
+
+  const double df_deta[3] = {pfhub2::L_*df1[0]*test,
+                             pfhub2::L_*(energydensity::dfdeta(c[1],eta[1]))*test,
+                             pfhub2::L_*(energydensity::dfdeta(c[2],eta[2]))*test};
+  
+  const double dg[3] = {pfhub2::L_*pfhub2::w_*energydensity::dgdeta(eta_array,k)*test,
+			pfhub2::L_*pfhub2::w_*energydensity::dgdeta(eta_array_old,k)*test,
+			pfhub2::L_*pfhub2::w_*energydensity::dgdeta(eta_array_oldold,k)*test};
+
+  const double f[3] = {df_deta[0] + divgradeta[0] + dg[0],
+                       df_deta[1] + divgradeta[1] + dg[1],
+                       df_deta[2] + divgradeta[2] + dg[2]};
+
+  const double ut = (eta[0] - eta[1])/dt_*test;
+
+  return ut + (1. - t_theta2_)*t_theta_*f[0]
+         + (1. - t_theta2_)*(1. - t_theta_)*f[1]
+         + .5*t_theta2_*((2. + dt_/dtold_)*f[1] - dt_/dtold_*f[2]);
+}
+
+PPR_FUNC(postproc_dfdeta_kks_)
+{
+  const double c = u[0];
+  const double eta = u[2];
+  double c_a = energydensity::c1_;
+  double c_b = energydensity::c2_;
+  const double hh = energydensity::h(&eta); 
+  const double dh_deta = energydensity::dhdeta(eta);
+  tpetra::kks::solve_kks(c,
+			 hh,
+			 c_b,
+			 c_a,
+			 energydensity::df_betadc_beta,
+			 energydensity::df_alphadc_alpha,
+			 energydensity::d2f_betadc_beta2,
+			 energydensity::d2f_alphadc_alpha2);
+  //return (1.-hh)*energydensity::df_alphadc_alpha(c_a) + hh*energydensity::df_betadc_beta(c_b);  
+  //return energydensity::df_alphadc_alpha(c_a);
+  return dh_deta*( energydensity::f_beta(c_b) - energydensity::f_alpha(c_a)  -energydensity::df_betadc_beta(c_b)*(c_b - c_a)  );
+}
+
+PPR_FUNC(postproc_ca_kks_)
+{
+  const double c = u[0];
+  const double eta = u[2];
+  double c_a = energydensity::c1_;
+  double c_b = energydensity::c2_;
+  const double hh = energydensity::h(&eta); 
+  const double dh_deta = energydensity::dhdeta(eta);
+  tpetra::kks::solve_kks(c,
+			 hh,
+			 c_b,
+			 c_a,
+			 energydensity::df_betadc_beta,
+			 energydensity::df_alphadc_alpha,
+			 energydensity::d2f_betadc_beta2,
+			 energydensity::d2f_alphadc_alpha2);
+  //return (1.-hh)*energydensity::df_alphadc_alpha(c_a) + hh*energydensity::df_betadc_beta(c_b);  
+  //return energydensity::df_alphadc_alpha(c_a);
+  return c_a;
+}
+
+PPR_FUNC(postproc_cb_kks_)
+{
+  const double c = u[0];
+  const double eta = u[2];
+  double c_a = energydensity::c1_;
+  double c_b = energydensity::c2_;
+  const double hh = energydensity::h(&eta); 
+  const double dh_deta = energydensity::dhdeta(eta);
+  tpetra::kks::solve_kks(c,
+			 hh,
+			 c_b,
+			 c_a,
+			 energydensity::df_betadc_beta,
+			 energydensity::df_alphadc_alpha,
+			 energydensity::d2f_betadc_beta2,
+			 energydensity::d2f_alphadc_alpha2);
+  //return (1.-hh)*energydensity::df_alphadc_alpha(c_a) + hh*energydensity::df_betadc_beta(c_b);  
+  //return energydensity::df_alphadc_alpha(c_a);
+  return c_b;
+}
+
+PPR_FUNC(postproc_hpc_kks_)
+{
+  const double c = u[0];
+  const double eta = u[2];
+  double c_a = energydensity::c1_;
+  double c_b = energydensity::c2_;
+  const double hh = energydensity::h(&eta); 
+  const double dh_deta = energydensity::dhdeta(eta);
+  tpetra::kks::solve_kks(c,
+			 hh,
+			 c_b,
+			 c_a,
+			 energydensity::df_betadc_beta,
+			 energydensity::df_alphadc_alpha,
+			 energydensity::d2f_betadc_beta2,
+			 energydensity::d2f_alphadc_alpha2);
+  //return (1.-hh)*energydensity::df_alphadc_alpha(c_a) + hh*energydensity::df_betadc_beta(c_b);  
+  //return energydensity::df_alphadc_alpha(c_a);
+  return c - dh_deta*(c_a-c_b);
+}
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_c_kks_)
+{
+  // derivatives of the test function
+  //double dtestdx = basis[0]->dphidx(i);
+  //double dtestdy = basis[0]->dphidy(i);
+  // test function
+  double test = basis[0]->phi(i);
+  // u, phi
+  double c[2] = {basis[0]->uu(), basis[0]->uuold()};
+  
+  double ct = (c[0] - c[1])/dt_*test;
+
+  const double eta = basis[1]->uu();
+  const double hh = energydensity::h(&eta);
+  const double dh_deta = energydensity::dhdeta(eta);
+  const double den =  (1.-hh)*energydensity::d2f_alphadc_alpha2() + hh*energydensity::d2f_betadc_beta2();  
+
+  const double M = pfhub2::M_*den/energydensity::d2f_betadc_beta2()*energydensity::d2f_alphadc_alpha2();
+  //const double M = 1.*den/energydensity::d2f_betadc_beta2()*energydensity::d2f_alphadc_alpha2();
+
+  double c_a = energydensity::c1_;
+  double c_b = energydensity::c2_;
+  //int err = 
+  tpetra::kks::solve_kks(c[0],
+			 hh,
+			 c_b,
+			 c_a,
+			 energydensity::df_betadc_beta,
+			 energydensity::df_alphadc_alpha,
+			 energydensity::d2f_betadc_beta2,
+			 energydensity::d2f_alphadc_alpha2);
+
+  const double divgradc[3] = {M*(basis[0]->duudx()*basis[0]->dphidx(i)
+				 + basis[0]->duudy()*basis[0]->dphidy(i)
+				 + basis[0]->duudz()*basis[0]->dphidz(i)),
+			      M*(basis[0]->duuolddx()*basis[0]->dphidx(i)
+				 + basis[0]->duuolddy()*basis[0]->dphidy(i)
+				 + basis[0]->duuolddz()*basis[0]->dphidz(i)),
+			      M*(basis[0]->duuoldolddx()*basis[0]->dphidx(i)
+				 + basis[0]->duuoldolddy()*basis[0]->dphidy(i)
+				 + basis[0]->duuoldolddz()*basis[0]->dphidz(i))};
+  const double divgradeta[3] = {M*(basis[1]->duudx()*basis[0]->dphidx(i)
+				 + basis[1]->duudy()*basis[0]->dphidy(i)
+				 + basis[1]->duudz()*basis[0]->dphidz(i)),
+			      M*(basis[1]->duuolddx()*basis[0]->dphidx(i)
+				 + basis[1]->duuolddy()*basis[0]->dphidy(i)
+				 + basis[1]->duuolddz()*basis[0]->dphidz(i)),
+			      M*(basis[1]->duuoldolddx()*basis[0]->dphidx(i)
+				 + basis[1]->duuoldolddy()*basis[0]->dphidy(i)
+				 + basis[1]->duuoldolddz()*basis[0]->dphidz(i))};
+
+  const double f[2] = {divgradc[0] + dh_deta*(c_a-c_b)*divgradeta[0],
+		       0.*(divgradc[1] + dh_deta*(c_a-c_b)*divgradeta[1])};
+
+
+  return ct + t_theta_*f[0] + (1. - t_theta_)*f[1];
+}
 
 
 }  // namespace sheng

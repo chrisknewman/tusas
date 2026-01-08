@@ -219,6 +219,8 @@ PARAM_FUNC(param_)
 
 namespace heat{
 TUSAS_DEVICE
+double alpha_d = 1.;
+TUSAS_DEVICE
 double k_d = 1.;
 TUSAS_DEVICE
 double rho_d = 1.;
@@ -233,6 +235,7 @@ double deltau_d = 1.;
 TUSAS_DEVICE
 double uref_d = 0.;
 
+double alpha_h = 1.;
 double k_h = 1.;
 double rho_h = 1.;
 double cp_h = 1.;
@@ -263,7 +266,7 @@ INI_FUNC(init_heat_test_)
 
   const double pi = 3.141592653589793;
 
-  return sin(pi*x)*sin(pi*y);
+  return alpha_h*sin(pi*x)*sin(pi*y);
 }
 
 INI_FUNC(init_zero_)
@@ -327,6 +330,15 @@ PRE_FUNC_TPETRA((*prec_heat_test_dp_)) = prec_heat_test_;
 
 PARAM_FUNC(param_)
 {
+  double alpha = plist->get<double>("alpha_",1.);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(alpha,&a,sizeof(double));
+#else
+  alpha_d = alpha;
+#endif
+  alpha_h = alpha;
+
+
   double kk = plist->get<double>("k_",1.);
 #ifdef TUSAS_HAVE_CUDA
   cudaMemcpyToSymbol(k_d,&kk,sizeof(double));
@@ -386,14 +398,14 @@ PARAM_FUNC(param_)
 
 PPR_FUNC(postproc_)
 {
-  //exact solution is: u[x,y,t]=exp(-2 pi^2 k t)sin(pi x)sin(pi y)
+  //exact solution is: u[x,y,t]=exp(-2 pi^2 k t) alpha sin(pi x)sin(pi y)
   const double uu = u[0];
   const double x = xyz[0];
   const double y = xyz[1];
 
   const double pi = 3.141592653589793;
 
-  const double s= exp(-2.*k_h*pi*pi*time)*sin(pi*x)*sin(pi*y);
+  const double s= exp(-2.*k_h*pi*pi*time)*alpha_h*sin(pi*x)*sin(pi*y);
 
   return s-uu;
 }

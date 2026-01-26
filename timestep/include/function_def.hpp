@@ -3234,8 +3234,6 @@ namespace tonks
   double L_ = 2.;
   TUSAS_DEVICE
   double w_ = 12.;
-  TUSAS_DEVICE
-  const double initial_c_alpha_ = 0.4;
 
 PARAM_FUNC(param_)
 {
@@ -3455,7 +3453,7 @@ INI_FUNC(init_c_)
 {
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = energydensity::h(&eta);
-  return energydensity::c2_*hh + initial_c_alpha_*(1. - hh);
+  return energydensity::c2_*hh + energydensity::c1_*(1. - hh);
 }
 
 PPR_FUNC(postproc_mu_)

@@ -2603,7 +2603,7 @@ namespace energydensity
   TUSAS_DEVICE
   double f2_ = 0.;
   TUSAS_DEVICE
-  const double alpha_ = 5.;  // pfhub2 coef on g
+  const double alpha_ = 5.;  // pfhub2 coef in g
   // other parameters
   TUSAS_DEVICE
   const int N_ETA_MAX = 4;
@@ -3204,6 +3204,269 @@ INI_FUNC(init_mu_test_)
 }
 
 }  // namespace pfhub2
+
+
+namespace tonks
+{  
+  TUSAS_DEVICE
+  const int N_ETA_MAX = 4;
+  TUSAS_DEVICE
+  int N_ETA_ = 1;
+  TUSAS_DEVICE
+  int eqn_off_ = 1;
+  TUSAS_DEVICE
+  int ci_ = 0;
+  TUSAS_DEVICE
+  int mui_ = 1;
+  TUSAS_DEVICE
+  double t0_ = 1.;
+  TUSAS_DEVICE
+  double x0_ = 1.;
+  TUSAS_DEVICE
+  double f0_ = 1.;
+  TUSAS_DEVICE
+  double k_c_ = 0.;
+  TUSAS_DEVICE
+  double k_eta_ = 1.5;
+  TUSAS_DEVICE
+  double M_ = 10.;
+  TUSAS_DEVICE
+  double L_ = 2.;
+  TUSAS_DEVICE
+  double w_ = 12.;
+  TUSAS_DEVICE
+  const double initial_c_alpha_ = 0.4;
+
+PARAM_FUNC(param_)
+{
+  int N_p = plist->get<int>("N_ETA",N_ETA_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(N_ETA_,&N_p,sizeof(int));
+#else
+  N_ETA_ = N_p;
+#endif
+  int eqn_off_p = plist->get<int>("OFFSET",eqn_off_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(eqn_off_,&eqn_off_p,sizeof(int));
+#else
+  eqn_off_ = eqn_off_p;
+#endif
+  if(N_ETA_ > N_ETA_MAX) exit(0);
+
+  // nondim free energy density, J/m^3
+  // generally, should be ~energydensity::A_alpha_
+  f0_ = plist->get<double>("f0_",f0_);
+  // nondim spatial scaling, m
+  x0_ = plist->get<double>("x0_",x0_);
+  // nondim temporal scaling, s
+  t0_ = plist->get<double>("t0_",t0_);
+
+  k_c_ = plist->get<double>("k_c_",k_c_);
+  k_eta_ = plist->get<double>("k_eta_",k_eta_);
+  M_ = plist->get<double>("M_",M_);
+  L_ = plist->get<double>("L_",L_);
+  w_ = plist->get<double>("w_",w_);
+
+  // set params for free energy density
+  energydensity::param_(plist);
+
+  // nondimensionalize
+  // note that if x0_, t0_, and f0_ are not
+  // set by the user in an input file, these
+  // values default to 1 and the original
+  // dimensional equations are preserved
+  energydensity::A_alpha_ = energydensity::A_alpha_/f0_;
+  energydensity::A_beta_ = energydensity::A_beta_/f0_;
+  energydensity::f1_ = energydensity::f1_/f0_;
+  energydensity::f2_ = energydensity::f2_/f0_;
+  k_c_ = k_c_/x0_/x0_/f0_;
+  k_eta_ = k_eta_/x0_/x0_/f0_;
+  M_ = M_*t0_*f0_/x0_/x0_;
+  L_ = L_*t0_*f0_;
+  w_ = w_/f0_;
+}
+    
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_c_kks_)
+{
+  // derivatives of the test function
+  double dtestdx = basis[0]->dphidx(i);
+  double dtestdy = basis[0]->dphidy(i);
+  // test function
+  double test = basis[0]->phi(i);
+  TUSAS_DEVICE
+  // u, phi
+  double c[2] = {basis[0]->uu(), basis[0]->uuold()};
+  double dcdx[2] = {basis[0]->duudx(), basis[0]->duuolddx()};
+  double dcdy[2] = {basis[0]->duudy(), basis[0]->duuolddy()};
+
+  double dhdx[2] = {0., 0.};
+  double dhdy[2] = {0., 0.};
+
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    dhdx[0] += energydensity::dhdeta(basis[kk_off]->uu())*basis[kk_off]->duudx();
+    dhdx[1] += energydensity::dhdeta(basis[kk_off]->uuold())*basis[kk_off]->duuolddx();
+    dhdy[0] += energydensity::dhdeta(basis[kk_off]->uu())*basis[kk_off]->duudy();
+    dhdy[1] += energydensity::dhdeta(basis[kk_off]->uuold())*basis[kk_off]->duuolddy();
+  }
+  
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+  }
+  const double hh[2] = {energydensity::h(eta_array),
+                        energydensity::h(eta_array_old)};
+  double c_a[2] = {energydensity::c1_, energydensity::c1_};
+  double c_b[2] = {energydensity::c2_, energydensity::c2_};
+  kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],
+                 energydensity::df_betadc_beta,
+                 energydensity::df_alphadc_alpha,
+                 energydensity::d2f_betadc_beta2,
+                 energydensity::d2f_alphadc_alpha2);
+  kks::solve_kks(c[1],hh[1],c_b[1],c_a[1],
+                 energydensity::df_betadc_beta,
+                 energydensity::df_alphadc_alpha,
+                 energydensity::d2f_betadc_beta2,
+                 energydensity::d2f_alphadc_alpha2);
+
+  
+  double ct = (c[0] - c[1])/dt_*test;
+
+  double DfDc[2] = {energydensity::df_betadc_beta(c[0])
+                      - energydensity::df_alphadc_alpha(c[0]),
+		    energydensity::df_betadc_beta(c[1])
+                      - energydensity::df_alphadc_alpha(c[1])};
+  double D2fDc2 = energydensity::d2f_alphadc_alpha2();
+
+  double dfdx[2] = {DfDc[0]*dhdx[0] + D2fDc2*dcdx[0],
+                    DfDc[1]*dhdx[1] + D2fDc2*dcdx[1]};
+  double dfdy[2] = {DfDc[0]*dhdy[0] + D2fDc2*dcdy[0],
+                    DfDc[1]*dhdy[1] + D2fDc2*dcdy[1]};
+  double divgradc[2] = {M_*(dfdx[0]*dtestdx + dfdy[0]*dtestdy),
+                        M_*(dfdx[1]*dtestdx + dfdy[1]*dtestdy)};
+
+  return ct + t_theta_*divgradc[0] + (1. - t_theta_)*divgradc[1];
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_kks_dp_)) = residual_c_kks_;
+
+KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_eta_kks_)
+{
+  // test function
+  const double test = basis[0]->phi(i);
+  // u, phi
+  const double c[3] = {basis[ci_]->uu(), basis[ci_]->uuold(), basis[ci_]->uuoldold()};
+  const double eta[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
+  const double divgradeta[3] = {L_*k_eta_*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
+                                L_*k_eta_*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
+                                L_*k_eta_*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
+
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
+  }
+
+  const double hh[3] = {energydensity::h(eta_array),
+                        energydensity::h(eta_array_old),
+                        energydensity::h(eta_array_oldold)};
+  double c_a[3] = {energydensity::c1_, energydensity::c1_, energydensity::c1_};
+  double c_b[3] = {energydensity::c2_, energydensity::c2_, energydensity::c2_};
+  kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],
+                 energydensity::df_betadc_beta,
+                 energydensity::df_alphadc_alpha,
+                 energydensity::d2f_betadc_beta2,
+                 energydensity::d2f_alphadc_alpha2);
+  kks::solve_kks(c[1],hh[1],c_b[1],c_a[1],
+                 energydensity::df_betadc_beta,
+                 energydensity::df_alphadc_alpha,
+                 energydensity::d2f_betadc_beta2,
+                 energydensity::d2f_alphadc_alpha2);
+  kks::solve_kks(c[2],hh[2],c_b[2],c_a[2],
+                 energydensity::df_betadc_beta,
+                 energydensity::df_alphadc_alpha,
+                 energydensity::d2f_betadc_beta2,
+                 energydensity::d2f_alphadc_alpha2);
+
+  const int k = eqn_id - eqn_off_;
+  const double df_deta[3] = {L_*(energydensity::dfdeta(c[0],eta[0])
+                               + w_*energydensity::dgdeta(eta_array,k))*test,
+                             L_*(energydensity::dfdeta(c[1],eta[1])
+                               + w_*energydensity::dgdeta(eta_array_old,k))*test,
+                             L_*(energydensity::dfdeta(c[2],eta[2])
+                               + w_*energydensity::dgdeta(eta_array_oldold,k))*test};
+  
+  const double f[3] = {df_deta[0] + divgradeta[0],
+                       df_deta[1] + divgradeta[1],
+                       df_deta[2] + divgradeta[2]};
+
+  const double ut = (eta[0] - eta[1])/dt_*test;
+
+  return ut + (1. - t_theta2_)*t_theta_*f[0]
+         + (1. - t_theta2_)*(1. - t_theta_)*f[1]
+         + .5*t_theta2_*((2. + dt_/dtold_)*f[1] - dt_/dtold_*f[2]);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_eta_)
+{
+  const double ut = basis[0]->phi(j)/dt_*basis[0]->phi(i);
+  const double divgrad = L_*k_eta_*(basis[0]->dphidx(j)*basis[0]->dphidx(i)
+                         + basis[0]->dphidy(j)*basis[0]->dphidy(i)
+                         + basis[0]->dphidz(j)*basis[0]->dphidz(i));
+  return ut + t_theta_*divgrad;
+}
+
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_ut_)
+{
+  const double test = basis[0]->phi(i);
+  const double u_t = test * basis[0]->phi(j)/dt_;
+  return u_t;
+}
+
+INI_FUNC(init_eta_)
+{
+  const double sqrt2 = std::sqrt(2.);
+  const double sqrtw = std::sqrt(pfhub2::w_);
+  return 0.5*(1.0 - tanh(((x - 30)*sqrtw)/(pfhub2::k_eta_*sqrt2)));
+}
+
+INI_FUNC(init_c_)
+{
+  const double eta = init_eta_(x, y, z, eqn_id, lid);
+  const double hh = energydensity::h(&eta);
+  return energydensity::c2_*hh + initial_c_alpha_*(1. - hh);
+}
+
+PPR_FUNC(postproc_mu_)
+{
+  const double c = u[pfhub2::ci_];
+  const double eta[1] = {u[2]};
+  return energydensity::dfdc(c,eta);
+}
+
+}  // namespace tonks
+
 
 namespace ternarytest
 {

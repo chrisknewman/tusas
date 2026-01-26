@@ -3283,6 +3283,11 @@ PARAM_FUNC(param_)
   L_ = L_*t0_*f0_;
   w_ = w_/f0_;
 }
+
+KOKKOS_INLINE_FUNCTION
+const double mobility(const double hh) {
+  return M_*(1. - hh) + hh;
+} 
     
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_kks_)
@@ -3344,8 +3349,8 @@ RES_FUNC_TPETRA(residual_c_kks_)
                     DfDc[1]*dhdx[1] + D2fDc2*dcdx[1]};
   double dfdy[2] = {DfDc[0]*dhdy[0] + D2fDc2*dcdy[0],
                     DfDc[1]*dhdy[1] + D2fDc2*dcdy[1]};
-  double divgradc[2] = {M_*(dfdx[0]*dtestdx + dfdy[0]*dtestdy),
-                        M_*(dfdx[1]*dtestdx + dfdy[1]*dtestdy)};
+  double divgradc[2] = {mobility(hh[0])*(dfdx[0]*dtestdx + dfdy[0]*dtestdy),
+                        mobility(hh[1])*(dfdx[1]*dtestdx + dfdy[1]*dtestdy)};
 
   return ct + t_theta_*divgradc[0] + (1. - t_theta_)*divgradc[1];
 }

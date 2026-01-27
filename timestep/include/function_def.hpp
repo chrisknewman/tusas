@@ -2691,7 +2691,7 @@ double dhdeta(const double eta)
 KOKKOS_INLINE_FUNCTION 
 const double dgdeta(const double *eta, const int eqn_id)
 {
-  double aval =0.;
+  double aval = 0.;
   for (int i = 0; i < N_ETA_; i++){
     aval += eta[i]*eta[i];
   }
@@ -3458,12 +3458,12 @@ INI_FUNC(init_c_)
 {
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = energydensity::h(&eta);
-  return energydensity::c2_*hh + energydensity::c1_*(1. - hh);
+  return energydensity::c1_*hh + energydensity::c2_*(1. - hh);
 }
 
 PPR_FUNC(postproc_mu_)
 {
-  const double c = u[pfhub2::ci_];
+  const double c = u[ci_];
   const double eta[1] = {u[2]};
   return energydensity::dfdc(c,eta);
 }

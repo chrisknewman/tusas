@@ -3449,9 +3449,10 @@ PRE_FUNC_TPETRA(prec_ut_)
 
 INI_FUNC(init_eta_)
 {
-  const double sqrt2 = std::sqrt(2.);
-  const double sqrtw = std::sqrt(pfhub2::w_);
-  return 0.5*(1.0 - tanh(((x - 30)*sqrtw)/(pfhub2::k_eta_*sqrt2)));
+  //const double sqrt2 = std::sqrt(2.);
+  //const double sqrtw = std::sqrt(pfhub2::w_);
+  //return 0.5*(1.0 - tanh(((x - 30)*sqrtw)/(pfhub2::k_eta_*sqrt2)));
+  return (x < 30) ? 1. : 0.;
 }
 
 INI_FUNC(init_c_)

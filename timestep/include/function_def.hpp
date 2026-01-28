@@ -637,7 +637,7 @@ int kks_max_iter_ = 20;
 PARAM_FUNC(param_)
 {
   kks_tol_ = plist->get<double>("kks_tol_",kks_tol_); 
-  kks_max_iter_ = plist->get<double>("kks_max_iter_",kks_max_iter_);
+  kks_max_iter_ = plist->get<int>("kks_max_iter_",kks_max_iter_);
 }
   
 KOKKOS_INLINE_FUNCTION 

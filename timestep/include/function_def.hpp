@@ -639,54 +639,99 @@ PARAM_FUNC(param_)
   kks_tol_ = plist->get<double>("kks_tol_",kks_tol_); 
   kks_max_iter_ = plist->get<int>("kks_max_iter_",kks_max_iter_);
 }
-  
-KOKKOS_INLINE_FUNCTION 
-int solve_kks(const double &c, //input c
-	      const double &hh, //input h(phi)
-	      double &cb, //output cb; input initial guess for cb ie ceq_b
-	      double &ca, //output ca; input initial guess for ca ie ceq_a
-	      const double DFBETADC(const double c), //f_beta'(c)
-	      const double DFALPHADC(const double c), //f_alpha'(c)
-	      const double D2FBETADC2(), //f_beta''(c)
-	      const double D2FALPHADC2(), //f_alpha''(c)
-	      const double &T = 0.) //input T
-  {
-    //if(hh > .999 || hh < .001) return 0; //hack for single phase; leads to more global iters but comparable cpu time
-    double delta_c_b = 0.;
-    double delta_c_a = 0.;
-    const int max_iter = kks_max_iter_;
-    const double tol = kks_tol_;
-    
-    ca = (1.-hh)*ca;
-    cb=hh*cb;
 
-    int n = 0;
-    //std::cout<<"-1"<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<c_b[0]<<" "<<c_a[0]<<" "<<hh*c_b[0] + (1.- hh)*c_a[0]<<" "<<c<<std::endl;
-    for(int i = 0; i < max_iter; i++){
-      const double d2falphadc2 = (*D2FALPHADC2)();
-      const double d2fbetadc2 = (*D2FBETADC2)();
-      const double det = -hh*d2falphadc2 - (1.-hh)*d2fbetadc2;
-      const double f1 = hh*cb + (1.- hh)*ca - c;
-      const double f2 = (*DFBETADC)(cb) - (*DFALPHADC)(ca);
-      delta_c_b = (d2falphadc2*f1 + (1-hh)*f2)/det;
-      delta_c_a = (d2fbetadc2*f1 - hh*f2)/det;
-      cb = delta_c_b + cb;
-      ca = delta_c_a + ca;
-      ++n;
-      //std::cout<<i<<" "<<delta_c_b<<" "<<delta_c_a<<" "<<cb<<" "<<ca<<" "<<hh*cb + (1.- hh)*ca<<" "<<c<<std::endl;
-      if(delta_c_a*delta_c_a+delta_c_b*delta_c_b < tol*tol) return 0;
-    }
-    printf("###################################  solve_kks failed to converge with delta_c_a*delta_c_a+delta_c_b*delta_c_b = %f  ###################################\n",
-       delta_c_a * delta_c_a + delta_c_b * delta_c_b);
-    printf("  hh  = %f \n",hh);
-    printf("  cb  = %f \n",cb);
-    printf("  ca  = %f \n",ca);
-    printf("################################### \n\n\n\n");
+KOKKOS_INLINE_FUNCTION
+int solve_kks(const double &c1,  // in: c1
+              const double &hh,  // in: h(eta)
+              double &c1a,  // out: c1a, in, initial guess
+              double &c1b,  // out: c1b, in: initial guess 
+              const double DFA_DC(const double c),  // in: fa'(ca)
+              const double DFB_DC(const double c),  // in: fb'(cb)
+              const double D2FA_DC2(),  // in: fa''() [constant for now]
+              const double D2FB_DC2(),  // in: fb''() [constant for now]
+              const double &T = 0.)  // in: time
+{
+  /*
+   * here, we are using notation similar to that in
+   * Tonks [10.1016/j.commatsci.2023.112375]:
+   *   a = phase a, corresponds to eta
+   *   b = phase b, corresponds to (1 - eta)
+   *   fa = free energy in phase a
+   *   fb = free energy in phase b
+   *   c1 = molar fraction of component 1
+   *   c1a = subset of c1 contained in phase a,
+   *         corresponds to h
+   *   c1b = subset of c1 contained in phase b,
+   *         corresponds to (1 - h)
+   * as implied above, note that
+   *   c1 = c1a * h + c1b * (1 - h)
+   */
 
-    exit(0);
-    return n;
+  // meta variables
+  double err2 = 0.;
+  double delta_c1b = 0.;
+  double delta_c1a = 0.;
+  const int max_iter = kks_max_iter_;
+  const double tol = kks_tol_;
+
+  // initial guess for ca and cb
+  c1a = hh * c1a;
+  c1b = (1 - hh) * c1b;
+
+  // terms for the kks solve
+  double d2fa_dc2 = (*D2FA_DC2)();
+  double d2fb_dc2 = (*D2FB_DC2)();
+  double f1 = hh * c1a + (1 - hh) * c1b - c1;
+  double f2 = (*DFA_DC)(c1a) - (*DFB_DC)(c1b);
+
+  /* 
+   * newton iteration loop
+   * the function we are finding the roots (ca, cb) of is
+   *   F = [[ hh * ca - (1 - hh) * cb - c ],
+   *        [ dfa_dc(ca) - dfb_dc(cb) ]]
+   * the jacobian in this case is
+   *   J = [[ hh        (1 - hh) ],
+   *        [ d2fa_dc2  -d2fb_dc2 ]]
+   * so, the inverse is
+   *   J^-1 = [[ -d2fb_dc2  -(1 - hh) ],
+   *           [ d2fa_dc2   hh ]] / det(J)
+   * then,
+   *   delta = -J^-1 @ F 
+   */
+  for (int i = 0; i < max_iter; ++i) {
+    // det(J)
+    const double detjac = -hh * d2fb_dc2 - (1 - hh) * d2fa_dc2;
+
+    // -J^-1 @ F
+    delta_c1a = -(-d2fb_dc2 * f1 - (1 - hh) * f2) / detjac;
+    delta_c1b = -(-d2fa_dc2 * f1 + hh * f2) / detjac;
+
+    // new value for (ca, cb)
+    c1a += delta_c1a;
+    c1b += delta_c1b;
+
+    // recalculate subset of terms for next iteration
+    f1 = hh * c1a + (1 - hh) * c1b - c1;
+    f2 = (*DFA_DC)(c1a) - (*DFB_DC)(c1b);
+
+    // check error and return if done
+    err2 = f1 * f1 + f2 * f2;
+    if (err2 < tol * tol) return 0;
+
+    // recalculate remaining terms for next iteration
+    d2fa_dc2 = (*D2FA_DC2)();
+    d2fb_dc2 = (*D2FB_DC2)();
   }
+
+  // max iters exceeded
+  std::cout << "#### solve_kks() failed to converge!" << std::endl
+            << "#### current error = " << std::sqrt(err2) << std::endl
+            << "#### tol = " << tol << std::endl;
+  exit(-1);
+}
+  
 }  // namespace kks
+
 
 /*
 Implementation of KKS solver for single phase 3 component alloys:
@@ -3325,16 +3370,16 @@ RES_FUNC_TPETRA(residual_c_kks_)
                         energydensity::h(eta_array_old)};
   double c_a[2] = {energydensity::c1_, energydensity::c1_};
   double c_b[2] = {energydensity::c2_, energydensity::c2_};
-  kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],
-                 energydensity::df_betadc_beta,
+  kks::solve_kks(c[0],hh[0],c_a[0],c_b[0],
                  energydensity::df_alphadc_alpha,
-                 energydensity::d2f_betadc_beta2,
-                 energydensity::d2f_alphadc_alpha2);
-  kks::solve_kks(c[1],hh[1],c_b[1],c_a[1],
                  energydensity::df_betadc_beta,
+                 energydensity::d2f_alphadc_alpha2,
+                 energydensity::d2f_betadc_beta2);
+  kks::solve_kks(c[1],hh[1],c_a[1],c_b[1],
                  energydensity::df_alphadc_alpha,
-                 energydensity::d2f_betadc_beta2,
-                 energydensity::d2f_alphadc_alpha2);
+                 energydensity::df_betadc_beta,
+                 energydensity::d2f_alphadc_alpha2,
+                 energydensity::d2f_betadc_beta2);
 
   
   double ct = (c[0] - c[1])/dt_*test;
@@ -3391,21 +3436,21 @@ RES_FUNC_TPETRA(residual_eta_kks_)
                         energydensity::h(eta_array_oldold)};
   double c_a[3] = {energydensity::c1_, energydensity::c1_, energydensity::c1_};
   double c_b[3] = {energydensity::c2_, energydensity::c2_, energydensity::c2_};
-  kks::solve_kks(c[0],hh[0],c_b[0],c_a[0],
-                 energydensity::df_betadc_beta,
+  kks::solve_kks(c[0],hh[0],c_a[0],c_b[0],
                  energydensity::df_alphadc_alpha,
-                 energydensity::d2f_betadc_beta2,
-                 energydensity::d2f_alphadc_alpha2);
-  kks::solve_kks(c[1],hh[1],c_b[1],c_a[1],
                  energydensity::df_betadc_beta,
+                 energydensity::d2f_alphadc_alpha2,
+                 energydensity::d2f_betadc_beta2);
+  kks::solve_kks(c[1],hh[1],c_a[1],c_b[1],
                  energydensity::df_alphadc_alpha,
-                 energydensity::d2f_betadc_beta2,
-                 energydensity::d2f_alphadc_alpha2);
-  kks::solve_kks(c[2],hh[2],c_b[2],c_a[2],
                  energydensity::df_betadc_beta,
+                 energydensity::d2f_alphadc_alpha2,
+                 energydensity::d2f_betadc_beta2);
+  kks::solve_kks(c[2],hh[2],c_a[2],c_b[2],
                  energydensity::df_alphadc_alpha,
-                 energydensity::d2f_betadc_beta2,
-                 energydensity::d2f_alphadc_alpha2);
+                 energydensity::df_betadc_beta,
+                 energydensity::d2f_alphadc_alpha2,
+                 energydensity::d2f_betadc_beta2);
 
   const int k = eqn_id - eqn_off_;
   const double df_deta[3] = {L_*(energydensity::dfdeta(c[0],eta[0])

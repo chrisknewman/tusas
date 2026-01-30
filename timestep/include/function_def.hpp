@@ -3380,14 +3380,13 @@ RES_FUNC_TPETRA(residual_c_kks_)
                  energydensity::df_betadc_beta,
                  energydensity::d2f_alphadc_alpha2,
                  energydensity::d2f_betadc_beta2);
-
   
   double ct = (c[0] - c[1]) / dt_ * test;
 
-  double DfDc[2] = {energydensity::df_betadc_beta(c[0])
-                      - energydensity::df_alphadc_alpha(c[0]),
-		    energydensity::df_betadc_beta(c[1])
-                      - energydensity::df_alphadc_alpha(c[1])};
+  double DfDc[2] = {energydensity::df_alphadc_alpha(c_a[0])
+                      - energydensity::df_betadc_beta(c_b[0]),
+		    energydensity::df_alphadc_alpha(c_a[1])
+                      - energydensity::df_betadc_beta(c_b[1])};
   double D2fDc2 = energydensity::d2f_alphadc_alpha2();
 
   double dfdx[2] = {DfDc[0] * dhdx[0] + D2fDc2 * dcdx[0],
@@ -3431,7 +3430,7 @@ RES_FUNC_TPETRA(residual_eta_kks_)
     eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   }
 
-  const double hh[3] = {energydensity::h(eta_array),
+  /*const double hh[3] = {energydensity::h(eta_array),
                         energydensity::h(eta_array_old),
                         energydensity::h(eta_array_oldold)};
   double c_a[3] = {energydensity::c1_, energydensity::c1_, energydensity::c1_};
@@ -3450,7 +3449,7 @@ RES_FUNC_TPETRA(residual_eta_kks_)
                  energydensity::df_alphadc_alpha,
                  energydensity::df_betadc_beta,
                  energydensity::d2f_alphadc_alpha2,
-                 energydensity::d2f_betadc_beta2);
+                 energydensity::d2f_betadc_beta2);*/
 
   const int k = eqn_id - eqn_off_;
   const double df_deta[3] = {L_ * (energydensity::dfdeta(c[0], eta[0])
@@ -3510,7 +3509,7 @@ PPR_FUNC(postproc_mu_)
 {
   const double c = u[ci_];
   const double eta[1] = {u[2]};
-  return energydensity::dfdc(c,eta);
+  return energydensity::dfdc(c, eta);
 }
 
 }  // namespace tonks

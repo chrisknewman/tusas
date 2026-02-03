@@ -3585,8 +3585,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::tonks::param_;
 
-    post_proc.push_back(new post_process(mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu_;
+    /*post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu1_;*/
     
   }else if("tonks1kks" == paramList.get<std::string> (TusastestNameString)){
 
@@ -3620,7 +3620,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &tpetra::tonks::param_;
 
     post_proc.push_back(new post_process(mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu_;
+    post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu1_;
+    post_proc.push_back(new post_process(mesh_,(int)1));
+    post_proc[1].postprocfunc_ = &tpetra::tonks::postproc_mu2_;
     
   }else if("cahnhilliard" == paramList.get<std::string> (TusastestNameString)){
     //std::cout<<"cahnhilliard"<<std::endl;

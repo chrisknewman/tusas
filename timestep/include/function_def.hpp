@@ -3476,10 +3476,14 @@ RES_FUNC_TPETRA(residual_c_kks_)
                       energydensity::d2f_alphadc_alpha2() * energydensity::d2f_betadc_beta2() 
                         / ((1 - hh[1]) * energydensity::d2f_betadc_beta2() + hh[1] * energydensity::d2f_alphadc_alpha2())};
 
-  double dfdx[2] = {DfDc[0] * dhdx[0] + D2fDc2[0] * dcdx[0],
+  double dfdx[2] = {D2fDc2[0] * dcdx[0],
+                    D2fDc2[1] * dcdx[1]};
+  double dfdy[2] = {D2fDc2[0] * dcdy[0],
+                    D2fDc2[1] * dcdy[1]};
+  /*double dfdx[2] = {DfDc[0] * dhdx[0] + D2fDc2[0] * dcdx[0],
                     DfDc[1] * dhdx[1] + D2fDc2[1] * dcdx[1]};
   double dfdy[2] = {DfDc[0] * dhdy[0] + D2fDc2[0] * dcdy[0],
-                    DfDc[1] * dhdy[1] + D2fDc2[1] * dcdy[1]};
+                    DfDc[1] * dhdy[1] + D2fDc2[1] * dcdy[1]};*/
   double divgradc[2] = {mobility(hh[0]) * (dfdx[0] * dtestdx + dfdy[0] * dtestdy),
                         mobility(hh[1]) * (dfdx[1] * dtestdx + dfdy[1] * dtestdy)};
 
@@ -3632,7 +3636,8 @@ INI_FUNC(init_eta_)
 {
   const double sqrt2 = std::sqrt(2.);
   const double sqrtw = std::sqrt(pfhub2::w_);
-  return 0.5 * (1.0 - tanh(((x - 30.) * sqrtw) / (pfhub2::k_eta_ * sqrt2)));
+  //return 0.5 * (1.0 - tanh(((x - 30.) * sqrtw) / (pfhub2::k_eta_ * sqrt2)));
+  return x < 30 ? 1 : 0;
 }
 
 INI_FUNC(init_c_)

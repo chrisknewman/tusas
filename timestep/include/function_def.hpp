@@ -2627,6 +2627,7 @@ INI_FUNC(init_phase_pfhub3_)
 
 }//namespace pfhub3
 
+
 namespace parabolicenergy
 {
   /*
@@ -2648,8 +2649,6 @@ namespace parabolicenergy
    * where we assume that ca = cb = c for non-kks solves
    *
    */
-  // notation from Sheng 2022, eqns 8, 9
-  // values from pfhub2
   TUSAS_DEVICE
   double Aa_ = 2.;
   TUSAS_DEVICE
@@ -2769,7 +2768,7 @@ const double dg_deta(const double *eta, const int eqn_id)
 KOKKOS_INLINE_FUNCTION 
 double f(const double c, const double *eta)
 {
-  // assumes that ca and cb are the same quanitity, e.eg p
+  // assumes that ca and cb are the same quanitity 
   const double hh = h(eta);
   return fa(c) * hh + fb(c) * (1. - hh);
 }
@@ -2900,7 +2899,7 @@ PARAM_FUNC(param_)
   t0_ = plist->get<double>("t0_", t0_);
 
   k_c_ = plist->get<double>("k_c_", k_c_);
-  k_eta_ = plist->get<double>("k_eta_", k_eta_);
+  k_eta_ = plist->get<double>("k_eta_", 3.);  // TODO: should be 6, was 3 for current Gold.e's
   M_ = plist->get<double>("M_", M_);
   L_ = plist->get<double>("L_", L_);
   w_ = plist->get<double>("w_", w_);
@@ -2961,20 +2960,20 @@ RES_FUNC_TPETRA(residual_c_)
     dhdy[1] += parabolicenergy::dh_deta(basis[kk_off]->uuold()) * basis[kk_off]->duuolddy();
   }
   
-  double ct = (c[0] - c[1])/dt_*test;
+  double ct = (c[0] - c[1]) / dt_ * test;
 
-  double DfDc[2] = {parabolicenergy::dfb_dcb(c[0])
-                      - parabolicenergy::dfa_dca(c[0]),
-		    parabolicenergy::dfb_dcb(c[1])
-                      - parabolicenergy::dfa_dca(c[1])};
-  double D2fDc2 = parabolicenergy::d2fa_dca2();
+  double DfDc[2] = {parabolicenergy::dfa_dca(c[0])
+                      - parabolicenergy::dfb_dcb(c[0]),
+                    parabolicenergy::dfa_dca(c[1])
+                      - parabolicenergy::dfb_dcb(c[1])};
+  double D2fDc2 = parabolicenergy::d2fb_dcb2();
 
-  double dfdx[2] = {DfDc[0]*dhdx[0] + D2fDc2*dcdx[0],
-                    DfDc[1]*dhdx[1] + D2fDc2*dcdx[1]};
-  double dfdy[2] = {DfDc[0]*dhdy[0] + D2fDc2*dcdy[0],
-                    DfDc[1]*dhdy[1] + D2fDc2*dcdy[1]};
-  double divgradc[2] = {M_*(dfdx[0]*dtestdx + dfdy[0]*dtestdy),
-                        M_*(dfdx[1]*dtestdx + dfdy[1]*dtestdy)};
+  double dfdx[2] = {DfDc[0] * dhdx[0] + D2fDc2 * dcdx[0],
+                    DfDc[1] * dhdx[1] + D2fDc2 * dcdx[1]};
+  double dfdy[2] = {DfDc[0] * dhdy[0] + D2fDc2 * dcdy[0],
+                    DfDc[1] * dhdy[1] + D2fDc2 * dcdy[1]};
+  double divgradc[2] = {M_ * (dfdx[0] * dtestdx + dfdy[0] * dtestdy),
+                        M_ * (dfdx[1] * dtestdx + dfdy[1] * dtestdy)};
 
   return ct + t_theta_ * divgradc[0] + (1. - t_theta_) * divgradc[1];
 }
@@ -2986,7 +2985,7 @@ KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_c_split_)
 {
   // c_t + M grad mu grad test
-  const double ut = (basis[ci_]->uu() - basis[ci_]->uuold())/dt_*basis[0]->phi(i);
+  const double ut = (basis[ci_]->uu() - basis[ci_]->uuold()) / dt_ * basis[0]->phi(i);
   // M_ divgrad mu
   // mu is not time dependent so this makes no sense for theta .ne. 1
   const double f[3] = {M_ * (basis[mui_]->duudx() * basis[0]->dphidx(i)
@@ -3065,8 +3064,8 @@ RES_FUNC_TPETRA(residual_mu_)
   const double test = basis[0]->phi(i);
 
   const double divgradc = k_c_ * (basis[ci_]->duudx() * basis[0]->dphidx(i)
-                          + basis[ci_]->duudy() * basis[0]->dphidy(i)
-                          + basis[ci_]->duudz() * basis[0]->dphidz(i));
+                            + basis[ci_]->duudy() * basis[0]->dphidy(i)
+                            + basis[ci_]->duudz() * basis[0]->dphidz(i));
   
   double eta_array[N_ETA_MAX];
   for(int kk = 0; kk < N_ETA_; kk++){

@@ -22,11 +22,11 @@
   <Parameter name="outputfreq" type="int" value = "5000"/> 
 
   <ParameterList name="ProblemParams">
-    <Parameter name="A_alpha" type="double" value="100"/><!--J/m^3-->
-    <Parameter name="A_beta" type="double" value="100"/><!--J/m^3-->
-    <Parameter name="c1" type="double" value="0.6"/>
-    <Parameter name="c2" type="double" value="0.4"/>
-    <Parameter name="f2" type="double" value="10.0"/>
+    <Parameter name="Aa" type="double" value="100"/><!--J/m^3-->    
+    <Parameter name="Ab" type="double" value="100"/><!--J/m^3-->
+    <Parameter name="c1" type="double" value="0.4"/>
+    <Parameter name="c2" type="double" value="0.6"/>
+    <Parameter name="f1" type="double" value="-10.0"/>
   </ParameterList>
 
   <ParameterList name="Nonlinear Solver">

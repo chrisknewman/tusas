@@ -3037,12 +3037,6 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[0] = &tpetra::pfhub2::param_split_offset_;
     paramfunc_[1] = &tpetra::pfhub2::param_;
 
-    //post_proc.push_back(new post_process(mesh_,(int)0));
-    //post_proc[0].postprocfunc_ = &pfhub2::postproc_c_b_;
-
-    //post_proc.push_back(new post_process(mesh_,(int)1));
-    //post_proc[1].postprocfunc_ = &tpetra::pfhub2::postproc_c_a_;
-
   }else if("pfhub2trans" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

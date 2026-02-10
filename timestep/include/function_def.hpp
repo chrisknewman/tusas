@@ -2962,18 +2962,18 @@ RES_FUNC_TPETRA(residual_c_)
   
   double ct = (c[0] - c[1]) / dt_ * test;
 
-  double DfDc[2] = {parabolicenergy::dfa_dca(c[0])
-                      - parabolicenergy::dfb_dcb(c[0]),
-                    parabolicenergy::dfa_dca(c[1])
-                      - parabolicenergy::dfb_dcb(c[1])};
-  double D2fDc2 = parabolicenergy::d2fb_dcb2();
+  double d2f_dcdh[2] = {parabolicenergy::dfa_dca(c[0])
+                          - parabolicenergy::dfb_dcb(c[0]),
+                        parabolicenergy::dfa_dca(c[1])
+                          - parabolicenergy::dfb_dcb(c[1])};
+  double d2f_dc2 = parabolicenergy::d2fb_dcb2();  // only when d2fa_dcb2 == d2fb_dcb2
 
-  double dfdx[2] = {DfDc[0] * dhdx[0] + D2fDc2 * dcdx[0],
-                    DfDc[1] * dhdx[1] + D2fDc2 * dcdx[1]};
-  double dfdy[2] = {DfDc[0] * dhdy[0] + D2fDc2 * dcdy[0],
-                    DfDc[1] * dhdy[1] + D2fDc2 * dcdy[1]};
-  double divgradc[2] = {M_ * (dfdx[0] * dtestdx + dfdy[0] * dtestdy),
-                        M_ * (dfdx[1] * dtestdx + dfdy[1] * dtestdy)};
+  double d2f_dcdx[2] = {d2f_dcdh[0] * dhdx[0] + d2f_dc2 * dcdx[0],
+                        d2f_dcdh[1] * dhdx[1] + d2f_dc2 * dcdx[1]};
+  double d2f_dcdy[2] = {d2f_dcdh[0] * dhdy[0] + d2f_dc2 * dcdy[0],
+                        d2f_dcdh[1] * dhdy[1] + d2f_dc2 * dcdy[1]};
+  double divgradc[2] = {M_ * (d2f_dcdx[0] * dtestdx + d2f_dcdy[0] * dtestdy),
+                        M_ * (d2f_dcdx[1] * dtestdx + d2f_dcdy[1] * dtestdy)};
 
   return ct + t_theta_ * divgradc[0] + (1. - t_theta_) * divgradc[1];
 }
@@ -3235,63 +3235,6 @@ const double mobility(const double hh) {
 } 
 
 KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_c_)
-{
-  // derivatives of the test function
-  double dtestdx = basis[0]->dphidx(i);
-  double dtestdy = basis[0]->dphidy(i);
-  // test function
-  double test = basis[0]->phi(i);
-  TUSAS_DEVICE
-  // u, phi
-  double c[2] = {basis[0]->uu(), basis[0]->uuold()};
-  double dcdx[2] = {basis[0]->duudx(), basis[0]->duuolddx()};
-  double dcdy[2] = {basis[0]->duudy(), basis[0]->duuolddy()};
-
-  double dhdx[2] = {0., 0.};
-  double dhdy[2] = {0., 0.};
-
-  for(int kk = 0; kk < N_ETA_; kk++){
-    int kk_off = kk + eqn_off_;
-    dhdx[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudx();
-    dhdx[1] += parabolicenergy::dh_deta(basis[kk_off]->uuold()) * basis[kk_off]->duuolddx();
-    dhdy[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudy();
-    dhdy[1] += parabolicenergy::dh_deta(basis[kk_off]->uuold()) * basis[kk_off]->duuolddy();
-  }
-
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
-  for( int kk = 0; kk < N_ETA_; kk++){
-    int kk_off = kk + eqn_off_;
-    eta_array[kk] = basis[kk_off]->uu();
-    eta_array_old[kk] = basis[kk_off]->uuold();
-  }
-  const double hh[2] = {parabolicenergy::h(eta_array),
-                        parabolicenergy::h(eta_array_old)};
-
-  double ct = (c[0] - c[1]) / dt_ * test;
-
-  double DfDc[2] = {parabolicenergy::dfb_dcb(c[0])
-                      + parabolicenergy::dfa_dca(c[0]),
-		    parabolicenergy::dfb_dcb(c[1])
-                      + parabolicenergy::dfa_dca(c[1])};
-  double D2fDc2 = parabolicenergy::d2fb_dcb2()
-                    + parabolicenergy::d2fa_dca2();
-
-  double dfdx[2] = {DfDc[0] * dhdx[0] + D2fDc2 * dcdx[0],
-                    DfDc[1] * dhdx[1] + D2fDc2 * dcdx[1]};
-  double dfdy[2] = {DfDc[0] * dhdy[0] + D2fDc2 * dcdy[0],
-                    DfDc[1] * dhdy[1] + D2fDc2 * dcdy[1]};
-  double divgradc[2] = {mobility(hh[0]) * (dfdx[0] * dtestdx + dfdy[0] * dtestdy),
-                        mobility(hh[1]) * (dfdx[1] * dtestdx + dfdy[1] * dtestdy)};
-
-  return ct + t_theta_ * divgradc[0] + (1. - t_theta_) * divgradc[1];
-}
-
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_c_dp_)) = residual_c_;
-
-KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_kks_)
 {
   // derivatives of the test function
@@ -3329,78 +3272,28 @@ RES_FUNC_TPETRA(residual_c_kks_)
   double ct = (c[0] - c[1]) / dt_ * test;
 
   // note that we don't actually need a kks solve here
-  // because grad df_dc only depends on D2fDc2, which is constant
+  // because grad df_dc only depends on d2f_dc2, which is constant
   // since the free energies are parabolic
-  // the fact that grad df_dc depends only on D2fDc2 follows from
+  // the fact that grad df_dc depends only on d2f_dc2 follows from
   // KKS eq (28) and eq (23)
     
-  double D2fDc2[2] = {parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
-                        / ((1 - hh[0]) * parabolicenergy::d2fb_dcb2() + hh[0] * parabolicenergy::d2fa_dca2()),
-                      parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
-                        / ((1 - hh[1]) * parabolicenergy::d2fb_dcb2() + hh[1] * parabolicenergy::d2fa_dca2())};
+  double d2f_dc2[2] = {parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
+                         / ((1 - hh[0]) * parabolicenergy::d2fb_dcb2() + hh[0] * parabolicenergy::d2fa_dca2()),
+                       parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
+                         / ((1 - hh[1]) * parabolicenergy::d2fb_dcb2() + hh[1] * parabolicenergy::d2fa_dca2())};
 
-  double dfdx[2] = {D2fDc2[0] * dcdx[0],
-                    D2fDc2[1] * dcdx[1]};
-  double dfdy[2] = {D2fDc2[0] * dcdy[0],
-                    D2fDc2[1] * dcdy[1]};
-  double divgradc[2] = {mobility(hh[0]) * (dfdx[0] * dtestdx + dfdy[0] * dtestdy),
-                        mobility(hh[1]) * (dfdx[1] * dtestdx + dfdy[1] * dtestdy)};
+  double d2f_dcdx[2] = {d2f_dc2[0] * dcdx[0],
+                        d2f_dc2[1] * dcdx[1]};
+  double d2f_dcdy[2] = {d2f_dc2[0] * dcdy[0],
+                        d2f_dc2[1] * dcdy[1]};
+  double divgradc[2] = {mobility(hh[0]) * (d2f_dcdx[0] * dtestdx + d2f_dcdy[0] * dtestdy),
+                        mobility(hh[1]) * (d2f_dcdx[1] * dtestdx + d2f_dcdy[1] * dtestdy)};
 
   return ct + t_theta_ * divgradc[0] + (1. - t_theta_) * divgradc[1];
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_c_kks_dp_)) = residual_c_kks_;
-
-KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_eta_)
-{
-  // test function
-  const double test = basis[0]->phi(i);
-  // u, phi
-  const double c[3] = {basis[ci_]->uu(), basis[ci_]->uuold(), basis[ci_]->uuoldold()};
-  const double eta[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
-  const double divgradeta[3] = {L_ * k_eta_ * (basis[eqn_id]->duudx() * basis[0]->dphidx(i)
-                                  + basis[eqn_id]->duudy() * basis[0]->dphidy(i)
-                                  + basis[eqn_id]->duudz() * basis[0]->dphidz(i)),
-                                L_ * k_eta_ * (basis[eqn_id]->duuolddx() * basis[0]->dphidx(i)
-                                  + basis[eqn_id]->duuolddy() * basis[0]->dphidy(i)
-                                  + basis[eqn_id]->duuolddz() * basis[0]->dphidz(i)),
-                                L_ * k_eta_ * (basis[eqn_id]->duuoldolddx() * basis[0]->dphidx(i)
-                                  + basis[eqn_id]->duuoldolddy() * basis[0]->dphidy(i)
-                                  + basis[eqn_id]->duuoldolddz() * basis[0]->dphidz(i))};
-
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
-  double eta_array_oldold[N_ETA_MAX];
-  for( int kk = 0; kk < N_ETA_; kk++){
-    int kk_off = kk + eqn_off_;
-    eta_array[kk] = basis[kk_off]->uu();
-    eta_array_old[kk] = basis[kk_off]->uuold();
-    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
-  }
-
-  const int k = eqn_id - eqn_off_;
-  const double df_deta[3] = {L_ * (parabolicenergy::df_deta(c[0], eta[0])
-                               + w_ * parabolicenergy::dg_deta(eta_array, k)) * test,
-                             L_ * (parabolicenergy::df_deta(c[1], eta[1])
-                               + w_ * parabolicenergy::dg_deta(eta_array_old, k)) * test,
-                             L_ * (parabolicenergy::df_deta(c[2], eta[2])
-                               + w_ * parabolicenergy::dg_deta(eta_array_oldold, k)) * test};
-  
-  const double f[3] = {df_deta[0] + divgradeta[0],
-                       df_deta[1] + divgradeta[1],
-                       df_deta[2] + divgradeta[2]};
-
-  const double ut = (eta[0] - eta[1]) / dt_ * test;
-
-  return ut + (1. - t_theta2_) * t_theta_ * f[0]
-           + (1. - t_theta2_) * (1. - t_theta_) * f[1]
-           + .5 * t_theta2_ * ((2. + dt_ / dtold_) * f[1] - dt_ / dtold_ * f[2]);
-}
-
-TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_eta_dp_)) = residual_eta_;
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_)

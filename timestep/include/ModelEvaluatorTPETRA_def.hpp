@@ -3115,7 +3115,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &tpetra::pfhub2::param_trans_;
     paramfunc_[2] = &tpetra::pfhub2::param_;
 
-  }else if("tonks1" == paramList.get<std::string> (TusastestNameString)){
+  }else if("tonks1wbm" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist("ProblemParams", false);
@@ -3124,8 +3124,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta + 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::tonks::residual_c_dp_;
-    (*residualfunc_)[1] = tpetra::tonks::residual_eta_dp_;
+    (*residualfunc_)[0] = tpetra::pfhub2::residual_c_dp_;
+    (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[0] = &tpetra::tonks::prec_ut_;
@@ -3142,12 +3142,13 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(1);
+    paramfunc_.resize(2);
     paramfunc_[0] = &tpetra::tonks::param_;
+    paramfunc_[1] = &tpetra::pfhub2::param_;
 
-    /*post_proc.push_back(new post_process(mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu1_;*/
-    
+    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &tpetra::pfhub2::postproc_mu_;
+
   }else if("tonks1kks" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

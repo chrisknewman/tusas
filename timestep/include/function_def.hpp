@@ -3141,6 +3141,13 @@ INI_FUNC(init_mu_)
   return parabolicenergy::df_dc(c, &eta);
 }
 
+PPR_FUNC(postproc_mu_)
+{
+  const double c = u[ci_];
+  const double eta[1] = {u[eqn_off_]};
+  return parabolicenergy::df_dc(c, eta);
+}
+
 }  // namespace pfhub2
 
 

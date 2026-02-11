@@ -3251,41 +3251,50 @@ RES_FUNC_TPETRA(residual_c_kks_)
   double dhdx[2] = {0., 0.};
   double dhdy[2] = {0., 0.};
 
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     dhdx[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudx();
     dhdx[1] += parabolicenergy::dh_deta(basis[kk_off]->uuold()) * basis[kk_off]->duuolddx();
     dhdy[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudy();
     dhdy[1] += parabolicenergy::dh_deta(basis[kk_off]->uuold()) * basis[kk_off]->duuolddy();
-  }
-  
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
-  for( int kk = 0; kk < N_ETA_; kk++){
-    int kk_off = kk + eqn_off_;
+
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
   }
+  
   const double hh[2] = {parabolicenergy::h(eta_array),
                         parabolicenergy::h(eta_array_old)};
+  double ca[2] = {parabolicenergy::c1_, parabolicenergy::c1_};
+  double cb[2] = {parabolicenergy::c2_, parabolicenergy::c2_};
+  kks::solve_kks(c[0],hh[0],ca[0],cb[0],
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
+  kks::solve_kks(c[1],hh[1],ca[1],cb[1],
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
 
   double ct = (c[0] - c[1]) / dt_ * test;
 
-  // note that we don't actually need a kks solve here
-  // because grad df_dc only depends on d2f_dc2, which is constant
-  // since the free energies are parabolic
-  // the fact that grad df_dc depends only on d2f_dc2 follows from
-  // KKS eq (28) and eq (23)
-    
+  // KKS eq 29 
   double d2f_dc2[2] = {parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
-                         / ((1 - hh[0]) * parabolicenergy::d2fb_dcb2() + hh[0] * parabolicenergy::d2fa_dca2()),
+                         / ((1 - hh[0]) * parabolicenergy::d2fa_dca2() + hh[0] * parabolicenergy::d2fb_dcb2()),
                        parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
-                         / ((1 - hh[1]) * parabolicenergy::d2fb_dcb2() + hh[1] * parabolicenergy::d2fa_dca2())};
+                         / ((1 - hh[1]) * parabolicenergy::d2fa_dca2() + hh[1] * parabolicenergy::d2fb_dcb2())};
 
-  double d2f_dcdx[2] = {d2f_dc2[0] * dcdx[0],
-                        d2f_dc2[1] * dcdx[1]};
-  double d2f_dcdy[2] = {d2f_dc2[0] * dcdy[0],
-                        d2f_dc2[1] * dcdy[1]};
+  // calculating grad(f_c) based on KKS eq 33, assuming M = D / f_cc
+  // this also follows from eq 30 and the chain rule
+  //   grad(f_c) = f_cc * h' * (cb - ca) * grad(eta) + f_cc * grad(c) 
+  //             = f_cc * (cb - ca) * grad(h) + f_cc * grad(c) 
+  double d2f_dcdx[2] = {d2f_dc2[0] * (cb[0] - ca[0]) * dhdx[0] + d2f_dc2[0] * dcdx[0],
+                        d2f_dc2[1] * (cb[1] - ca[1]) * dhdx[1] + d2f_dc2[1] * dcdx[1]};
+  double d2f_dcdy[2] = {d2f_dc2[0] * (cb[0] - ca[0]) * dhdy[0] + d2f_dc2[0] * dcdy[0],
+                        d2f_dc2[1] * (cb[1] - ca[1]) * dhdy[1] + d2f_dc2[1] * dcdy[1]};
   double divgradc[2] = {mobility(hh[0]) * (d2f_dcdx[0] * dtestdx + d2f_dcdy[0] * dtestdy),
                         mobility(hh[1]) * (d2f_dcdx[1] * dtestdx + d2f_dcdy[1] * dtestdy)};
 

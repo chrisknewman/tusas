@@ -3161,6 +3161,8 @@ namespace tonks
   TUSAS_DEVICE
   int eqn_off_ = 1;
   TUSAS_DEVICE
+  const int eqn_off_split_ = 2;
+  TUSAS_DEVICE
   int ci_ = 0;
   TUSAS_DEVICE
   int mui_ = 1;
@@ -3230,6 +3232,16 @@ PARAM_FUNC(param_)
   w_ = w_ / f0_;
 }
 
+PARAM_FUNC(param_split_offset_)
+{
+  int eqn_off_p = plist->get<int>("OFFSET", eqn_off_split_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(eqn_off_, &eqn_off_p, sizeof(int));
+#else
+  eqn_off_ = eqn_off_p;
+#endif
+}
+
 KOKKOS_INLINE_FUNCTION
 const double mobility(const double hh) {
   return M_ * (1. - hh) + hh;
@@ -3269,12 +3281,12 @@ RES_FUNC_TPETRA(residual_c_kks_)
                         parabolicenergy::h(eta_array_old)};
   double ca[2] = {parabolicenergy::c1_, parabolicenergy::c1_};
   double cb[2] = {parabolicenergy::c2_, parabolicenergy::c2_};
-  kks::solve_kks(c[0],hh[0],ca[0],cb[0],
+  kks::solve_kks(c[0], hh[0], ca[0], cb[0],
                  parabolicenergy::dfa_dca,
                  parabolicenergy::dfb_dcb,
                  parabolicenergy::d2fa_dca2,
                  parabolicenergy::d2fb_dcb2);
-  kks::solve_kks(c[1],hh[1],ca[1],cb[1],
+  kks::solve_kks(c[1], hh[1], ca[1], cb[1],
                  parabolicenergy::dfa_dca,
                  parabolicenergy::dfb_dcb,
                  parabolicenergy::d2fa_dca2,
@@ -3304,6 +3316,79 @@ RES_FUNC_TPETRA(residual_c_kks_)
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_c_kks_dp_)) = residual_c_kks_;
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_c_split_kks_)
+{
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
+  }
+  const double hh[3] = {parabolicenergy::h(eta_array),
+                        parabolicenergy::h(eta_array_old),
+                        parabolicenergy::h(eta_array_oldold)};
+
+  // c_t + M grad mu grad test
+  const double ut = (basis[ci_]->uu() - basis[ci_]->uuold()) / dt_ * basis[0]->phi(i);
+  // M_ divgrad mu
+  // mu is not time dependent so this makes no sense for theta .ne. 1
+  const double f[3] = {mobility(hh[0]) * (basis[mui_]->duudx() * basis[0]->dphidx(i)
+                         + basis[mui_]->duudy() * basis[0]->dphidy(i)
+                         + basis[mui_]->duudz() * basis[0]->dphidz(i)),
+                       mobility(hh[1]) * (basis[mui_]->duuolddx() * basis[0]->dphidx(i)
+                         + basis[mui_]->duuolddy() * basis[0]->dphidy(i)
+                         + basis[mui_]->duuolddz() * basis[0]->dphidz(i)),
+                       mobility(hh[2]) * (basis[mui_]->duuoldolddx() * basis[0]->dphidx(i)
+                         + basis[mui_]->duuoldolddy() * basis[0]->dphidy(i)
+                         + basis[mui_]->duuoldolddz() * basis[0]->dphidz(i))};
+  
+  return ut + (1. - t_theta2_) * t_theta_*f[0]
+           + (1. - t_theta2_) * (1. - t_theta_) * f[1]
+           + .5 * t_theta2_ * ((2. + dt_ / dtold_) * f[1] - dt_ / dtold_ * f[2]);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_split_kks_dp_)) = residual_c_split_kks_;
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_mu_kks_)
+{
+  // -mu + df/dc + div c grad test
+  const double c = basis[ci_]->uu();
+  const double mu = basis[mui_]->uu();
+  const double test = basis[0]->phi(i);
+
+  const double divgradc = k_c_ * (basis[ci_]->duudx() * basis[0]->dphidx(i)
+                            + basis[ci_]->duudy() * basis[0]->dphidy(i)
+                            + basis[ci_]->duudz() * basis[0]->dphidz(i));
+  
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+  };
+  const double hh = parabolicenergy::h(eta_array);
+  double ca = parabolicenergy::c1_;
+  double cb = parabolicenergy::c2_;
+  kks::solve_kks(c, hh ,ca, cb,
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
+
+  // KKS eq 28
+  const double df_dc = parabolicenergy::dfa_dca(ca) * test;
+
+  return -mu * test + df_dc + divgradc;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_)
@@ -3338,17 +3423,17 @@ RES_FUNC_TPETRA(residual_eta_kks_)
                         parabolicenergy::h(eta_array_oldold)};
   double ca[3] = {parabolicenergy::c1_, parabolicenergy::c1_, parabolicenergy::c1_};
   double cb[3] = {parabolicenergy::c2_, parabolicenergy::c2_, parabolicenergy::c2_};
-  kks::solve_kks(c[0],hh[0],ca[0],cb[0],
+  kks::solve_kks(c[0], hh[0], ca[0], cb[0],
                  parabolicenergy::dfa_dca,
                  parabolicenergy::dfb_dcb,
                  parabolicenergy::d2fa_dca2,
                  parabolicenergy::d2fb_dcb2);
-  kks::solve_kks(c[1],hh[1],ca[1],cb[1],
+  kks::solve_kks(c[1], hh[1], ca[1], cb[1],
                  parabolicenergy::dfa_dca,
                  parabolicenergy::dfb_dcb,
                  parabolicenergy::d2fa_dca2,
                  parabolicenergy::d2fb_dcb2);
-  kks::solve_kks(c[2],hh[2],ca[2],cb[2],
+  kks::solve_kks(c[2], hh[2], ca[2], cb[2],
                  parabolicenergy::dfa_dca,
                  parabolicenergy::dfb_dcb,
                  parabolicenergy::d2fa_dca2,
@@ -3409,6 +3494,22 @@ INI_FUNC(init_c_)
   return parabolicenergy::c1_ * hh + parabolicenergy::c2_ * (1. - hh);
 }
 
+INI_FUNC(init_mu_)
+{
+  const double c = init_c_(x, y, z, eqn_id, lid);
+  const double eta = init_eta_(x, y, z, eqn_id, lid);
+  const double hh = parabolicenergy::h(&eta);
+  double ca = parabolicenergy::c1_;
+  double cb = parabolicenergy::c2_;
+  kks::solve_kks(c, hh, ca, cb,
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
+  // based off eq (28) in the original KKS paper
+  return parabolicenergy::dfa_dca(ca);
+}
+
 PPR_FUNC(postproc_mu_a_)
 {
   const double c = u[ci_];
@@ -3439,6 +3540,36 @@ PPR_FUNC(postproc_mu_b_)
                  parabolicenergy::d2fb_dcb2);
   // based off eq (28) in the original KKS paper
   return parabolicenergy::dfb_dcb(cb);
+}
+
+PPR_FUNC(postproc_ca_)
+{
+  const double c = u[ci_];
+  const double eta[1] = {u[1]};
+  const double hh = parabolicenergy::h(eta);
+  double ca = parabolicenergy::c1_;
+  double cb = parabolicenergy::c2_;
+  kks::solve_kks(c, hh, ca, cb,
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
+  return ca;
+}
+
+PPR_FUNC(postproc_cb_)
+{
+  const double c = u[ci_];
+  const double eta[1] = {u[1]};
+  const double hh = parabolicenergy::h(eta);
+  double ca = parabolicenergy::c1_;
+  double cb = parabolicenergy::c2_;
+  kks::solve_kks(c, hh, ca, cb,
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
+  return cb;
 }
 
 }  // namespace tonks

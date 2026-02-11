@@ -2825,7 +2825,8 @@ const double df_deta(const double ca, const double cb, const double eta)
 
   // dh(eta1, eta2) / deta1 is a function of eta1 only
   const double dhdeta = dh_deta(eta);
-  return fa(ca) * dhdeta + fb(cb) * (-dhdeta);
+  return fa(ca) * dhdeta + fb(cb) * (-dhdeta)
+           + dhdeta * dfb_dcb(cb) * (cb - ca);
 }
 
 }  // namespace parabolicenergy

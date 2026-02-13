@@ -2998,7 +2998,7 @@ RES_FUNC_TPETRA(residual_c_split_)
                        M_ * (basis[mui_]->duuoldolddx() * basis[0]->dphidx(i)
                          + basis[mui_]->duuoldolddy() * basis[0]->dphidy(i)
                          + basis[mui_]->duuoldolddz() * basis[0]->dphidz(i))};
-  return ut + (1. - t_theta2_) * t_theta_*f[0]
+  return ut + (1. - t_theta2_) * t_theta_ * f[0]
            + (1. - t_theta2_) * (1. - t_theta_) * f[1]
            + .5 * t_theta2_ * ((2. + dt_ / dtold_) * f[1] - dt_ / dtold_ * f[2]);
 }
@@ -3347,7 +3347,7 @@ RES_FUNC_TPETRA(residual_c_split_kks_)
                          + basis[mui_]->duuoldolddy() * basis[0]->dphidy(i)
                          + basis[mui_]->duuoldolddz() * basis[0]->dphidz(i))};
   
-  return ut + (1. - t_theta2_) * t_theta_*f[0]
+  return ut + (1. - t_theta2_) * t_theta_ * f[0]
            + (1. - t_theta2_) * (1. - t_theta_) * f[1]
            + .5 * t_theta2_ * ((2. + dt_ / dtold_) * f[1] - dt_ / dtold_ * f[2]);
 }
@@ -3383,7 +3383,6 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 
   // KKS eq 28
   const double df_dc = parabolicenergy::dfa_dca(ca) * test;
-
   return -mu * test + df_dc + divgradc;
 }
 
@@ -3531,9 +3530,14 @@ INI_FUNC(init_mu_)
 
 PPR_FUNC(postproc_mu_a_)
 {
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = u[kk_off];
+  }
+  const double hh = parabolicenergy::h(eta_array);
   const double c = u[ci_];
-  const double eta[1] = {u[1]};
-  const double hh = parabolicenergy::h(eta);
+
   double ca = parabolicenergy::c1_;
   double cb = parabolicenergy::c2_;
   kks::solve_kks(c, hh, ca, cb,
@@ -3547,9 +3551,14 @@ PPR_FUNC(postproc_mu_a_)
 
 PPR_FUNC(postproc_mu_b_)
 {
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = u[kk_off];
+  }
+  const double hh = parabolicenergy::h(eta_array);
   const double c = u[ci_];
-  const double eta[1] = {u[1]};
-  const double hh = parabolicenergy::h(eta);
+
   double ca = parabolicenergy::c1_;
   double cb = parabolicenergy::c2_;
   kks::solve_kks(c, hh, ca, cb,
@@ -3563,9 +3572,14 @@ PPR_FUNC(postproc_mu_b_)
 
 PPR_FUNC(postproc_ca_)
 {
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = u[kk_off];
+  }
+  const double hh = parabolicenergy::h(eta_array);
   const double c = u[ci_];
-  const double eta[1] = {u[1]};
-  const double hh = parabolicenergy::h(eta);
+
   double ca = parabolicenergy::c1_;
   double cb = parabolicenergy::c2_;
   kks::solve_kks(c, hh, ca, cb,
@@ -3578,9 +3592,14 @@ PPR_FUNC(postproc_ca_)
 
 PPR_FUNC(postproc_cb_)
 {
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = u[kk_off];
+  }
+  const double hh = parabolicenergy::h(eta_array);
   const double c = u[ci_];
-  const double eta[1] = {u[1]};
-  const double hh = parabolicenergy::h(eta);
+
   double ca = parabolicenergy::c1_;
   double cb = parabolicenergy::c2_;
   kks::solve_kks(c, hh, ca, cb,

@@ -3128,7 +3128,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[1] = tpetra::pfhub2::residual_eta_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::tonks::prec_ut_;
+    (*preconfunc_)[0] = &tpetra::tonks::prec_c_;
     (*preconfunc_)[1] = &tpetra::tonks::prec_eta_;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
@@ -3162,7 +3162,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[1] = tpetra::tonks::residual_eta_kks_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::tonks::prec_ut_;
+    (*preconfunc_)[0] = &tpetra::tonks::prec_c_;
     (*preconfunc_)[1] = &tpetra::tonks::prec_eta_;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
@@ -3182,12 +3182,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu_a_;
-    post_proc.push_back(new post_process(mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &tpetra::tonks::postproc_mu_b_;
-    post_proc.push_back(new post_process(mesh_,(int)2));
-    post_proc[2].postprocfunc_ = &tpetra::tonks::postproc_ca_;
-    post_proc.push_back(new post_process(mesh_,(int)3));
-    post_proc[3].postprocfunc_ = &tpetra::tonks::postproc_cb_;
+    //post_proc.push_back(new post_process(mesh_,(int)1));
+    //post_proc[1].postprocfunc_ = &tpetra::tonks::postproc_mu_b_;
+    //post_proc.push_back(new post_process(mesh_,(int)2));
+    //post_proc[2].postprocfunc_ = &tpetra::tonks::postproc_ca_;
+    //post_proc.push_back(new post_process(mesh_,(int)3));
+    //post_proc[3].postprocfunc_ = &tpetra::tonks::postproc_cb_;
     
   }else if("tonks1splitkks" == paramList.get<std::string> (TusastestNameString)){
 
@@ -3203,8 +3203,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[2] = tpetra::tonks::residual_eta_kks_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::tonks::prec_ut_;
-    (*preconfunc_)[1] = &tpetra::tonks::prec_ut_;
+    (*preconfunc_)[0] = &tpetra::tonks::prec_c_;
+    (*preconfunc_)[1] = &tpetra::tonks::prec_c_;
     (*preconfunc_)[2] = &tpetra::tonks::prec_eta_;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);

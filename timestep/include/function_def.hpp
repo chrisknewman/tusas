@@ -3472,19 +3472,38 @@ PRE_FUNC_TPETRA(prec_eta_)
 }
 
 KOKKOS_INLINE_FUNCTION 
-PRE_FUNC_TPETRA(prec_ut_)
+PRE_FUNC_TPETRA(prec_c_)
 {
   const double test = basis[0]->phi(i);
   const double u_t = test * basis[0]->phi(j) / dt_;
-  return u_t;
+  
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+  }
+  
+  const double hh = parabolicenergy::h(eta_array);
+  // note that we can skip the kks solve here only
+  // because the free energy is parabolic -- the
+  // second derivatives are constant
+  const double d2f_dc2 = parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
+                           / ((1 - hh) * parabolicenergy::d2fa_dca2() + hh * parabolicenergy::d2fb_dcb2());
+  const double divgradc = mobility(hh) * d2f_dc2 * (basis[0]->dphidx(j) * basis[0]->dphidx(i)
+                           + basis[0]->dphidy(j) * basis[0]->dphidy(i)
+                           + basis[0]->dphidz(j) * basis[0]->dphidz(i));
+  return u_t + t_theta_ * divgradc;
 }
 
 INI_FUNC(init_eta_)
 {
   const double sqrt2 = std::sqrt(2.);
-  const double sqrtw = std::sqrt(pfhub2::w_);
-  //return 0.5 * (1.0 - tanh(((x - 30.) * sqrtw) / (pfhub2::k_eta_ * sqrt2)));
-  return x < 30 ? 1 : 0;
+  const double sqrtw = std::sqrt(w_);
+  
+  // this is l = xi * sqrt(2 * k_eta_) / sqrtw with xi = 1 instead of 4
+  const double l = std::sqrt(2 * k_eta_) / sqrtw;
+  return 0.5 * (1. - tanh((x - 30.) / (l * sqrt2)));
+  //return x < 30 ? 1 : 0;
 }
 
 INI_FUNC(init_c_)

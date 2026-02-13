@@ -3514,9 +3514,14 @@ INI_FUNC(init_c_)
 
 INI_FUNC(init_mu_)
 {
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = init_eta_(x, y, z, kk_off, lid);
+  }
+  const double hh = parabolicenergy::h(eta_array);
   const double c = init_c_(x, y, z, eqn_id, lid);
-  const double eta = init_eta_(x, y, z, eqn_id, lid);
-  const double hh = parabolicenergy::h(&eta);
+
   double ca = parabolicenergy::c1_;
   double cb = parabolicenergy::c2_;
   kks::solve_kks(c, hh, ca, cb,

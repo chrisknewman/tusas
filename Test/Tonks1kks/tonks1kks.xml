@@ -7,8 +7,8 @@
   <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_1x300.e"/>
   <Parameter name="testcase" type="string" value="tonks1kks"/>
   <Parameter name="method" type="string" value="tpetra"/>
-  <Parameter name="preconditioner" type="bool" value = "false"/>
-  <Parameter name="theta" type="double" value="1."/><!-- only 1 for now -->
+  <Parameter name="preconditioner" type="bool" value="true"/>
+  <Parameter name="theta" type="double" value="1"/><!-- only 1 for now -->
 
   <Parameter name="noxrelres" type="double" value="1.e-6"/>
   <Parameter name="noxmaxiter" type="int" value = "40"/>
@@ -19,14 +19,15 @@
   <Parameter name="predmaxiter" type="int" value = "10"/>
 
   <Parameter name="ltpquadord" type="int" value = "3"/>
-  <Parameter name="outputfreq" type="int" value = "5000"/> 
+  <Parameter name="outputfreq" type="int" value = "100"/> 
 
   <ParameterList name="ProblemParams">
-    <Parameter name="Aa" type="double" value="100"/><!--J/m^3-->    
+    <Parameter name="Aa" type="double" value="100"/><!--J/m^3-->
     <Parameter name="Ab" type="double" value="100"/><!--J/m^3-->
     <Parameter name="c1" type="double" value="0.4"/>
     <Parameter name="c2" type="double" value="0.6"/>
     <Parameter name="f1" type="double" value="-10.0"/>
+    <Parameter name="kks_max_iter_" type="int" value="1"/>
   </ParameterList>
 
   <ParameterList name="Nonlinear Solver">

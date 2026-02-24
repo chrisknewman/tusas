@@ -8,12 +8,12 @@
   <Parameter name="testcase" type="string" value="tonks1kks"/>
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="preconditioner" type="bool" value="true"/>
-  <Parameter name="theta" type="double" value="1"/><!-- only 1 for now -->
+  <Parameter name="theta" type="double" value=".5"/><!-- only 1 for now -->
 
-  <Parameter name="noxrelres" type="double" value="1.e-6"/>
+  <Parameter name="noxrelres" type="double" value="1.e-7"/>
   <Parameter name="noxmaxiter" type="int" value = "40"/>
   <Parameter name="noxacceptfailed" type="bool" value = "false"/>
-  <Parameter name="noxforcestep" type="bool" value = "true"/>
+  <Parameter name="noxforcestep" type="bool" value = "false"/>
 
   <Parameter name="predrelres" type="double" value="1.e-3"/>
   <Parameter name="predmaxiter" type="int" value = "10"/>

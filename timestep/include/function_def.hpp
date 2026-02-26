@@ -601,6 +601,10 @@ PPR_FUNC(postproc_u2err_)
 
 namespace kks
 {
+typedef const double (*KKSTERNFUNC)(const double c1,
+                                    const double c2,
+                                    const double T);
+
 double kks_tol_ = 1e-10;
 int kks_max_iter_ = 20;
 
@@ -615,8 +619,8 @@ int solve_kks(const double &c1,  // in: c1
               const double &hh,  // in: h(eta)
               double &c1a,  // out: c1a, in, initial guess
               double &c1b,  // out: c1b, in: initial guess 
-              const double DFA_DC1A(const double c1a),  // in: fa'(ca)
-              const double DFB_DC1B(const double c1b),  // in: fb'(cb)
+              const double DFA_DC1A(const double c1a),  // in: fa'(c1a)
+              const double DFB_DC1B(const double c1b),  // in: fb'(c1b)
               const double D2FA_DC1A2(),  // in: fa''() [constant for now]
               const double D2FB_DC1B2(),  // in: fb''() [constant for now]
               const double &T = 0.)  // in: time
@@ -644,7 +648,7 @@ int solve_kks(const double &c1,  // in: c1
   const int max_iter = kks_max_iter_;
   const double tol = kks_tol_;
 
-  // initial guess for ca and cb
+  // initial guess for c1a and c1b
   c1a = hh * c1a;
   c1b = (1 - hh) * c1b;
 
@@ -657,14 +661,14 @@ int solve_kks(const double &c1,  // in: c1
   /* 
    * newton iteration loop
    * the function we are finding the roots (ca, cb) of is
-   *   F = [[ hh * ca - (1 - hh) * cb - c ],
-   *        [ dfa_dc1a(ca) - dfb_dc1b(cb) ]]
+   *   F = [ hh * c1a - (1 - hh) * c1b - c1,
+   *         dfa_dc1a(c1a) - dfb_dc1b(c1b) ]
    * the jacobian in this case is
-   *   J = [[ hh        (1 - hh) ],
-   *        [ d2fa_dc1a2  -d2fb_dc1b2 ]]
+   *   J = [[ hh,          (1 - hh) ],
+   *        [ d2fa_dc1a2,  -d2fb_dc1b2 ]]
    * so, the inverse is
-   *   J^-1 = [[ -d2fb_dc1b2  -(1 - hh) ],
-   *           [ d2fa_dc1a2   hh ]] / det(J)
+   *   J^-1 = [[ -d2fb_dc1b2,  -(1 - hh) ],
+   *           [ d2fa_dc1a2,   hh ]] / det(J)
    * then,
    *   delta = -J^-1 @ F 
    */
@@ -676,7 +680,7 @@ int solve_kks(const double &c1,  // in: c1
     delta_c1a = -(-d2fb_dc1b2 * f1 - (1 - hh) * f2) / detjac;
     delta_c1b = -(-d2fa_dc1a2 * f1 + hh * f2) / detjac;
 
-    // new value for (ca, cb)
+    // new value for (c1a, c1b)
     c1a += delta_c1a;
     c1b += delta_c1b;
 
@@ -701,9 +705,226 @@ int solve_kks(const double &c1,  // in: c1
 }
 
 KOKKOS_INLINE_FUNCTION
-int solve_kks()
+int solve_kks(const double &c1,  // in: c1
+              const double &c2,  // in: c1
+              const double &hh,  // in: h(eta)
+              double &c1a,  // out: c1a, in, initial guess
+              double &c1b,  // out: c1b, in: initial guess 
+              double &c2a,  // out: c2a, in, initial guess
+              double &c2b,  // out: c2b, in: initial guess 
+              KKSTERNFUNC DFA_DC1A,  // in: dfa/dc1a
+              KKSTERNFUNC DFB_DC1B,  // in: dfb/dc1b
+              KKSTERNFUNC DFA_DC2A,  // in: dfa/dc2a
+              KKSTERNFUNC DFB_DC2B,  // in: dfb/dc2b
+              KKSTERNFUNC D2FA_DC1A2,  // in: d2fa/dc1a2
+              KKSTERNFUNC D2FB_DC1B2,  // in: d2fb/dc1b2
+              KKSTERNFUNC D2FA_DC2A2,  // in: d2fa/dc2a2
+              KKSTERNFUNC D2FB_DC2B2,  // in: d2fb/dc2b2
+              KKSTERNFUNC D2FA_DC1ADC2A,  // in: d2fa/dc1adc2a
+              KKSTERNFUNC D2FB_DC1BDC2B,  // in: d2fb/dc1bdc2b
+              const double &T = 0.)  // in: time
 {
-  return 0;
+  /*
+   * here, we are using notation similar to that in
+   * Tonks [10.1016/j.commatsci.2023.112375]:
+   *   a = phase a, corresponds to eta
+   *   b = phase b, corresponds to (1 - eta)
+   *   fa = free energy in phase a
+   *   fb = free energy in phase b
+   *   c1 = molar fraction of component 1
+   *   c2 = molar fraction of component 2
+   *   c1a = subset of c1 contained in phase a,
+   *         corresponds to h
+   *   c1b = subset of c1 contained in phase b,
+   *         corresponds to (1 - h)
+   *   c2a = subset of c2 contained in phase a,
+   *         corresponds to h
+   *   c2b = subset of c2 contained in phase b,
+   *         corresponds to (1 - h)
+   * as implied above, note that
+   *   c1 = c1a * h + c1b * (1 - h)
+   *   c2 = c2a * h + c2b * (1 - h)
+   */
+
+  // meta variables
+  double err2 = 0.;
+  double delta_c1a = 0.;
+  double delta_c1b = 0.;
+  double delta_c2a = 0.;
+  double delta_c2b = 0.;
+  const int max_iter = kks_max_iter_;
+  const double tol = kks_tol_;
+
+  // initial guess for ca and cb
+  c1a = hh * c1a;
+  c1b = (1 - hh) * c1b;
+  c2a = hh * c2a;
+  c2b = (1 - hh) * c2b;
+
+  // terms for the kks solve
+  double dfa_dc1a = (*DFA_DC1A)(c1a, c2a, T);
+  double dfb_dc1b = (*DFB_DC1B)(c1b, c2b, T);
+  double dfa_dc2a = (*DFA_DC2A)(c1a, c2a, T);
+  double dfb_dc2b = (*DFB_DC2B)(c1b, c2b, T);
+
+  double d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a, T);
+  double d2fb_dc1b2 = (*D2FB_DC1B2)(c1a, c2a, T);
+  double d2fa_dc2a2 = (*D2FA_DC2A2)(c1a, c2a, T);
+  double d2fb_dc2b2 = (*D2FB_DC2B2)(c1a, c2a, T);
+  double d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a, T);
+  double d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a, T);
+
+  double f1 = hh * c1a + (1 - hh) * c1b - c1;
+  double f2 = hh * c2a + (1 - hh) * c2b - c2;
+  double f3 = dfa_dc1a - dfb_dc1b;
+  double f4 = dfa_dc2a - dfb_dc2b;
+
+  /* 
+   * newton iteration loop
+   * the function we are finding the roots 
+   * (c1a, c1b, c2a, c2b) of is
+   *   F = [ hh * c1a - (1 - hh) * c1b - c1,
+   *         hh * c2a - (1 - hh) * c2b - c2,
+   *         dfa_dc1a(c1a, c2a) - dfb_dc1b(c1b, c2b),
+   *         dfa_dc2a(c1a, c2a) - dfb_dc2b(c1b, c2b) ]
+   * the jacobian in this case is
+   *   J = [[ hh,            (1 - hh),       0,             0 ],
+   *        [ 0,             0,              hh,            (1 - hh) ],
+   *        [ d2fa_dc1a2,    -d2fb_dc1b2,    d2fa_dc1adc2a, -d2fb_dc2b2 ],
+   *        [ d2fa_dc1adc2a, -d2fb_dc1bdc2b, d2fa_dc2a2,    -d2fb_dc1bdc2b ]]
+   * we calculate the explicit form of J^-1 using sympy, then
+   *   delta = -J^-1 @ F
+   */
+  for(int i = 0; i < max_iter; i++) {
+    const double detjac = -d2fa_dc1a2 * d2fa_dc2a2 + std::pow(d2fa_dc1adc2a, 2) 
+                            - std::pow(hh, 2) * 
+                              (d2fa_dc1a2 * d2fa_dc2a2 
+                               - d2fa_dc1a2 * d2fb_dc1bdc2b 
+                               - std::pow(d2fa_dc1adc2a, 2) 
+                               + d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                               + d2fa_dc1adc2a * d2fb_dc2b2 
+                               - d2fa_dc2a2 * d2fb_dc1b2 
+                               + d2fb_dc1b2 * d2fb_dc1bdc2b 
+                               - d2fb_dc1bdc2b * d2fb_dc2b2) 
+                            - hh * 
+                              (-2 * d2fa_dc1a2 * d2fa_dc2a2 
+                               + d2fa_dc1a2 * d2fb_dc1bdc2b 
+                               + 2 * std::pow(d2fa_dc1adc2a, 2) 
+                               - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                               - d2fa_dc1adc2a * d2fb_dc2b2 
+                               + d2fa_dc2a2 * d2fb_dc1b2);
+
+    // -J^-1 @ F
+    delta_c1a = (f1 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                      - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                      - d2fa_dc2a2 * d2fb_dc1b2 * hh
+                      + d2fa_dc2a2 * d2fb_dc1b2 
+                      + d2fb_dc1b2 * d2fb_dc1bdc2b * hh 
+                      - d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
+                  + f2 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                          - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                          - d2fa_dc2a2 * d2fb_dc2b2*hh 
+                          + d2fa_dc2a2 * d2fb_dc2b2) 
+                  + f3 * (d2fa_dc2a2 * std::pow(hh, 2) 
+                          - 2 * d2fa_dc2a2 * hh 
+                          + d2fa_dc2a2 
+                          - d2fb_dc1bdc2b * std::pow(hh, 2) 
+                          + d2fb_dc1bdc2b * hh) 
+                  - f4 * (d2fa_dc1adc2a * std::pow(hh, 2) 
+                          - 2 * d2fa_dc1adc2a * hh 
+                          + d2fa_dc1adc2a 
+                          - d2fb_dc2b2 * std::pow(hh, 2) 
+                          + d2fb_dc2b2 * hh)) / detjac;
+    delta_c1b = (f1 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                       - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                       - d2fa_dc2a2 * d2fb_dc1b2 * hh 
+                       + d2fa_dc2a2 * d2fb_dc1b2 
+                       + d2fb_dc1b2 * d2fb_dc1bdc2b * hh 
+                       - d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
+                  + f2 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                          - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                          - d2fa_dc2a2 * d2fb_dc2b2 * hh 
+                          + d2fa_dc2a2 * d2fb_dc2b2) 
+                  + f3 * (d2fa_dc2a2 * std::pow(hh, 2) 
+                          - 2 * d2fa_dc2a2 * hh 
+                          + d2fa_dc2a2 
+                          - d2fb_dc1bdc2b * std::pow(hh, 2)
+                          + d2fb_dc1bdc2b*hh) 
+                  - f4 * (d2fa_dc1adc2a * std::pow(hh, 2) 
+                          - 2 * d2fa_dc1adc2a * hh 
+                          + d2fa_dc1adc2a 
+                          - d2fb_dc2b2 * std::pow(hh, 2) 
+                          + d2fb_dc2b2 * hh)) / detjac;
+    delta_c2a = (-f1 * (d2fa_dc1a2 * d2fb_dc1bdc2b * hh 
+                        - d2fa_dc1a2 * d2fb_dc1bdc2b 
+                        - d2fa_dc1adc2a * d2fb_dc1b2 * hh 
+                        + d2fa_dc1adc2a * d2fb_dc1b2) 
+                  - f2 * (d2fa_dc1a2 * d2fb_dc1bdc2b * hh 
+                          - d2fa_dc1a2 * d2fb_dc1bdc2b 
+                          - d2fa_dc1adc2a * d2fb_dc2b2 * hh 
+                          + d2fa_dc1adc2a * d2fb_dc2b2 
+                          - d2fb_dc1b2 * d2fb_dc1bdc2b * hh 
+                          + d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
+                  - f3 * (d2fa_dc1adc2a * std::pow(hh, 2) 
+                          - 2 * d2fa_dc1adc2a * hh 
+                          + d2fa_dc1adc2a 
+                          - d2fb_dc1bdc2b * std::pow(hh, 2) 
+                          + d2fb_dc1bdc2b * hh) 
+                  + f4 * (d2fa_dc1a2 * std::pow(hh, 2) 
+                          - 2 * d2fa_dc1a2 * hh 
+                          + d2fa_dc1a2 
+                          - d2fb_dc1b2 * std::pow(hh, 2) 
+                          + d2fb_dc1b2 * hh)) / detjac;
+    delta_c2b = (-f1 * hh * (d2fa_dc1a2 * d2fb_dc1bdc2b 
+                             - d2fa_dc1adc2a * d2fb_dc1b2) 
+                  - f2 * (d2fa_dc1a2 * d2fa_dc2a2 * hh 
+                          - d2fa_dc1a2 * d2fa_dc2a2 
+                          - std::pow(d2fa_dc1adc2a, 2) * hh 
+                          + std::pow(d2fa_dc1adc2a, 2)
+                          + d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                          - d2fa_dc2a2 * d2fb_dc1b2 * hh) 
+                  + f3 * hh * (-d2fa_dc1adc2a * hh 
+                               + d2fa_dc1adc2a 
+                               + d2fb_dc1bdc2b * hh) 
+                  - f4 * hh * (-d2fa_dc1a2 * hh 
+                               + d2fa_dc1a2 
+                               + d2fb_dc1b2 * hh)) / detjac;
+
+    // new value for (c1a, c1b, c2a, c2b)
+    c1a += delta_c1a;
+    c1b += delta_c1b;
+    c2a += delta_c2a;
+    c2b += delta_c2b;
+
+    // recalculate subset of terms for next iteration
+    dfa_dc1a = (*DFA_DC1A)(c1a, c2a, T);
+    dfb_dc1b = (*DFB_DC1B)(c1b, c2b, T);
+    dfa_dc2a = (*DFA_DC2A)(c1a, c2a, T);
+    dfb_dc2b = (*DFB_DC2B)(c1b, c2b, T);
+
+    f1 = hh * c1a + (1 - hh) * c1b - c1;
+    f2 = hh * c2a + (1 - hh) * c2b - c2;
+    f3 = dfa_dc1a - dfb_dc1b;
+    f4 = dfa_dc2a - dfb_dc2b;
+
+    // check error and return if done
+    err2 = f1 * f1 + f2 * f2 + f3 * f3 + f4 * f4;
+    if (err2 < tol * tol) return 0;
+
+    // recalculate remaining terms for next iteration
+    d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a, T);
+    d2fb_dc1b2 = (*D2FB_DC1B2)(c1a, c2a, T);
+    d2fa_dc2a2 = (*D2FA_DC2A2)(c1a, c2a, T);
+    d2fb_dc2b2 = (*D2FB_DC2B2)(c1a, c2a, T);
+    d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a, T);
+    d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a, T);
+  }
+
+  // max iters exceeded
+  std::cout << "#### solve_kks() failed to converge!" << std::endl
+            << "#### current error = " << std::sqrt(err2) << std::endl
+            << "#### tol = " << tol << std::endl;
+  exit(-1);
 }
 
   

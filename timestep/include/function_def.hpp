@@ -593,40 +593,10 @@ PPR_FUNC(postproc_u2err_)
 }
 }//namespace localprojection
 
+
 /*
-Implementation of KKS solver for binary single phase alloys found in:
-
-https://journals.aps.org/pre/pdf/10.1103/PhysRevE.60.7186
-
-Solves for cb, ca:
-
-h(phi)*cb + (1-h(phi))*ca - c = f1(cb,ca) = 0
-f_beta'(cb) - f_alpha'(ca)=0; f_beta'(cb) = f_alpha'(ca) = f2(cb,ca)
-
-with 
-
-J = [ h          (1-h) ]
-    [ f''(cb) -f''(ca) ]
-
-det J = h*(-f_alpha''(ca)) - (1-h)*f_beta''(cb)
-
-inv J = 1/det [ -f_alpha''(ca) -(h-1) ]
-              [ -f_beta''(cb)      hh ]
-delta x = xnew - xold = inv J (-f)
-        
-        = [ f_alpha''(ca) f1 + (h-1) f2 ]/det
-        = [ f_beta''(cb) f1      -hh f2 ]/det
-
-Note that at equilibrium, f'(c) = f_beta'(cb) = f_alpha'(ca).
-
-Note that cb corrsponds to solid with phi = 1 and ca corresponds to liquid with phi = 0;
-and the solution is ceq_b when phi = 1 and ceq_a when phi = 0, so in theory solver
-should return in a single iteration in either case.
-
-Could we implement a matrix-free version? Might make sense for ternary.
-
-See kkstest and pfhub2kks for implementation details.
-
+ * Implementation of KKS solver for binary single phase alloys found in:
+ * https://journals.aps.org/pre/pdf/10.1103/PhysRevE.60.7186
 */
 
 namespace kks
@@ -645,10 +615,10 @@ int solve_kks(const double &c1,  // in: c1
               const double &hh,  // in: h(eta)
               double &c1a,  // out: c1a, in, initial guess
               double &c1b,  // out: c1b, in: initial guess 
-              const double DFA_DC(const double c),  // in: fa'(ca)
-              const double DFB_DC(const double c),  // in: fb'(cb)
-              const double D2FA_DC2(),  // in: fa''() [constant for now]
-              const double D2FB_DC2(),  // in: fb''() [constant for now]
+              const double DFA_DC1A(const double c1a),  // in: fa'(ca)
+              const double DFB_DC1B(const double c1b),  // in: fb'(cb)
+              const double D2FA_DC1A2(),  // in: fa''() [constant for now]
+              const double D2FB_DC1B2(),  // in: fb''() [constant for now]
               const double &T = 0.)  // in: time
 {
   /*
@@ -679,32 +649,32 @@ int solve_kks(const double &c1,  // in: c1
   c1b = (1 - hh) * c1b;
 
   // terms for the kks solve
-  double d2fa_dc2 = (*D2FA_DC2)();
-  double d2fb_dc2 = (*D2FB_DC2)();
+  double d2fa_dc1a2 = (*D2FA_DC1A2)();
+  double d2fb_dc1b2 = (*D2FB_DC1B2)();
   double f1 = hh * c1a + (1 - hh) * c1b - c1;
-  double f2 = (*DFA_DC)(c1a) - (*DFB_DC)(c1b);
+  double f2 = (*DFA_DC1A)(c1a) - (*DFB_DC1B)(c1b);
 
   /* 
    * newton iteration loop
    * the function we are finding the roots (ca, cb) of is
    *   F = [[ hh * ca - (1 - hh) * cb - c ],
-   *        [ dfa_dc(ca) - dfb_dc(cb) ]]
+   *        [ dfa_dc1a(ca) - dfb_dc1b(cb) ]]
    * the jacobian in this case is
    *   J = [[ hh        (1 - hh) ],
-   *        [ d2fa_dc2  -d2fb_dc2 ]]
+   *        [ d2fa_dc1a2  -d2fb_dc1b2 ]]
    * so, the inverse is
-   *   J^-1 = [[ -d2fb_dc2  -(1 - hh) ],
-   *           [ d2fa_dc2   hh ]] / det(J)
+   *   J^-1 = [[ -d2fb_dc1b2  -(1 - hh) ],
+   *           [ d2fa_dc1a2   hh ]] / det(J)
    * then,
    *   delta = -J^-1 @ F 
    */
   for (int i = 0; i < max_iter; ++i) {
     // det(J)
-    const double detjac = -hh * d2fb_dc2 - (1 - hh) * d2fa_dc2;
+    const double detjac = -hh * d2fb_dc1b2 - (1 - hh) * d2fa_dc1a2;
 
     // -J^-1 @ F
-    delta_c1a = -(-d2fb_dc2 * f1 - (1 - hh) * f2) / detjac;
-    delta_c1b = -(-d2fa_dc2 * f1 + hh * f2) / detjac;
+    delta_c1a = -(-d2fb_dc1b2 * f1 - (1 - hh) * f2) / detjac;
+    delta_c1b = -(-d2fa_dc1a2 * f1 + hh * f2) / detjac;
 
     // new value for (ca, cb)
     c1a += delta_c1a;
@@ -712,15 +682,15 @@ int solve_kks(const double &c1,  // in: c1
 
     // recalculate subset of terms for next iteration
     f1 = hh * c1a + (1 - hh) * c1b - c1;
-    f2 = (*DFA_DC)(c1a) - (*DFB_DC)(c1b);
+    f2 = (*DFA_DC1A)(c1a) - (*DFB_DC1B)(c1b);
 
     // check error and return if done
     err2 = f1 * f1 + f2 * f2;
     if (err2 < tol * tol) return 0;
 
     // recalculate remaining terms for next iteration
-    d2fa_dc2 = (*D2FA_DC2)();
-    d2fb_dc2 = (*D2FB_DC2)();
+    d2fa_dc1a2 = (*D2FA_DC1A2)();
+    d2fb_dc1b2 = (*D2FB_DC1B2)();
   }
 
   // max iters exceeded
@@ -729,6 +699,13 @@ int solve_kks(const double &c1,  // in: c1
             << "#### tol = " << tol << std::endl;
   exit(-1);
 }
+
+KOKKOS_INLINE_FUNCTION
+int solve_kks()
+{
+  return 0;
+}
+
   
 }  // namespace kks
 

@@ -602,8 +602,7 @@ PPR_FUNC(postproc_u2err_)
 namespace kks
 {
 typedef const double (*KKSTERNFUNC)(const double c1,
-                                    const double c2,
-                                    const double T);
+                                    const double c2);
 
 double kks_tol_ = 1e-10;
 int kks_max_iter_ = 20;
@@ -762,17 +761,17 @@ int solve_kks(const double &c1,  // in: c1
   c2b = (1 - hh) * c2b;
 
   // terms for the kks solve
-  double dfa_dc1a = (*DFA_DC1A)(c1a, c2a, T);
-  double dfb_dc1b = (*DFB_DC1B)(c1b, c2b, T);
-  double dfa_dc2a = (*DFA_DC2A)(c1a, c2a, T);
-  double dfb_dc2b = (*DFB_DC2B)(c1b, c2b, T);
+  double dfa_dc1a = (*DFA_DC1A)(c1a, c2a);
+  double dfb_dc1b = (*DFB_DC1B)(c1b, c2b);
+  double dfa_dc2a = (*DFA_DC2A)(c1a, c2a);
+  double dfb_dc2b = (*DFB_DC2B)(c1b, c2b);
 
-  double d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a, T);
-  double d2fb_dc1b2 = (*D2FB_DC1B2)(c1a, c2a, T);
-  double d2fa_dc2a2 = (*D2FA_DC2A2)(c1a, c2a, T);
-  double d2fb_dc2b2 = (*D2FB_DC2B2)(c1a, c2a, T);
-  double d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a, T);
-  double d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a, T);
+  double d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a);
+  double d2fb_dc1b2 = (*D2FB_DC1B2)(c1a, c2a);
+  double d2fa_dc2a2 = (*D2FA_DC2A2)(c1a, c2a);
+  double d2fb_dc2b2 = (*D2FB_DC2B2)(c1a, c2a);
+  double d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a);
+  double d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a);
 
   double f1 = hh * c1a + (1 - hh) * c1b - c1;
   double f2 = hh * c2a + (1 - hh) * c2b - c2;
@@ -897,10 +896,10 @@ int solve_kks(const double &c1,  // in: c1
     c2b += delta_c2b;
 
     // recalculate subset of terms for next iteration
-    dfa_dc1a = (*DFA_DC1A)(c1a, c2a, T);
-    dfb_dc1b = (*DFB_DC1B)(c1b, c2b, T);
-    dfa_dc2a = (*DFA_DC2A)(c1a, c2a, T);
-    dfb_dc2b = (*DFB_DC2B)(c1b, c2b, T);
+    dfa_dc1a = (*DFA_DC1A)(c1a, c2a);
+    dfb_dc1b = (*DFB_DC1B)(c1b, c2b);
+    dfa_dc2a = (*DFA_DC2A)(c1a, c2a);
+    dfb_dc2b = (*DFB_DC2B)(c1b, c2b);
 
     f1 = hh * c1a + (1 - hh) * c1b - c1;
     f2 = hh * c2a + (1 - hh) * c2b - c2;
@@ -912,12 +911,12 @@ int solve_kks(const double &c1,  // in: c1
     if (err2 < tol * tol) return 0;
 
     // recalculate remaining terms for next iteration
-    d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a, T);
-    d2fb_dc1b2 = (*D2FB_DC1B2)(c1a, c2a, T);
-    d2fa_dc2a2 = (*D2FA_DC2A2)(c1a, c2a, T);
-    d2fb_dc2b2 = (*D2FB_DC2B2)(c1a, c2a, T);
-    d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a, T);
-    d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a, T);
+    d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a);
+    d2fb_dc1b2 = (*D2FB_DC1B2)(c1a, c2a);
+    d2fa_dc2a2 = (*D2FA_DC2A2)(c1a, c2a);
+    d2fb_dc2b2 = (*D2FB_DC2B2)(c1a, c2a);
+    d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a);
+    d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a);
   }
 
   // max iters exceeded
@@ -953,6 +952,7 @@ with J = [hh, 1 - hh, 0, 0 ]
 delta x = xnew - xold = inv J (-f)
 */
 
+/*
 namespace kksternary
 {
 double kks_tol_ = 1e-10;
@@ -1065,6 +1065,7 @@ int solve_kks(const double &c1, //input c1
     return 1;
   }
 }//namespace kksternary
+*/
 
 
   //#define TUSAS_OLD_FARZADI
@@ -3028,6 +3029,82 @@ const double df_deta(const double ca, const double cb, const double eta)
 }
 
 }  // namespace parabolicenergy
+
+
+namespace calenergy
+{
+
+
+KOKKOS_INLINE_FUNCTION
+const double fa(const double c1a, const double c2a) {
+  const double c3a = 1 - c1a - c2a;
+  return 10 * c1a + 500 * c2a + 40 * c3a
+           + 400 * (c1a * std::log(c1a) 
+                    + c2a * std::log(c2a) 
+                    + c3a * std::log(c3a));
+}
+
+KOKKOS_INLINE_FUNCTION
+const double fb(const double c1b, const double c2b) {
+  const double c3b = 1 - c1b - c2b;
+  return 100 * c1b + 4 * c2b + 0.001 * c3b
+           + 400 * (c1b * std::log(c1b) 
+                    + c2b * std::log(c2b) 
+                    + c3b * std::log(c3b));
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfa_dc1a(const double c1a, const double c2a) {
+  return 400 * std::log(c1a) - 400 * std::log(1 - c1a - c2a) - 30;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfa_dc2a(const double c1a, const double c2a) {
+  return 400 * std::log(c2a) - 400 * std::log(1 - c1a - c2a) + 460;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfb_dc1b(const double c1b, const double c2b) {
+  return 400 * std::log(c1b) - 400 * std::log(1 - c1b - c2b) - 30;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfb_dc2b(const double c1b, const double c2b) {
+  return 400 * std::log(c2b) - 400 * std::log(1 - c1b - c2b) + 460;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fa_dc1a2(const double c1a, const double c2a) {
+  return 400 / (1 - c1a - c2a) + 400 / c1a;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fa_dc2a2(const double c1a, const double c2a) {
+  return 400 / (1 - c1a - c2a) + 400 / c2a;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfa_dc1adc2a(const double c1a, const double c2a) {
+  return 400 / (1 - c1a - c2a);
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fb_dc1b2(const double c1b, const double c2b) {
+  return 400 / (1 - c1b - c2b) + 400 / c1b;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fb_dc2b2(const double c1b, const double c2b) {
+  return 400 / (1 - c1b - c2b) + 400 / c2b;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfb_dc1bdc2b(const double c1b, const double c2b) {
+  return 400 / (1 - c1b - c2b);
+}
+
+
+}  // namespace calenergy
 
 
 namespace pfhub2

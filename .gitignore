@@ -17,4 +17,5 @@ Test/*/nem_spread.inp
 Test/*/pp*.dat
 Test/*/vtip.dat
 Test/*/core
+Test/*/temp*.dat
 

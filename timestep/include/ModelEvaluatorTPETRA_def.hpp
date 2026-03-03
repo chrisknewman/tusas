@@ -3068,6 +3068,36 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //post_proc.push_back(new post_process(mesh_,(int)3));
     //post_proc[3].postprocfunc_ = &tpetra::tonks::postproc_cb_;
     
+  }else if("shengwbm" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    const int numeta = 1;
+    numeqs_ = numeta + 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::sheng::residual_c_;
+    (*residualfunc_)[1] = tpetra::sheng::residual_eta_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::sheng::prec_c_;
+    (*preconfunc_)[1] = &tpetra::sheng::prec_eta_;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::sheng::init_c_;
+    (*initfunc_)[1] = &tpetra::sheng::init_eta_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::sheng::param_;
+
   }else if("shengsplitkks" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

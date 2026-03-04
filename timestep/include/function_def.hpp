@@ -2898,28 +2898,28 @@ const double fa(const double ca)
 {
   // f_alpha(c_alpha) from Sheng 2022, eqn 8
   // altered to be more general as eqn 9
-  return Aa_ * (ca - (c1_ - delta_c1_))
-             * (ca - (c1_ - delta_c1_)) + f1_;
+  return Aa_ * (ca - (c1_ + delta_c1_))
+             * (ca - (c1_ + delta_c1_)) + f1_;
 }
 
 KOKKOS_INLINE_FUNCTION
 const double fb(const double cb)
 {
   // f_beta(c_beta) from Sheng 2022, eqn 9
-  return Ab_ * (cb - (c2_ - delta_c2_))
-             * (cb - (c2_ - delta_c2_)) + f2_;
+  return Ab_ * (cb - (c2_ + delta_c2_))
+             * (cb - (c2_ + delta_c2_)) + f2_;
 }
 
 KOKKOS_INLINE_FUNCTION
 const double dfa_dca(const double ca)
 {
-  return 2 * Aa_ * (ca - (c1_ - delta_c1_));
+  return 2 * Aa_ * (ca - (c1_ + delta_c1_));
 }
 
 KOKKOS_INLINE_FUNCTION
 const double dfb_dcb(const double cb)
 {
-  return 2 * Ab_ * (cb - (c2_ - delta_c2_));
+  return 2 * Ab_ * (cb - (c2_ + delta_c2_));
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -6674,8 +6674,8 @@ INI_FUNC(init_c_)
 {
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = parabolicenergy::h(&eta);
+  //return parabolicenergy::c1_ * hh + parabolicenergy::c2_ * (1. - hh);
   return parabolicenergy::c1_ * hh + initial_c_alpha_ * (1. - hh);
-  //return initial_c_alpha_ * hh + parabolicenergy::c2_ * (1. - hh);
 }
 
 INI_FUNC(init_mu_)

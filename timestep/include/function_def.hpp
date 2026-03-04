@@ -6674,7 +6674,7 @@ INI_FUNC(init_c_)
 {
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = parabolicenergy::h(&eta);
-  return parabolicenergy::c2_ * hh + initial_c_alpha_ * (1. - hh);
+  return parabolicenergy::c1_ * hh + initial_c_alpha_ * (1. - hh);
   //return initial_c_alpha_ * hh + parabolicenergy::c2_ * (1. - hh);
 }
 

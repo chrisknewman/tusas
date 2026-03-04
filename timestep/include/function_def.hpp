@@ -6583,14 +6583,14 @@ namespace sheng
   TUSAS_DEVICE
   double k_c_ = 0.;
   TUSAS_DEVICE
-  double k_eta_ = 6.75e-7;  // J/m
-  //double k_eta_ = 6.75e-12;  // kJ/cm
+  //double k_eta_ = 6.75e-7;  // J/m
+  double k_eta_ = 6.75e-12;  // kJ/cm
   TUSAS_DEVICE
-  double L_ = 3.24e-9;  // m^3/(J s)
-  //double L_ = 3.24;  // cm^3/(kJ s)
+  //double L_ = 3.24e-9;  // m^3/(J s)
+  double L_ = 3.24;  // cm^3/(kJ s)
   TUSAS_DEVICE
-  double w_ = 1.07e10;  // J/m^3
-  //double w_ = 10.7;  // kJ/cm^3
+  //double w_ = 1.07e10;  // J/m^3
+  double w_ = 10.7;  // kJ/cm^3
 
 PARAM_FUNC(param_)
 {
@@ -6667,7 +6667,8 @@ INI_FUNC(init_eta_)
   
   // this is l = xi * sqrt(2 * k_eta_) / sqrtw with xi = 1 instead of 4
   const double l = std::sqrt(2 * k_eta_) / sqrtw;
-  return 0.5 * (1. - tanh((rr - r_) / (l * sqrt2)));
+  return 0.5 * (1. - tanh(1.e2 * (rr - r_) / (l * sqrt2)));
+  //return rr < r_ ? 1. : 0.;
 }
 
 INI_FUNC(init_c_)
@@ -6709,7 +6710,8 @@ const double mobility(const double hh) {
 
 KOKKOS_INLINE_FUNCTION 
 const double S(const double y){
-  return (-y > -r_) ? S_ : 0;
+  //return (-y > -r_) ? S_ : 0;
+  return (-y > r_) ? S_ : 0;
 }
 
 KOKKOS_INLINE_FUNCTION 

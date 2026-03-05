@@ -6559,6 +6559,8 @@ namespace sheng
   TUSAS_DEVICE
   double r_ = 5e-6;  // cm
   TUSAS_DEVICE
+  double d_ = 5e-6;  // cm
+  TUSAS_DEVICE
   double S_ = 0.05;
   TUSAS_DEVICE
   double D_ = 0.019 * std::exp(-5840. / 673.);  // cm^2/s
@@ -6622,6 +6624,7 @@ PARAM_FUNC(param_)
   w_ = plist->get<double>("w", w_);
 
   r_ = plist->get<double>("r", r_);
+  d_ = plist->get<double>("d", d_);
   S_ = plist->get<double>("S", S_);
   D_ = plist->get<double>("D", D_);
 
@@ -6643,6 +6646,7 @@ PARAM_FUNC(param_)
   w_ = w_ / f0_;
 
   r_ /= x0_;
+  d_ /= x0_;
   S_ *= t0_;
   D_ = D_ * t0_ * f0_ / x0_ / x0_;
 
@@ -6660,14 +6664,14 @@ PARAM_FUNC(param_split_offset_)
 
 INI_FUNC(init_eta_)
 {
-  const double sqrt2 = std::sqrt(2.);
   const double sqrtw = std::sqrt(w_);
 
   const double rr = std::sqrt(x * x + y * y + z * z);
   
   // this is l = xi * sqrt(2 * k_eta_) / sqrtw with xi = 1 instead of 4
-  const double l = std::sqrt(2 * k_eta_) / sqrtw;
-  return 0.5 * (1. - tanh(1.e2 * (rr - r_) / (l * sqrt2)));
+  const double xi = 1.;
+  const double lambda = xi * std::sqrt(2 * k_eta_) / sqrtw;
+  return 0.5 * (1. - tanh((rr - r_) / lambda));
   //return rr < r_ ? 1. : 0.;
 }
 
@@ -6710,8 +6714,7 @@ const double mobility(const double hh) {
 
 KOKKOS_INLINE_FUNCTION 
 const double S(const double y){
-  //return (-y > -r_) ? S_ : 0;
-  return (-y > r_) ? S_ : 0;
+  return (y < d_) ? S_ : 0;
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -6720,50 +6723,61 @@ RES_FUNC_TPETRA(residual_c_)
   double dtestdx = basis[0]->dphidx(i);
   double dtestdy = basis[0]->dphidy(i);
   double test = basis[0]->phi(i);
-  double c[2] = {basis[0]->uu(), basis[0]->uuold()};
-  double dcdx[2] = {basis[0]->duudx(), basis[0]->duuolddx()};
-  double dcdy[2] = {basis[0]->duudy(), basis[0]->duuolddy()};
+  double c[3] = {basis[0]->uu(), basis[0]->uuold(), basis[0]->uuoldold()};
+  double dcdx[3] = {basis[0]->duudx(), basis[0]->duuolddx(), basis[0]->duuoldolddx()};
+  double dcdy[3] = {basis[0]->duudy(), basis[0]->duuolddy(), basis[0]->duuoldolddy()};
 
-  double dhdx[2] = {0., 0.};
-  double dhdy[2] = {0., 0.};
+  double dhdx[3] = {0., 0., 0.};
+  double dhdy[3] = {0., 0., 0.};
 
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     dhdx[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudx();
     dhdx[1] += parabolicenergy::dh_deta(basis[kk_off]->uuold()) * basis[kk_off]->duuolddx();
+    dhdx[2] += parabolicenergy::dh_deta(basis[kk_off]->uuoldold()) * basis[kk_off]->duuoldolddx();
     dhdy[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudy();
     dhdy[1] += parabolicenergy::dh_deta(basis[kk_off]->uuold()) * basis[kk_off]->duuolddy();
-  }
+    dhdy[2] += parabolicenergy::dh_deta(basis[kk_off]->uuoldold()) * basis[kk_off]->duuoldolddy();
 
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
-  for( int kk = 0; kk < N_ETA_; kk++){
-    int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
+    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   }
+
   const double hh[3] = {parabolicenergy::h(eta_array),
-                        parabolicenergy::h(eta_array_old)};
+                        parabolicenergy::h(eta_array_old),
+                        parabolicenergy::h(eta_array_oldold)};
 
   double ct = (c[0] - c[1]) / dt_ * test;
 
-  double d2f_dcdh[2] = {parabolicenergy::dfa_dca(c[0])
+  double d2f_dcdh[3] = {parabolicenergy::dfa_dca(c[0])
                           - parabolicenergy::dfb_dcb(c[0]),
                         parabolicenergy::dfa_dca(c[1])
-                          - parabolicenergy::dfb_dcb(c[1])};
+                          - parabolicenergy::dfb_dcb(c[1]),
+                        parabolicenergy::dfa_dca(c[2])
+                          - parabolicenergy::dfb_dcb(c[2])};
   double d2f_dc2 = parabolicenergy::d2fb_dcb2();  // only when d2fa_dcb2 == d2fb_dcb2
 
-  double d2f_dcdx[2] = {d2f_dcdh[0] * dhdx[0] + d2f_dc2 * dcdx[0],
-                        d2f_dcdh[1] * dhdx[1] + d2f_dc2 * dcdx[1]};
-  double d2f_dcdy[2] = {d2f_dcdh[0] * dhdy[0] + d2f_dc2 * dcdy[0],
-                        d2f_dcdh[1] * dhdy[1] + d2f_dc2 * dcdy[1]};
-  double divgradc[2] = {mobility(hh[0]) * (d2f_dcdx[0] * dtestdx + d2f_dcdy[0] * dtestdy),
-                        mobility(hh[1]) * (d2f_dcdx[1] * dtestdx + d2f_dcdy[1] * dtestdy)};
+  double d2f_dcdx[3] = {d2f_dcdh[0] * dhdx[0] + d2f_dc2 * dcdx[0],
+                        d2f_dcdh[1] * dhdx[1] + d2f_dc2 * dcdx[1],
+                        d2f_dcdh[2] * dhdx[2] + d2f_dc2 * dcdx[2]};
+  double d2f_dcdy[3] = {d2f_dcdh[0] * dhdy[0] + d2f_dc2 * dcdy[0],
+                        d2f_dcdh[1] * dhdy[1] + d2f_dc2 * dcdy[1],
+                        d2f_dcdh[2] * dhdy[2] + d2f_dc2 * dcdy[2]};
+  double f[3] = {mobility(hh[0]) * (d2f_dcdx[0] * dtestdx + d2f_dcdy[0] * dtestdy),
+                 mobility(hh[1]) * (d2f_dcdx[1] * dtestdx + d2f_dcdy[1] * dtestdy),
+                 mobility(hh[2]) * (d2f_dcdx[2] * dtestdx + d2f_dcdy[2] * dtestdy)};
 
   const double y = -(basis[0]->yy());
   const double s = S(y) * basis[0]->phi(i);
 
-  return ct + t_theta_ * divgradc[0] + (1. - t_theta_) * divgradc[1] - s;
+  return ct + (1. - t_theta2_) * t_theta_ * f[0]
+           + (1. - t_theta2_) * (1. - t_theta_) * f[1]
+           + .5 * t_theta2_ * ((2. + dt_ / dtold_) * f[1] - dt_ / dtold_ * f[2])
+           - s;
 }
 
 TUSAS_DEVICE

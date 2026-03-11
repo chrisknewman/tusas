@@ -3427,6 +3427,108 @@ PPR_FUNC(postproc_mu_)
 }  // namespace pfhub2
 
 
+namespace utils
+{
+
+KOKKOS_INLINE_FUNCTION
+const int idx(const int i, const int j, const int ncols) {
+  // row-major ordering
+  return i * ncols + j;
+}
+
+KOKKOS_INLINE_FUNCTION
+void get_uu(double* uu,  // out: the array to populate
+            const int Nt,  // in: number of time levels to get
+            const int N_UU,  // in: number of contiguous uu to get
+            const int first_idx,  // in: index to start at
+            GPUBasis* basis[]) {  // in: basis
+  if (Nt == 1) {
+    for (int k = 0 ; k < N_UU; ++k) {
+      uu[idx(0, k, N_UU)] = basis[k + first_idx]->uu();
+    }
+  }
+  else if (Nt == 2) {
+    for (int k = 0 ; k < N_UU; ++k) {
+      uu[idx(0, k, N_UU)] = basis[k + first_idx]->uu();
+      uu[idx(1, k, N_UU)] = basis[k + first_idx]->uuold();
+    }
+  }
+  else if (Nt == 3) {
+    for (int k = 0 ; k < N_UU; ++k) {
+      uu[idx(0, k, N_UU)] = basis[k + first_idx]->uu();
+      uu[idx(1, k, N_UU)] = basis[k + first_idx]->uuold();
+      uu[idx(2, k, N_UU)] = basis[k + first_idx]->uuoldold();
+    }
+  }
+}
+
+KOKKOS_INLINE_FUNCTION
+void get_graduu(double* duu_dx,  // out: dx array to populate
+                double* duu_dy,  // out: dy array to populate
+                double* duu_dz,  // out: dz array to populate
+                const int Nt,  // in: number of time levels to get
+                const int N_UU,  // in: number of contiguous uu to get
+                const int first_idx,  // in: index to start at
+                GPUBasis* basis[]) {  // in: basis
+  if (Nt == 1) {
+    for (int k = 0 ; k < N_UU; ++k) {
+      duu_dx[idx(0, k, N_UU)] = basis[k + first_idx]->duudx();
+      duu_dy[idx(0, k, N_UU)] = basis[k + first_idx]->duudy();
+      duu_dz[idx(0, k, N_UU)] = basis[k + first_idx]->duudz();
+    }
+  }
+  else if (Nt == 2) {
+    for (int k = 0 ; k < N_UU; ++k) {
+      duu_dx[idx(0, k, N_UU)] = basis[k + first_idx]->duudx();
+      duu_dy[idx(0, k, N_UU)] = basis[k + first_idx]->duudy();
+      duu_dz[idx(0, k, N_UU)] = basis[k + first_idx]->duudz();
+
+      duu_dx[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddx();
+      duu_dy[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddy();
+      duu_dz[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddz();
+    }
+  }
+  else if (Nt == 3) {
+    for (int k = 0 ; k < N_UU; ++k) {
+      duu_dx[idx(0, k, N_UU)] = basis[k + first_idx]->duudx();
+      duu_dy[idx(0, k, N_UU)] = basis[k + first_idx]->duudy();
+      duu_dz[idx(0, k, N_UU)] = basis[k + first_idx]->duudz();
+
+      duu_dx[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddx();
+      duu_dy[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddy();
+      duu_dz[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddz();
+
+      duu_dx[idx(2, k, N_UU)] = basis[k + first_idx]->duuoldolddx();
+      duu_dy[idx(2, k, N_UU)] = basis[k + first_idx]->duuoldolddy();
+      duu_dz[idx(2, k, N_UU)] = basis[k + first_idx]->duuoldolddz();
+    }
+  }
+
+}
+
+KOKKOS_INLINE_FUNCTION
+const double ret_value(const double ut,  // in: time derivative
+                       const double* f,  // in: residual
+                       const double dt,  // in: current dt
+                       const double dtold,  // in: previous dt
+                       const double t_theta,  // in: implicit/explicit weight
+                       const double t_theta2) {  // in: adaptive time-step control
+  return ut + (1. - t_theta2) * t_theta * f[0]
+           + (1. - t_theta2) * (1. - t_theta) * f[1]
+           + .5 * t_theta2 * ((2. + dt / dtold) * f[1] - dt / dtold * f[2]);
+} 
+
+KOKKOS_INLINE_FUNCTION
+const double ret_value(const double ut,  // in: time derivative
+                       const double* f,  // in: residual
+                       const double t_theta) {  //: in implicit/explicit weight
+  return ut + t_theta * f[0] + (1. - t_theta) * f[1];
+}
+
+
+}  // namespace utils
+
+
 namespace tonks
 {  
   TUSAS_DEVICE
@@ -3434,13 +3536,27 @@ namespace tonks
   TUSAS_DEVICE
   int N_ETA_ = 1;
   TUSAS_DEVICE
+  int eta_start_idx_ = 1;
+  
+  TUSAS_DEVICE
+  const int N_C_MAX_ = 4;
+  TUSAS_DEVICE
+  int N_C_ = 1;
+  TUSAS_DEVICE
+  int c_start_idx_ = 0;
+  TUSAS_DEVICE
+  int mu_start_idx = 1;
+
+  TUSAS_DEVICE
   int eqn_off_ = 1;
   TUSAS_DEVICE
   const int eqn_off_split_ = 2;
+
   TUSAS_DEVICE
   int ci_ = 0;
   TUSAS_DEVICE
   int mui_ = 1;
+  
   TUSAS_DEVICE
   double t0_ = 1.;
   TUSAS_DEVICE
@@ -3521,6 +3637,123 @@ KOKKOS_INLINE_FUNCTION
 const double mobility(const double hh) {
   return M_ * (1. - hh) + hh;
 } 
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_c_kks_new_)
+{
+  // number of time levels to compute
+  // might want to pass this in to res func?
+  const int Nt = 2;
+
+  // test function
+  const double phi = basis[0]->phi(i);
+  // grad(phi)
+  const double dphi_dx = basis[0]->dphidx(i);
+  const double dphi_dy = basis[0]->dphidy(i);
+  const double dphi_dz = basis[0]->dphidz(i);
+
+  // populate c viewed as a "matrix"
+  //   c[time_idx, c_idx]
+  // but really a 1D array that
+  // we can index this using
+  //   utils::idx(time_idx, c_idx, N_C_)
+  double c[Nt * N_C_];
+  double dc_dx[Nt * N_C_];
+  double dc_dy[Nt * N_C_];
+  double dc_dz[Nt * N_C_];
+  utils::get_uu(c, Nt, N_C_, c_start_idx_, basis);
+  utils::get_graduu(dc_dx, dc_dy, dc_dz, Nt, N_C_, c_start_idx_, basis);
+
+  // populate eta viewed as a "matrix"
+  //   eta[time_idx, eta_idx]
+  // but really a 1D array that
+  // we can index this using
+  //   utils::idx(time_idx, eta_idx, N_ETA_)
+  double eta[Nt * N_ETA_];
+  double deta_dx[Nt * N_ETA_];
+  double deta_dy[Nt * N_ETA_];
+  double deta_dz[Nt * N_ETA_];
+  utils::get_uu(eta, Nt, N_ETA_, eta_start_idx_, basis);
+  utils::get_graduu(deta_dx, deta_dy, deta_dz, Nt, N_ETA_, eta_start_idx_, basis);
+
+  // define all the variables we need to calculate 
+  // the residual = Mdivgrad_df_dc
+  double hh[Nt];
+  double dh_dx[Nt];
+  double dh_dy[Nt];
+  double dh_dz[Nt];
+  double ca[Nt];
+  double cb[Nt];
+  double d2f_dc2[Nt];
+  double d2f_dcdx[Nt];
+  double d2f_dcdy[Nt];
+  double d2f_dcdz[Nt];
+  double Mdivgrad_df_dc[Nt];
+
+
+  // loop over each time level that we need data at
+  int idx = 0;
+  double dh_deta = 0;
+  for (int tdx = 0; tdx < Nt; ++tdx) {
+    // calculate h
+    // here, we are doing some pointer arithmetic
+    // to pass h() the array of eta starting
+    // at the correct time level
+    hh[tdx] = parabolicenergy::h((eta + tdx * N_ETA_));
+
+    // calculate grad h
+    dh_dx[tdx] = 0.;
+    dh_dy[tdx] = 0.;
+    dh_dz[tdx] = 0.;
+    for (int k = 0; k < N_ETA_ ; ++k) {
+      idx = utils::idx(tdx, k, N_ETA_);
+      dh_deta = parabolicenergy::dh_deta(eta[idx]);
+
+      dh_dx[tdx] += dh_deta * deta_dx[idx];
+      dh_dy[tdx] += dh_deta * deta_dy[idx];
+      dh_dz[tdx] += dh_deta * deta_dz[idx];
+    }
+
+    // do the kks solve to get ca and cb
+    // for the current component c_{eqn_id}
+    ca[tdx] = parabolicenergy::c1_;
+    cb[tdx] = parabolicenergy::c2_;
+    kks::solve_kks(c[utils::idx(tdx, eqn_id, N_C_)],
+                   hh[tdx],
+                   ca[tdx],
+                   cb[tdx],
+                   parabolicenergy::dfa_dca,
+                   parabolicenergy::dfb_dcb,
+                   parabolicenergy::d2fa_dca2,
+                   parabolicenergy::d2fb_dcb2);
+
+    // calculate d2f_dc2 using KKS eq 29 
+    d2f_dc2[tdx] = parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
+                     / ((1 - hh[tdx]) * parabolicenergy::d2fa_dca2() + hh[tdx] * parabolicenergy::d2fb_dcb2());
+
+    // calculating grad(f_c) based on KKS eq 33, assuming M = D / f_cc
+    // this also follows from eq 30 and the chain rule
+    //   grad(f_c) = f_cc * h' * (cb - ca) * grad(eta) + f_cc * grad(c) 
+    //             = f_cc * (cb - ca) * grad(h) + f_cc * grad(c) 
+    d2f_dcdx[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dx[tdx] + d2f_dc2[tdx] * dc_dx[tdx];
+    d2f_dcdy[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dy[tdx] + d2f_dc2[tdx] * dc_dy[tdx];
+    d2f_dcdz[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dz[tdx] + d2f_dc2[tdx] * dc_dz[tdx];
+
+    // finally, calculate M * div(grad(f_c))
+    Mdivgrad_df_dc[tdx] = mobility(hh[tdx]) * (d2f_dcdx[tdx] * dphi_dx
+                                               + d2f_dcdy[tdx] * dphi_dy
+                                               + d2f_dcdz[tdx] * dphi_dz);
+  }  // tdx = 0, < Nt loop
+
+  const double ct = (c[utils::idx(0, eqn_id, N_C_)] 
+                     - c[utils::idx(1, eqn_id, N_C_)]) / dt_ * phi;
+
+  return utils::ret_value(ct, Mdivgrad_df_dc, t_theta_);
+  //return utils::ret_value(ct, Mdivgrad_df_dc, dt_, dtold_, t_theta_, t_theta2_);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_kks_new_dp_)) = residual_c_kks_new_;
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_kks_)
@@ -3697,7 +3930,7 @@ RES_FUNC_TPETRA(residual_eta_kks_)
                         parabolicenergy::h(eta_array_oldold)};
   double ca[3] = {parabolicenergy::c1_, parabolicenergy::c1_, parabolicenergy::c1_};
   double cb[3] = {parabolicenergy::c2_, parabolicenergy::c2_, parabolicenergy::c2_};
-  /*kks::solve_kks(c[0], hh[0], ca[0], cb[0],
+  kks::solve_kks(c[0], hh[0], ca[0], cb[0],
                  parabolicenergy::dfa_dca,
                  parabolicenergy::dfb_dcb,
                  parabolicenergy::d2fa_dca2,
@@ -3711,20 +3944,14 @@ RES_FUNC_TPETRA(residual_eta_kks_)
                  parabolicenergy::dfa_dca,
                  parabolicenergy::dfb_dcb,
                  parabolicenergy::d2fa_dca2,
-                 parabolicenergy::d2fb_dcb2);*/
+                 parabolicenergy::d2fb_dcb2);
 
   const int k = eqn_id - eqn_off_;
-  /*const double df_deta[3] = {L_ * (parabolicenergy::df_deta(ca[0], cb[0], eta[0])
+  const double df_deta[3] = {L_ * (parabolicenergy::df_deta(ca[0], cb[0], eta[0])
                                + w_ * parabolicenergy::dg_deta(eta_array, k)) * test,
                              L_ * (parabolicenergy::df_deta(ca[1], cb[1], eta[1])
                                + w_ * parabolicenergy::dg_deta(eta_array_old, k)) * test,
                              L_ * (parabolicenergy::df_deta(ca[2], cb[2], eta[2])
-                               + w_ * parabolicenergy::dg_deta(eta_array_oldold, k)) * test};*/
-  const double df_deta[3] = {L_ * (parabolicenergy::df_deta(c[0], eta[0])
-                               + w_ * parabolicenergy::dg_deta(eta_array, k)) * test,
-                             L_ * (parabolicenergy::df_deta(c[1], eta[1])
-                               + w_ * parabolicenergy::dg_deta(eta_array_old, k)) * test,
-                             L_ * (parabolicenergy::df_deta(c[2], eta[2])
                                + w_ * parabolicenergy::dg_deta(eta_array_oldold, k)) * test};
   
   const double f[3] = {df_deta[0] + divgradeta[0],

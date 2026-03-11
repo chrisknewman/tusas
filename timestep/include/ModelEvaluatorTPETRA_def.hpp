@@ -2992,7 +2992,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta + 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::tonks::residual_c_kks_dp_;
+    (*residualfunc_)[0] = tpetra::tonks::residual_c_kks_new_dp_;
     (*residualfunc_)[1] = tpetra::tonks::residual_eta_kks_dp_;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);

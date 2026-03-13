@@ -3440,7 +3440,7 @@ namespace utils
 {
 
 KOKKOS_INLINE_FUNCTION
-int idx(int i, int j, int ncols) {
+int idx(const int i, const int j, const int ncols) {
   // row-major ordering
   return i * ncols + j;
 }
@@ -3510,7 +3510,7 @@ namespace tonks
   const int Nt_MAX_ = 3;
   
   TUSAS_DEVICE
-  const int N_C_MAX_ = 1;
+  const int N_C_MAX_ = 2;
   TUSAS_DEVICE
   int N_C_ = 1;
   TUSAS_DEVICE
@@ -3626,7 +3626,7 @@ RES_FUNC_TPETRA(residual_c_kks_new_)
 {
   // number of time levels to compute
   // might want to pass this in to res func?
-  const int Nt = 2;
+  const int Nt = 3;
 
   // test function
   const double phi = basis[0]->phi(i);
@@ -3715,9 +3715,10 @@ RES_FUNC_TPETRA(residual_c_kks_new_)
     // this also follows from eq 30 and the chain rule
     //   grad(f_c) = f_cc * h' * (cb - ca) * grad(eta) + f_cc * grad(c) 
     //             = f_cc * (cb - ca) * grad(h) + f_cc * grad(c) 
-    d2f_dcdx[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dx[tdx] + d2f_dc2[tdx] * dc_dx[tdx];
-    d2f_dcdy[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dy[tdx] + d2f_dc2[tdx] * dc_dy[tdx];
-    d2f_dcdz[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dz[tdx] + d2f_dc2[tdx] * dc_dz[tdx];
+    idx = utils::idx(tdx, eqn_id, N_C_MAX_);
+    d2f_dcdx[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dx[tdx] + d2f_dc2[tdx] * dc_dx[idx];
+    d2f_dcdy[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dy[tdx] + d2f_dc2[tdx] * dc_dy[idx];
+    d2f_dcdz[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dz[tdx] + d2f_dc2[tdx] * dc_dz[idx];
 
     // finally, calculate M * div(grad(f_c))
     Mdivgrad_df_dc[tdx] = mobility(hh[tdx]) * (d2f_dcdx[tdx] * dphi_dx
@@ -3728,8 +3729,8 @@ RES_FUNC_TPETRA(residual_c_kks_new_)
   const double dc_dt = (c[utils::idx(0, eqn_id, N_C_MAX_)] 
                           - c[utils::idx(1, eqn_id, N_C_MAX_)]) / dt_ * phi;
 
-  //return utils::ret_value(ct, Mdivgrad_df_dc, dt_, dtold_, t_theta_, t_theta2_);
-  return dc_dt + t_theta_ * Mdivgrad_df_dc[0] + (1. - t_theta_) * Mdivgrad_df_dc[1];
+  return utils::ret_value(dc_dt, Mdivgrad_df_dc, dt_, dtold_, t_theta_, t_theta2_);
+  //return dc_dt + t_theta_ * Mdivgrad_df_dc[0] + (1. - t_theta_) * Mdivgrad_df_dc[1];
 }
 
 TUSAS_DEVICE

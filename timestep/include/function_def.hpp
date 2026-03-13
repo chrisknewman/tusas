@@ -3517,7 +3517,7 @@ namespace tonks
   int c_start_idx_ = 0;
 
   TUSAS_DEVICE
-  const int N_MU_MAX_ = 1;
+  const int N_MU_MAX_ = 2;
   TUSAS_DEVICE
   int N_MU_ = 1;
   TUSAS_DEVICE
@@ -3851,18 +3851,17 @@ RES_FUNC_TPETRA(residual_c_split_kks_ternary_)
   // might want to pass this in to res func?
   const int Nt = 3;
 
-  // test function
+  // this gives us an id for what c we are
+  const int local_id = eqn_id - c_start_idx_; 
+
   const double phi = basis[0]->phi(i);
-  // grad(phi)
   const double dphi_dx = basis[0]->dphidx(i);
   const double dphi_dy = basis[0]->dphidy(i);
   const double dphi_dz = basis[0]->dphidz(i);
 
-  // populate mu viewed as a "matrix"
-  //   mu[time_idx, mu_idx]
-  // but really a 1D array that
-  // we can index this using
-  //   utils::idx(time_idx, mu_idx, N_MU_MAX_)
+  double c[Nt_MAX_ * N_C_MAX_];
+  utils::get_uu(c, N_C_, N_C_MAX_, c_start_idx_, basis);
+
   double mu[Nt_MAX_ * N_MU_MAX_];
   double dmu_dx[Nt_MAX_ * N_MU_MAX_];
   double dmu_dy[Nt_MAX_ * N_MU_MAX_];
@@ -3870,14 +3869,8 @@ RES_FUNC_TPETRA(residual_c_split_kks_ternary_)
   utils::get_uu(mu, N_MU_, N_MU_MAX_, mu_start_idx_, basis);
   utils::get_graduu(dmu_dx, dmu_dy, dmu_dz, N_MU_, N_MU_MAX_,  mu_start_idx_, basis);
 
-  // populate eta viewed as a "matrix"
-  //   eta[time_idx, eta_idx]
-  // but really a 1D array that
-  // we can index this using
-  //   utils::idx(time_idx, eta_idx, N_ETA_MAX_)
   double eta[Nt_MAX_ * N_ETA_MAX_];
   utils::get_uu(eta, Nt, N_ETA_, eta_start_idx_, basis);
-
 
   double hh[Nt_MAX_];
   double Mgrad_mu[Nt_MAX_];
@@ -3885,20 +3878,16 @@ RES_FUNC_TPETRA(residual_c_split_kks_ternary_)
   int idx = 0;
   for (int tdx = 0; tdx < Nt; ++tdx) {
     // calculate h
-    // here, we are doing some pointer arithmetic
-    // to pass h() the array of eta starting
-    // at the correct time level
-    hh[tdx] = parabolicenergy::h((eta + tdx * N_ETA_MAX_));
+    hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
 
-    idx = utils::idx(tdx, eqn_id + N_C_, N_MU_MAX_);
+    idx = utils::idx(tdx, local_id, N_MU_MAX_);
     Mgrad_mu[tdx] = mobility(hh[tdx]) * (dmu_dx[idx] * dphi_dx + dmu_dy[idx] * dphi_dy + dmu_dz[idx] * dphi_dy);
   }  // tdx = 0, < Nt loop
   
-  const double dmu_dt = (mu[utils::idx(0, eqn_id + N_C_, N_C_MAX_)] 
-                           - mu[utils::idx(1, eqn_id + N_C_, N_C_MAX_)]) / dt_ * phi;
+  const double dc_dt = (c[utils::idx(0, local_id, N_C_MAX_)] 
+                           - c[utils::idx(1, local_id, N_C_MAX_)]) / dt_ * phi;
 
-
-  return utils::ret_value(dmu_dt, Mgrad_mu, dt_, dtold_, t_theta_, t_theta2_);
+  return utils::ret_value(dc_dt, Mgrad_mu, dt_, dtold_, t_theta_, t_theta2_);
 }
 
 TUSAS_DEVICE
@@ -3941,7 +3930,78 @@ RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_mu_kks_ternary_)
 {
-  return 0;
+  const int Nt = 1;
+
+  const int local_id = eqn_id - mu_start_idx_;
+
+  const double phi = basis[0]->phi(i);
+  const double dphi_dx = basis[0]->dphidx(i);
+  const double dphi_dy = basis[0]->dphidy(i);
+  const double dphi_dz = basis[0]->dphidz(i);
+
+  double c[Nt_MAX_ * N_C_MAX_];
+  double dc_dx[Nt_MAX_ * N_C_MAX_];
+  double dc_dy[Nt_MAX_ * N_C_MAX_];
+  double dc_dz[Nt_MAX_ * N_C_MAX_];
+  utils::get_uu(c, N_C_, N_C_MAX_, c_start_idx_, basis);
+  utils::get_graduu(dc_dx, dc_dy, dc_dz, N_C_, N_C_MAX_, c_start_idx_, basis);
+
+  double mu[Nt_MAX_ * N_MU_MAX_];
+  utils::get_uu(mu, N_MU_, N_MU_MAX_, mu_start_idx_, basis);
+
+  double eta[Nt_MAX_ * N_ETA_MAX_];
+  utils::get_uu(eta, Nt, N_ETA_, eta_start_idx_, basis);
+
+  double hh[Nt_MAX_];
+  double c1a[Nt_MAX_];
+  double c1b[Nt_MAX_];
+  double c2a[Nt_MAX_];
+  double c2b[Nt_MAX_];
+  double divgrad_c[Nt_MAX_];
+  double df_dc[Nt_MAX_];
+
+  int idx = 0;
+  for (int tdx = 0; tdx < Nt; ++tdx) {
+    idx = utils::idx(tdx, local_id, N_C_MAX_);
+    divgrad_c[tdx] = k_c_ * (dc_dx[idx] * dphi_dx + dc_dy[idx] * dphi_dy + dc_dz[idx] * dphi_dx);
+
+    hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
+
+    c1a[tdx] = calenergy::c1a_0_;
+    c1b[tdx] = calenergy::c1b_0_;
+    c2a[tdx] = calenergy::c2a_0_;
+    c2b[tdx] = calenergy::c2b_0_;
+    kks::solve_kks(c[utils::idx(tdx, 0, N_C_MAX_)],
+                   c[utils::idx(tdx, 1, N_C_MAX_)],
+                   hh[tdx],
+                   c1a[tdx],
+                   c1b[tdx],
+                   c2a[tdx],
+                   c2b[tdx],
+                   calenergy::dfa_dc1a, 
+                   calenergy::dfb_dc1b, 
+                   calenergy::dfa_dc2a, 
+                   calenergy::dfb_dc2b,
+                   calenergy::d2fa_dc1a2, 
+                   calenergy::d2fb_dc1b2, 
+                   calenergy::d2fa_dc2a2, 
+                   calenergy::d2fb_dc2b2,
+                   calenergy::d2fa_dc1adc2a, 
+                   calenergy::d2fb_dc1bdc2b);
+
+    /*if (local_id == 0) {
+      df_dc[tdx] = calenergy::dfa_dc1a(c1a[tdx], c2a[tdx]);
+    }
+    else if (local_id == 1) {
+      df_dc[tdx] = calenergy::dfa_dc2a(c1a[tdx], c2a[tdx]);
+    }*/
+    // this does the above if statement
+    df_dc[tdx] = (1 - local_id) * calenergy::dfa_dc1a(c1a[tdx], c2a[tdx])
+                   + local_id * calenergy::dfa_dc2a(c1a[tdx], c2a[tdx]);
+  }
+
+  const int mu_idx = utils::idx(0, local_id, N_MU_MAX_);
+  return -mu[mu_idx] * phi + df_dc[0] + divgrad_c[0];
 }
 
 TUSAS_DEVICE

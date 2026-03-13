@@ -3034,6 +3034,15 @@ const double df_deta(const double ca, const double cb, const double eta)
 namespace calenergy
 {
 
+TUSAS_DEVICE
+const double c1a_0_ = 0.4;
+TUSAS_DEVICE
+const double c1b_0_ = 0.6;
+TUSAS_DEVICE
+const double c2a_0_ = 0.1;
+TUSAS_DEVICE
+const double c2b_0_ = 0.2;
+
 
 KOKKOS_INLINE_FUNCTION
 const double fa(const double c1a, const double c2a) {
@@ -3084,7 +3093,7 @@ const double d2fa_dc2a2(const double c1a, const double c2a) {
 }
 
 KOKKOS_INLINE_FUNCTION
-const double dfa_dc1adc2a(const double c1a, const double c2a) {
+const double d2fa_dc1adc2a(const double c1a, const double c2a) {
   return 400 / (1 - c1a - c2a);
 }
 
@@ -3099,7 +3108,7 @@ const double d2fb_dc2b2(const double c1b, const double c2b) {
 }
 
 KOKKOS_INLINE_FUNCTION
-const double dfb_dc1bdc2b(const double c1b, const double c2b) {
+const double d2fb_dc1bdc2b(const double c1b, const double c2b) {
   return 400 / (1 - c1b - c2b);
 }
 
@@ -3431,34 +3440,21 @@ namespace utils
 {
 
 KOKKOS_INLINE_FUNCTION
-const int idx(const int i, const int j, const int ncols) {
+int idx(int i, int j, int ncols) {
   // row-major ordering
   return i * ncols + j;
 }
 
 KOKKOS_INLINE_FUNCTION
 void get_uu(double* uu,  // out: the array to populate
-            const int Nt,  // in: number of time levels to get
-            const int N_UU,  // in: number of contiguous uu to get
+            const int N_UU,  // in: number of uu to get
+            const int ncols,  // in: number of "columns" in uu
             const int first_idx,  // in: index to start at
             GPUBasis* basis[]) {  // in: basis
-  if (Nt == 1) {
     for (int k = 0 ; k < N_UU; ++k) {
-      uu[idx(0, k, N_UU)] = basis[k + first_idx]->uu();
-    }
-  }
-  else if (Nt == 2) {
-    for (int k = 0 ; k < N_UU; ++k) {
-      uu[idx(0, k, N_UU)] = basis[k + first_idx]->uu();
-      uu[idx(1, k, N_UU)] = basis[k + first_idx]->uuold();
-    }
-  }
-  else if (Nt == 3) {
-    for (int k = 0 ; k < N_UU; ++k) {
-      uu[idx(0, k, N_UU)] = basis[k + first_idx]->uu();
-      uu[idx(1, k, N_UU)] = basis[k + first_idx]->uuold();
-      uu[idx(2, k, N_UU)] = basis[k + first_idx]->uuoldold();
-    }
+    uu[idx(0, k, ncols)] = basis[k + first_idx]->uu();
+    uu[idx(1, k, ncols)] = basis[k + first_idx]->uuold();
+    uu[idx(2, k, ncols)] = basis[k + first_idx]->uuoldold();
   }
 }
 
@@ -3466,44 +3462,23 @@ KOKKOS_INLINE_FUNCTION
 void get_graduu(double* duu_dx,  // out: dx array to populate
                 double* duu_dy,  // out: dy array to populate
                 double* duu_dz,  // out: dz array to populate
-                const int Nt,  // in: number of time levels to get
-                const int N_UU,  // in: number of contiguous uu to get
+                const int N_UU,  // in: number of uu to get
+                const int ncols,  // in: number of "columns" in uu
                 const int first_idx,  // in: index to start at
                 GPUBasis* basis[]) {  // in: basis
-  if (Nt == 1) {
-    for (int k = 0 ; k < N_UU; ++k) {
-      duu_dx[idx(0, k, N_UU)] = basis[k + first_idx]->duudx();
-      duu_dy[idx(0, k, N_UU)] = basis[k + first_idx]->duudy();
-      duu_dz[idx(0, k, N_UU)] = basis[k + first_idx]->duudz();
-    }
+  for (int k = 0 ; k < N_UU; ++k) {
+    duu_dx[idx(0, k, ncols)] = basis[k + first_idx]->duudx();
+    duu_dy[idx(0, k, ncols)] = basis[k + first_idx]->duudy();
+    duu_dz[idx(0, k, ncols)] = basis[k + first_idx]->duudz();
+
+    duu_dx[idx(1, k, ncols)] = basis[k + first_idx]->duuolddx();
+    duu_dy[idx(1, k, ncols)] = basis[k + first_idx]->duuolddy();
+    duu_dz[idx(1, k, ncols)] = basis[k + first_idx]->duuolddz();
+
+    duu_dx[idx(2, k, ncols)] = basis[k + first_idx]->duuoldolddx();
+    duu_dy[idx(2, k, ncols)] = basis[k + first_idx]->duuoldolddy();
+    duu_dz[idx(2, k, ncols)] = basis[k + first_idx]->duuoldolddz();
   }
-  else if (Nt == 2) {
-    for (int k = 0 ; k < N_UU; ++k) {
-      duu_dx[idx(0, k, N_UU)] = basis[k + first_idx]->duudx();
-      duu_dy[idx(0, k, N_UU)] = basis[k + first_idx]->duudy();
-      duu_dz[idx(0, k, N_UU)] = basis[k + first_idx]->duudz();
-
-      duu_dx[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddx();
-      duu_dy[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddy();
-      duu_dz[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddz();
-    }
-  }
-  else if (Nt == 3) {
-    for (int k = 0 ; k < N_UU; ++k) {
-      duu_dx[idx(0, k, N_UU)] = basis[k + first_idx]->duudx();
-      duu_dy[idx(0, k, N_UU)] = basis[k + first_idx]->duudy();
-      duu_dz[idx(0, k, N_UU)] = basis[k + first_idx]->duudz();
-
-      duu_dx[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddx();
-      duu_dy[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddy();
-      duu_dz[idx(1, k, N_UU)] = basis[k + first_idx]->duuolddz();
-
-      duu_dx[idx(2, k, N_UU)] = basis[k + first_idx]->duuoldolddx();
-      duu_dy[idx(2, k, N_UU)] = basis[k + first_idx]->duuoldolddy();
-      duu_dz[idx(2, k, N_UU)] = basis[k + first_idx]->duuoldolddz();
-    }
-  }
-
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -3532,21 +3507,29 @@ const double ret_value(const double ut,  // in: time derivative
 namespace tonks
 {  
   TUSAS_DEVICE
-  const int N_ETA_MAX = 4;
+  const int Nt_MAX_ = 3;
+  
+  TUSAS_DEVICE
+  const int N_C_MAX_ = 1;
+  TUSAS_DEVICE
+  int N_C_ = 1;
+  TUSAS_DEVICE
+  int c_start_idx_ = 0;
+
+  TUSAS_DEVICE
+  const int N_MU_MAX_ = 1;
+  TUSAS_DEVICE
+  int N_MU_ = 1;
+  TUSAS_DEVICE
+  int mu_start_idx_ = 1;
+
+  TUSAS_DEVICE
+  const int N_ETA_MAX_ = 4;
   TUSAS_DEVICE
   int N_ETA_ = 1;
   TUSAS_DEVICE
   int eta_start_idx_ = 1;
   
-  TUSAS_DEVICE
-  const int N_C_MAX_ = 4;
-  TUSAS_DEVICE
-  int N_C_ = 1;
-  TUSAS_DEVICE
-  int c_start_idx_ = 0;
-  TUSAS_DEVICE
-  int mu_start_idx = 1;
-
   TUSAS_DEVICE
   int eqn_off_ = 1;
   TUSAS_DEVICE
@@ -3588,7 +3571,7 @@ PARAM_FUNC(param_)
 #else
   eqn_off_ = eqn_off_p;
 #endif
-  if(N_ETA_ > N_ETA_MAX) exit(0);
+  if(N_ETA_ > N_ETA_MAX_) exit(0);
 
   // nondim free energy density, J/m^3
   // generally, should be ~parabolicenergy::Aa_
@@ -3656,39 +3639,39 @@ RES_FUNC_TPETRA(residual_c_kks_new_)
   //   c[time_idx, c_idx]
   // but really a 1D array that
   // we can index this using
-  //   utils::idx(time_idx, c_idx, N_C_)
-  double c[Nt * N_C_];
-  double dc_dx[Nt * N_C_];
-  double dc_dy[Nt * N_C_];
-  double dc_dz[Nt * N_C_];
-  utils::get_uu(c, Nt, N_C_, c_start_idx_, basis);
-  utils::get_graduu(dc_dx, dc_dy, dc_dz, Nt, N_C_, c_start_idx_, basis);
+  //   utils::idx(time_idx, c_idx, N_C_MAX_)
+  double c[Nt_MAX_ * N_C_MAX_] = {0.};
+  double dc_dx[Nt_MAX_ * N_C_MAX_] = {0.};
+  double dc_dy[Nt_MAX_ * N_C_MAX_] = {0.};
+  double dc_dz[Nt_MAX_ * N_C_MAX_] = {0.};
+  utils::get_uu(c, N_C_, N_C_MAX_, c_start_idx_, basis);
+  utils::get_graduu(dc_dx, dc_dy, dc_dz, N_C_, N_C_MAX_, c_start_idx_, basis);
 
   // populate eta viewed as a "matrix"
   //   eta[time_idx, eta_idx]
   // but really a 1D array that
   // we can index this using
-  //   utils::idx(time_idx, eta_idx, N_ETA_)
-  double eta[Nt * N_ETA_];
-  double deta_dx[Nt * N_ETA_];
-  double deta_dy[Nt * N_ETA_];
-  double deta_dz[Nt * N_ETA_];
-  utils::get_uu(eta, Nt, N_ETA_, eta_start_idx_, basis);
-  utils::get_graduu(deta_dx, deta_dy, deta_dz, Nt, N_ETA_, eta_start_idx_, basis);
+  //   utils::idx(time_idx, eta_idx, N_ETA_MAX_)
+  double eta[Nt_MAX_ * N_ETA_MAX_] = {0.};
+  double deta_dx[Nt_MAX_ * N_ETA_MAX_] = {0.};
+  double deta_dy[Nt_MAX_ * N_ETA_MAX_] = {0.};
+  double deta_dz[Nt_MAX_ * N_ETA_MAX_] = {0.};
+  utils::get_uu(eta, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
+  utils::get_graduu(deta_dx, deta_dy, deta_dz, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
 
   // define all the variables we need to calculate 
   // the residual = Mdivgrad_df_dc
-  double hh[Nt];
-  double dh_dx[Nt];
-  double dh_dy[Nt];
-  double dh_dz[Nt];
-  double ca[Nt];
-  double cb[Nt];
-  double d2f_dc2[Nt];
-  double d2f_dcdx[Nt];
-  double d2f_dcdy[Nt];
-  double d2f_dcdz[Nt];
-  double Mdivgrad_df_dc[Nt];
+  double hh[Nt_MAX_] = {0.};
+  double dh_dx[Nt_MAX_] = {0.};
+  double dh_dy[Nt_MAX_] = {0.};
+  double dh_dz[Nt_MAX_] = {0.};
+  double ca[Nt_MAX_] = {0.};
+  double cb[Nt_MAX_] = {0.};
+  double d2f_dc2[Nt_MAX_] = {0.};
+  double d2f_dcdx[Nt_MAX_] = {0.};
+  double d2f_dcdy[Nt_MAX_] = {0.};
+  double d2f_dcdz[Nt_MAX_] = {0.};
+  double Mdivgrad_df_dc[Nt_MAX_] = {0.};
 
 
   // loop over each time level that we need data at
@@ -3696,17 +3679,14 @@ RES_FUNC_TPETRA(residual_c_kks_new_)
   double dh_deta = 0;
   for (int tdx = 0; tdx < Nt; ++tdx) {
     // calculate h
-    // here, we are doing some pointer arithmetic
-    // to pass h() the array of eta starting
-    // at the correct time level
-    hh[tdx] = parabolicenergy::h((eta + tdx * N_ETA_));
+    hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
 
     // calculate grad h
     dh_dx[tdx] = 0.;
     dh_dy[tdx] = 0.;
     dh_dz[tdx] = 0.;
     for (int k = 0; k < N_ETA_ ; ++k) {
-      idx = utils::idx(tdx, k, N_ETA_);
+      idx = utils::idx(tdx, k, N_ETA_MAX_);
       dh_deta = parabolicenergy::dh_deta(eta[idx]);
 
       dh_dx[tdx] += dh_deta * deta_dx[idx];
@@ -3718,7 +3698,7 @@ RES_FUNC_TPETRA(residual_c_kks_new_)
     // for the current component c_{eqn_id}
     ca[tdx] = parabolicenergy::c1_;
     cb[tdx] = parabolicenergy::c2_;
-    kks::solve_kks(c[utils::idx(tdx, eqn_id, N_C_)],
+    kks::solve_kks(c[utils::idx(tdx, eqn_id, N_C_MAX_)],
                    hh[tdx],
                    ca[tdx],
                    cb[tdx],
@@ -3745,11 +3725,11 @@ RES_FUNC_TPETRA(residual_c_kks_new_)
                                                + d2f_dcdz[tdx] * dphi_dz);
   }  // tdx = 0, < Nt loop
 
-  const double ct = (c[utils::idx(0, eqn_id, N_C_)] 
-                     - c[utils::idx(1, eqn_id, N_C_)]) / dt_ * phi;
+  const double dc_dt = (c[utils::idx(0, eqn_id, N_C_MAX_)] 
+                          - c[utils::idx(1, eqn_id, N_C_MAX_)]) / dt_ * phi;
 
-  return utils::ret_value(ct, Mdivgrad_df_dc, t_theta_);
   //return utils::ret_value(ct, Mdivgrad_df_dc, dt_, dtold_, t_theta_, t_theta2_);
+  return dc_dt + t_theta_ * Mdivgrad_df_dc[0] + (1. - t_theta_) * Mdivgrad_df_dc[1];
 }
 
 TUSAS_DEVICE
@@ -3772,8 +3752,8 @@ RES_FUNC_TPETRA(residual_c_kks_)
   double dhdx[2] = {0., 0.};
   double dhdy[2] = {0., 0.};
 
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
+  double eta_array_old[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     dhdx[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudx();
@@ -3828,9 +3808,9 @@ RES_FUNC_TPETRA((*residual_c_kks_dp_)) = residual_c_kks_;
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_c_split_kks_)
 {
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
-  double eta_array_oldold[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
+  double eta_array_old[N_ETA_MAX_];
+  double eta_array_oldold[N_ETA_MAX_];
   for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -3864,6 +3844,66 @@ TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_c_split_kks_dp_)) = residual_c_split_kks_;
 
 KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_c_split_kks_ternary_)
+{
+  // number of time levels to compute
+  // might want to pass this in to res func?
+  const int Nt = 3;
+
+  // test function
+  const double phi = basis[0]->phi(i);
+  // grad(phi)
+  const double dphi_dx = basis[0]->dphidx(i);
+  const double dphi_dy = basis[0]->dphidy(i);
+  const double dphi_dz = basis[0]->dphidz(i);
+
+  // populate mu viewed as a "matrix"
+  //   mu[time_idx, mu_idx]
+  // but really a 1D array that
+  // we can index this using
+  //   utils::idx(time_idx, mu_idx, N_MU_MAX_)
+  double mu[Nt_MAX_ * N_MU_MAX_];
+  double dmu_dx[Nt_MAX_ * N_MU_MAX_];
+  double dmu_dy[Nt_MAX_ * N_MU_MAX_];
+  double dmu_dz[Nt_MAX_ * N_MU_MAX_];
+  utils::get_uu(mu, N_MU_, N_MU_MAX_, mu_start_idx_, basis);
+  utils::get_graduu(dmu_dx, dmu_dy, dmu_dz, N_MU_, N_MU_MAX_,  mu_start_idx_, basis);
+
+  // populate eta viewed as a "matrix"
+  //   eta[time_idx, eta_idx]
+  // but really a 1D array that
+  // we can index this using
+  //   utils::idx(time_idx, eta_idx, N_ETA_MAX_)
+  double eta[Nt_MAX_ * N_ETA_MAX_];
+  utils::get_uu(eta, Nt, N_ETA_, eta_start_idx_, basis);
+
+
+  double hh[Nt_MAX_];
+  double Mgrad_mu[Nt_MAX_];
+
+  int idx = 0;
+  for (int tdx = 0; tdx < Nt; ++tdx) {
+    // calculate h
+    // here, we are doing some pointer arithmetic
+    // to pass h() the array of eta starting
+    // at the correct time level
+    hh[tdx] = parabolicenergy::h((eta + tdx * N_ETA_MAX_));
+
+    idx = utils::idx(tdx, eqn_id + N_C_, N_MU_MAX_);
+    Mgrad_mu[tdx] = mobility(hh[tdx]) * (dmu_dx[idx] * dphi_dx + dmu_dy[idx] * dphi_dy + dmu_dz[idx] * dphi_dy);
+  }  // tdx = 0, < Nt loop
+  
+  const double dmu_dt = (mu[utils::idx(0, eqn_id + N_C_, N_C_MAX_)] 
+                           - mu[utils::idx(1, eqn_id + N_C_, N_C_MAX_)]) / dt_ * phi;
+
+
+  return utils::ret_value(dmu_dt, Mgrad_mu, dt_, dtold_, t_theta_, t_theta2_);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_split_kks_ternary_dp_)) = residual_c_split_kks_ternary_;
+
+KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_mu_kks_)
 {
   // -mu + df/dc + div c grad test
@@ -3875,7 +3915,7 @@ RES_FUNC_TPETRA(residual_mu_kks_)
                             + basis[ci_]->duudy() * basis[0]->dphidy(i)
                             + basis[ci_]->duudz() * basis[0]->dphidz(i));
   
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -3897,6 +3937,15 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
 
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_mu_kks_ternary_)
+{
+  return 0;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_mu_kks_ternary_dp_)) = residual_mu_kks_ternary_;
+
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_)
 {
@@ -3915,9 +3964,9 @@ RES_FUNC_TPETRA(residual_eta_kks_)
                                   + basis[eqn_id]->duuoldolddy() * basis[0]->dphidy(i)
                                   + basis[eqn_id]->duuoldolddz() * basis[0]->dphidz(i))};
 
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
-  double eta_array_oldold[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
+  double eta_array_old[N_ETA_MAX_];
+  double eta_array_oldold[N_ETA_MAX_];
   for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -3969,6 +4018,15 @@ TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
 
 KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_eta_kks_ternary_)
+{
+  return 0;
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_eta_kks_ternary_dp_)) = residual_eta_kks_ternary_;
+
+KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_eta_)
 {
   const double ut = basis[0]->phi(j) / dt_ * basis[0]->phi(i);
@@ -3984,7 +4042,7 @@ PRE_FUNC_TPETRA(prec_c_)
   const double test = basis[0]->phi(i);
   const double u_t = test * basis[0]->phi(j) / dt_;
   
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -4022,7 +4080,7 @@ INI_FUNC(init_c_)
 
 INI_FUNC(init_mu_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = init_eta_(x, y, z, kk_off, lid);
@@ -4043,7 +4101,7 @@ INI_FUNC(init_mu_)
 
 PPR_FUNC(postproc_mu_a_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = u[kk_off];
@@ -4064,7 +4122,7 @@ PPR_FUNC(postproc_mu_a_)
 
 PPR_FUNC(postproc_mu_b_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = u[kk_off];
@@ -4085,7 +4143,7 @@ PPR_FUNC(postproc_mu_b_)
 
 PPR_FUNC(postproc_ca_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = u[kk_off];
@@ -4105,7 +4163,7 @@ PPR_FUNC(postproc_ca_)
 
 PPR_FUNC(postproc_cb_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = u[kk_off];

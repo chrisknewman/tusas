@@ -3068,6 +3068,54 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //post_proc.push_back(new post_process(mesh_,(int)3));
     //post_proc[3].postprocfunc_ = &tpetra::tonks::postproc_cb_;
     
+  }else if("tonks2splitkks" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    const int Nc = 2;
+    const int Nmu = Nc;
+    const int Neta = 1;
+    numeqs_ = Nc + Nmu + Neta;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::tonks::residual_c_split_kks_ternary_dp_;
+    (*residualfunc_)[1] = tpetra::tonks::residual_c_split_kks_ternary_dp_;
+    (*residualfunc_)[2] = tpetra::tonks::residual_mu_kks_ternary_dp_;
+    (*residualfunc_)[3] = tpetra::tonks::residual_mu_kks_ternary_dp_;
+    (*residualfunc_)[4] = tpetra::tonks::residual_eta_kks_ternary_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::tonks::prec_c_;
+    (*preconfunc_)[1] = &tpetra::tonks::prec_c_;
+    (*preconfunc_)[2] = &tpetra::tonks::prec_c_;
+    (*preconfunc_)[3] = &tpetra::tonks::prec_c_;
+    (*preconfunc_)[4] = &tpetra::tonks::prec_eta_;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::tonks::init_c_;
+    (*initfunc_)[1] = &tpetra::tonks::init_c_;
+    (*initfunc_)[2] = &tpetra::tonks::init_mu_;
+    (*initfunc_)[3] = &tpetra::tonks::init_mu_;
+    (*initfunc_)[4] = &tpetra::tonks::init_eta_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c1";
+    (*varnames_)[1] = "c2";
+    (*varnames_)[2] = "mu1";
+    (*varnames_)[3] = "mu2";
+    (*varnames_)[4] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(2);
+    paramfunc_[0] = &tpetra::kks::param_;
+    paramfunc_[1] = &tpetra::tonks::param_;
+
+    //post_proc.push_back(new post_process(mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu_a_;
+    
   }else if("shengwbm" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

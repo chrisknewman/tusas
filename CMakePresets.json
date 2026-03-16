@@ -34,6 +34,35 @@
           "value": "srun"
         }
       } 
+    },
+    {
+      "name": "ubuntu",
+      "displayName": "Default Ubuntu Config",
+      "description": "Default build for Ubuntu 24.04 using standard Unix Makefiles",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/GCC_KOKKOS_15_1/",
+      "cacheVariables": {
+        "TRILINOS_DIR": {
+          "type": "STRING",
+          "value": "/home/jlilly/projects/tusas/sources/Trilinos15.1/install/"
+        },
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "RELEASE"
+        },
+        "TUSAS_CXX_FLAGS": {
+          "type": "STRING",
+          "value": "-DTUSAS_KOKKOS_PRINT_CONFIG -w"
+        },
+        "CMAKE_CXX_STANDARD": {
+          "type": "INT",
+          "value": "14"
+        },
+        "TUSAS_RUN_COMMAND": {
+          "type": "STRING",
+          "value": "mpirun"
+        }
+      } 
     }
   ]
 }

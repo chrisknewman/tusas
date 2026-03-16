@@ -3045,6 +3045,16 @@ const double c2b_0_ = 0.2;
 
 
 KOKKOS_INLINE_FUNCTION
+const double df_deta(const double c1a,
+                     const double c1b,
+                     const double c2a,
+                     const double c2b,
+                     const double eta)
+{
+  return 0;
+}
+
+KOKKOS_INLINE_FUNCTION
 const double fa(const double c1a, const double c2a) {
   const double c3a = 1 - c1a - c2a;
   return 10 * c1a + 500 * c2a + 40 * c3a
@@ -3880,6 +3890,7 @@ RES_FUNC_TPETRA(residual_c_split_kks_ternary_)
     // calculate h
     hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
 
+    // calculate M * grad mu
     idx = utils::idx(tdx, local_id, N_MU_MAX_);
     Mgrad_mu[tdx] = mobility(hh[tdx]) * (dmu_dx[idx] * dphi_dx + dmu_dy[idx] * dphi_dy + dmu_dz[idx] * dphi_dy);
   }  // tdx = 0, < Nt loop
@@ -4081,6 +4092,71 @@ RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_ternary_)
 {
+  const int Nt = 3;
+
+  const int local_id = eqn_id - eta_start_idx_;
+
+  const double phi = basis[0]->phi(i);
+  const double dphi_dx = basis[0]->dphidx(i);
+  const double dphi_dy = basis[0]->dphidy(i);
+  const double dphi_dz = basis[0]->dphidz(i);
+
+  double c[Nt_MAX_ * N_C_MAX_];
+  double dc_dx[Nt_MAX_ * N_C_MAX_];
+  double dc_dy[Nt_MAX_ * N_C_MAX_];
+  double dc_dz[Nt_MAX_ * N_C_MAX_];
+  utils::get_uu(c, N_C_, N_C_MAX_, c_start_idx_, basis);
+  utils::get_graduu(dc_dx, dc_dy, dc_dz, N_C_, N_C_MAX_, c_start_idx_, basis);
+
+  double eta[Nt_MAX_ * N_ETA_MAX_];
+  double deta_dx[Nt_MAX_ * N_ETA_MAX_];
+  double deta_dy[Nt_MAX_ * N_ETA_MAX_];
+  double deta_dz[Nt_MAX_ * N_ETA_MAX_];
+  utils::get_uu(eta, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
+  utils::get_graduu(deta_dx, deta_dy, deta_dz, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
+
+  double hh[Nt_MAX_];
+  double c1a[Nt_MAX_];
+  double c1b[Nt_MAX_];
+  double c2a[Nt_MAX_];
+  double c2b[Nt_MAX_];
+  double kdivgrad_eta[Nt_MAX_];
+  double df_deta[Nt_MAX_];
+
+  int idx = 0;
+  for (int tdx = 0; tdx < Nt; ++tdx) {
+    hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
+
+    idx = utils::idx(tdx, local_id, N_ETA_MAX_);
+    Ldivgrad_eta[tdx] = L_ * k_eta_ * (deta_dx[idx] * dphi_dx + deta_dy[idx] * dphi_dy + deta_dz[idx] * dphi_dz);
+
+    c1a[tdx] = calenergy::c1a_0_;
+    c1b[tdx] = calenergy::c1b_0_;
+    c2a[tdx] = calenergy::c2a_0_;
+    c2b[tdx] = calenergy::c2b_0_;
+    kks::solve_kks(c[utils::idx(tdx, 0, N_C_MAX_)],
+                   c[utils::idx(tdx, 1, N_C_MAX_)],
+                   hh[tdx],
+                   c1a[tdx],
+                   c1b[tdx],
+                   c2a[tdx],
+                   c2b[tdx],
+                   calenergy::dfa_dc1a, 
+                   calenergy::dfb_dc1b, 
+                   calenergy::dfa_dc2a, 
+                   calenergy::dfb_dc2b,
+                   calenergy::d2fa_dc1a2, 
+                   calenergy::d2fb_dc1b2, 
+                   calenergy::d2fa_dc2a2, 
+                   calenergy::d2fb_dc2b2,
+                   calenergy::d2fa_dc1adc2a, 
+                   calenergy::d2fb_dc1bdc2b);
+
+    idx = utils::idx(tdx, local_id, N_ETA_MAX_);
+    df_deta[tdx] = L_ * (calenergy::df_deta(c1a[tdx], c1b[tdx], c2a[tdx], c2b[tdx], eta[idx])
+                     + w_ * parabolicenergy::dg_deta(&eta[tdx * N_ETA_MAX_], local_id)) * phi;
+  }
+
   return 0;
 }
 

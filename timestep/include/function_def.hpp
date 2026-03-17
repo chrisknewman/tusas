@@ -3045,16 +3045,6 @@ const double c2b_0_ = 0.2;
 
 
 KOKKOS_INLINE_FUNCTION
-const double df_deta(const double c1a,
-                     const double c1b,
-                     const double c2a,
-                     const double c2b,
-                     const double eta)
-{
-  return 0;
-}
-
-KOKKOS_INLINE_FUNCTION
 const double fa(const double c1a, const double c2a) {
   const double c3a = 1 - c1a - c2a;
   return 10 * c1a + 500 * c2a + 40 * c3a
@@ -3120,6 +3110,22 @@ const double d2fb_dc2b2(const double c1b, const double c2b) {
 KOKKOS_INLINE_FUNCTION
 const double d2fb_dc1bdc2b(const double c1b, const double c2b) {
   return 400 / (1 - c1b - c2b);
+}
+
+KOKKOS_INLINE_FUNCTION
+const double df_deta(const double c1a,
+                     const double c1b,
+                     const double c2a,
+                     const double c2b,
+                     const double eta)
+{
+  // does not include the w g' term
+  // dh(eta1, eta2) / deta1 is a function of eta1 only
+  // uses tonks eq 10
+  const double dh_deta = parabolicenergy::dh_deta(eta);
+  return dh_deta * (fa(c1a, c2a) - fb(c1b, c2b))
+           + dfa_dc1a(c1a, c2a) * dh_deta * (c1a - c1b)
+           + dfa_dc2a(c1a, c2a) * dh_deta * (c2a - c2b);
 }
 
 
@@ -4008,7 +4014,7 @@ RES_FUNC_TPETRA(residual_mu_kks_ternary_)
     }*/
     // this does the above if statement
     df_dc[tdx] = (1 - local_id) * calenergy::dfa_dc1a(c1a[tdx], c2a[tdx])
-                   + local_id * calenergy::dfa_dc2a(c1a[tdx], c2a[tdx]);
+                    + local_id * calenergy::dfa_dc2a(c1a[tdx], c2a[tdx]);
   }
 
   const int mu_idx = utils::idx(0, local_id, N_MU_MAX_);
@@ -4120,15 +4126,16 @@ RES_FUNC_TPETRA(residual_eta_kks_ternary_)
   double c1b[Nt_MAX_];
   double c2a[Nt_MAX_];
   double c2b[Nt_MAX_];
-  double kdivgrad_eta[Nt_MAX_];
+  double k_divgrad_eta[Nt_MAX_];
   double df_deta[Nt_MAX_];
+  double f[Nt_MAX_];
 
   int idx = 0;
   for (int tdx = 0; tdx < Nt; ++tdx) {
     hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
 
     idx = utils::idx(tdx, local_id, N_ETA_MAX_);
-    Ldivgrad_eta[tdx] = L_ * k_eta_ * (deta_dx[idx] * dphi_dx + deta_dy[idx] * dphi_dy + deta_dz[idx] * dphi_dz);
+    k_divgrad_eta[tdx] = k_eta_ * (deta_dx[idx] * dphi_dx + deta_dy[idx] * dphi_dy + deta_dz[idx] * dphi_dz);
 
     c1a[tdx] = calenergy::c1a_0_;
     c1b[tdx] = calenergy::c1b_0_;
@@ -4153,11 +4160,16 @@ RES_FUNC_TPETRA(residual_eta_kks_ternary_)
                    calenergy::d2fb_dc1bdc2b);
 
     idx = utils::idx(tdx, local_id, N_ETA_MAX_);
-    df_deta[tdx] = L_ * (calenergy::df_deta(c1a[tdx], c1b[tdx], c2a[tdx], c2b[tdx], eta[idx])
-                     + w_ * parabolicenergy::dg_deta(&eta[tdx * N_ETA_MAX_], local_id)) * phi;
+    df_deta[tdx] = (calenergy::df_deta(c1a[tdx], c1b[tdx], c2a[tdx], c2b[tdx], eta[idx])
+                      + w_ * parabolicenergy::dg_deta(&eta[tdx * N_ETA_MAX_], local_id)) * phi;
+
+    f[tdx] = L_* (k_divgrad_eta[tdx] + df_deta[tdx]);
   }
 
-  return 0;
+  const double deta_dt = (eta[utils::idx(0, local_id, N_ETA_MAX_)] 
+                            - eta[utils::idx(1, local_id, N_ETA_MAX_)]) / dt_ * phi;
+
+  return utils::ret_value(deta_dt, f, dt_, dtold_, t_theta_, t_theta2_);
 }
 
 TUSAS_DEVICE
@@ -4215,6 +4227,20 @@ INI_FUNC(init_c_)
   return parabolicenergy::c1_ * hh + parabolicenergy::c2_ * (1. - hh);
 }
 
+INI_FUNC(init_c1_)
+{
+  const double eta = init_eta_(x, y, z, eqn_id, lid);
+  const double hh = parabolicenergy::h(&eta);
+  return calenergy::c1a_0_ * hh + calenergy::c1b_0_ * (1. - hh);
+}
+
+INI_FUNC(init_c2_)
+{
+  const double eta = init_eta_(x, y, z, eqn_id, lid);
+  const double hh = parabolicenergy::h(&eta);
+  return calenergy::c2a_0_ * hh + calenergy::c2b_0_ * (1. - hh);
+}
+
 INI_FUNC(init_mu_)
 {
   double eta_array[N_ETA_MAX_];
@@ -4234,6 +4260,80 @@ INI_FUNC(init_mu_)
                  parabolicenergy::d2fb_dcb2);
   // based off eq (28) in the original KKS paper
   return parabolicenergy::dfa_dca(ca);
+}
+
+INI_FUNC(init_mu1_)
+{
+  const double c1 = init_c_(x, y, z, c_start_idx_, lid);
+  const double c2 = init_c_(x, y, z, c_start_idx_ + 1, lid);
+
+  double eta[N_ETA_MAX_];
+  for(int k = 0; k < N_ETA_; ++k){
+    int kk = k + eta_start_idx_;;
+    eta[kk] = init_eta_(x, y, z, kk, lid);
+  }
+  const double hh = parabolicenergy::h(eta);
+
+  double c1a = calenergy::c1a_0_;
+  double c1b = calenergy::c1b_0_;
+  double c2a = calenergy::c2a_0_;
+  double c2b = calenergy::c2b_0_;
+  kks::solve_kks(c1,
+                 c2,
+                 hh,
+                 c1a,
+                 c1b,
+                 c2a,
+                 c2b,
+                 calenergy::dfa_dc1a, 
+                 calenergy::dfb_dc1b, 
+                 calenergy::dfa_dc2a, 
+                 calenergy::dfb_dc2b,
+                 calenergy::d2fa_dc1a2, 
+                 calenergy::d2fb_dc1b2, 
+                 calenergy::d2fa_dc2a2, 
+                 calenergy::d2fb_dc2b2,
+                 calenergy::d2fa_dc1adc2a, 
+                 calenergy::d2fb_dc1bdc2b);
+
+  return calenergy::dfa_dc1a(c1a, c2a);
+}
+
+INI_FUNC(init_mu2_)
+{
+  const double c1 = init_c_(x, y, z, c_start_idx_, lid);
+  const double c2 = init_c_(x, y, z, c_start_idx_ + 1, lid);
+
+  double eta[N_ETA_MAX_];
+  for(int k = 0; k < N_ETA_; ++k){
+    int kk = k + eta_start_idx_;;
+    eta[kk] = init_eta_(x, y, z, kk, lid);
+  }
+  const double hh = parabolicenergy::h(eta);
+
+  double c1a = calenergy::c1a_0_;
+  double c1b = calenergy::c1b_0_;
+  double c2a = calenergy::c2a_0_;
+  double c2b = calenergy::c2b_0_;
+  kks::solve_kks(c1,
+                 c2,
+                 hh,
+                 c1a,
+                 c1b,
+                 c2a,
+                 c2b,
+                 calenergy::dfa_dc1a, 
+                 calenergy::dfb_dc1b, 
+                 calenergy::dfa_dc2a, 
+                 calenergy::dfb_dc2b,
+                 calenergy::d2fa_dc1a2, 
+                 calenergy::d2fb_dc1b2, 
+                 calenergy::d2fa_dc2a2, 
+                 calenergy::d2fb_dc2b2,
+                 calenergy::d2fa_dc1adc2a, 
+                 calenergy::d2fb_dc1bdc2b);
+
+  return calenergy::dfa_dc2a(c1a, c2a);
 }
 
 PPR_FUNC(postproc_mu_a_)

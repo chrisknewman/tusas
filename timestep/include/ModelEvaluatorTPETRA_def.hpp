@@ -3093,10 +3093,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*preconfunc_)[4] = &tpetra::tonks::prec_eta_;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::tonks::init_c_;
-    (*initfunc_)[1] = &tpetra::tonks::init_c_;
-    (*initfunc_)[2] = &tpetra::tonks::init_mu_;
-    (*initfunc_)[3] = &tpetra::tonks::init_mu_;
+    (*initfunc_)[0] = &tpetra::tonks::init_c1_;
+    (*initfunc_)[1] = &tpetra::tonks::init_c2_;
+    (*initfunc_)[2] = &tpetra::tonks::init_mu1_;
+    (*initfunc_)[3] = &tpetra::tonks::init_mu2_;
     (*initfunc_)[4] = &tpetra::tonks::init_eta_;
 
     varnames_ = new std::vector<std::string>(numeqs_);

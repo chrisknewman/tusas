@@ -705,7 +705,7 @@ int solve_kks(const double &c1,  // in: c1
 
 KOKKOS_INLINE_FUNCTION
 int solve_kks(const double &c1,  // in: c1
-              const double &c2,  // in: c1
+              const double &c2,  // in: c2
               const double &hh,  // in: h(eta)
               double &c1a,  // out: c1a, in, initial guess
               double &c1b,  // out: c1b, in: initial guess 
@@ -744,6 +744,7 @@ int solve_kks(const double &c1,  // in: c1
    *   c1 = c1a * h + c1b * (1 - h)
    *   c2 = c2a * h + c2b * (1 - h)
    */
+  std::cout << "#### solve_kks() started!" << std::endl;
 
   // meta variables
   double err2 = 0.;
@@ -822,7 +823,7 @@ int solve_kks(const double &c1,  // in: c1
                       - d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
                   + f2 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
                           - d2fa_dc1adc2a * d2fb_dc1bdc2b 
-                          - d2fa_dc2a2 * d2fb_dc2b2*hh 
+                          - d2fa_dc2a2 * d2fb_dc2b2 * hh 
                           + d2fa_dc2a2 * d2fb_dc2b2) 
                   + f3 * (d2fa_dc2a2 * std::pow(hh, 2) 
                           - 2 * d2fa_dc2a2 * hh 
@@ -923,7 +924,7 @@ int solve_kks(const double &c1,  // in: c1
   std::cout << "#### solve_kks() failed to converge!" << std::endl
             << "#### current error = " << std::sqrt(err2) << std::endl
             << "#### tol = " << tol << std::endl;
-  exit(-1);
+  //exit(-1);
 }
 
   
@@ -3632,6 +3633,18 @@ PARAM_FUNC(param_split_offset_)
 #endif
 }
 
+PARAM_FUNC(param_set_ternary_ids_)
+{
+  N_C_ = 2;
+  N_MU_ = 2;
+  N_ETA_ = 1;
+
+  c_start_idx_ = 0;
+  mu_start_idx_ = 2;
+  eta_start_idx_ = 4;
+}
+
+
 KOKKOS_INLINE_FUNCTION
 const double mobility(const double hh) {
   return M_ * (1. - hh) + hh;
@@ -3863,6 +3876,9 @@ RES_FUNC_TPETRA((*residual_c_split_kks_dp_)) = residual_c_split_kks_;
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_c_split_kks_ternary_)
 {
+  std::cout << "res c top" << std::endl
+            << "eqn_id = " << eqn_id << std::endl
+            << "local_id = " << eqn_id - c_start_idx_ << std::endl;
   // number of time levels to compute
   // might want to pass this in to res func?
   const int Nt = 3;
@@ -3886,7 +3902,7 @@ RES_FUNC_TPETRA(residual_c_split_kks_ternary_)
   utils::get_graduu(dmu_dx, dmu_dy, dmu_dz, N_MU_, N_MU_MAX_,  mu_start_idx_, basis);
 
   double eta[Nt_MAX_ * N_ETA_MAX_];
-  utils::get_uu(eta, Nt, N_ETA_, eta_start_idx_, basis);
+  utils::get_uu(eta, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
 
   double hh[Nt_MAX_];
   double Mgrad_mu[Nt_MAX_];
@@ -3947,6 +3963,9 @@ RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_mu_kks_ternary_)
 {
+  std::cout << "res mu top" << std::endl
+            << "eqn_id = " << eqn_id << std::endl
+            << "local_id = " << eqn_id - mu_start_idx_ << std::endl;
   const int Nt = 1;
 
   const int local_id = eqn_id - mu_start_idx_;
@@ -3967,7 +3986,7 @@ RES_FUNC_TPETRA(residual_mu_kks_ternary_)
   utils::get_uu(mu, N_MU_, N_MU_MAX_, mu_start_idx_, basis);
 
   double eta[Nt_MAX_ * N_ETA_MAX_];
-  utils::get_uu(eta, Nt, N_ETA_, eta_start_idx_, basis);
+  utils::get_uu(eta, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
 
   double hh[Nt_MAX_];
   double c1a[Nt_MAX_];
@@ -4098,6 +4117,9 @@ RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_ternary_)
 {
+  std::cout << "res eta top" << std::endl
+            << "eqn_id = " << eqn_id << std::endl
+            << "local_id = " << eqn_id - eta_start_idx_ << std::endl;
   const int Nt = 3;
 
   const int local_id = eqn_id - eta_start_idx_;
@@ -4211,6 +4233,7 @@ PRE_FUNC_TPETRA(prec_c_)
 
 INI_FUNC(init_eta_)
 {
+  std::cout << "init eta" << std::endl;
   const double sqrt2 = std::sqrt(2.);
   const double sqrtw = std::sqrt(w_);
   
@@ -4229,6 +4252,7 @@ INI_FUNC(init_c_)
 
 INI_FUNC(init_c1_)
 {
+  std::cout << "init c1" << std::endl;
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = parabolicenergy::h(&eta);
   return calenergy::c1a_0_ * hh + calenergy::c1b_0_ * (1. - hh);
@@ -4236,6 +4260,7 @@ INI_FUNC(init_c1_)
 
 INI_FUNC(init_c2_)
 {
+  std::cout << "init c2" << std::endl;
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = parabolicenergy::h(&eta);
   return calenergy::c2a_0_ * hh + calenergy::c2b_0_ * (1. - hh);
@@ -4264,6 +4289,7 @@ INI_FUNC(init_mu_)
 
 INI_FUNC(init_mu1_)
 {
+  std::cout << "init mu1" << std::endl;
   const double c1 = init_c_(x, y, z, c_start_idx_, lid);
   const double c2 = init_c_(x, y, z, c_start_idx_ + 1, lid);
 
@@ -4301,6 +4327,7 @@ INI_FUNC(init_mu1_)
 
 INI_FUNC(init_mu2_)
 {
+  std::cout << "init mu2" << std::endl;
   const double c1 = init_c_(x, y, z, c_start_idx_, lid);
   const double c2 = init_c_(x, y, z, c_start_idx_ + 1, lid);
 

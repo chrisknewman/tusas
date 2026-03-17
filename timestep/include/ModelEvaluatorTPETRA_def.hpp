@@ -3109,13 +3109,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(2);
-    paramfunc_[0] = &tpetra::kks::param_;
-    paramfunc_[1] = &tpetra::tonks::param_;
+    paramfunc_.resize(3);
+    paramfunc_[0] = &tpetra::tonks::param_set_ternary_ids_;
+    paramfunc_[1] = &tpetra::kks::param_;
+    paramfunc_[2] = &tpetra::tonks::param_;
 
-    //post_proc.push_back(new post_process(mesh_,(int)0));
-    //post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu_a_;
-    
   }else if("shengwbm" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

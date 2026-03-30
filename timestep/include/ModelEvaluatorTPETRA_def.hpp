@@ -54,6 +54,7 @@
 //#include <string>
 
 #include "function_def.hpp"
+#include "cases.hpp"
 #include "ParamNames.h"
 #include "greedy_tie_break.hpp"
 
@@ -2992,16 +2993,16 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = numeta + 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = tpetra::tonks::residual_c_kks_new_dp_;
-    (*residualfunc_)[1] = tpetra::tonks::residual_eta_kks_dp_;
+    (*residualfunc_)[0] = cases::tonks1::residual_c_dp;
+    (*residualfunc_)[1] = cases::tonks1::residual_eta_dp;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &tpetra::tonks::prec_c_;
-    (*preconfunc_)[1] = &tpetra::tonks::prec_eta_;
+    (*preconfunc_)[0] = &cases::tonks1::prec_c_;
+    (*preconfunc_)[1] = &cases::tonks1::prec_eta_;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &tpetra::tonks::init_c_;
-    (*initfunc_)[1] = &tpetra::tonks::init_eta_;
+    (*initfunc_)[0] = &cases::tonks1::init_c_;
+    (*initfunc_)[1] = &cases::tonks1::init_eta_;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "c";
@@ -3011,8 +3012,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
     paramfunc_.resize(2);
-    paramfunc_[0] = &tpetra::kks::param_;
-    paramfunc_[1] = &tpetra::tonks::param_;
+    paramfunc_[0] = &tools::solvers::param_;
+    paramfunc_[1] = &cases::tonks1::param_;
 
     post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu_a_;

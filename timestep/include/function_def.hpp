@@ -593,51 +593,24 @@ PPR_FUNC(postproc_u2err_)
 }
 }//namespace localprojection
 
+
 /*
-Implementation of KKS solver for binary single phase alloys found in:
-
-https://journals.aps.org/pre/pdf/10.1103/PhysRevE.60.7186
-
-Solves for cb, ca:
-
-h(phi)*cb + (1-h(phi))*ca - c = f1(cb,ca) = 0
-f_beta'(cb) - f_alpha'(ca)=0; f_beta'(cb) = f_alpha'(ca) = f2(cb,ca)
-
-with 
-
-J = [ h          (1-h) ]
-    [ f''(cb) -f''(ca) ]
-
-det J = h*(-f_alpha''(ca)) - (1-h)*f_beta''(cb)
-
-inv J = 1/det [ -f_alpha''(ca) -(h-1) ]
-              [ -f_beta''(cb)      hh ]
-delta x = xnew - xold = inv J (-f)
-        
-        = [ f_alpha''(ca) f1 + (h-1) f2 ]/det
-        = [ f_beta''(cb) f1      -hh f2 ]/det
-
-Note that at equilibrium, f'(c) = f_beta'(cb) = f_alpha'(ca).
-
-Note that cb corrsponds to solid with phi = 1 and ca corresponds to liquid with phi = 0;
-and the solution is ceq_b when phi = 1 and ceq_a when phi = 0, so in theory solver
-should return in a single iteration in either case.
-
-Could we implement a matrix-free version? Might make sense for ternary.
-
-See kkstest and pfhub2kks for implementation details.
-
+ * Implementation of KKS solver for binary single phase alloys found in:
+ * https://journals.aps.org/pre/pdf/10.1103/PhysRevE.60.7186
 */
 
 namespace kks
 {
+typedef const double (*KKSTERNFUNC)(const double c1,
+                                    const double c2);
+
 double kks_tol_ = 1e-10;
 int kks_max_iter_ = 20;
 
 PARAM_FUNC(param_)
 {
-  kks_tol_ = plist->get<double>("kks_tol_",kks_tol_); 
-  kks_max_iter_ = plist->get<int>("kks_max_iter_",kks_max_iter_);
+  kks_tol_ = plist->get<double>("kks_tol", kks_tol_); 
+  kks_max_iter_ = plist->get<int>("kks_max_iter", kks_max_iter_);
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -645,10 +618,10 @@ int solve_kks(const double &c1,  // in: c1
               const double &hh,  // in: h(eta)
               double &c1a,  // out: c1a, in, initial guess
               double &c1b,  // out: c1b, in: initial guess 
-              const double DFA_DC(const double c),  // in: fa'(ca)
-              const double DFB_DC(const double c),  // in: fb'(cb)
-              const double D2FA_DC2(),  // in: fa''() [constant for now]
-              const double D2FB_DC2(),  // in: fb''() [constant for now]
+              const double DFA_DC1A(const double c1a),  // in: fa'(c1a)
+              const double DFB_DC1B(const double c1b),  // in: fb'(c1b)
+              const double D2FA_DC1A2(),  // in: fa''() [constant for now]
+              const double D2FB_DC1B2(),  // in: fb''() [constant for now]
               const double &T = 0.)  // in: time
 {
   /*
@@ -674,53 +647,53 @@ int solve_kks(const double &c1,  // in: c1
   const int max_iter = kks_max_iter_;
   const double tol = kks_tol_;
 
-  // initial guess for ca and cb
+  // initial guess for c1a and c1b
   c1a = hh * c1a;
   c1b = (1 - hh) * c1b;
 
   // terms for the kks solve
-  double d2fa_dc2 = (*D2FA_DC2)();
-  double d2fb_dc2 = (*D2FB_DC2)();
+  double d2fa_dc1a2 = (*D2FA_DC1A2)();
+  double d2fb_dc1b2 = (*D2FB_DC1B2)();
   double f1 = hh * c1a + (1 - hh) * c1b - c1;
-  double f2 = (*DFA_DC)(c1a) - (*DFB_DC)(c1b);
+  double f2 = (*DFA_DC1A)(c1a) - (*DFB_DC1B)(c1b);
 
   /* 
    * newton iteration loop
    * the function we are finding the roots (ca, cb) of is
-   *   F = [[ hh * ca - (1 - hh) * cb - c ],
-   *        [ dfa_dc(ca) - dfb_dc(cb) ]]
+   *   F = [ hh * c1a - (1 - hh) * c1b - c1,
+   *         dfa_dc1a(c1a) - dfb_dc1b(c1b) ]
    * the jacobian in this case is
-   *   J = [[ hh        (1 - hh) ],
-   *        [ d2fa_dc2  -d2fb_dc2 ]]
+   *   J = [[ hh,          (1 - hh) ],
+   *        [ d2fa_dc1a2,  -d2fb_dc1b2 ]]
    * so, the inverse is
-   *   J^-1 = [[ -d2fb_dc2  -(1 - hh) ],
-   *           [ d2fa_dc2   hh ]] / det(J)
+   *   J^-1 = [[ -d2fb_dc1b2,  -(1 - hh) ],
+   *           [ d2fa_dc1a2,   hh ]] / det(J)
    * then,
    *   delta = -J^-1 @ F 
    */
   for (int i = 0; i < max_iter; ++i) {
     // det(J)
-    const double detjac = -hh * d2fb_dc2 - (1 - hh) * d2fa_dc2;
+    const double detjac = -hh * d2fb_dc1b2 - (1 - hh) * d2fa_dc1a2;
 
     // -J^-1 @ F
-    delta_c1a = -(-d2fb_dc2 * f1 - (1 - hh) * f2) / detjac;
-    delta_c1b = -(-d2fa_dc2 * f1 + hh * f2) / detjac;
+    delta_c1a = -(-d2fb_dc1b2 * f1 - (1 - hh) * f2) / detjac;
+    delta_c1b = -(-d2fa_dc1a2 * f1 + hh * f2) / detjac;
 
-    // new value for (ca, cb)
+    // new value for (c1a, c1b)
     c1a += delta_c1a;
     c1b += delta_c1b;
 
     // recalculate subset of terms for next iteration
     f1 = hh * c1a + (1 - hh) * c1b - c1;
-    f2 = (*DFA_DC)(c1a) - (*DFB_DC)(c1b);
+    f2 = (*DFA_DC1A)(c1a) - (*DFB_DC1B)(c1b);
 
     // check error and return if done
     err2 = f1 * f1 + f2 * f2;
     if (err2 < tol * tol) return 0;
 
     // recalculate remaining terms for next iteration
-    d2fa_dc2 = (*D2FA_DC2)();
-    d2fb_dc2 = (*D2FB_DC2)();
+    d2fa_dc1a2 = (*D2FA_DC1A2)();
+    d2fb_dc1b2 = (*D2FB_DC1B2)();
   }
 
   // max iters exceeded
@@ -729,6 +702,231 @@ int solve_kks(const double &c1,  // in: c1
             << "#### tol = " << tol << std::endl;
   exit(-1);
 }
+
+KOKKOS_INLINE_FUNCTION
+int solve_kks(const double &c1,  // in: c1
+              const double &c2,  // in: c2
+              const double &hh,  // in: h(eta)
+              double &c1a,  // out: c1a, in, initial guess
+              double &c1b,  // out: c1b, in: initial guess 
+              double &c2a,  // out: c2a, in, initial guess
+              double &c2b,  // out: c2b, in: initial guess 
+              KKSTERNFUNC DFA_DC1A,  // in: dfa/dc1a
+              KKSTERNFUNC DFB_DC1B,  // in: dfb/dc1b
+              KKSTERNFUNC DFA_DC2A,  // in: dfa/dc2a
+              KKSTERNFUNC DFB_DC2B,  // in: dfb/dc2b
+              KKSTERNFUNC D2FA_DC1A2,  // in: d2fa/dc1a2
+              KKSTERNFUNC D2FB_DC1B2,  // in: d2fb/dc1b2
+              KKSTERNFUNC D2FA_DC2A2,  // in: d2fa/dc2a2
+              KKSTERNFUNC D2FB_DC2B2,  // in: d2fb/dc2b2
+              KKSTERNFUNC D2FA_DC1ADC2A,  // in: d2fa/dc1adc2a
+              KKSTERNFUNC D2FB_DC1BDC2B,  // in: d2fb/dc1bdc2b
+              const double &T = 0.)  // in: time
+{
+  /*
+   * here, we are using notation similar to that in
+   * Tonks [10.1016/j.commatsci.2023.112375]:
+   *   a = phase a, corresponds to eta
+   *   b = phase b, corresponds to (1 - eta)
+   *   fa = free energy in phase a
+   *   fb = free energy in phase b
+   *   c1 = molar fraction of component 1
+   *   c2 = molar fraction of component 2
+   *   c1a = subset of c1 contained in phase a,
+   *         corresponds to h
+   *   c1b = subset of c1 contained in phase b,
+   *         corresponds to (1 - h)
+   *   c2a = subset of c2 contained in phase a,
+   *         corresponds to h
+   *   c2b = subset of c2 contained in phase b,
+   *         corresponds to (1 - h)
+   * as implied above, note that
+   *   c1 = c1a * h + c1b * (1 - h)
+   *   c2 = c2a * h + c2b * (1 - h)
+   */
+  std::cout << "#### solve_kks() started!" << std::endl;
+
+  // meta variables
+  double err2 = 0.;
+  double delta_c1a = 0.;
+  double delta_c1b = 0.;
+  double delta_c2a = 0.;
+  double delta_c2b = 0.;
+  const int max_iter = kks_max_iter_;
+  const double tol = kks_tol_;
+
+  // initial guess for ca and cb
+  c1a = hh * c1a;
+  c1b = (1 - hh) * c1b;
+  c2a = hh * c2a;
+  c2b = (1 - hh) * c2b;
+
+  // terms for the kks solve
+  double dfa_dc1a = (*DFA_DC1A)(c1a, c2a);
+  double dfb_dc1b = (*DFB_DC1B)(c1b, c2b);
+  double dfa_dc2a = (*DFA_DC2A)(c1a, c2a);
+  double dfb_dc2b = (*DFB_DC2B)(c1b, c2b);
+
+  double d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a);
+  double d2fb_dc1b2 = (*D2FB_DC1B2)(c1a, c2a);
+  double d2fa_dc2a2 = (*D2FA_DC2A2)(c1a, c2a);
+  double d2fb_dc2b2 = (*D2FB_DC2B2)(c1a, c2a);
+  double d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a);
+  double d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a);
+
+  double f1 = hh * c1a + (1 - hh) * c1b - c1;
+  double f2 = hh * c2a + (1 - hh) * c2b - c2;
+  double f3 = dfa_dc1a - dfb_dc1b;
+  double f4 = dfa_dc2a - dfb_dc2b;
+
+  /* 
+   * newton iteration loop
+   * the function we are finding the roots 
+   * (c1a, c1b, c2a, c2b) of is
+   *   F = [ hh * c1a - (1 - hh) * c1b - c1,
+   *         hh * c2a - (1 - hh) * c2b - c2,
+   *         dfa_dc1a(c1a, c2a) - dfb_dc1b(c1b, c2b),
+   *         dfa_dc2a(c1a, c2a) - dfb_dc2b(c1b, c2b) ]
+   * the jacobian in this case is
+   *   J = [[ hh,            (1 - hh),       0,             0 ],
+   *        [ 0,             0,              hh,            (1 - hh) ],
+   *        [ d2fa_dc1a2,    -d2fb_dc1b2,    d2fa_dc1adc2a, -d2fb_dc2b2 ],
+   *        [ d2fa_dc1adc2a, -d2fb_dc1bdc2b, d2fa_dc2a2,    -d2fb_dc1bdc2b ]]
+   * we calculate the explicit form of J^-1 using sympy, then
+   *   delta = -J^-1 @ F
+   */
+  for(int i = 0; i < max_iter; i++) {
+    const double detjac = -d2fa_dc1a2 * d2fa_dc2a2 + std::pow(d2fa_dc1adc2a, 2) 
+                            - std::pow(hh, 2) * 
+                              (d2fa_dc1a2 * d2fa_dc2a2 
+                               - d2fa_dc1a2 * d2fb_dc1bdc2b 
+                               - std::pow(d2fa_dc1adc2a, 2) 
+                               + d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                               + d2fa_dc1adc2a * d2fb_dc2b2 
+                               - d2fa_dc2a2 * d2fb_dc1b2 
+                               + d2fb_dc1b2 * d2fb_dc1bdc2b 
+                               - d2fb_dc1bdc2b * d2fb_dc2b2) 
+                            - hh * 
+                              (-2 * d2fa_dc1a2 * d2fa_dc2a2 
+                               + d2fa_dc1a2 * d2fb_dc1bdc2b 
+                               + 2 * std::pow(d2fa_dc1adc2a, 2) 
+                               - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                               - d2fa_dc1adc2a * d2fb_dc2b2 
+                               + d2fa_dc2a2 * d2fb_dc1b2);
+
+    // -J^-1 @ F
+    delta_c1a = (f1 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                      - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                      - d2fa_dc2a2 * d2fb_dc1b2 * hh
+                      + d2fa_dc2a2 * d2fb_dc1b2 
+                      + d2fb_dc1b2 * d2fb_dc1bdc2b * hh 
+                      - d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
+                  + f2 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                          - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                          - d2fa_dc2a2 * d2fb_dc2b2 * hh 
+                          + d2fa_dc2a2 * d2fb_dc2b2) 
+                  + f3 * (d2fa_dc2a2 * std::pow(hh, 2) 
+                          - 2 * d2fa_dc2a2 * hh 
+                          + d2fa_dc2a2 
+                          - d2fb_dc1bdc2b * std::pow(hh, 2) 
+                          + d2fb_dc1bdc2b * hh) 
+                  - f4 * (d2fa_dc1adc2a * std::pow(hh, 2) 
+                          - 2 * d2fa_dc1adc2a * hh 
+                          + d2fa_dc1adc2a 
+                          - d2fb_dc2b2 * std::pow(hh, 2) 
+                          + d2fb_dc2b2 * hh)) / detjac;
+    delta_c1b = (f1 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                       - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                       - d2fa_dc2a2 * d2fb_dc1b2 * hh 
+                       + d2fa_dc2a2 * d2fb_dc1b2 
+                       + d2fb_dc1b2 * d2fb_dc1bdc2b * hh 
+                       - d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
+                  + f2 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                          - d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                          - d2fa_dc2a2 * d2fb_dc2b2 * hh 
+                          + d2fa_dc2a2 * d2fb_dc2b2) 
+                  + f3 * (d2fa_dc2a2 * std::pow(hh, 2) 
+                          - 2 * d2fa_dc2a2 * hh 
+                          + d2fa_dc2a2 
+                          - d2fb_dc1bdc2b * std::pow(hh, 2)
+                          + d2fb_dc1bdc2b*hh) 
+                  - f4 * (d2fa_dc1adc2a * std::pow(hh, 2) 
+                          - 2 * d2fa_dc1adc2a * hh 
+                          + d2fa_dc1adc2a 
+                          - d2fb_dc2b2 * std::pow(hh, 2) 
+                          + d2fb_dc2b2 * hh)) / detjac;
+    delta_c2a = (-f1 * (d2fa_dc1a2 * d2fb_dc1bdc2b * hh 
+                        - d2fa_dc1a2 * d2fb_dc1bdc2b 
+                        - d2fa_dc1adc2a * d2fb_dc1b2 * hh 
+                        + d2fa_dc1adc2a * d2fb_dc1b2) 
+                  - f2 * (d2fa_dc1a2 * d2fb_dc1bdc2b * hh 
+                          - d2fa_dc1a2 * d2fb_dc1bdc2b 
+                          - d2fa_dc1adc2a * d2fb_dc2b2 * hh 
+                          + d2fa_dc1adc2a * d2fb_dc2b2 
+                          - d2fb_dc1b2 * d2fb_dc1bdc2b * hh 
+                          + d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
+                  - f3 * (d2fa_dc1adc2a * std::pow(hh, 2) 
+                          - 2 * d2fa_dc1adc2a * hh 
+                          + d2fa_dc1adc2a 
+                          - d2fb_dc1bdc2b * std::pow(hh, 2) 
+                          + d2fb_dc1bdc2b * hh) 
+                  + f4 * (d2fa_dc1a2 * std::pow(hh, 2) 
+                          - 2 * d2fa_dc1a2 * hh 
+                          + d2fa_dc1a2 
+                          - d2fb_dc1b2 * std::pow(hh, 2) 
+                          + d2fb_dc1b2 * hh)) / detjac;
+    delta_c2b = (-f1 * hh * (d2fa_dc1a2 * d2fb_dc1bdc2b 
+                             - d2fa_dc1adc2a * d2fb_dc1b2) 
+                  - f2 * (d2fa_dc1a2 * d2fa_dc2a2 * hh 
+                          - d2fa_dc1a2 * d2fa_dc2a2 
+                          - std::pow(d2fa_dc1adc2a, 2) * hh 
+                          + std::pow(d2fa_dc1adc2a, 2)
+                          + d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                          - d2fa_dc2a2 * d2fb_dc1b2 * hh) 
+                  + f3 * hh * (-d2fa_dc1adc2a * hh 
+                               + d2fa_dc1adc2a 
+                               + d2fb_dc1bdc2b * hh) 
+                  - f4 * hh * (-d2fa_dc1a2 * hh 
+                               + d2fa_dc1a2 
+                               + d2fb_dc1b2 * hh)) / detjac;
+
+    // new value for (c1a, c1b, c2a, c2b)
+    c1a += delta_c1a;
+    c1b += delta_c1b;
+    c2a += delta_c2a;
+    c2b += delta_c2b;
+
+    // recalculate subset of terms for next iteration
+    dfa_dc1a = (*DFA_DC1A)(c1a, c2a);
+    dfb_dc1b = (*DFB_DC1B)(c1b, c2b);
+    dfa_dc2a = (*DFA_DC2A)(c1a, c2a);
+    dfb_dc2b = (*DFB_DC2B)(c1b, c2b);
+
+    f1 = hh * c1a + (1 - hh) * c1b - c1;
+    f2 = hh * c2a + (1 - hh) * c2b - c2;
+    f3 = dfa_dc1a - dfb_dc1b;
+    f4 = dfa_dc2a - dfb_dc2b;
+
+    // check error and return if done
+    err2 = f1 * f1 + f2 * f2 + f3 * f3 + f4 * f4;
+    if (err2 < tol * tol) return 0;
+
+    // recalculate remaining terms for next iteration
+    d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a);
+    d2fb_dc1b2 = (*D2FB_DC1B2)(c1a, c2a);
+    d2fa_dc2a2 = (*D2FA_DC2A2)(c1a, c2a);
+    d2fb_dc2b2 = (*D2FB_DC2B2)(c1a, c2a);
+    d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a);
+    d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a);
+  }
+
+  // max iters exceeded
+  std::cout << "#### solve_kks() failed to converge!" << std::endl
+            << "#### current error = " << std::sqrt(err2) << std::endl
+            << "#### tol = " << tol << std::endl;
+  //exit(-1);
+}
+
   
 }  // namespace kks
 
@@ -755,6 +953,7 @@ with J = [hh, 1 - hh, 0, 0 ]
 delta x = xnew - xold = inv J (-f)
 */
 
+/*
 namespace kksternary
 {
 double kks_tol_ = 1e-10;
@@ -867,6 +1066,7 @@ int solve_kks(const double &c1, //input c1
     return 1;
   }
 }//namespace kksternary
+*/
 
 
   //#define TUSAS_OLD_FARZADI
@@ -2699,28 +2899,28 @@ const double fa(const double ca)
 {
   // f_alpha(c_alpha) from Sheng 2022, eqn 8
   // altered to be more general as eqn 9
-  return Aa_ * (ca - (c1_ - delta_c1_))
-             * (ca - (c1_ - delta_c1_)) + f1_;
+  return Aa_ * (ca - (c1_ + delta_c1_))
+             * (ca - (c1_ + delta_c1_)) + f1_;
 }
 
 KOKKOS_INLINE_FUNCTION
 const double fb(const double cb)
 {
   // f_beta(c_beta) from Sheng 2022, eqn 9
-  return Ab_ * (cb - (c2_ - delta_c2_))
-             * (cb - (c2_ - delta_c2_)) + f2_;
+  return Ab_ * (cb - (c2_ + delta_c2_))
+             * (cb - (c2_ + delta_c2_)) + f2_;
 }
 
 KOKKOS_INLINE_FUNCTION
 const double dfa_dca(const double ca)
 {
-  return 2 * Aa_ * (ca - (c1_ - delta_c1_));
+  return 2 * Aa_ * (ca - (c1_ + delta_c1_));
 }
 
 KOKKOS_INLINE_FUNCTION
 const double dfb_dcb(const double cb)
 {
-  return 2 * Ab_ * (cb - (c2_ - delta_c2_));
+  return 2 * Ab_ * (cb - (c2_ + delta_c2_));
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -2832,6 +3032,107 @@ const double df_deta(const double ca, const double cb, const double eta)
 }  // namespace parabolicenergy
 
 
+namespace calenergy
+{
+
+TUSAS_DEVICE
+const double c1a_0_ = 0.4;
+TUSAS_DEVICE
+const double c1b_0_ = 0.6;
+TUSAS_DEVICE
+const double c2a_0_ = 0.1;
+TUSAS_DEVICE
+const double c2b_0_ = 0.2;
+
+
+KOKKOS_INLINE_FUNCTION
+const double fa(const double c1a, const double c2a) {
+  const double c3a = 1 - c1a - c2a;
+  return 10 * c1a + 500 * c2a + 40 * c3a
+           + 400 * (c1a * std::log(c1a) 
+                    + c2a * std::log(c2a) 
+                    + c3a * std::log(c3a));
+}
+
+KOKKOS_INLINE_FUNCTION
+const double fb(const double c1b, const double c2b) {
+  const double c3b = 1 - c1b - c2b;
+  return 100 * c1b + 4 * c2b + 0.001 * c3b
+           + 400 * (c1b * std::log(c1b) 
+                    + c2b * std::log(c2b) 
+                    + c3b * std::log(c3b));
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfa_dc1a(const double c1a, const double c2a) {
+  return 400 * std::log(c1a) - 400 * std::log(1 - c1a - c2a) - 30;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfa_dc2a(const double c1a, const double c2a) {
+  return 400 * std::log(c2a) - 400 * std::log(1 - c1a - c2a) + 460;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfb_dc1b(const double c1b, const double c2b) {
+  return 400 * std::log(c1b) - 400 * std::log(1 - c1b - c2b) - 30;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfb_dc2b(const double c1b, const double c2b) {
+  return 400 * std::log(c2b) - 400 * std::log(1 - c1b - c2b) + 460;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fa_dc1a2(const double c1a, const double c2a) {
+  return 400 / (1 - c1a - c2a) + 400 / c1a;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fa_dc2a2(const double c1a, const double c2a) {
+  return 400 / (1 - c1a - c2a) + 400 / c2a;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fa_dc1adc2a(const double c1a, const double c2a) {
+  return 400 / (1 - c1a - c2a);
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fb_dc1b2(const double c1b, const double c2b) {
+  return 400 / (1 - c1b - c2b) + 400 / c1b;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fb_dc2b2(const double c1b, const double c2b) {
+  return 400 / (1 - c1b - c2b) + 400 / c2b;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fb_dc1bdc2b(const double c1b, const double c2b) {
+  return 400 / (1 - c1b - c2b);
+}
+
+KOKKOS_INLINE_FUNCTION
+const double df_deta(const double c1a,
+                     const double c1b,
+                     const double c2a,
+                     const double c2b,
+                     const double eta)
+{
+  // does not include the w g' term
+  // dh(eta1, eta2) / deta1 is a function of eta1 only
+  // uses tonks eq 10
+  const double dh_deta = parabolicenergy::dh_deta(eta);
+  return dh_deta * (fa(c1a, c2a) - fb(c1b, c2b))
+           + dfa_dc1a(c1a, c2a) * dh_deta * (c1a - c1b)
+           + dfa_dc2a(c1a, c2a) * dh_deta * (c2a - c2b);
+}
+
+
+}  // namespace calenergy
+
+
 namespace pfhub2
 {
   TUSAS_DEVICE
@@ -2893,17 +3194,17 @@ PARAM_FUNC(param_)
 
   // nondim free energy density, J/m^3
   // generally, should be ~parabolicenergy::Aa_
-  f0_ = plist->get<double>("f0_", f0_);
+  f0_ = plist->get<double>("f0", f0_);
   // nondim spatial scaling, m
-  x0_ = plist->get<double>("x0_", x0_);
+  x0_ = plist->get<double>("x0", x0_);
   // nondim temporal scaling, s
-  t0_ = plist->get<double>("t0_", t0_);
+  t0_ = plist->get<double>("t0", t0_);
 
-  k_c_ = plist->get<double>("k_c_", k_c_);
-  k_eta_ = plist->get<double>("k_eta_", 3.);  // TODO: should be 6, was 3 for current Gold.e's
-  M_ = plist->get<double>("M_", M_);
-  L_ = plist->get<double>("L_", L_);
-  w_ = plist->get<double>("w_", w_);
+  k_c_ = plist->get<double>("k_c", k_c_);
+  k_eta_ = plist->get<double>("k_eta", 3.);  // TODO: should be 6, was 3 for current Gold.e's
+  M_ = plist->get<double>("M", M_);
+  L_ = plist->get<double>("L", L_);
+  w_ = plist->get<double>("w", w_);
 
   // set params for free energy density
   parabolicenergy::param_(plist);
@@ -3152,20 +3453,110 @@ PPR_FUNC(postproc_mu_)
 }  // namespace pfhub2
 
 
+namespace utils
+{
+
+KOKKOS_INLINE_FUNCTION
+int idx(const int i, const int j, const int ncols) {
+  // row-major ordering
+  return i * ncols + j;
+}
+
+KOKKOS_INLINE_FUNCTION
+void get_uu(double* uu,  // out: the array to populate
+            const int N_UU,  // in: number of uu to get
+            const int ncols,  // in: number of "columns" in uu
+            const int first_idx,  // in: index to start at
+            GPUBasis* basis[]) {  // in: basis
+    for (int k = 0 ; k < N_UU; ++k) {
+    uu[idx(0, k, ncols)] = basis[k + first_idx]->uu();
+    uu[idx(1, k, ncols)] = basis[k + first_idx]->uuold();
+    uu[idx(2, k, ncols)] = basis[k + first_idx]->uuoldold();
+  }
+}
+
+KOKKOS_INLINE_FUNCTION
+void get_graduu(double* duu_dx,  // out: dx array to populate
+                double* duu_dy,  // out: dy array to populate
+                double* duu_dz,  // out: dz array to populate
+                const int N_UU,  // in: number of uu to get
+                const int ncols,  // in: number of "columns" in uu
+                const int first_idx,  // in: index to start at
+                GPUBasis* basis[]) {  // in: basis
+  for (int k = 0 ; k < N_UU; ++k) {
+    duu_dx[idx(0, k, ncols)] = basis[k + first_idx]->duudx();
+    duu_dy[idx(0, k, ncols)] = basis[k + first_idx]->duudy();
+    duu_dz[idx(0, k, ncols)] = basis[k + first_idx]->duudz();
+
+    duu_dx[idx(1, k, ncols)] = basis[k + first_idx]->duuolddx();
+    duu_dy[idx(1, k, ncols)] = basis[k + first_idx]->duuolddy();
+    duu_dz[idx(1, k, ncols)] = basis[k + first_idx]->duuolddz();
+
+    duu_dx[idx(2, k, ncols)] = basis[k + first_idx]->duuoldolddx();
+    duu_dy[idx(2, k, ncols)] = basis[k + first_idx]->duuoldolddy();
+    duu_dz[idx(2, k, ncols)] = basis[k + first_idx]->duuoldolddz();
+  }
+}
+
+KOKKOS_INLINE_FUNCTION
+const double ret_value(const double ut,  // in: time derivative
+                       const double* f,  // in: residual
+                       const double dt,  // in: current dt
+                       const double dtold,  // in: previous dt
+                       const double t_theta,  // in: implicit/explicit weight
+                       const double t_theta2) {  // in: adaptive time-step control
+  return ut + (1. - t_theta2) * t_theta * f[0]
+           + (1. - t_theta2) * (1. - t_theta) * f[1]
+           + .5 * t_theta2 * ((2. + dt / dtold) * f[1] - dt / dtold * f[2]);
+} 
+
+KOKKOS_INLINE_FUNCTION
+const double ret_value(const double ut,  // in: time derivative
+                       const double* f,  // in: residual
+                       const double t_theta) {  //: in implicit/explicit weight
+  return ut + t_theta * f[0] + (1. - t_theta) * f[1];
+}
+
+
+}  // namespace utils
+
+
 namespace tonks
 {  
   TUSAS_DEVICE
-  const int N_ETA_MAX = 4;
+  const int Nt_MAX_ = 3;
+  
+  TUSAS_DEVICE
+  const int N_C_MAX_ = 2;
+  TUSAS_DEVICE
+  int N_C_ = 1;
+  TUSAS_DEVICE
+  int c_start_idx_ = 0;
+
+  TUSAS_DEVICE
+  const int N_MU_MAX_ = 2;
+  TUSAS_DEVICE
+  int N_MU_ = 1;
+  TUSAS_DEVICE
+  int mu_start_idx_ = 1;
+
+  TUSAS_DEVICE
+  const int N_ETA_MAX_ = 4;
   TUSAS_DEVICE
   int N_ETA_ = 1;
+  TUSAS_DEVICE
+  int eta_start_idx_ = 1;
+  
   TUSAS_DEVICE
   int eqn_off_ = 1;
   TUSAS_DEVICE
   const int eqn_off_split_ = 2;
+
   TUSAS_DEVICE
   int ci_ = 0;
   TUSAS_DEVICE
   int mui_ = 1;
+  
   TUSAS_DEVICE
   double t0_ = 1.;
   TUSAS_DEVICE
@@ -3197,21 +3588,21 @@ PARAM_FUNC(param_)
 #else
   eqn_off_ = eqn_off_p;
 #endif
-  if(N_ETA_ > N_ETA_MAX) exit(0);
+  if(N_ETA_ > N_ETA_MAX_) exit(0);
 
   // nondim free energy density, J/m^3
   // generally, should be ~parabolicenergy::Aa_
-  f0_ = plist->get<double>("f0_", f0_);
+  f0_ = plist->get<double>("f0", f0_);
   // nondim spatial scaling, m
-  x0_ = plist->get<double>("x0_", x0_);
+  x0_ = plist->get<double>("x0", x0_);
   // nondim temporal scaling, s
-  t0_ = plist->get<double>("t0_", t0_);
+  t0_ = plist->get<double>("t0", t0_);
 
-  k_c_ = plist->get<double>("k_c_", k_c_);
-  k_eta_ = plist->get<double>("k_eta_", k_eta_);
-  M_ = plist->get<double>("M_", M_);
-  L_ = plist->get<double>("L_", L_);
-  w_ = plist->get<double>("w_", w_);
+  k_c_ = plist->get<double>("k_c", k_c_);
+  k_eta_ = plist->get<double>("k_eta", k_eta_);
+  M_ = plist->get<double>("M", M_);
+  L_ = plist->get<double>("L", L_);
+  w_ = plist->get<double>("w", w_);
 
   // set params for free energy density
   parabolicenergy::param_(plist);
@@ -3242,10 +3633,137 @@ PARAM_FUNC(param_split_offset_)
 #endif
 }
 
+PARAM_FUNC(param_set_ternary_ids_)
+{
+  N_C_ = 2;
+  N_MU_ = 2;
+  N_ETA_ = 1;
+
+  c_start_idx_ = 0;
+  mu_start_idx_ = 2;
+  eta_start_idx_ = 4;
+}
+
+
 KOKKOS_INLINE_FUNCTION
 const double mobility(const double hh) {
   return M_ * (1. - hh) + hh;
 } 
+
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_c_kks_new_)
+{
+  // number of time levels to compute
+  // might want to pass this in to res func?
+  const int Nt = 3;
+
+  // test function
+  const double phi = basis[0]->phi(i);
+  // grad(phi)
+  const double dphi_dx = basis[0]->dphidx(i);
+  const double dphi_dy = basis[0]->dphidy(i);
+  const double dphi_dz = basis[0]->dphidz(i);
+
+  // populate c viewed as a "matrix"
+  //   c[time_idx, c_idx]
+  // but really a 1D array that
+  // we can index this using
+  //   utils::idx(time_idx, c_idx, N_C_MAX_)
+  double c[Nt_MAX_ * N_C_MAX_] = {0.};
+  double dc_dx[Nt_MAX_ * N_C_MAX_] = {0.};
+  double dc_dy[Nt_MAX_ * N_C_MAX_] = {0.};
+  double dc_dz[Nt_MAX_ * N_C_MAX_] = {0.};
+  utils::get_uu(c, N_C_, N_C_MAX_, c_start_idx_, basis);
+  utils::get_graduu(dc_dx, dc_dy, dc_dz, N_C_, N_C_MAX_, c_start_idx_, basis);
+
+  // populate eta viewed as a "matrix"
+  //   eta[time_idx, eta_idx]
+  // but really a 1D array that
+  // we can index this using
+  //   utils::idx(time_idx, eta_idx, N_ETA_MAX_)
+  double eta[Nt_MAX_ * N_ETA_MAX_] = {0.};
+  double deta_dx[Nt_MAX_ * N_ETA_MAX_] = {0.};
+  double deta_dy[Nt_MAX_ * N_ETA_MAX_] = {0.};
+  double deta_dz[Nt_MAX_ * N_ETA_MAX_] = {0.};
+  utils::get_uu(eta, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
+  utils::get_graduu(deta_dx, deta_dy, deta_dz, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
+
+  // define all the variables we need to calculate 
+  // the residual = Mdivgrad_df_dc
+  double hh[Nt_MAX_] = {0.};
+  double dh_dx[Nt_MAX_] = {0.};
+  double dh_dy[Nt_MAX_] = {0.};
+  double dh_dz[Nt_MAX_] = {0.};
+  double ca[Nt_MAX_] = {0.};
+  double cb[Nt_MAX_] = {0.};
+  double d2f_dc2[Nt_MAX_] = {0.};
+  double d2f_dcdx[Nt_MAX_] = {0.};
+  double d2f_dcdy[Nt_MAX_] = {0.};
+  double d2f_dcdz[Nt_MAX_] = {0.};
+  double Mdivgrad_df_dc[Nt_MAX_] = {0.};
+
+
+  // loop over each time level that we need data at
+  int idx = 0;
+  double dh_deta = 0;
+  for (int tdx = 0; tdx < Nt; ++tdx) {
+    // calculate h
+    hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
+
+    // calculate grad h
+    dh_dx[tdx] = 0.;
+    dh_dy[tdx] = 0.;
+    dh_dz[tdx] = 0.;
+    for (int k = 0; k < N_ETA_ ; ++k) {
+      idx = utils::idx(tdx, k, N_ETA_MAX_);
+      dh_deta = parabolicenergy::dh_deta(eta[idx]);
+
+      dh_dx[tdx] += dh_deta * deta_dx[idx];
+      dh_dy[tdx] += dh_deta * deta_dy[idx];
+      dh_dz[tdx] += dh_deta * deta_dz[idx];
+    }
+
+    // do the kks solve to get ca and cb
+    // for the current component c_{eqn_id}
+    ca[tdx] = parabolicenergy::c1_;
+    cb[tdx] = parabolicenergy::c2_;
+    kks::solve_kks(c[utils::idx(tdx, eqn_id, N_C_MAX_)],
+                   hh[tdx],
+                   ca[tdx],
+                   cb[tdx],
+                   parabolicenergy::dfa_dca,
+                   parabolicenergy::dfb_dcb,
+                   parabolicenergy::d2fa_dca2,
+                   parabolicenergy::d2fb_dcb2);
+
+    // calculate d2f_dc2 using KKS eq 29 
+    d2f_dc2[tdx] = parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
+                     / ((1 - hh[tdx]) * parabolicenergy::d2fa_dca2() + hh[tdx] * parabolicenergy::d2fb_dcb2());
+
+    // calculating grad(f_c) based on KKS eq 33, assuming M = D / f_cc
+    // this also follows from eq 30 and the chain rule
+    //   grad(f_c) = f_cc * h' * (cb - ca) * grad(eta) + f_cc * grad(c) 
+    //             = f_cc * (cb - ca) * grad(h) + f_cc * grad(c) 
+    idx = utils::idx(tdx, eqn_id, N_C_MAX_);
+    d2f_dcdx[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dx[tdx] + d2f_dc2[tdx] * dc_dx[idx];
+    d2f_dcdy[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dy[tdx] + d2f_dc2[tdx] * dc_dy[idx];
+    d2f_dcdz[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dz[tdx] + d2f_dc2[tdx] * dc_dz[idx];
+
+    // finally, calculate M * div(grad(f_c))
+    Mdivgrad_df_dc[tdx] = mobility(hh[tdx]) * (d2f_dcdx[tdx] * dphi_dx
+                                               + d2f_dcdy[tdx] * dphi_dy
+                                               + d2f_dcdz[tdx] * dphi_dz);
+  }  // tdx = 0, < Nt loop
+
+  const double dc_dt = (c[utils::idx(0, eqn_id, N_C_MAX_)] 
+                          - c[utils::idx(1, eqn_id, N_C_MAX_)]) / dt_ * phi;
+
+  return utils::ret_value(dc_dt, Mdivgrad_df_dc, dt_, dtold_, t_theta_, t_theta2_);
+  //return dc_dt + t_theta_ * Mdivgrad_df_dc[0] + (1. - t_theta_) * Mdivgrad_df_dc[1];
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_kks_new_dp_)) = residual_c_kks_new_;
 
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_kks_)
@@ -3264,8 +3782,8 @@ RES_FUNC_TPETRA(residual_c_kks_)
   double dhdx[2] = {0., 0.};
   double dhdy[2] = {0., 0.};
 
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
+  double eta_array_old[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     dhdx[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudx();
@@ -3320,9 +3838,9 @@ RES_FUNC_TPETRA((*residual_c_kks_dp_)) = residual_c_kks_;
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_c_split_kks_)
 {
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
-  double eta_array_oldold[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
+  double eta_array_old[N_ETA_MAX_];
+  double eta_array_oldold[N_ETA_MAX_];
   for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -3356,6 +3874,59 @@ TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_c_split_kks_dp_)) = residual_c_split_kks_;
 
 KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_c_split_kks_ternary_)
+{
+  std::cout << "res c top" << std::endl
+            << "eqn_id = " << eqn_id << std::endl
+            << "local_id = " << eqn_id - c_start_idx_ << std::endl;
+  // number of time levels to compute
+  // might want to pass this in to res func?
+  const int Nt = 3;
+
+  // this gives us an id for what c we are
+  const int local_id = eqn_id - c_start_idx_; 
+
+  const double phi = basis[0]->phi(i);
+  const double dphi_dx = basis[0]->dphidx(i);
+  const double dphi_dy = basis[0]->dphidy(i);
+  const double dphi_dz = basis[0]->dphidz(i);
+
+  double c[Nt_MAX_ * N_C_MAX_];
+  utils::get_uu(c, N_C_, N_C_MAX_, c_start_idx_, basis);
+
+  double mu[Nt_MAX_ * N_MU_MAX_];
+  double dmu_dx[Nt_MAX_ * N_MU_MAX_];
+  double dmu_dy[Nt_MAX_ * N_MU_MAX_];
+  double dmu_dz[Nt_MAX_ * N_MU_MAX_];
+  utils::get_uu(mu, N_MU_, N_MU_MAX_, mu_start_idx_, basis);
+  utils::get_graduu(dmu_dx, dmu_dy, dmu_dz, N_MU_, N_MU_MAX_,  mu_start_idx_, basis);
+
+  double eta[Nt_MAX_ * N_ETA_MAX_];
+  utils::get_uu(eta, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
+
+  double hh[Nt_MAX_];
+  double Mgrad_mu[Nt_MAX_];
+
+  int idx = 0;
+  for (int tdx = 0; tdx < Nt; ++tdx) {
+    // calculate h
+    hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
+
+    // calculate M * grad mu
+    idx = utils::idx(tdx, local_id, N_MU_MAX_);
+    Mgrad_mu[tdx] = mobility(hh[tdx]) * (dmu_dx[idx] * dphi_dx + dmu_dy[idx] * dphi_dy + dmu_dz[idx] * dphi_dy);
+  }  // tdx = 0, < Nt loop
+  
+  const double dc_dt = (c[utils::idx(0, local_id, N_C_MAX_)] 
+                           - c[utils::idx(1, local_id, N_C_MAX_)]) / dt_ * phi;
+
+  return utils::ret_value(dc_dt, Mgrad_mu, dt_, dtold_, t_theta_, t_theta2_);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_c_split_kks_ternary_dp_)) = residual_c_split_kks_ternary_;
+
+KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_mu_kks_)
 {
   // -mu + df/dc + div c grad test
@@ -3367,7 +3938,7 @@ RES_FUNC_TPETRA(residual_mu_kks_)
                             + basis[ci_]->duudy() * basis[0]->dphidy(i)
                             + basis[ci_]->duudz() * basis[0]->dphidz(i));
   
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -3389,6 +3960,89 @@ RES_FUNC_TPETRA(residual_mu_kks_)
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
 
+KOKKOS_INLINE_FUNCTION
+RES_FUNC_TPETRA(residual_mu_kks_ternary_)
+{
+  std::cout << "res mu top" << std::endl
+            << "eqn_id = " << eqn_id << std::endl
+            << "local_id = " << eqn_id - mu_start_idx_ << std::endl;
+  const int Nt = 1;
+
+  const int local_id = eqn_id - mu_start_idx_;
+
+  const double phi = basis[0]->phi(i);
+  const double dphi_dx = basis[0]->dphidx(i);
+  const double dphi_dy = basis[0]->dphidy(i);
+  const double dphi_dz = basis[0]->dphidz(i);
+
+  double c[Nt_MAX_ * N_C_MAX_];
+  double dc_dx[Nt_MAX_ * N_C_MAX_];
+  double dc_dy[Nt_MAX_ * N_C_MAX_];
+  double dc_dz[Nt_MAX_ * N_C_MAX_];
+  utils::get_uu(c, N_C_, N_C_MAX_, c_start_idx_, basis);
+  utils::get_graduu(dc_dx, dc_dy, dc_dz, N_C_, N_C_MAX_, c_start_idx_, basis);
+
+  double mu[Nt_MAX_ * N_MU_MAX_];
+  utils::get_uu(mu, N_MU_, N_MU_MAX_, mu_start_idx_, basis);
+
+  double eta[Nt_MAX_ * N_ETA_MAX_];
+  utils::get_uu(eta, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
+
+  double hh[Nt_MAX_];
+  double c1a[Nt_MAX_];
+  double c1b[Nt_MAX_];
+  double c2a[Nt_MAX_];
+  double c2b[Nt_MAX_];
+  double divgrad_c[Nt_MAX_];
+  double df_dc[Nt_MAX_];
+
+  int idx = 0;
+  for (int tdx = 0; tdx < Nt; ++tdx) {
+    idx = utils::idx(tdx, local_id, N_C_MAX_);
+    divgrad_c[tdx] = k_c_ * (dc_dx[idx] * dphi_dx + dc_dy[idx] * dphi_dy + dc_dz[idx] * dphi_dx);
+
+    hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
+
+    c1a[tdx] = calenergy::c1a_0_;
+    c1b[tdx] = calenergy::c1b_0_;
+    c2a[tdx] = calenergy::c2a_0_;
+    c2b[tdx] = calenergy::c2b_0_;
+    kks::solve_kks(c[utils::idx(tdx, 0, N_C_MAX_)],
+                   c[utils::idx(tdx, 1, N_C_MAX_)],
+                   hh[tdx],
+                   c1a[tdx],
+                   c1b[tdx],
+                   c2a[tdx],
+                   c2b[tdx],
+                   calenergy::dfa_dc1a, 
+                   calenergy::dfb_dc1b, 
+                   calenergy::dfa_dc2a, 
+                   calenergy::dfb_dc2b,
+                   calenergy::d2fa_dc1a2, 
+                   calenergy::d2fb_dc1b2, 
+                   calenergy::d2fa_dc2a2, 
+                   calenergy::d2fb_dc2b2,
+                   calenergy::d2fa_dc1adc2a, 
+                   calenergy::d2fb_dc1bdc2b);
+
+    /*if (local_id == 0) {
+      df_dc[tdx] = calenergy::dfa_dc1a(c1a[tdx], c2a[tdx]);
+    }
+    else if (local_id == 1) {
+      df_dc[tdx] = calenergy::dfa_dc2a(c1a[tdx], c2a[tdx]);
+    }*/
+    // this does the above if statement
+    df_dc[tdx] = (1 - local_id) * calenergy::dfa_dc1a(c1a[tdx], c2a[tdx])
+                    + local_id * calenergy::dfa_dc2a(c1a[tdx], c2a[tdx]);
+  }
+
+  const int mu_idx = utils::idx(0, local_id, N_MU_MAX_);
+  return -mu[mu_idx] * phi + df_dc[0] + divgrad_c[0];
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_mu_kks_ternary_dp_)) = residual_mu_kks_ternary_;
+
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_)
 {
@@ -3407,9 +4061,9 @@ RES_FUNC_TPETRA(residual_eta_kks_)
                                   + basis[eqn_id]->duuoldolddy() * basis[0]->dphidy(i)
                                   + basis[eqn_id]->duuoldolddz() * basis[0]->dphidz(i))};
 
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
-  double eta_array_oldold[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
+  double eta_array_old[N_ETA_MAX_];
+  double eta_array_oldold[N_ETA_MAX_];
   for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -3461,6 +4115,89 @@ TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
 
 KOKKOS_INLINE_FUNCTION 
+RES_FUNC_TPETRA(residual_eta_kks_ternary_)
+{
+  std::cout << "res eta top" << std::endl
+            << "eqn_id = " << eqn_id << std::endl
+            << "local_id = " << eqn_id - eta_start_idx_ << std::endl;
+  const int Nt = 3;
+
+  const int local_id = eqn_id - eta_start_idx_;
+
+  const double phi = basis[0]->phi(i);
+  const double dphi_dx = basis[0]->dphidx(i);
+  const double dphi_dy = basis[0]->dphidy(i);
+  const double dphi_dz = basis[0]->dphidz(i);
+
+  double c[Nt_MAX_ * N_C_MAX_];
+  double dc_dx[Nt_MAX_ * N_C_MAX_];
+  double dc_dy[Nt_MAX_ * N_C_MAX_];
+  double dc_dz[Nt_MAX_ * N_C_MAX_];
+  utils::get_uu(c, N_C_, N_C_MAX_, c_start_idx_, basis);
+  utils::get_graduu(dc_dx, dc_dy, dc_dz, N_C_, N_C_MAX_, c_start_idx_, basis);
+
+  double eta[Nt_MAX_ * N_ETA_MAX_];
+  double deta_dx[Nt_MAX_ * N_ETA_MAX_];
+  double deta_dy[Nt_MAX_ * N_ETA_MAX_];
+  double deta_dz[Nt_MAX_ * N_ETA_MAX_];
+  utils::get_uu(eta, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
+  utils::get_graduu(deta_dx, deta_dy, deta_dz, N_ETA_, N_ETA_MAX_, eta_start_idx_, basis);
+
+  double hh[Nt_MAX_];
+  double c1a[Nt_MAX_];
+  double c1b[Nt_MAX_];
+  double c2a[Nt_MAX_];
+  double c2b[Nt_MAX_];
+  double k_divgrad_eta[Nt_MAX_];
+  double df_deta[Nt_MAX_];
+  double f[Nt_MAX_];
+
+  int idx = 0;
+  for (int tdx = 0; tdx < Nt; ++tdx) {
+    hh[tdx] = parabolicenergy::h(&eta[tdx * N_ETA_MAX_]);
+
+    idx = utils::idx(tdx, local_id, N_ETA_MAX_);
+    k_divgrad_eta[tdx] = k_eta_ * (deta_dx[idx] * dphi_dx + deta_dy[idx] * dphi_dy + deta_dz[idx] * dphi_dz);
+
+    c1a[tdx] = calenergy::c1a_0_;
+    c1b[tdx] = calenergy::c1b_0_;
+    c2a[tdx] = calenergy::c2a_0_;
+    c2b[tdx] = calenergy::c2b_0_;
+    kks::solve_kks(c[utils::idx(tdx, 0, N_C_MAX_)],
+                   c[utils::idx(tdx, 1, N_C_MAX_)],
+                   hh[tdx],
+                   c1a[tdx],
+                   c1b[tdx],
+                   c2a[tdx],
+                   c2b[tdx],
+                   calenergy::dfa_dc1a, 
+                   calenergy::dfb_dc1b, 
+                   calenergy::dfa_dc2a, 
+                   calenergy::dfb_dc2b,
+                   calenergy::d2fa_dc1a2, 
+                   calenergy::d2fb_dc1b2, 
+                   calenergy::d2fa_dc2a2, 
+                   calenergy::d2fb_dc2b2,
+                   calenergy::d2fa_dc1adc2a, 
+                   calenergy::d2fb_dc1bdc2b);
+
+    idx = utils::idx(tdx, local_id, N_ETA_MAX_);
+    df_deta[tdx] = (calenergy::df_deta(c1a[tdx], c1b[tdx], c2a[tdx], c2b[tdx], eta[idx])
+                      + w_ * parabolicenergy::dg_deta(&eta[tdx * N_ETA_MAX_], local_id)) * phi;
+
+    f[tdx] = L_* (k_divgrad_eta[tdx] + df_deta[tdx]);
+  }
+
+  const double deta_dt = (eta[utils::idx(0, local_id, N_ETA_MAX_)] 
+                            - eta[utils::idx(1, local_id, N_ETA_MAX_)]) / dt_ * phi;
+
+  return utils::ret_value(deta_dt, f, dt_, dtold_, t_theta_, t_theta2_);
+}
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_eta_kks_ternary_dp_)) = residual_eta_kks_ternary_;
+
+KOKKOS_INLINE_FUNCTION 
 PRE_FUNC_TPETRA(prec_eta_)
 {
   const double ut = basis[0]->phi(j) / dt_ * basis[0]->phi(i);
@@ -3476,7 +4213,7 @@ PRE_FUNC_TPETRA(prec_c_)
   const double test = basis[0]->phi(i);
   const double u_t = test * basis[0]->phi(j) / dt_;
   
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -3496,6 +4233,7 @@ PRE_FUNC_TPETRA(prec_c_)
 
 INI_FUNC(init_eta_)
 {
+  std::cout << "init eta" << std::endl;
   const double sqrt2 = std::sqrt(2.);
   const double sqrtw = std::sqrt(w_);
   
@@ -3512,9 +4250,25 @@ INI_FUNC(init_c_)
   return parabolicenergy::c1_ * hh + parabolicenergy::c2_ * (1. - hh);
 }
 
+INI_FUNC(init_c1_)
+{
+  std::cout << "init c1" << std::endl;
+  const double eta = init_eta_(x, y, z, eqn_id, lid);
+  const double hh = parabolicenergy::h(&eta);
+  return calenergy::c1a_0_ * hh + calenergy::c1b_0_ * (1. - hh);
+}
+
+INI_FUNC(init_c2_)
+{
+  std::cout << "init c2" << std::endl;
+  const double eta = init_eta_(x, y, z, eqn_id, lid);
+  const double hh = parabolicenergy::h(&eta);
+  return calenergy::c2a_0_ * hh + calenergy::c2b_0_ * (1. - hh);
+}
+
 INI_FUNC(init_mu_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = init_eta_(x, y, z, kk_off, lid);
@@ -3533,9 +4287,85 @@ INI_FUNC(init_mu_)
   return parabolicenergy::dfa_dca(ca);
 }
 
+INI_FUNC(init_mu1_)
+{
+  std::cout << "init mu1" << std::endl;
+  const double c1 = init_c_(x, y, z, c_start_idx_, lid);
+  const double c2 = init_c_(x, y, z, c_start_idx_ + 1, lid);
+
+  double eta[N_ETA_MAX_];
+  for(int k = 0; k < N_ETA_; ++k){
+    int kk = k + eta_start_idx_;;
+    eta[kk] = init_eta_(x, y, z, kk, lid);
+  }
+  const double hh = parabolicenergy::h(eta);
+
+  double c1a = calenergy::c1a_0_;
+  double c1b = calenergy::c1b_0_;
+  double c2a = calenergy::c2a_0_;
+  double c2b = calenergy::c2b_0_;
+  kks::solve_kks(c1,
+                 c2,
+                 hh,
+                 c1a,
+                 c1b,
+                 c2a,
+                 c2b,
+                 calenergy::dfa_dc1a, 
+                 calenergy::dfb_dc1b, 
+                 calenergy::dfa_dc2a, 
+                 calenergy::dfb_dc2b,
+                 calenergy::d2fa_dc1a2, 
+                 calenergy::d2fb_dc1b2, 
+                 calenergy::d2fa_dc2a2, 
+                 calenergy::d2fb_dc2b2,
+                 calenergy::d2fa_dc1adc2a, 
+                 calenergy::d2fb_dc1bdc2b);
+
+  return calenergy::dfa_dc1a(c1a, c2a);
+}
+
+INI_FUNC(init_mu2_)
+{
+  std::cout << "init mu2" << std::endl;
+  const double c1 = init_c_(x, y, z, c_start_idx_, lid);
+  const double c2 = init_c_(x, y, z, c_start_idx_ + 1, lid);
+
+  double eta[N_ETA_MAX_];
+  for(int k = 0; k < N_ETA_; ++k){
+    int kk = k + eta_start_idx_;;
+    eta[kk] = init_eta_(x, y, z, kk, lid);
+  }
+  const double hh = parabolicenergy::h(eta);
+
+  double c1a = calenergy::c1a_0_;
+  double c1b = calenergy::c1b_0_;
+  double c2a = calenergy::c2a_0_;
+  double c2b = calenergy::c2b_0_;
+  kks::solve_kks(c1,
+                 c2,
+                 hh,
+                 c1a,
+                 c1b,
+                 c2a,
+                 c2b,
+                 calenergy::dfa_dc1a, 
+                 calenergy::dfb_dc1b, 
+                 calenergy::dfa_dc2a, 
+                 calenergy::dfb_dc2b,
+                 calenergy::d2fa_dc1a2, 
+                 calenergy::d2fb_dc1b2, 
+                 calenergy::d2fa_dc2a2, 
+                 calenergy::d2fb_dc2b2,
+                 calenergy::d2fa_dc1adc2a, 
+                 calenergy::d2fb_dc1bdc2b);
+
+  return calenergy::dfa_dc2a(c1a, c2a);
+}
+
 PPR_FUNC(postproc_mu_a_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = u[kk_off];
@@ -3556,7 +4386,7 @@ PPR_FUNC(postproc_mu_a_)
 
 PPR_FUNC(postproc_mu_b_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = u[kk_off];
@@ -3577,7 +4407,7 @@ PPR_FUNC(postproc_mu_b_)
 
 PPR_FUNC(postproc_ca_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = u[kk_off];
@@ -3597,7 +4427,7 @@ PPR_FUNC(postproc_ca_)
 
 PPR_FUNC(postproc_cb_)
 {
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX_];
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = u[kk_off];
@@ -6270,550 +7100,466 @@ INI_FUNC(init_heat_)
 
 }//namespace yang
 
+
 namespace sheng
 {
   TUSAS_DEVICE
-  const double initial_c_alpha_ = .05;
+  const double initial_c_alpha_ = 0.05;
   TUSAS_DEVICE
-  double r_ = 5.e-8;  // m
+  double r_ = 5e-6;  // cm
   TUSAS_DEVICE
-  double S_ = 5.e-2;  // was 0.5, but is 0.05 in Sheng 2022
+  double d_ = 5e-6;  // cm
   TUSAS_DEVICE
-  double D_ = 0.019*std::exp(-5840./673.)/100./100.;  // cm2/s m/100cm m/100/cm = m^2/s
+  double S_ = 0.05;
+  TUSAS_DEVICE
+  double D_ = 0.019 * std::exp(-5840. / 673.);  // cm^2/s
+  TUSAS_DEVICE
+  const int N_ETA_MAX = 4;
+  TUSAS_DEVICE
+  int N_ETA_ = 1;
+  TUSAS_DEVICE
+  int eqn_off_ = 1;
+  TUSAS_DEVICE
+  const int eqn_off_split_ = 2;
+  TUSAS_DEVICE
+  int ci_ = 0;
+  TUSAS_DEVICE
+  int mui_ = 1;
+  TUSAS_DEVICE
+  double t0_ = 1.;
+  TUSAS_DEVICE
+  double x0_ = 1.;
+  TUSAS_DEVICE
+  double f0_ = 1.;
+  TUSAS_DEVICE
+  double k_c_ = 0.;
+  TUSAS_DEVICE
+  //double k_eta_ = 6.75e-7;  // J/m
+  double k_eta_ = 6.75e-12;  // kJ/cm
+  TUSAS_DEVICE
+  //double L_ = 3.24e-9;  // m^3/(J s)
+  double L_ = 3.24;  // cm^3/(kJ s)
+  TUSAS_DEVICE
+  //double w_ = 1.07e10;  // J/m^3
+  double w_ = 10.7;  // kJ/cm^3
 
 PARAM_FUNC(param_)
 {
-  S_ = plist->get<double>("S_",S_);
+  int N_p = plist->get<int>("N_ETA", N_ETA_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(N_ETA_, &N_p, sizeof(int));
+#else
+  N_ETA_ = N_p;
+#endif
+  int eqn_off_p = plist->get<int>("OFFSET", eqn_off_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(eqn_off_, &eqn_off_p, sizeof(int));
+#else
+  eqn_off_ = eqn_off_p;
+#endif
+  if(N_ETA_ > N_ETA_MAX) exit(0);
 
-  // nondim sheng parameters
-  r_ /= pfhub2::x0_;
-  S_ *= pfhub2::t0_;
-  D_ = D_*pfhub2::t0_*pfhub2::f0_/pfhub2::x0_/pfhub2::x0_;
+  // nondim free energy density, J/m^3
+  // generally, should be ~parabolicenergy::Aa_
+  f0_ = plist->get<double>("f0", f0_);
+  // nondim spatial scaling, m
+  x0_ = plist->get<double>("x0", x0_);
+  // nondim temporal scaling, s
+  t0_ = plist->get<double>("t0", t0_);
 
-  std::ofstream outfile;
-  outfile.open("sheng.dat");
-  outfile 
-    <<"f0:           "<<pfhub2::f0_<<std::endl
-    <<"x0:           "<<pfhub2::x0_<<std::endl
-    <<"t0:           "<<pfhub2::t0_<<std::endl
-    <<std::endl
-    <<"M_:           "<<pfhub2::M_<<std::endl
-    <<"D_:           "<<D_<<std::endl
-    <<"k_eta:        "<<pfhub2::k_eta_<<std::endl
-    <<"k_c:          "<<pfhub2::k_c_<<std::endl
-    <<"L:            "<<pfhub2::L_<<std::endl
-    <<"w:            "<<pfhub2::w_<<std::endl
-    <<"A_alpha:      "<<parabolicenergy::Aa_<<std::endl
-    <<"A_beta:       "<<parabolicenergy::Ab_<<std::endl
-    <<"f1:           "<<parabolicenergy::f1_<<std::endl
-    <<"f2:           "<<parabolicenergy::f2_<<std::endl
-    <<std::endl
-    <<"S:            "<<S_<<std::endl
-    <<"r:            "<<r_<<std::endl
-    <<std::endl
-    <<"dx            "<<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/7.<<" -- "
-                      <<pfhub2::k_eta_/std::sqrt(pfhub2::w_)/5.<<std::endl;
-  outfile.close();
+  k_c_ = plist->get<double>("k_c", k_c_);
+  k_eta_ = plist->get<double>("k_eta", k_eta_);
+  L_ = plist->get<double>("L", L_);
+  w_ = plist->get<double>("w", w_);
+
+  r_ = plist->get<double>("r", r_);
+  d_ = plist->get<double>("d", d_);
+  S_ = plist->get<double>("S", S_);
+  D_ = plist->get<double>("D", D_);
+
+  // set params for free energy density
+  parabolicenergy::param_(plist);
+
+  // nondimensionalize
+  // note that if x0_, t0_, and f0_ are not
+  // set by the user in an input file, these
+  // values default to 1 and the original
+  // dimensional equations are preserved
+  parabolicenergy::Aa_ = parabolicenergy::Aa_ / f0_;
+  parabolicenergy::Ab_ = parabolicenergy::Ab_ / f0_;
+  parabolicenergy::f1_ = parabolicenergy::f1_ / f0_;
+  parabolicenergy::f2_ = parabolicenergy::f2_ / f0_;
+  k_c_ = k_c_ / x0_ / x0_ / f0_;
+  k_eta_ = k_eta_ / x0_ / x0_ / f0_;
+  L_ = L_ * t0_ * f0_;
+  w_ = w_ / f0_;
+
+  r_ /= x0_;
+  d_ /= x0_;
+  S_ *= t0_;
+  D_ = D_ * t0_ * f0_ / x0_ / x0_;
+
 }
 
-KOKKOS_INLINE_FUNCTION 
-const double init_eta_(const double rr){
-  const double sqrt2 = std::sqrt(2.0);
-  const double sqrtw = std::sqrt(pfhub2::w_);
-  return 0.5*(1.0 - tanh(((rr - r_)*sqrtw)/(pfhub2::k_eta_*sqrt2)));
+PARAM_FUNC(param_split_offset_)
+{
+  int eqn_off_p = plist->get<int>("OFFSET", eqn_off_split_);
+#ifdef TUSAS_HAVE_CUDA
+  cudaMemcpyToSymbol(eqn_off_, &eqn_off_p, sizeof(int));
+#else
+  eqn_off_ = eqn_off_p;
+#endif
 }
 
 INI_FUNC(init_eta_)
 {
-  const double rr = sqrt(x*x + y*y + z*z);
-  return init_eta_(rr);
-}
+  const double sqrtw = std::sqrt(w_);
 
-const double init_c_(const double rr){
-  const double eta = init_eta_(rr);
-  const double hh = parabolicenergy::h(&eta);
-  return parabolicenergy::c2_*hh + initial_c_alpha_*(1. - hh);
+  const double rr = std::sqrt(x * x + y * y + z * z);
+  
+  // this is l = xi * sqrt(2 * k_eta_) / sqrtw with xi = 1 instead of 4
+  const double xi = 1.;
+  const double lambda = xi * std::sqrt(2 * k_eta_) / sqrtw;
+  return 0.5 * (1. - tanh((rr - r_) / lambda));
+  //return rr < r_ ? 1. : 0.;
 }
 
 INI_FUNC(init_c_)
 {
-  const double rr = sqrt(x*x + y*y + z*z);
-  return init_c_(rr);
+  const double eta = init_eta_(x, y, z, eqn_id, lid);
+  const double hh = parabolicenergy::h(&eta);
+  //return parabolicenergy::c1_ * hh + parabolicenergy::c2_ * (1. - hh);
+  return parabolicenergy::c1_ * hh + initial_c_alpha_ * (1. - hh);
 }
 
 INI_FUNC(init_mu_)
 {
-  const double rr = sqrt(x*x + y*y + z*z);
-  const double c = init_c_(rr);
-  const double eta = init_eta_(rr);
-  return parabolicenergy::df_dc(c,&eta);
-}
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = init_eta_(x, y, z, kk_off, lid);
+  }
+  const double hh = parabolicenergy::h(eta_array);
+  const double c = init_c_(x, y, z, eqn_id, lid);
 
-KOKKOS_INLINE_FUNCTION 
-const double S(const double y){
-  return (-y > -r_) ? S_ : 0;
+  double ca = parabolicenergy::c1_;
+  double cb = parabolicenergy::c2_;
+  kks::solve_kks(c, hh, ca, cb,
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
+  // based off eq (28) in the original KKS paper
+  return parabolicenergy::dfa_dca(ca);
 }
 
 KOKKOS_INLINE_FUNCTION
+const double mobility(const double hh) {
+  // M = D * d2f_dc2
+  return D_ * parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
+           / ((1 - hh) * parabolicenergy::d2fa_dca2() + hh * parabolicenergy::d2fb_dcb2());
+} 
+
+
+KOKKOS_INLINE_FUNCTION 
+const double S(const double y){
+  return (y < d_) ? S_ : 0;
+}
+
+KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_c_)
 {
-  const double val = pfhub2::residual_c_(basis,
-                                         i,
-                                         dt_,
-                                         dtold_,
-                                         t_theta_,
-                                         t_theta2_,
-                                         time,
-                                         eqn_id,
-                                         vol,
-                                         rand);
+  double dtestdx = basis[0]->dphidx(i);
+  double dtestdy = basis[0]->dphidy(i);
+  double test = basis[0]->phi(i);
+  double c[3] = {basis[0]->uu(), basis[0]->uuold(), basis[0]->uuoldold()};
+  double dcdx[3] = {basis[0]->duudx(), basis[0]->duuolddx(), basis[0]->duuoldolddx()};
+  double dcdy[3] = {basis[0]->duudy(), basis[0]->duuolddy(), basis[0]->duuoldolddy()};
+
+  double dhdx[3] = {0., 0., 0.};
+  double dhdy[3] = {0., 0., 0.};
+
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    dhdx[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudx();
+    dhdx[1] += parabolicenergy::dh_deta(basis[kk_off]->uuold()) * basis[kk_off]->duuolddx();
+    dhdx[2] += parabolicenergy::dh_deta(basis[kk_off]->uuoldold()) * basis[kk_off]->duuoldolddx();
+    dhdy[0] += parabolicenergy::dh_deta(basis[kk_off]->uu()) * basis[kk_off]->duudy();
+    dhdy[1] += parabolicenergy::dh_deta(basis[kk_off]->uuold()) * basis[kk_off]->duuolddy();
+    dhdy[2] += parabolicenergy::dh_deta(basis[kk_off]->uuoldold()) * basis[kk_off]->duuoldolddy();
+
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
+  }
+
+  const double hh[3] = {parabolicenergy::h(eta_array),
+                        parabolicenergy::h(eta_array_old),
+                        parabolicenergy::h(eta_array_oldold)};
+
+  double ct = (c[0] - c[1]) / dt_ * test;
+
+  double d2f_dcdh[3] = {parabolicenergy::dfa_dca(c[0])
+                          - parabolicenergy::dfb_dcb(c[0]),
+                        parabolicenergy::dfa_dca(c[1])
+                          - parabolicenergy::dfb_dcb(c[1]),
+                        parabolicenergy::dfa_dca(c[2])
+                          - parabolicenergy::dfb_dcb(c[2])};
+  double d2f_dc2 = parabolicenergy::d2fb_dcb2();  // only when d2fa_dcb2 == d2fb_dcb2
+
+  double d2f_dcdx[3] = {d2f_dcdh[0] * dhdx[0] + d2f_dc2 * dcdx[0],
+                        d2f_dcdh[1] * dhdx[1] + d2f_dc2 * dcdx[1],
+                        d2f_dcdh[2] * dhdx[2] + d2f_dc2 * dcdx[2]};
+  double d2f_dcdy[3] = {d2f_dcdh[0] * dhdy[0] + d2f_dc2 * dcdy[0],
+                        d2f_dcdh[1] * dhdy[1] + d2f_dc2 * dcdy[1],
+                        d2f_dcdh[2] * dhdy[2] + d2f_dc2 * dcdy[2]};
+  double f[3] = {mobility(hh[0]) * (d2f_dcdx[0] * dtestdx + d2f_dcdy[0] * dtestdy),
+                 mobility(hh[1]) * (d2f_dcdx[1] * dtestdx + d2f_dcdy[1] * dtestdy),
+                 mobility(hh[2]) * (d2f_dcdx[2] * dtestdx + d2f_dcdy[2] * dtestdy)};
+
   const double y = -(basis[0]->yy());
-  return val - S(y)*basis[0]->phi(i);
+  const double s = S(y) * basis[0]->phi(i);
+
+  return ct + (1. - t_theta2_) * t_theta_ * f[0]
+           + (1. - t_theta2_) * (1. - t_theta_) * f[1]
+           + .5 * t_theta2_ * ((2. + dt_ / dtold_) * f[1] - dt_ / dtold_ * f[2])
+           - s;
 }
 
 TUSAS_DEVICE
 RES_FUNC_TPETRA((*residual_c_dp_)) = residual_c_;
 
 KOKKOS_INLINE_FUNCTION
-RES_FUNC_TPETRA(residual_mu_)
+RES_FUNC_TPETRA(residual_c_split_kks_)
 {
-  const double val = pfhub2::residual_mu_(basis,
-                                          i,
-                                          dt_,
-                                          dtold_,
-                                          t_theta_,
-                                          t_theta2_,
-                                          time,
-                                          eqn_id,
-                                          vol,
-                                          rand);
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
+  }
+  const double hh[3] = {parabolicenergy::h(eta_array),
+                        parabolicenergy::h(eta_array_old),
+                        parabolicenergy::h(eta_array_oldold)};
+
+  // c_t + M grad mu grad test
+  const double ut = (basis[ci_]->uu() - basis[ci_]->uuold()) / dt_ * basis[0]->phi(i);
+  // M_ divgrad mu
+  // mu is not time dependent so this makes no sense for theta .ne. 1
+  const double f[3] = {mobility(hh[0]) * (basis[mui_]->duudx() * basis[0]->dphidx(i)
+                         + basis[mui_]->duudy() * basis[0]->dphidy(i)
+                         + basis[mui_]->duudz() * basis[0]->dphidz(i)),
+                       mobility(hh[1]) * (basis[mui_]->duuolddx() * basis[0]->dphidx(i)
+                         + basis[mui_]->duuolddy() * basis[0]->dphidy(i)
+                         + basis[mui_]->duuolddz() * basis[0]->dphidz(i)),
+                       mobility(hh[2]) * (basis[mui_]->duuoldolddx() * basis[0]->dphidx(i)
+                         + basis[mui_]->duuoldolddy() * basis[0]->dphidy(i)
+                         + basis[mui_]->duuoldolddz() * basis[0]->dphidz(i))};
+
   const double y = -(basis[0]->yy());
-  return val - S(y)*basis[0]->phi(i);
+  const double s = S(y) * basis[0]->phi(i);
+  
+  return ut + (1. - t_theta2_) * t_theta_ * f[0]
+           + (1. - t_theta2_) * (1. - t_theta_) * f[1]
+           + .5 * t_theta2_ * ((2. + dt_ / dtold_) * f[1] - dt_ / dtold_ * f[2])
+           - s;
 }
 
 TUSAS_DEVICE
-RES_FUNC_TPETRA((*residual_mu_dp_)) = residual_mu_;
-
-PPR_FUNC(postproc_s_)
-{
-  //y is negative; ie top of domain is y=0, but we really want sqrt(y^2)
-  const double y = -(xyz[1]);
-  return S(y);
-}
-
-PPR_FUNC(postproc_f_)
-{
-  const double c = u[0];
-  const double eta = u[2];
-  const double val = parabolicenergy::f(c,&eta);
-
-  if(val > 20.){
-    std::cout<<val<<" "<<c<<" "<<eta<<std::endl;
-  }
-
-  return val;
-}
-
-PPR_FUNC(postproc_dfdc_)
-{
-  const double c = u[0];
-  const double eta = u[2];
-  return parabolicenergy::df_dc(c,&eta);
-}
-
-PPR_FUNC(postproc_d2fdc2_)
-{
-  const double c = u[0];
-  const double eta = u[2];
-  //different order
-  return parabolicenergy::d2f_dc2(&eta);
-}
-
-PPR_FUNC(postproc_eta_)
-{
-  //const double c = u[0];
-  const double eta = u[2];
-  return parabolicenergy::h(&eta);
-}
-
-PPR_FUNC(postproc_c_kks_)
-{
-  const double c = u[0];
-  const double eta = u[2];
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  const double hh = parabolicenergy::h(&eta);
-  tpetra::kks::solve_kks(c,hh,c_b,c_a,parabolicenergy::dfb_dcb,parabolicenergy::dfa_dca,parabolicenergy::d2fb_dcb2,parabolicenergy::d2fa_dca2);
-  return (1.-hh)*c_a + hh*c_b;
-}
-
-PPR_FUNC(postproc_D_)
-{
-  //const double c = u[0];
-  const double eta = u[2];
-  const double D = 3.23695e-10;//m^2/s
-  return D/parabolicenergy::d2f_dc2(&eta);
-}
-
-PPR_FUNC(postproc_mu_)
-{
-  const double c = u[pfhub2::ci_];
-  const double eta[1] = {u[2]};
-  return parabolicenergy::df_dc(c,eta);
-}
-
-PPR_FUNC(postproc_dfdc_kks_)
-{
-  const double c = u[0];
-  const double eta = u[2];
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  const double hh = parabolicenergy::h(&eta);
-  tpetra::kks::solve_kks(c,
-			 hh,
-			 c_b,
-			 c_a,
-			 parabolicenergy::dfb_dcb,
-			 parabolicenergy::dfa_dca,
-			 parabolicenergy::d2fb_dcb2,
-			 parabolicenergy::d2fa_dca2);
-  //return (1.-hh)*parabolicenergy::dfa_dca(c_a) + hh*parabolicenergy::dfb_dcb(c_b);  
-  //return parabolicenergy::dfa_dca(c_a);
-  return parabolicenergy::dfb_dcb(c_b);
-}
-
-INI_FUNC(init_mu_kks_)
-{
-  const double rr = sqrt(x*x + y*y + z*z);
-  const double c = init_c_(rr);
-  const double eta = init_eta_(rr);
-  //return parabolicenergy::df_dc(c,&eta);
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  const double hh = parabolicenergy::h(&eta);
-  tpetra::kks::solve_kks(c,
-			 hh,
-			 c_b,
-			 c_a,
-			 parabolicenergy::dfb_dcb,
-			 parabolicenergy::dfa_dca,
-			 parabolicenergy::d2fb_dcb2,
-			 parabolicenergy::d2fa_dca2);
-  //return (1.-hh)*parabolicenergy::dfa_dca(c_a) + hh*parabolicenergy::dfb_dcb(c_b);  
-  //return parabolicenergy::dfa_dca(c_a);
-  return parabolicenergy::dfb_dcb(c_b);
-}
-
-PPR_FUNC(postproc_d2fdc2_kks_)
-{
-  const double eta = u[2];
-  const double hh = parabolicenergy::h(&eta);
-  const double den =  (1.-hh)*parabolicenergy::d2fa_dca2() + hh*parabolicenergy::d2fb_dcb2();  
-  const double val = parabolicenergy::d2fb_dcb2()*parabolicenergy::d2fa_dca2()/den;
-  return val;
-  //return 1./val;
-}
-
-PPR_FUNC(postproc_m_kks_)
-{
-  const double eta = u[2];
-  const double hh = parabolicenergy::h(&eta);
-  const double den =  (1.-hh)*parabolicenergy::d2fa_dca2() + hh*parabolicenergy::d2fb_dcb2();  
-  //return den/parabolicenergy::d2fb_dcb2()*parabolicenergy::d2fa_dca2();
-  return pfhub2::M_*den/parabolicenergy::d2fb_dcb2()*parabolicenergy::d2fa_dca2();
-}
-
+RES_FUNC_TPETRA((*residual_c_split_kks_dp_)) = residual_c_split_kks_;
 
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_mu_kks_)
 {
+  // -mu + df/dc + div c grad test
+  const double c = basis[ci_]->uu();
+  const double mu = basis[mui_]->uu();
   const double test = basis[0]->phi(i);
-  const double c = basis[0]->uu();
-  const double mu = basis[1]->uu();
 
-//   double eta_array[pfhub2::N_ETA_MAX];
-//   for(int kk = 0; kk < pfhub2::N_ETA_; kk++){
-//     int kk_off = kk + pfhub2::eqn_off_;
-//     eta_array[kk] = basis[kk_off]->uu();
-//   };
-//   const double hh = parabolicenergy::h(eta_array);
+  const double divgradc = k_c_ * (basis[ci_]->duudx() * basis[0]->dphidx(i)
+                            + basis[ci_]->duudy() * basis[0]->dphidy(i)
+                            + basis[ci_]->duudz() * basis[0]->dphidz(i));
+  
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+  };
+  const double hh = parabolicenergy::h(eta_array);
+  double ca = parabolicenergy::c1_;
+  double cb = parabolicenergy::c2_;
+  kks::solve_kks(c, hh, ca, cb,
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
 
-  const double eta = basis[2]->uu();;
-  const double hh = parabolicenergy::h(&eta);
-
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  //int err = 
-  tpetra::kks::solve_kks(c,
-				   hh,
-				   c_b,
-				   c_a,
-				   parabolicenergy::dfb_dcb,
-				   parabolicenergy::dfa_dca,
-				   parabolicenergy::d2fb_dcb2,
-				   parabolicenergy::d2fa_dca2);
-  //if(err > 0 ) exit(0);
-  const double f1  = parabolicenergy::dfb_dcb(c_b);
-  const double dh_deta = parabolicenergy::dh_deta(eta);
-  const double f2 = c + dh_deta*(c_a-c_b)*eta;
-  const double f3 = (1.-hh)*c_a + hh*c_b;
-
-  double f = f1;
-  //double f = f2;
-  //double f = f3;
-  return (-mu + f)*test;
+  // KKS eq 28
+  const double df_dc = parabolicenergy::dfa_dca(ca) * test;
+  return -mu * test + df_dc + divgradc;
 }
+
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
 
 KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_c_kks_split_)
+RES_FUNC_TPETRA(residual_eta_)
 {
-  const int ci_ = 0;
-  const int mui_ = 1;
-  // c_t + M grad mu grad test
-  const double ut = (basis[ci_]->uu() - basis[ci_]->uuold())/dt_*basis[0]->phi(i);
-  // M_ divgrad mu
-  // mu is not time dependent so this makes no sense for theta .ne. 1
+  const double test = basis[0]->phi(i);
+  const double c[3] = {basis[ci_]->uu(), basis[ci_]->uuold(), basis[ci_]->uuoldold()};
+  const double eta[3] = {basis[eqn_id]->uu(),
+                         basis[eqn_id]->uuold(),
+                         basis[eqn_id]->uuoldold()};
+  const double divgradeta[3] = {L_ * k_eta_ * (basis[eqn_id]->duudx() * basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duudy() * basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duudz() * basis[0]->dphidz(i)),
+                                L_ * k_eta_ * (basis[eqn_id]->duuolddx() * basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duuolddy() * basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duuolddz() * basis[0]->dphidz(i)),
+                                L_ * k_eta_ * (basis[eqn_id]->duuoldolddx() * basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duuoldolddy() * basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duuoldolddz() * basis[0]->dphidz(i))};
 
-  const double eta = basis[2]->uu();
-  const double hh = parabolicenergy::h(&eta);
-  const double den =  (1.-hh)*parabolicenergy::d2fa_dca2() + hh*parabolicenergy::d2fb_dcb2();  
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+    eta_array_old[kk] = basis[kk_off]->uuold();
+    eta_array_oldold[kk] = basis[kk_off]->uuoldold();
+  }
+  const int k = eqn_id - eqn_off_;
 
-  const double M = pfhub2::M_*den/parabolicenergy::d2fb_dcb2()*parabolicenergy::d2fa_dca2();
-  //const double M = 1.*den/parabolicenergy::d2fb_dcb2()*parabolicenergy::d2fa_dca2();
+  const double df_deta[3] = {L_ * (parabolicenergy::df_deta(c[0], eta[0])
+                               + w_ * parabolicenergy::dg_deta(eta_array, k)) * test,
+                             L_ * (parabolicenergy::df_deta(c[1], eta[1])
+                               + w_ * parabolicenergy::dg_deta(eta_array_old, k)) * test,
+                             L_ * (parabolicenergy::df_deta(c[2], eta[2])
+                               + w_ * parabolicenergy::dg_deta(eta_array_oldold, k)) * test};
+  
+  const double f[3] = {df_deta[0] + divgradeta[0],
+                       df_deta[1] + divgradeta[1],
+                       df_deta[2] + divgradeta[2]};
 
-  const double y = -(basis[0]->yy());
-  const double val = S(y)*basis[0]->phi(i);
+  const double ut = (eta[0] - eta[1]) / dt_ * test;
 
-  const double f[3] = {M*(basis[mui_]->duudx()*basis[0]->dphidx(i)
-                         + basis[mui_]->duudy()*basis[0]->dphidy(i)
-                         + basis[mui_]->duudz()*basis[0]->dphidz(i)) - val,
-                       M*(basis[mui_]->duuolddx()*basis[0]->dphidx(i)
-                         + basis[mui_]->duuolddy()*basis[0]->dphidy(i)
-                         + basis[mui_]->duuolddz()*basis[0]->dphidz(i)) - val,
-                       M*(basis[mui_]->duuoldolddx()*basis[0]->dphidx(i)
-                         + basis[mui_]->duuoldolddy()*basis[0]->dphidy(i)
-                         + basis[mui_]->duuoldolddz()*basis[0]->dphidz(i)) - val};
-  return ut + (1. - t_theta2_)*t_theta_*f[0]
-         + (1. - t_theta2_)*(1. - t_theta_)*f[1]
-         +.5*t_theta2_*((2.+dt_/dtold_)*f[1] - dt_/dtold_*f[2]);
+  return ut + (1. - t_theta2_) * t_theta_ * f[0]
+           + (1. - t_theta2_) * (1. - t_theta_) * f[1]
+           + .5 * t_theta2_ * ((2. + dt_ / dtold_) * f[1] - dt_ / dtold_ * f[2]);
 }
 
-
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_eta_dp_)) = residual_eta_;
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_)
 {
-  const int ci_ = 0;
   // test function
   const double test = basis[0]->phi(i);
   // u, phi
   const double c[3] = {basis[ci_]->uu(), basis[ci_]->uuold(), basis[ci_]->uuoldold()};
   const double eta[3] = {basis[eqn_id]->uu(), basis[eqn_id]->uuold(), basis[eqn_id]->uuoldold()};
-  const double divgradeta[3] = {pfhub2::L_*pfhub2::k_eta_*(basis[eqn_id]->duudx()*basis[0]->dphidx(i)
-                                  + basis[eqn_id]->duudy()*basis[0]->dphidy(i)
-                                  + basis[eqn_id]->duudz()*basis[0]->dphidz(i)),
-                                pfhub2::L_*pfhub2::k_eta_*(basis[eqn_id]->duuolddx()*basis[0]->dphidx(i)
-                                  + basis[eqn_id]->duuolddy()*basis[0]->dphidy(i)
-                                  + basis[eqn_id]->duuolddz()*basis[0]->dphidz(i)),
-                                pfhub2::L_*pfhub2::k_eta_*(basis[eqn_id]->duuoldolddx()*basis[0]->dphidx(i)
-                                  + basis[eqn_id]->duuoldolddy()*basis[0]->dphidy(i)
-                                  + basis[eqn_id]->duuoldolddz()*basis[0]->dphidz(i))};
+  const double divgradeta[3] = {L_ * k_eta_ * (basis[eqn_id]->duudx() * basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duudy() * basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duudz() * basis[0]->dphidz(i)),
+                                L_ * k_eta_ * (basis[eqn_id]->duuolddx() * basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duuolddy() * basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duuolddz() * basis[0]->dphidz(i)),
+                                L_ * k_eta_ * (basis[eqn_id]->duuoldolddx() * basis[0]->dphidx(i)
+                                  + basis[eqn_id]->duuoldolddy() * basis[0]->dphidy(i)
+                                  + basis[eqn_id]->duuoldolddz() * basis[0]->dphidz(i))};
 
-  double eta_array[pfhub2::N_ETA_MAX];
-  double eta_array_old[pfhub2::N_ETA_MAX];
-  double eta_array_oldold[pfhub2::N_ETA_MAX];
-  for( int kk = 0; kk < pfhub2::N_ETA_; kk++){
-    int kk_off = kk + pfhub2::eqn_off_;
+  double eta_array[N_ETA_MAX];
+  double eta_array_old[N_ETA_MAX];
+  double eta_array_oldold[N_ETA_MAX];
+  for( int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
     eta_array_old[kk] = basis[kk_off]->uuold();
     eta_array_oldold[kk] = basis[kk_off]->uuoldold();
   }
-  const int k = eqn_id - pfhub2::eqn_off_;
 
-  const double hh[3] = {parabolicenergy::h(&eta[0]),
-			parabolicenergy::h(&eta[1]),
-			parabolicenergy::h(&eta[2])};
+  const double hh[3] = {parabolicenergy::h(eta_array),
+                        parabolicenergy::h(eta_array_old),
+                        parabolicenergy::h(eta_array_oldold)};
+  double ca[3] = {parabolicenergy::c1_, parabolicenergy::c1_, parabolicenergy::c1_};
+  double cb[3] = {parabolicenergy::c2_, parabolicenergy::c2_, parabolicenergy::c2_};
+  kks::solve_kks(c[0], hh[0], ca[0], cb[0],
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
+  kks::solve_kks(c[1], hh[1], ca[1], cb[1],
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
+  kks::solve_kks(c[2], hh[2], ca[2], cb[2],
+                 parabolicenergy::dfa_dca,
+                 parabolicenergy::dfb_dcb,
+                 parabolicenergy::d2fa_dca2,
+                 parabolicenergy::d2fb_dcb2);
 
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  tpetra::kks::solve_kks(c[0],
-			 hh[0],
-			 c_b,
-			 c_a,
-			 parabolicenergy::dfb_dcb,
-			 parabolicenergy::dfa_dca,
-			 parabolicenergy::d2fb_dcb2,
-			 parabolicenergy::d2fa_dca2);
-
-  const double dh_deta[3] = {parabolicenergy::dh_deta(eta[0]),
-			     parabolicenergy::dh_deta(eta[1]),
-			     parabolicenergy::dh_deta(eta[2])};
-
-  const double df1[3] = {dh_deta[0]*(
-				     parabolicenergy::fb(c_b) - parabolicenergy::fa(c_a) 
-				     -parabolicenergy::dfb_dcb(c_b)*(c_b - c_a)
-				     ),
-			 0,0};
-
-  const double df_deta[3] = {pfhub2::L_*df1[0]*test,
-                             pfhub2::L_*(parabolicenergy::df_deta(c[1],eta[1]))*test,
-                             pfhub2::L_*(parabolicenergy::df_deta(c[2],eta[2]))*test};
+  const int k = eqn_id - eqn_off_;
+  const double df_deta[3] = {L_ * (parabolicenergy::df_deta(ca[0], cb[0], eta[0])
+                               + w_ * parabolicenergy::dg_deta(eta_array, k)) * test,
+                             L_ * (parabolicenergy::df_deta(ca[1], cb[1], eta[1])
+                               + w_ * parabolicenergy::dg_deta(eta_array_old, k)) * test,
+                             L_ * (parabolicenergy::df_deta(ca[2], cb[2], eta[2])
+                               + w_ * parabolicenergy::dg_deta(eta_array_oldold, k)) * test};
   
-  const double dg[3] = {pfhub2::L_*pfhub2::w_*parabolicenergy::dg_deta(eta_array,k)*test,
-			pfhub2::L_*pfhub2::w_*parabolicenergy::dg_deta(eta_array_old,k)*test,
-			pfhub2::L_*pfhub2::w_*parabolicenergy::dg_deta(eta_array_oldold,k)*test};
+  const double f[3] = {df_deta[0] + divgradeta[0],
+                       df_deta[1] + divgradeta[1],
+                       df_deta[2] + divgradeta[2]};
 
-  const double f[3] = {df_deta[0] + divgradeta[0] + dg[0],
-                       df_deta[1] + divgradeta[1] + dg[1],
-                       df_deta[2] + divgradeta[2] + dg[2]};
+  const double ut = (eta[0] - eta[1]) / dt_ * test;
 
-  const double ut = (eta[0] - eta[1])/dt_*test;
-
-  return ut + (1. - t_theta2_)*t_theta_*f[0]
-         + (1. - t_theta2_)*(1. - t_theta_)*f[1]
-         + .5*t_theta2_*((2. + dt_/dtold_)*f[1] - dt_/dtold_*f[2]);
+  return ut + (1. - t_theta2_) * t_theta_ * f[0]
+           + (1. - t_theta2_) * (1. - t_theta_) * f[1]
+           + .5 * t_theta2_ * ((2. + dt_ / dtold_) * f[1] - dt_ / dtold_ * f[2]);
 }
 
-PPR_FUNC(postproc_dfdeta_kks_)
-{
-  const double c = u[0];
-  const double eta = u[2];
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  const double hh = parabolicenergy::h(&eta); 
-  const double dh_deta = parabolicenergy::dh_deta(eta);
-  tpetra::kks::solve_kks(c,
-			 hh,
-			 c_b,
-			 c_a,
-			 parabolicenergy::dfb_dcb,
-			 parabolicenergy::dfa_dca,
-			 parabolicenergy::d2fb_dcb2,
-			 parabolicenergy::d2fa_dca2);
-  //return (1.-hh)*parabolicenergy::dfa_dca(c_a) + hh*parabolicenergy::dfb_dcb(c_b);  
-  //return parabolicenergy::dfa_dca(c_a);
-  return dh_deta*( parabolicenergy::fb(c_b) - parabolicenergy::fa(c_a)  -parabolicenergy::dfb_dcb(c_b)*(c_b - c_a)  );
-}
+TUSAS_DEVICE
+RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
 
-PPR_FUNC(postproc_ca_kks_)
+KOKKOS_INLINE_FUNCTION 
+PRE_FUNC_TPETRA(prec_eta_)
 {
-  const double c = u[0];
-  const double eta = u[2];
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  const double hh = parabolicenergy::h(&eta); 
-  const double dh_deta = parabolicenergy::dh_deta(eta);
-  tpetra::kks::solve_kks(c,
-			 hh,
-			 c_b,
-			 c_a,
-			 parabolicenergy::dfb_dcb,
-			 parabolicenergy::dfa_dca,
-			 parabolicenergy::d2fb_dcb2,
-			 parabolicenergy::d2fa_dca2);
-  //return (1.-hh)*parabolicenergy::dfa_dca(c_a) + hh*parabolicenergy::dfb_dcb(c_b);  
-  //return parabolicenergy::dfa_dca(c_a);
-  return c_a;
-}
-
-PPR_FUNC(postproc_cb_kks_)
-{
-  const double c = u[0];
-  const double eta = u[2];
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  const double hh = parabolicenergy::h(&eta); 
-  const double dh_deta = parabolicenergy::dh_deta(eta);
-  tpetra::kks::solve_kks(c,
-			 hh,
-			 c_b,
-			 c_a,
-			 parabolicenergy::dfb_dcb,
-			 parabolicenergy::dfa_dca,
-			 parabolicenergy::d2fb_dcb2,
-			 parabolicenergy::d2fa_dca2);
-  //return (1.-hh)*parabolicenergy::dfa_dca(c_a) + hh*parabolicenergy::dfb_dcb(c_b);  
-  //return parabolicenergy::dfa_dca(c_a);
-  return c_b;
-}
-
-PPR_FUNC(postproc_hpc_kks_)
-{
-  const double c = u[0];
-  const double eta = u[2];
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  const double hh = parabolicenergy::h(&eta); 
-  const double dh_deta = parabolicenergy::dh_deta(eta);
-  tpetra::kks::solve_kks(c,
-			 hh,
-			 c_b,
-			 c_a,
-			 parabolicenergy::dfb_dcb,
-			 parabolicenergy::dfa_dca,
-			 parabolicenergy::d2fb_dcb2,
-			 parabolicenergy::d2fa_dca2);
-  //return (1.-hh)*parabolicenergy::dfa_dca(c_a) + hh*parabolicenergy::dfb_dcb(c_b);  
-  //return parabolicenergy::dfa_dca(c_a);
-  return c - dh_deta*(c_a-c_b);
+  const double ut = basis[0]->phi(j) / dt_ * basis[0]->phi(i);
+  const double divgrad = L_ * k_eta_ * (basis[0]->dphidx(j) * basis[0]->dphidx(i)
+                         + basis[0]->dphidy(j) * basis[0]->dphidy(i)
+                         + basis[0]->dphidz(j) * basis[0]->dphidz(i));
+  return ut + t_theta_ * divgrad;
 }
 
 KOKKOS_INLINE_FUNCTION 
-RES_FUNC_TPETRA(residual_c_kks_)
+PRE_FUNC_TPETRA(prec_c_)
 {
-  // derivatives of the test function
-  //double dtestdx = basis[0]->dphidx(i);
-  //double dtestdy = basis[0]->dphidy(i);
-  // test function
-  double test = basis[0]->phi(i);
-  // u, phi
-  double c[2] = {basis[0]->uu(), basis[0]->uuold()};
+  const double test = basis[0]->phi(i);
+  const double u_t = test * basis[0]->phi(j) / dt_;
   
-  double ct = (c[0] - c[1])/dt_*test;
-
-  const double eta = basis[1]->uu();
-  const double hh = parabolicenergy::h(&eta);
-  const double dh_deta = parabolicenergy::dh_deta(eta);
-  const double den =  (1.-hh)*parabolicenergy::d2fa_dca2() + hh*parabolicenergy::d2fb_dcb2();  
-
-  const double M = pfhub2::M_*den/parabolicenergy::d2fb_dcb2()*parabolicenergy::d2fa_dca2();
-  //const double M = 1.*den/parabolicenergy::d2fb_dcb2()*parabolicenergy::d2fa_dca2();
-
-  double c_a = parabolicenergy::c1_;
-  double c_b = parabolicenergy::c2_;
-  //int err = 
-  tpetra::kks::solve_kks(c[0],
-			 hh,
-			 c_b,
-			 c_a,
-			 parabolicenergy::dfb_dcb,
-			 parabolicenergy::dfa_dca,
-			 parabolicenergy::d2fb_dcb2,
-			 parabolicenergy::d2fa_dca2);
-
-  const double divgradc[3] = {M*(basis[0]->duudx()*basis[0]->dphidx(i)
-				 + basis[0]->duudy()*basis[0]->dphidy(i)
-				 + basis[0]->duudz()*basis[0]->dphidz(i)),
-			      M*(basis[0]->duuolddx()*basis[0]->dphidx(i)
-				 + basis[0]->duuolddy()*basis[0]->dphidy(i)
-				 + basis[0]->duuolddz()*basis[0]->dphidz(i)),
-			      M*(basis[0]->duuoldolddx()*basis[0]->dphidx(i)
-				 + basis[0]->duuoldolddy()*basis[0]->dphidy(i)
-				 + basis[0]->duuoldolddz()*basis[0]->dphidz(i))};
-  const double divgradeta[3] = {M*(basis[1]->duudx()*basis[0]->dphidx(i)
-				 + basis[1]->duudy()*basis[0]->dphidy(i)
-				 + basis[1]->duudz()*basis[0]->dphidz(i)),
-			      M*(basis[1]->duuolddx()*basis[0]->dphidx(i)
-				 + basis[1]->duuolddy()*basis[0]->dphidy(i)
-				 + basis[1]->duuolddz()*basis[0]->dphidz(i)),
-			      M*(basis[1]->duuoldolddx()*basis[0]->dphidx(i)
-				 + basis[1]->duuoldolddy()*basis[0]->dphidy(i)
-				 + basis[1]->duuoldolddz()*basis[0]->dphidz(i))};
-
-  const double f[2] = {divgradc[0] + dh_deta*(c_a-c_b)*divgradeta[0],
-		       0.*(divgradc[1] + dh_deta*(c_a-c_b)*divgradeta[1])};
-
-
-  return ct + t_theta_*f[0] + (1. - t_theta_)*f[1];
+  double eta_array[N_ETA_MAX];
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = basis[kk_off]->uu();
+  }
+  
+  const double hh = parabolicenergy::h(eta_array);
+  // note that we can skip the kks solve here only
+  // because the free energy is parabolic -- the
+  // second derivatives are constant
+  const double d2f_dc2 = parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
+                           / ((1 - hh) * parabolicenergy::d2fa_dca2() + hh * parabolicenergy::d2fb_dcb2());
+  const double divgradc = mobility(hh) * d2f_dc2 * (basis[0]->dphidx(j) * basis[0]->dphidx(i)
+                           + basis[0]->dphidy(j) * basis[0]->dphidy(i)
+                           + basis[0]->dphidz(j) * basis[0]->dphidz(i));
+  return u_t + t_theta_ * divgradc;
 }
 
 

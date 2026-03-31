@@ -373,6 +373,9 @@ namespace kks
     // set params for free energy density
     parabolicenergy::param(plist);
 
+    // set params for solve_kks
+    tools::solvers::param(plist);
+
     // nondimensionalize
     // note that if x0_, t0_, and f0_ are not
     // set by the user in an input file, these

@@ -3011,9 +3011,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(2);
-    paramfunc_[0] = &tools::solvers::param;
-    paramfunc_[1] = &pdes::kks::param;
+    paramfunc_.resize(1);
+    paramfunc_[0] = &cases::tonks1::param;
 
     //post_proc.push_back(new post_process(mesh_,(int)0));
     //post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu_a_;

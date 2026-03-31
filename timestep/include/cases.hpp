@@ -12,7 +12,6 @@
 
 
 #include "pdes.hpp"
-#include "tools.hpp"
 
 
 namespace cases
@@ -22,6 +21,13 @@ namespace cases
 namespace tonks1
 {
 
+
+  PARAM_FUNC(param)
+  {
+    // if we wanted to set default values for all the 
+    // parameters in pdes::kks, we could set them manually here?
+    pdes::kks::param(plist);
+  }
 
   KOKKOS_INLINE_FUNCTION
   const double mobility(const double hh) {

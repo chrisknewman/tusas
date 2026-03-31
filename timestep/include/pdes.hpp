@@ -403,23 +403,20 @@ namespace kks
     const int local_id = eqn_id - eta_start_idx;
 
     const double phi = basis[0]->phi(i);
-    const double dphi_dx = basis[0]->dphidx(i);
-    const double dphi_dy = basis[0]->dphidy(i);
-    const double dphi_dz = basis[0]->dphidz(i);
+    Grad grad_phi;
+    grad_phi.dx = basis[0]->dphidx(i);
+    grad_phi.dy = basis[0]->dphidy(i);
+    grad_phi.dz = basis[0]->dphidz(i);
 
     double c[Nt_max * Nc_max];
-    double dc_dx[Nt_max * Nc_max];
-    double dc_dy[Nt_max * Nc_max];
-    double dc_dz[Nt_max * Nc_max];
+    Grad grad_c[Nt_max * Nc_max];
     tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
-    tools::utils::get_graduu(dc_dx, dc_dy, dc_dz, Nc, Nc_max, c_start_idx, basis);
+    tools::utils::get_graduu(grad_c, Nc, Nc_max, c_start_idx, basis);
 
     double eta[Nt_max * Neta_max];
-    double deta_dx[Nt_max * Neta_max];
-    double deta_dy[Nt_max * Neta_max];
-    double deta_dz[Nt_max * Neta_max];
+    Grad grad_eta[Nt_max * Neta_max];
     tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
-    tools::utils::get_graduu(deta_dx, deta_dy, deta_dz, Neta, Neta_max, eta_start_idx, basis);
+    tools::utils::get_graduu(grad_eta, Neta, Neta_max, eta_start_idx, basis);
 
     double hh[Nt_max];
     double ca[Nt_max];
@@ -444,9 +441,9 @@ namespace kks
       idx = tools::utils::idx(tdx, local_id, Neta_max);
       df_deta[tdx] = (parabolicenergy::df_deta(ca[tdx], cb[tdx], eta[idx])
                         + w * parabolicenergy::dg_deta(&eta[tdx * Neta_max], local_id)) * phi;
-      k_divgrad_eta[tdx] = k_eta * (deta_dx[idx] * dphi_dx + deta_dy[idx] * dphi_dy + deta_dz[idx] * dphi_dz);
+      k_divgrad_eta[tdx] = k_eta * grad_eta[idx] * grad_phi;
 
-      f[tdx] = L* (k_divgrad_eta[tdx] + df_deta[tdx]);
+      f[tdx] = L * (k_divgrad_eta[tdx] + df_deta[tdx]);
     }
 
     const double deta_dt = (eta[tools::utils::idx(0, local_id, Neta_max)] 
@@ -467,10 +464,10 @@ namespace kks
 
     // test function
     const double phi = basis[0]->phi(i);
-    // grad(phi)
-    const double dphi_dx = basis[0]->dphidx(i);
-    const double dphi_dy = basis[0]->dphidy(i);
-    const double dphi_dz = basis[0]->dphidz(i);
+    Grad grad_phi;
+    grad_phi.dx = basis[0]->dphidx(i);
+    grad_phi.dy = basis[0]->dphidy(i);
+    grad_phi.dz = basis[0]->dphidz(i);
 
     // populate c viewed as a "matrix"
     //   c[time_idx, c_idx]
@@ -478,11 +475,9 @@ namespace kks
     // we can index this using
     //   utils::idx(time_idx, c_idx, Nc_max)
     double c[Nt_max * Nc_max];
-    double dc_dx[Nt_max * Nc_max];
-    double dc_dy[Nt_max * Nc_max];
-    double dc_dz[Nt_max * Nc_max];
+    Grad grad_c[Nt_max * Nc_max];
     tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
-    tools::utils::get_graduu(dc_dx, dc_dy, dc_dz, Nc, Nc_max, c_start_idx, basis);
+    tools::utils::get_graduu(grad_c, Nc, Nc_max, c_start_idx, basis);
 
     // populate eta viewed as a "matrix"
     //   eta[time_idx, eta_idx]
@@ -490,44 +485,30 @@ namespace kks
     // we can index this using
     //   utils::idx(time_idx, eta_idx, Neta_max)
     double eta[Nt_max * Neta_max];
-    double deta_dx[Nt_max * Neta_max];
-    double deta_dy[Nt_max * Neta_max];
-    double deta_dz[Nt_max * Neta_max];
+    Grad grad_eta[Nt_max * Neta_max];
     tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
-    tools::utils::get_graduu(deta_dx, deta_dy, deta_dz, Neta, Neta_max, eta_start_idx, basis);
+    tools::utils::get_graduu(grad_eta, Neta, Neta_max, eta_start_idx, basis);
 
     // define all the variables we need to calculate 
     // the residual = Mdivgrad_df_dc
     double hh[Nt_max];
-    double dh_dx[Nt_max];
-    double dh_dy[Nt_max];
-    double dh_dz[Nt_max];
+    Grad grad_h[Nt_max];
     double ca[Nt_max];
     double cb[Nt_max];
     double d2f_dc2[Nt_max];
-    double d2f_dcdx[Nt_max];
-    double d2f_dcdy[Nt_max];
-    double d2f_dcdz[Nt_max];
+    Grad grad_df_dc[Nt_max];
     double Mdivgrad_df_dc[Nt_max];
 
     // loop over each time level that we need data at
     int idx = 0;
-    double dh_deta = 0;
     for (int tdx = 0; tdx < Nt; ++tdx) {
       // calculate h
       hh[tdx] = parabolicenergy::h(&eta[tdx * Neta_max]);
 
       // calculate grad h
-      dh_dx[tdx] = 0.;
-      dh_dy[tdx] = 0.;
-      dh_dz[tdx] = 0.;
       for (int k = 0; k < Neta ; ++k) {
         idx = tools::utils::idx(tdx, k, Neta_max);
-        dh_deta = parabolicenergy::dh_deta(eta[idx]);
-
-        dh_dx[tdx] += dh_deta * deta_dx[idx];
-        dh_dy[tdx] += dh_deta * deta_dy[idx];
-        dh_dz[tdx] += dh_deta * deta_dz[idx];
+        grad_h[tdx] += parabolicenergy::dh_deta(eta[idx]) * grad_eta[idx];
       }
 
       // do the kks solve to get ca and cb
@@ -552,14 +533,10 @@ namespace kks
       //   grad(f_c) = f_cc * h' * (cb - ca) * grad(eta) + f_cc * grad(c) 
       //             = f_cc * (cb - ca) * grad(h) + f_cc * grad(c) 
       idx = tools::utils::idx(tdx, eqn_id, Nc_max);
-      d2f_dcdx[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dx[tdx] + d2f_dc2[tdx] * dc_dx[idx];
-      d2f_dcdy[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dy[tdx] + d2f_dc2[tdx] * dc_dy[idx];
-      d2f_dcdz[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * dh_dz[tdx] + d2f_dc2[tdx] * dc_dz[idx];
+      grad_df_dc[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * grad_h[tdx] + d2f_dc2[tdx] * grad_c[idx]; 
 
       // finally, calculate M * div(grad(f_c))
-      Mdivgrad_df_dc[tdx] = mobility(hh[tdx]) * (d2f_dcdx[tdx] * dphi_dx
-                                                 + d2f_dcdy[tdx] * dphi_dy
-                                                 + d2f_dcdz[tdx] * dphi_dz);
+      Mdivgrad_df_dc[tdx] = mobility(hh[tdx]) * grad_df_dc[tdx] * grad_phi;
     }  // tdx = 0, < Nt loop
 
     const double dc_dt = (c[tools::utils::idx(0, eqn_id, Nc_max)] 

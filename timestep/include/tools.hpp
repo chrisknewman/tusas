@@ -11,6 +11,44 @@
 #define TOOLS_HPP
 
 
+typedef struct {
+  double dx = 0.;
+  double dy = 0.;
+  double dz = 0.;
+} Grad;
+
+double operator*(Grad const& lhs, Grad const& rhs) {
+  return lhs.dx * rhs.dx + lhs.dy * rhs.dy + lhs.dz * rhs.dz;
+}
+Grad operator+(Grad const& lhs, Grad const& rhs) {
+  Grad res;
+  res.dx = lhs.dx + rhs.dx;
+  res.dy = lhs.dy + rhs.dy;
+  res.dz = lhs.dz + rhs.dz;
+  return res;
+}
+Grad operator*(Grad const& lhs, const double rhs) {
+  Grad res;
+  res.dx = lhs.dx * rhs;
+  res.dy = lhs.dy * rhs;
+  res.dz = lhs.dz * rhs;
+  return res;
+}
+Grad operator*(const double lhs, Grad const& rhs) {
+  Grad res;
+  res.dx = rhs.dx * lhs;
+  res.dy = rhs.dy * lhs;
+  res.dz = rhs.dz * lhs;
+  return res;
+}
+Grad operator+=(Grad& lhs, Grad const& rhs) {
+  lhs.dx += rhs.dx;
+  lhs.dy += rhs.dy;
+  lhs.dz += rhs.dz;
+  return lhs;
+}
+
+
 namespace tools
 {
 
@@ -167,6 +205,28 @@ namespace utils
       duu_dz[idx(2, k, ncols)] = basis[k + first_idx]->duuoldolddz();
     }
   }
+
+  KOKKOS_INLINE_FUNCTION
+  void get_graduu(Grad* grad_uu,  // out: array to populate
+                  const int N_UU,  // in: number of uu to get
+                  const int ncols,  // in: number of "columns" in uu
+                  const int first_idx,  // in: index to start at
+                  GPUBasis* basis[]) {  // in: basis
+    for (int k = 0 ; k < N_UU; ++k) {
+      grad_uu[idx(0, k, ncols)].dx = basis[k + first_idx]->duudx();
+      grad_uu[idx(0, k, ncols)].dy = basis[k + first_idx]->duudy();
+      grad_uu[idx(0, k, ncols)].dz = basis[k + first_idx]->duudz();
+
+      grad_uu[idx(1, k, ncols)].dx = basis[k + first_idx]->duuolddx();
+      grad_uu[idx(1, k, ncols)].dy = basis[k + first_idx]->duuolddy();
+      grad_uu[idx(1, k, ncols)].dz = basis[k + first_idx]->duuolddz();
+
+      grad_uu[idx(2, k, ncols)].dx = basis[k + first_idx]->duuoldolddx();
+      grad_uu[idx(2, k, ncols)].dy = basis[k + first_idx]->duuoldolddy();
+      grad_uu[idx(2, k, ncols)].dz = basis[k + first_idx]->duuoldolddz();
+    }
+  }
+
 
   KOKKOS_INLINE_FUNCTION
   const double ret_value(const double ut,  // in: time derivative

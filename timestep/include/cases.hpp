@@ -463,47 +463,64 @@ namespace tonks1
   KOKKOS_INLINE_FUNCTION 
   PRE_FUNC_TPETRA(prec_eta)
   {
-    const double ut = basis[0]->phi(j) / dt_ * basis[0]->phi(i);
-    const double divgrad = L * k_eta * (basis[0]->dphidx(j) * basis[0]->dphidx(i)
-                           + basis[0]->dphidy(j) * basis[0]->dphidy(i)
-                           + basis[0]->dphidz(j) * basis[0]->dphidz(i));
+    const double phi_i = basis[0]->phi(i);
+    const double phi_j = basis[0]->phi(j);
+
+    const double dphi_dx_i = basis[0]->dphidx(i);
+    const double dphi_dy_i = basis[0]->dphidy(i);
+    const double dphi_dz_i = basis[0]->dphidz(i);
+    const double dphi_dx_j = basis[0]->dphidx(j);
+    const double dphi_dy_j = basis[0]->dphidy(j);
+    const double dphi_dz_j = basis[0]->dphidz(j);
+
+    const double divgrad = L * k_eta * (dphi_dx_i * dphi_dx_j 
+                                        + dphi_dy_i * dphi_dy_j 
+                                        + dphi_dz_i * dphi_dz_j);
+    const double ut = phi_i * phi_j / dt_;
+
     return ut + t_theta_ * divgrad;
   }
 
   KOKKOS_INLINE_FUNCTION 
   PRE_FUNC_TPETRA(prec_c)
   {
-    const double test = basis[0]->phi(i);
-    const double u_t = test * basis[0]->phi(j) / dt_;
+    const double phi_i = basis[0]->phi(i);
+    const double phi_j = basis[0]->phi(j);
+
+    const double dphi_dx_i = basis[0]->dphidx(i);
+    const double dphi_dy_i = basis[0]->dphidy(i);
+    const double dphi_dz_i = basis[0]->dphidz(i);
+    const double dphi_dx_j = basis[0]->dphidx(j);
+    const double dphi_dy_j = basis[0]->dphidy(j);
+    const double dphi_dz_j = basis[0]->dphidz(j);
     
-    double eta_array[Neta_max];
-    for(int kk = 0; kk < Neta; kk++){
-      int kk_off = kk + 1;
-      eta_array[kk] = basis[kk_off]->uu();
+    double eta[Neta_max];
+    for(int k = 0; k < Neta; ++k){
+      eta[k] = basis[k + eta_start_idx]->uu();
     }
     
-    const double hh = parabolicenergy::h(eta_array);
+    const double hh = parabolicenergy::h(eta);
     // note that we can skip the kks solve here only
     // because the free energy is parabolic -- the
     // second derivatives are constant
     const double d2f_dc2 = parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
                              / ((1 - hh) * parabolicenergy::d2fa_dca2() + hh * parabolicenergy::d2fb_dcb2());
-    const double divgradc = mobility(hh) * d2f_dc2 * (basis[0]->dphidx(j) * basis[0]->dphidx(i)
-                             + basis[0]->dphidy(j) * basis[0]->dphidy(i)
-                             + basis[0]->dphidz(j) * basis[0]->dphidz(i));
-    return u_t + t_theta_ * divgradc;
+    const double Mdivgrad_c = mobility(hh) * d2f_dc2 * (dphi_dx_i * dphi_dx_j 
+                                                        + dphi_dy_i * dphi_dy_j 
+                                                        + dphi_dz_i * dphi_dz_j);
+    const double ut = phi_i * phi_j / dt_;
+
+    return ut + t_theta_ * Mdivgrad_c;
   }
 
   INI_FUNC(init_eta)
   {
-    std::cout << "init eta" << std::endl;
     const double sqrt2 = std::sqrt(2.);
     const double sqrtw = std::sqrt(w);
     
     // this is l = xi * sqrt(2 * k_eta_) / sqrtw with xi = 1 instead of 4
     const double l = std::sqrt(2 * k_eta) / sqrtw;
     return 0.5 * (1. - tanh((x - 30.) / (l * sqrt2)));
-    //return x < 30 ? 1 : 0;
   }
 
   INI_FUNC(init_c)

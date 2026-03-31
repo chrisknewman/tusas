@@ -22,7 +22,7 @@ namespace solvers
   double kks_tol = 1e-10;
   int kks_max_iter = 20;
 
-  PARAM_FUNC(param_)
+  PARAM_FUNC(param)
   {
     kks_tol = plist->get<double>("kks_tol", kks_tol); 
     kks_max_iter = plist->get<int>("kks_max_iter", kks_max_iter);

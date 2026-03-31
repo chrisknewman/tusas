@@ -2997,12 +2997,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[1] = cases::tonks1::residual_eta_dp;
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
-    (*preconfunc_)[0] = &cases::tonks1::prec_c_;
-    (*preconfunc_)[1] = &cases::tonks1::prec_eta_;
+    (*preconfunc_)[0] = &cases::tonks1::prec_c;
+    (*preconfunc_)[1] = &cases::tonks1::prec_eta;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &cases::tonks1::init_c_;
-    (*initfunc_)[1] = &cases::tonks1::init_eta_;
+    (*initfunc_)[0] = &cases::tonks1::init_c;
+    (*initfunc_)[1] = &cases::tonks1::init_eta;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "c";
@@ -3012,11 +3012,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = NULL;
 
     paramfunc_.resize(2);
-    paramfunc_[0] = &tools::solvers::param_;
-    paramfunc_[1] = &cases::tonks1::param_;
+    paramfunc_[0] = &tools::solvers::param;
+    paramfunc_[1] = &cases::tonks1::param;
 
-    post_proc.push_back(new post_process(mesh_,(int)0));
-    post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu_a_;
+    //post_proc.push_back(new post_process(mesh_,(int)0));
+    //post_proc[0].postprocfunc_ = &tpetra::tonks::postproc_mu_a_;
     //post_proc.push_back(new post_process(mesh_,(int)1));
     //post_proc[1].postprocfunc_ = &tpetra::tonks::postproc_mu_b_;
     //post_proc.push_back(new post_process(mesh_,(int)2));

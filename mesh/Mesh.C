@@ -44,7 +44,8 @@ Mesh::~Mesh(){
 int Mesh::read_exodus(const char * filename){
 
   int comp_ws = sizeof(double);//cn send this to exodus to tell it we are using doubles
-  int io_ws = 0;
+  //int io_ws = 0;
+  int io_ws = sizeof(double);
   std::vector<int>::iterator a;
   std::vector<mesh_lint_t>::iterator aa;
 
@@ -1251,8 +1252,8 @@ int Mesh::read_num_proc_nemesis(int ex_id, int *nproc){
 
 int Mesh::read_global_data_exodus(const int ex_id, const int timestep, std::string name, double *data){
 
-  int ex_err = ex_get_glob_vars(ex_id, timestep, num_global_fields, &global_fields[0]);
-
+  global_fields.resize(num_global_fields);//cn this is probably a hack
+  int ex_err = ex_get_glob_vars(ex_id, (int)timestep, (int)num_global_fields, &global_fields[0]);
   const int index = get_global_field_index(name);
   *data = global_fields[index];
 

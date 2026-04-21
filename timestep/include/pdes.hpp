@@ -345,15 +345,19 @@ namespace kks
   PARAM_FUNC(param)
   {
     int Neta_ = plist->get<int>("N_ETA", Neta);
+    int Nmu_ = plist->get<int>("N_ETA", Neta);
     int Nc_ = plist->get<int>("N_C", Nc);
 #ifdef TUSAS_HAVE_CUDA
     cudaMemcpyToSymbol(Neta, &Neta_, sizeof(int));
+    cudaMemcpyToSymbol(Nmu, &Nmu_, sizeof(int));
     cudaMemcpyToSymbol(Nc, &c_, sizeof(int));
 #else
     Neta = Neta_;
+    Nmu = Nmu_;
     Neta = Nc_;
 #endif
     if(Neta > Neta_max) exit(0);
+    if(Nmu > Nmu_max) exit(0);
     if(Nc > Nc_max) exit(0);
 
     // nondim free energy density, J/m^3
@@ -544,6 +548,97 @@ namespace kks
 
     return tools::utils::ret_value(dc_dt, Mdivgrad_df_dc, dt_, dtold_, t_theta_, t_theta2_);
   }
+  
+  /*
+   * residual for c equations (split) using the kks model
+   */
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(pde_c_split, const double mobility(const double hh))
+  {
+    // number of time levels to compute
+    // might want to pass this in to res func?
+    const int Nt = 3;
+
+    const int local_id = eqn_id - c_start_idx;
+
+    const double phi = basis[0]->phi(i);
+    Grad grad_phi;
+    grad_phi.dx = basis[0]->dphidx(i);
+    grad_phi.dy = basis[0]->dphidy(i);
+    grad_phi.dz = basis[0]->dphidz(i);
+
+    Grad grad_mu[Nt_max * Nmu_max];
+    tools::utils::get_graduu(grad_mu, Nmu, Nmu_max, mu_start_idx, basis);
+
+    double eta[Nt_max * Neta_max];
+    tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
+
+    double hh;
+    double hdivgrad_mu[Nt_max];
+
+    int idx = 0;
+    for (int tdx = 0; tdx < Nt; ++tdx) {
+      // calculate h
+      hh = parabolicenergy::h(&eta[tdx * Neta_max]);
+
+      idx = tools::utils::idx(tdx, local_id, Nmu_max);
+      hdivgrad_mu[tdx] = mobility(hh) * grad_mu[idx] * grad_phi;
+    }  // tdx = 0, < Nt loop
+
+    const double dc_dt = (basis[eqn_id]->uu() - basis[eqn_id]->uuold()) / dt_ * phi;
+
+    return tools::utils::ret_value(dc_dt, hdivgrad_mu, dt_, dtold_, t_theta_, t_theta2_);
+  }
+  
+  /*
+   * residual for mu equations using the kks model
+   */
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(pde_mu)
+  {
+    const int Nt = 1;
+
+    // note that c and mu share a local_id
+    const int local_id = eqn_id - mu_start_idx;
+
+    const double phi = basis[0]->phi(i);
+    Grad grad_phi;
+    grad_phi.dx = basis[0]->dphidx(i);
+    grad_phi.dy = basis[0]->dphidy(i);
+    grad_phi.dz = basis[0]->dphidz(i);
+
+    double c[Nt_max * Nc_max];
+    Grad grad_c[Nt_max * Nc_max];
+    tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
+    tools::utils::get_graduu(grad_c, Nc, Nc_max, c_start_idx, basis);
+
+    double eta[Nt_max * Neta_max];
+    tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
+
+    double hh, ca, cb;
+    double kdivgrad_c[Nt_max];
+    double df_dc[Nt_max];
+
+    int idx = 0;
+    for (int tdx = 0; tdx < Nt; ++tdx) {
+      idx = tools::utils::idx(tdx, local_id, Nc_max);
+      kdivgrad_c[tdx] = k_c * grad_c[idx] * grad_phi;
+
+      hh = parabolicenergy::h(&eta[tdx * Neta_max]);
+      ca = parabolicenergy::c1;
+      cb = parabolicenergy::c2;
+      tools::solvers::solve_kks(c[idx], hh, ca, cb,
+                                parabolicenergy::dfa_dca,
+                                parabolicenergy::dfb_dcb,
+                                parabolicenergy::d2fa_dca2,
+                                parabolicenergy::d2fb_dcb2);
+
+      df_dc[tdx] = parabolicenergy::dfa_dca(ca) * phi;
+    }  // tdx = 0, < Nt loop
+    
+    return -basis[eqn_id]->uu() * phi + df_dc[0] + kdivgrad_c[0];
+  }
+
 
   /*
    * preconditioner for eta equations using the kks model

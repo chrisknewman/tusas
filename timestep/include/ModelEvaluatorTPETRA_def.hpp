@@ -1459,6 +1459,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
     scaling_ = Teuchos::null;
   }
 
+  // CHANGE THIS!!
   Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
 
   // Create the JFNK operator
@@ -3125,7 +3126,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::sheng::param_;
 
-  }else if("shengsplitkks" == paramList.get<std::string> (TusastestNameString)){
+  }else if("shengsplitkksold" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist("ProblemParams", false);
@@ -3160,6 +3161,41 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[0] = &tpetra::sheng::param_split_offset_;
     paramfunc_[1] = &tpetra::kks::param_;
     paramfunc_[2] = &tpetra::sheng::param_;
+
+  }else if("shengsplitkks" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    const int numeta = 1;
+    numeqs_ = numeta + 2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = cases::sheng::residual_c_split_dp;
+    (*residualfunc_)[1] = cases::sheng::residual_mu_dp;
+    (*residualfunc_)[2] = cases::sheng::residual_eta_dp;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &cases::sheng::prec_c;
+    (*preconfunc_)[1] = &cases::sheng::prec_c;
+    (*preconfunc_)[2] = &cases::sheng::prec_eta;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cases::sheng::init_c;
+    (*initfunc_)[1] = &cases::sheng::init_mu;
+    (*initfunc_)[2] = &cases::sheng::init_eta;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+    (*varnames_)[1] = "mu";
+    (*varnames_)[2] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(2);
+    paramfunc_[0] = &cases::sheng::param_split;
+    paramfunc_[1] = &cases::sheng::param;
 
   }else if("cahnhilliard" == paramList.get<std::string> (TusastestNameString)){
     //std::cout<<"cahnhilliard"<<std::endl;

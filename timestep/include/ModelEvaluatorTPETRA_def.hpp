@@ -1454,9 +1454,6 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 
   this->set_W_factory(lowsFactory);
 
-  // Create the initial guess
-  Teuchos::RCP< ::Thyra::VectorBase<double> >
-    initial_guess = this->getNominalValues().get_x()->clone_v();
 
   bool do_scaling = paramList.get<bool> (TusasleftScalingNameString);
   if(do_scaling){
@@ -1466,21 +1463,12 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
     scaling_ = Teuchos::null;
   }
 
-  // CHANGE THIS!!
-  Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
-
-  // Create the JFNK operator
-  //Teuchos::ParameterList printParams;//cn this is empty??? for now
-//   Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
-//     Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
-
-  //Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp = thyraModel->create_W_Op();
-  //Teuchos::rcp(new tusasjfnkOp<double>(printParams));
-
-//   Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
-//   jfnkOp->setParameterList(jfnkParams);
-//   if( 0 == mypid )
-//     jfnkParams->print(std::cout);
+  // Create the initial guess
+  //Teuchos::RCP< ::Thyra::VectorBase<double> >
+  //  initial_guess = this->getNominalValues().get_x()->clone_v();
+  //Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
+  //auto initial_guess = Thyra::createVector(u_old_);
+  Teuchos::RCP< ::Thyra::VectorBase<double> > initial_guess = Thyra::createVector(u_old_);
 
   Teuchos::RCP< ::Thyra::ModelEvaluator<double> > Model = Teuchos::rcpFromRef(*this);
   // Wrap the model evaluator in a JFNK Model Evaluator
@@ -1491,7 +1479,6 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
     Teuchos::rcp_dynamic_cast<NOX::Thyra::MatrixFreeJacobianOperator<double> >(thyraModel->create_W_op());
 
   // Create the NOX::Thyra::Group
-
   bool precon = paramList.get<bool> (TusaspreconNameString);
   Teuchos::RCP<NOX::Thyra::Group> nox_group;
   Teuchos::RCP< ::Thyra::PreconditionerBase<double> > precOp;

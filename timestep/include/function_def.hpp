@@ -745,6 +745,13 @@ int solve_kks(const double &c1,  // in: c1
    *   c2 = c2a * h + c2b * (1 - h)
    */
   std::cout << "#### solve_kks() started!" << std::endl;
+  std::cout << "#### initial c1 = " << c1 << std::endl;
+  std::cout << "#### initial c2 = " << c2 << std::endl;
+  std::cout << "#### initial hh = " << hh << std::endl;
+  std::cout << "#### initial c1a = " << c1a << std::endl;
+  std::cout << "#### initial c1b = " << c1b << std::endl;
+  std::cout << "#### initial c2a = " << c2a << std::endl;
+  std::cout << "#### initial c2b = " << c2b << std::endl;
 
   // meta variables
   double err2 = 0.;
@@ -752,27 +759,38 @@ int solve_kks(const double &c1,  // in: c1
   double delta_c1b = 0.;
   double delta_c2a = 0.;
   double delta_c2b = 0.;
+  double detjac = 0;
   const int max_iter = kks_max_iter_;
   const double tol = kks_tol_;
 
   // initial guess for ca and cb
-  c1a = hh * c1a;
-  c1b = (1 - hh) * c1b;
-  c2a = hh * c2a;
-  c2b = (1 - hh) * c2b;
+  //c1a = hh * c1a;
+  //c1b = (1 - hh) * c1b;
+  //c2a = hh * c2a;
+  //c2b = (1 - hh) * c2b;
 
   // terms for the kks solve
   double dfa_dc1a = (*DFA_DC1A)(c1a, c2a);
   double dfb_dc1b = (*DFB_DC1B)(c1b, c2b);
   double dfa_dc2a = (*DFA_DC2A)(c1a, c2a);
   double dfb_dc2b = (*DFB_DC2B)(c1b, c2b);
+  std::cout << "dfa_dc1a = " << dfa_dc1a << std::endl;
+  std::cout << "dfb_dc1b = " << dfb_dc1b << std::endl;
+  std::cout << "dfa_dc2a = " << dfa_dc2a << std::endl;
+  std::cout << "dfb_dc2b = " << dfb_dc2b << std::endl;
 
   double d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a);
-  double d2fb_dc1b2 = (*D2FB_DC1B2)(c1a, c2a);
+  double d2fb_dc1b2 = (*D2FB_DC1B2)(c1b, c2b);
   double d2fa_dc2a2 = (*D2FA_DC2A2)(c1a, c2a);
-  double d2fb_dc2b2 = (*D2FB_DC2B2)(c1a, c2a);
+  double d2fb_dc2b2 = (*D2FB_DC2B2)(c1b, c2b);
   double d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a);
-  double d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a);
+  double d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1b, c2b);
+  std::cout << "d2fa_dc1a2 = " << d2fa_dc1a2 << std::endl; 
+  std::cout << "d2fb_dc1b2 = " << d2fb_dc1b2 << std::endl; 
+  std::cout << "d2fa_dc2a2 = " << d2fa_dc2a2 << std::endl; 
+  std::cout << "d2fb_dc2b2 = " << d2fb_dc2b2 << std::endl; 
+  std::cout << "d2fa_dc1adc2a = " << d2fa_dc1adc2a << std::endl;  
+  std::cout << "d2fb_dc1bdc2b = " << d2fb_dc1bdc2b << std::endl;  
 
   double f1 = hh * c1a + (1 - hh) * c1b - c1;
   double f2 = hh * c2a + (1 - hh) * c2b - c2;
@@ -790,112 +808,111 @@ int solve_kks(const double &c1,  // in: c1
    * the jacobian in this case is
    *   J = [[ hh,            (1 - hh),       0,             0 ],
    *        [ 0,             0,              hh,            (1 - hh) ],
-   *        [ d2fa_dc1a2,    -d2fb_dc1b2,    d2fa_dc1adc2a, -d2fb_dc2b2 ],
-   *        [ d2fa_dc1adc2a, -d2fb_dc1bdc2b, d2fa_dc2a2,    -d2fb_dc1bdc2b ]]
+   *        [ d2fa_dc1a2,    -d2fb_dc1b2,    d2fa_dc1adc2a, -d2fb_dc1bdc2b ],
+   *        [ d2fa_dc1adc2a, -d2fb_dc1bdc2b, d2fa_dc2a2,    -d2fb_dc2b2 ]]
    * we calculate the explicit form of J^-1 using sympy, then
    *   delta = -J^-1 @ F
    */
   for(int i = 0; i < max_iter; i++) {
-    const double detjac = -d2fa_dc1a2 * d2fa_dc2a2 + std::pow(d2fa_dc1adc2a, 2) 
-                            - std::pow(hh, 2) * 
-                              (d2fa_dc1a2 * d2fa_dc2a2 
-                               - d2fa_dc1a2 * d2fb_dc1bdc2b 
-                               - std::pow(d2fa_dc1adc2a, 2) 
-                               + d2fa_dc1adc2a * d2fb_dc1bdc2b 
-                               + d2fa_dc1adc2a * d2fb_dc2b2 
-                               - d2fa_dc2a2 * d2fb_dc1b2 
-                               + d2fb_dc1b2 * d2fb_dc1bdc2b 
-                               - d2fb_dc1bdc2b * d2fb_dc2b2) 
-                            - hh * 
-                              (-2 * d2fa_dc1a2 * d2fa_dc2a2 
-                               + d2fa_dc1a2 * d2fb_dc1bdc2b 
-                               + 2 * std::pow(d2fa_dc1adc2a, 2) 
-                               - d2fa_dc1adc2a * d2fb_dc1bdc2b 
-                               - d2fa_dc1adc2a * d2fb_dc2b2 
-                               + d2fa_dc2a2 * d2fb_dc1b2);
+    std::cout << "interation = " << i << std::endl;
+
+    detjac = -d2fa_dc1a2 * d2fa_dc2a2 
+             + std::pow(d2fa_dc1adc2a, 2) 
+             - std::pow(hh, 2) 
+             * (d2fa_dc1a2 * d2fa_dc2a2 
+                - d2fa_dc1a2 * d2fb_dc2b2 
+                - std::pow(d2fa_dc1adc2a, 2) 
+                + 2 * d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                - d2fa_dc2a2 * d2fb_dc1b2 
+                + d2fb_dc1b2 * d2fb_dc2b2 
+                - std::pow(d2fb_dc1bdc2b, 2)) 
+             - hh 
+             * (-2 * d2fa_dc1a2 * d2fa_dc2a2 
+                + d2fa_dc1a2 * d2fb_dc2b2 
+                + 2 * std::pow(d2fa_dc1adc2a, 2) 
+                - 2 * d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                + d2fa_dc2a2 * d2fb_dc1b2);
 
     // -J^-1 @ F
     delta_c1a = (f1 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
-                      - d2fa_dc1adc2a * d2fb_dc1bdc2b 
-                      - d2fa_dc2a2 * d2fb_dc1b2 * hh
-                      + d2fa_dc2a2 * d2fb_dc1b2 
-                      + d2fb_dc1b2 * d2fb_dc1bdc2b * hh 
-                      - d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
-                  + f2 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
-                          - d2fa_dc1adc2a * d2fb_dc1bdc2b 
-                          - d2fa_dc2a2 * d2fb_dc2b2 * hh 
-                          + d2fa_dc2a2 * d2fb_dc2b2) 
-                  + f3 * (d2fa_dc2a2 * std::pow(hh, 2) 
-                          - 2 * d2fa_dc2a2 * hh 
-                          + d2fa_dc2a2 
-                          - d2fb_dc1bdc2b * std::pow(hh, 2) 
-                          + d2fb_dc1bdc2b * hh) 
-                  - f4 * (d2fa_dc1adc2a * std::pow(hh, 2) 
-                          - 2 * d2fa_dc1adc2a * hh 
-                          + d2fa_dc1adc2a 
-                          - d2fb_dc2b2 * std::pow(hh, 2) 
-                          + d2fb_dc2b2 * hh)) / detjac;
-    delta_c1b = (f1 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
                        - d2fa_dc1adc2a * d2fb_dc1bdc2b 
                        - d2fa_dc2a2 * d2fb_dc1b2 * hh 
                        + d2fa_dc2a2 * d2fb_dc1b2 
-                       + d2fb_dc1b2 * d2fb_dc1bdc2b * hh 
-                       - d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
-                  + f2 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
-                          - d2fa_dc1adc2a * d2fb_dc1bdc2b 
-                          - d2fa_dc2a2 * d2fb_dc2b2 * hh 
-                          + d2fa_dc2a2 * d2fb_dc2b2) 
-                  + f3 * (d2fa_dc2a2 * std::pow(hh, 2) 
-                          - 2 * d2fa_dc2a2 * hh 
-                          + d2fa_dc2a2 
-                          - d2fb_dc1bdc2b * std::pow(hh, 2)
-                          + d2fb_dc1bdc2b*hh) 
-                  - f4 * (d2fa_dc1adc2a * std::pow(hh, 2) 
-                          - 2 * d2fa_dc1adc2a * hh 
-                          + d2fa_dc1adc2a 
-                          - d2fb_dc2b2 * std::pow(hh, 2) 
-                          + d2fb_dc2b2 * hh)) / detjac;
+                       + d2fb_dc1b2 * d2fb_dc2b2 * hh 
+                       - std::pow(d2fb_dc1bdc2b, 2) * hh) 
+                 + f2 * (d2fa_dc1adc2a * d2fb_dc2b2 * hh 
+                         - d2fa_dc1adc2a * d2fb_dc2b2 
+                         - d2fa_dc2a2 * d2fb_dc1bdc2b * hh 
+                         + d2fa_dc2a2 * d2fb_dc1bdc2b) 
+                 + f3 * (d2fa_dc2a2 * std::pow(hh, 2) 
+                         - 2 * d2fa_dc2a2 * hh 
+                         + d2fa_dc2a2 
+                         - d2fb_dc2b2 * std::pow(hh, 2) 
+                         + d2fb_dc2b2 * hh) 
+                 - f4 * (d2fa_dc1adc2a * std::pow(hh, 2) 
+                         - 2 * d2fa_dc1adc2a * hh 
+                         + d2fa_dc1adc2a 
+                         - d2fb_dc1bdc2b * std::pow(hh, 2) 
+                         + d2fb_dc1bdc2b * hh)) / detjac;
+    delta_c1b = (-f1 * (d2fa_dc1a2 * d2fa_dc2a2 * hh 
+                        - d2fa_dc1a2 * d2fa_dc2a2 
+                        - d2fa_dc1a2 * d2fb_dc2b2 * hh 
+                        - std::pow(d2fa_dc1adc2a, 2) * hh 
+                        + std::pow(d2fa_dc1adc2a, 2) 
+                        + d2fa_dc1adc2a * d2fb_dc1bdc2b * hh) 
+                 + f2 * hh * (d2fa_dc1adc2a * d2fb_dc2b2 
+                              - d2fa_dc2a2 * d2fb_dc1bdc2b) 
+                 - f3 * hh * (-d2fa_dc2a2 * hh 
+                              + d2fa_dc2a2 
+                              + d2fb_dc2b2 * hh) 
+                 + f4 * hh * (-d2fa_dc1adc2a * hh 
+                              + d2fa_dc1adc2a 
+                              + d2fb_dc1bdc2b * hh)) / detjac;
     delta_c2a = (-f1 * (d2fa_dc1a2 * d2fb_dc1bdc2b * hh 
                         - d2fa_dc1a2 * d2fb_dc1bdc2b 
                         - d2fa_dc1adc2a * d2fb_dc1b2 * hh 
                         + d2fa_dc1adc2a * d2fb_dc1b2) 
-                  - f2 * (d2fa_dc1a2 * d2fb_dc1bdc2b * hh 
-                          - d2fa_dc1a2 * d2fb_dc1bdc2b 
-                          - d2fa_dc1adc2a * d2fb_dc2b2 * hh 
-                          + d2fa_dc1adc2a * d2fb_dc2b2 
-                          - d2fb_dc1b2 * d2fb_dc1bdc2b * hh 
-                          + d2fb_dc1bdc2b * d2fb_dc2b2 * hh) 
-                  - f3 * (d2fa_dc1adc2a * std::pow(hh, 2) 
-                          - 2 * d2fa_dc1adc2a * hh 
-                          + d2fa_dc1adc2a 
-                          - d2fb_dc1bdc2b * std::pow(hh, 2) 
-                          + d2fb_dc1bdc2b * hh) 
-                  + f4 * (d2fa_dc1a2 * std::pow(hh, 2) 
-                          - 2 * d2fa_dc1a2 * hh 
-                          + d2fa_dc1a2 
-                          - d2fb_dc1b2 * std::pow(hh, 2) 
-                          + d2fb_dc1b2 * hh)) / detjac;
+                 - f2 * (d2fa_dc1a2 * d2fb_dc2b2 * hh 
+                         - d2fa_dc1a2 * d2fb_dc2b2 
+                         - d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                         + d2fa_dc1adc2a * d2fb_dc1bdc2b 
+                         - d2fb_dc1b2 * d2fb_dc2b2 * hh 
+                         + std::pow(d2fb_dc1bdc2b, 2) * hh) 
+                 - f3 * (d2fa_dc1adc2a * std::pow(hh, 2) 
+                         - 2 * d2fa_dc1adc2a * hh 
+                         + d2fa_dc1adc2a 
+                         - d2fb_dc1bdc2b * std::pow(hh, 2) 
+                         + d2fb_dc1bdc2b * hh) 
+                 + f4 * (d2fa_dc1a2 * std::pow(hh, 2) 
+                         - 2 * d2fa_dc1a2 * hh 
+                         + d2fa_dc1a2 
+                         - d2fb_dc1b2 * std::pow(hh, 2) 
+                         + d2fb_dc1b2 * hh)) / detjac;
     delta_c2b = (-f1 * hh * (d2fa_dc1a2 * d2fb_dc1bdc2b 
                              - d2fa_dc1adc2a * d2fb_dc1b2) 
-                  - f2 * (d2fa_dc1a2 * d2fa_dc2a2 * hh 
-                          - d2fa_dc1a2 * d2fa_dc2a2 
-                          - std::pow(d2fa_dc1adc2a, 2) * hh 
-                          + std::pow(d2fa_dc1adc2a, 2)
-                          + d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
-                          - d2fa_dc2a2 * d2fb_dc1b2 * hh) 
-                  + f3 * hh * (-d2fa_dc1adc2a * hh 
-                               + d2fa_dc1adc2a 
-                               + d2fb_dc1bdc2b * hh) 
-                  - f4 * hh * (-d2fa_dc1a2 * hh 
-                               + d2fa_dc1a2 
-                               + d2fb_dc1b2 * hh)) / detjac;
+                 - f2 * (d2fa_dc1a2 * d2fa_dc2a2 * hh 
+                         - d2fa_dc1a2 * d2fa_dc2a2 
+                         - std::pow(d2fa_dc1adc2a, 2) * hh 
+                         + std::pow(d2fa_dc1adc2a, 2) 
+                         + d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
+                         - d2fa_dc2a2 * d2fb_dc1b2 * hh) 
+                 + f3 * hh * (-d2fa_dc1adc2a * hh 
+                              + d2fa_dc1adc2a
+                              + d2fb_dc1bdc2b * hh) 
+                 - f4 * hh * (-d2fa_dc1a2 * hh 
+                              + d2fa_dc1a2 
+                              + d2fb_dc1b2 * hh)) / detjac;
 
     // new value for (c1a, c1b, c2a, c2b)
     c1a += delta_c1a;
     c1b += delta_c1b;
     c2a += delta_c2a;
     c2b += delta_c2b;
-
+    std::cout << "c1a = " << c1a << std::endl;
+    std::cout << "c1b = " << c1b << std::endl;
+    std::cout << "c2a = " << c2a << std::endl;
+    std::cout << "c2b = " << c2b << std::endl;
+    
     // recalculate subset of terms for next iteration
     dfa_dc1a = (*DFA_DC1A)(c1a, c2a);
     dfb_dc1b = (*DFB_DC1B)(c1b, c2b);
@@ -3065,22 +3082,22 @@ const double fb(const double c1b, const double c2b) {
 
 KOKKOS_INLINE_FUNCTION
 const double dfa_dc1a(const double c1a, const double c2a) {
-  return 400 * std::log(c1a) - 400 * std::log(1 - c1a - c2a) - 30;
+  return 400 * (std::log(c1a) - std::log(1 - c1a - c2a)) - 30;
 }
 
 KOKKOS_INLINE_FUNCTION
 const double dfa_dc2a(const double c1a, const double c2a) {
-  return 400 * std::log(c2a) - 400 * std::log(1 - c1a - c2a) + 460;
+  return 400 * (std::log(c2a) - std::log(1 - c1a - c2a)) + 460;
 }
 
 KOKKOS_INLINE_FUNCTION
 const double dfb_dc1b(const double c1b, const double c2b) {
-  return 400 * std::log(c1b) - 400 * std::log(1 - c1b - c2b) - 30;
+  return 400 * (std::log(c1b) - std::log(1 - c1b - c2b)) + 99.999;
 }
 
 KOKKOS_INLINE_FUNCTION
 const double dfb_dc2b(const double c1b, const double c2b) {
-  return 400 * std::log(c2b) - 400 * std::log(1 - c1b - c2b) + 460;
+  return 400 * (std::log(c2b) - std::log(1 - c1b - c2b)) + 3.999;
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -4239,7 +4256,7 @@ PRE_FUNC_TPETRA(prec_c_)
 
 INI_FUNC(init_eta_)
 {
-  std::cout << "init eta" << std::endl;
+  //std::cout << "init eta" << std::endl;
   const double sqrt2 = std::sqrt(2.);
   const double sqrtw = std::sqrt(w_);
   
@@ -4261,6 +4278,9 @@ INI_FUNC(init_c1_)
   std::cout << "init c1" << std::endl;
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = parabolicenergy::h(&eta);
+  std::cout << "eta = " << eta << std::endl;
+  std::cout << "hh = " << hh << std::endl;
+  std::cout << "c1 = " << calenergy::c1a_0_ * hh + calenergy::c1b_0_ * (1. - hh) << std::endl;
   return calenergy::c1a_0_ * hh + calenergy::c1b_0_ * (1. - hh);
 }
 
@@ -4269,6 +4289,9 @@ INI_FUNC(init_c2_)
   std::cout << "init c2" << std::endl;
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = parabolicenergy::h(&eta);
+  std::cout << "eta = " << eta << std::endl;
+  std::cout << "hh = " << hh << std::endl;
+  std::cout << "c2 = " << calenergy::c2a_0_ * hh + calenergy::c2b_0_ * (1. - hh) << std::endl;
   return calenergy::c2a_0_ * hh + calenergy::c2b_0_ * (1. - hh);
 }
 
@@ -4296,15 +4319,20 @@ INI_FUNC(init_mu_)
 INI_FUNC(init_mu1_)
 {
   std::cout << "init mu1" << std::endl;
-  const double c1 = init_c_(x, y, z, c_start_idx_, lid);
-  const double c2 = init_c_(x, y, z, c_start_idx_ + 1, lid);
+  const double c1 = init_c1_(x, y, z, c_start_idx_, lid);
+  const double c2 = init_c2_(x, y, z, c_start_idx_ + 1, lid);
+  std::cout << "c1 = " << c1 << std::endl;
+  std::cout << "c2 = " << c2 << std::endl;
 
-  double eta[N_ETA_MAX_];
+  /*double eta[N_ETA_MAX_];
   for(int k = 0; k < N_ETA_; ++k){
-    int kk = k + eta_start_idx_;;
+    int kk = k + eta_start_idx_;
     eta[kk] = init_eta_(x, y, z, kk, lid);
-  }
-  const double hh = parabolicenergy::h(eta);
+  }*/
+  const double eta = init_eta_(x, y, z, eqn_id, lid);
+  const double hh = parabolicenergy::h(&eta);
+  std::cout << "eta = " << eta << std::endl;
+  std::cout << "hh = " << hh << std::endl;
 
   double c1a = calenergy::c1a_0_;
   double c1b = calenergy::c1b_0_;
@@ -4334,15 +4362,17 @@ INI_FUNC(init_mu1_)
 INI_FUNC(init_mu2_)
 {
   std::cout << "init mu2" << std::endl;
-  const double c1 = init_c_(x, y, z, c_start_idx_, lid);
-  const double c2 = init_c_(x, y, z, c_start_idx_ + 1, lid);
+  const double c1 = init_c1_(x, y, z, c_start_idx_, lid);
+  const double c2 = init_c2_(x, y, z, c_start_idx_ + 1, lid);
 
-  double eta[N_ETA_MAX_];
+  /*double eta[N_ETA_MAX_];
   for(int k = 0; k < N_ETA_; ++k){
     int kk = k + eta_start_idx_;;
     eta[kk] = init_eta_(x, y, z, kk, lid);
-  }
-  const double hh = parabolicenergy::h(eta);
+  }*/
+
+  const double eta = init_eta_(x, y, z, eqn_id, lid);
+  const double hh = parabolicenergy::h(&eta);
 
   double c1a = calenergy::c1a_0_;
   double c1b = calenergy::c1b_0_;

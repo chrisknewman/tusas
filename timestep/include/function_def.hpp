@@ -606,11 +606,13 @@ typedef const double (*KKSTERNFUNC)(const double c1,
 
 double kks_tol_ = 1e-10;
 int kks_max_iter_ = 20;
+bool solve_kks_verbose_ = false;
 
 PARAM_FUNC(param_)
 {
   kks_tol_ = plist->get<double>("kks_tol", kks_tol_); 
   kks_max_iter_ = plist->get<int>("kks_max_iter", kks_max_iter_);
+  solve_kks_verbose_ = plist->get<bool>("solve_kks_verbose", solve_kks_verbose_);
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -744,14 +746,16 @@ int solve_kks(const double &c1,  // in: c1
    *   c1 = c1a * h + c1b * (1 - h)
    *   c2 = c2a * h + c2b * (1 - h)
    */
-  std::cout << "#### solve_kks() started!" << std::endl;
-  std::cout << "#### initial c1 = " << c1 << std::endl;
-  std::cout << "#### initial c2 = " << c2 << std::endl;
-  std::cout << "#### initial hh = " << hh << std::endl;
-  std::cout << "#### initial c1a = " << c1a << std::endl;
-  std::cout << "#### initial c1b = " << c1b << std::endl;
-  std::cout << "#### initial c2a = " << c2a << std::endl;
-  std::cout << "#### initial c2b = " << c2b << std::endl;
+  if (solve_kks_verbose_) {
+    std::cout << "#### solve_kks() started!" << std::endl;
+    std::cout << "### initial c1 = " << c1 << std::endl;
+    std::cout << "### initial c2 = " << c2 << std::endl;
+    std::cout << "### initial hh = " << hh << std::endl;
+    std::cout << "### initial c1a = " << c1a << std::endl;
+    std::cout << "### initial c1b = " << c1b << std::endl;
+    std::cout << "### initial c2a = " << c2a << std::endl;
+    std::cout << "### initial c2b = " << c2b << std::endl;
+  }
 
   // meta variables
   double err2 = 0.;
@@ -774,10 +778,12 @@ int solve_kks(const double &c1,  // in: c1
   double dfb_dc1b = (*DFB_DC1B)(c1b, c2b);
   double dfa_dc2a = (*DFA_DC2A)(c1a, c2a);
   double dfb_dc2b = (*DFB_DC2B)(c1b, c2b);
-  std::cout << "dfa_dc1a = " << dfa_dc1a << std::endl;
-  std::cout << "dfb_dc1b = " << dfb_dc1b << std::endl;
-  std::cout << "dfa_dc2a = " << dfa_dc2a << std::endl;
-  std::cout << "dfb_dc2b = " << dfb_dc2b << std::endl;
+  if (solve_kks_verbose_) {
+    std::cout << "### initial dfa_dc1a = " << dfa_dc1a << std::endl;
+    std::cout << "### initial dfb_dc1b = " << dfb_dc1b << std::endl;
+    std::cout << "### initial dfa_dc2a = " << dfa_dc2a << std::endl;
+    std::cout << "### initial dfb_dc2b = " << dfb_dc2b << std::endl;
+  }
 
   double d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a);
   double d2fb_dc1b2 = (*D2FB_DC1B2)(c1b, c2b);
@@ -785,17 +791,25 @@ int solve_kks(const double &c1,  // in: c1
   double d2fb_dc2b2 = (*D2FB_DC2B2)(c1b, c2b);
   double d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a);
   double d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1b, c2b);
-  std::cout << "d2fa_dc1a2 = " << d2fa_dc1a2 << std::endl; 
-  std::cout << "d2fb_dc1b2 = " << d2fb_dc1b2 << std::endl; 
-  std::cout << "d2fa_dc2a2 = " << d2fa_dc2a2 << std::endl; 
-  std::cout << "d2fb_dc2b2 = " << d2fb_dc2b2 << std::endl; 
-  std::cout << "d2fa_dc1adc2a = " << d2fa_dc1adc2a << std::endl;  
-  std::cout << "d2fb_dc1bdc2b = " << d2fb_dc1bdc2b << std::endl;  
+  if (solve_kks_verbose_) {
+    std::cout << "### initial d2fa_dc1a2 = " << d2fa_dc1a2 << std::endl; 
+    std::cout << "### initial d2fb_dc1b2 = " << d2fb_dc1b2 << std::endl; 
+    std::cout << "### initial d2fa_dc2a2 = " << d2fa_dc2a2 << std::endl; 
+    std::cout << "### initial d2fb_dc2b2 = " << d2fb_dc2b2 << std::endl; 
+    std::cout << "### initial d2fa_dc1adc2a = " << d2fa_dc1adc2a << std::endl;  
+    std::cout << "### initial d2fb_dc1bdc2b = " << d2fb_dc1bdc2b << std::endl;  
+  }
 
   double f1 = hh * c1a + (1 - hh) * c1b - c1;
   double f2 = hh * c2a + (1 - hh) * c2b - c2;
   double f3 = dfa_dc1a - dfb_dc1b;
   double f4 = dfa_dc2a - dfb_dc2b;
+  if (solve_kks_verbose_) {
+    std::cout << "### initial f1 = " << f1 << std::endl; 
+    std::cout << "### initial f2 = " << f2 << std::endl; 
+    std::cout << "### initial f3 = " << f3 << std::endl; 
+    std::cout << "### initial f4 = " << f4 << std::endl; 
+  }
 
   /* 
    * newton iteration loop
@@ -814,7 +828,9 @@ int solve_kks(const double &c1,  // in: c1
    *   delta = -J^-1 @ F
    */
   for(int i = 0; i < max_iter; i++) {
-    std::cout << "interation = " << i << std::endl;
+    if (solve_kks_verbose_) {
+      std::cout << "## iteration = " << i << std::endl;
+    }
 
     detjac = -d2fa_dc1a2 * d2fa_dc2a2 
              + std::pow(d2fa_dc1adc2a, 2) 
@@ -908,10 +924,12 @@ int solve_kks(const double &c1,  // in: c1
     c1b += delta_c1b;
     c2a += delta_c2a;
     c2b += delta_c2b;
-    std::cout << "c1a = " << c1a << std::endl;
-    std::cout << "c1b = " << c1b << std::endl;
-    std::cout << "c2a = " << c2a << std::endl;
-    std::cout << "c2b = " << c2b << std::endl;
+    if (solve_kks_verbose_) {
+      std::cout << "# c1a = " << c1a << std::endl;
+      std::cout << "# c1b = " << c1b << std::endl;
+      std::cout << "# c2a = " << c2a << std::endl;
+      std::cout << "# c2b = " << c2b << std::endl;
+    }
     
     // recalculate subset of terms for next iteration
     dfa_dc1a = (*DFA_DC1A)(c1a, c2a);
@@ -939,9 +957,9 @@ int solve_kks(const double &c1,  // in: c1
 
   // max iters exceeded
   std::cout << "#### solve_kks() failed to converge!" << std::endl
-            << "#### current error = " << std::sqrt(err2) << std::endl
-            << "#### tol = " << tol << std::endl;
-  //exit(-1);
+            << "### current error = " << std::sqrt(err2) << std::endl
+            << "### tol = " << tol << std::endl;
+  exit(-1);
 }
 
   

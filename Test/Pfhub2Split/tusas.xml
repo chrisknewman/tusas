@@ -16,9 +16,9 @@
 
   <ParameterList name="ProblemParams">
     <Parameter name="N_ETA" type="int" value="2"/>
-    <Parameter name="x0_" type="double" value="1"/>
-    <Parameter name="t0_" type="double" value="0.5"/>
-    <Parameter name="f0_" type="double" value="1"/>
+    <Parameter name="x0" type="double" value="1"/>
+    <Parameter name="t0" type="double" value="0.5"/>
+    <Parameter name="f0" type="double" value="1"/>
     <Parameter name="Aa" type="double" value="2"/>
     <Parameter name="Ab" type="double" value="2"/>
     <Parameter name="c1" type="double" value="0.7"/>

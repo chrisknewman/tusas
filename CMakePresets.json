@@ -8,8 +8,8 @@
   "configurePresets": [
     {
       "name": "ro-intel",
-      "displayName": "Default Rocinante Config",
-      "description": "Default build Rocinante using standard Unix Makefiles",
+      "displayName": "Intel Rocinante Config",
+      "description": "Intel build for Rocinante using standard Unix Makefiles",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/INTEL_KOKKOS_15_1/",
       "cacheVariables": {
@@ -24,6 +24,35 @@
         "TUSAS_CXX_FLAGS": {
           "type": "STRING",
           "value": "-DTUSAS_KOKKOS_PRINT_CONFIG -w -DMKL_ILP64 -qmkl=parallel -ffp-contract=on -fma"
+        },
+        "CMAKE_CXX_STANDARD": {
+          "type": "INT",
+          "value": "14"
+        },
+        "TUSAS_RUN_COMMAND": {
+          "type": "STRING",
+          "value": "srun"
+        }
+      } 
+    },
+    {
+      "name": "ch-gnu",
+      "displayName": "GNU Chicoma Config",
+      "description": "GNU build for Chicoma using standard Unix Makefiles",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/GCC_KOKKOS_15_1/",
+      "cacheVariables": {
+        "TRILINOS_DIR": {
+          "type": "STRING",
+          "value": "/usr/projects/t26_amwithai/cnewman/src/Trilinos/GCC_KOKKOS_15_1/"
+        },
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "RELEASE"
+        },
+        "TUSAS_CXX_FLAGS": {
+          "type": "STRING",
+          "value": "-DTUSAS_KOKKOS_PRINT_CONFIG -DTUSAS3D -w"
         },
         "CMAKE_CXX_STANDARD": {
           "type": "INT",

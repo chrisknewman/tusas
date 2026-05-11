@@ -984,6 +984,7 @@ const GPURefBasis * BGPURef = BGPURefB;
 	      zz[ll] = z_1dra(lid);
 	      uu[ll] = u_1dra(numeqs_*lid+k);
 	      uu_old[ll] = uold_1dra(numeqs_*lid+k);
+	      uu_oldold[ll] = uoldold_1dra(numeqs_*lid+k);
 	      //std::cout<<lid<<" "<<xx[ll]<<" "<<yy[ll]<<" "<<zz[ll]<<std::endl;
 	    }//ll
 	    BGPU->computeElemData(&xx[0], &yy[0], &zz[0]);
@@ -996,7 +997,9 @@ const GPURefBasis * BGPURef = BGPURefB;
 		const int row = numeqs_*lid + k;
   
 		const double val = -jacwt*(it->second)(BGPU,i,dt,dtold,t_theta,t_theta2,time);
-		// std::cout<<row<<" "<<val<<" "<<jacwt<<std::endl; // GAW test //
+// 		std::cout<<row<<" "<<val<<" "<<jacwt<<" "<<(it->second)(BGPU,i,dt,dtold,t_theta,t_theta2,time)
+// 			 <<" "<<tpetra::robin::nbc_robin_test_(BGPU,i,dt,dtold,t_theta,t_theta2,time)<<std::endl;
+		// GAW test //
 		f_1d[row] += val;
 		
 	      }//i

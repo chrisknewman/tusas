@@ -1464,11 +1464,10 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   }
 
   // Create the initial guess
-  //Teuchos::RCP< ::Thyra::VectorBase<double> >
-  //  initial_guess = this->getNominalValues().get_x()->clone_v();
-  //Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());
-  //auto initial_guess = Thyra::createVector(u_old_);
-  Teuchos::RCP< ::Thyra::VectorBase<double> > initial_guess = Thyra::createVector(u_old_);
+  /*Teuchos::RCP< ::Thyra::VectorBase<double> >
+    initial_guess = this->getNominalValues().get_x()->clone_v();
+  Thyra::V_S(initial_guess.ptr(),Teuchos::ScalarTraits<double>::one());*/
+  Teuchos::RCP< ::Thyra::VectorBase<double> > initial_guess = Thyra::createVector(u_old_, x_space_);
 
   Teuchos::RCP< ::Thyra::ModelEvaluator<double> > Model = Teuchos::rcpFromRef(*this);
   // Wrap the model evaluator in a JFNK Model Evaluator

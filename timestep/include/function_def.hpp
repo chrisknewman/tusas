@@ -3325,9 +3325,9 @@ RES_FUNC_TPETRA(residual_eta_)
                                   + basis[eqn_id]->duuoldolddy() * basis[0]->dphidy(i)
                                   + basis[eqn_id]->duuoldolddz() * basis[0]->dphidz(i))};
 
-  double eta_array[N_ETA_MAX];
-  double eta_array_old[N_ETA_MAX];
-  double eta_array_oldold[N_ETA_MAX];
+  double eta_array[N_ETA_MAX] = {0.};
+  double eta_array_old[N_ETA_MAX] = {0.};
+  double eta_array_oldold[N_ETA_MAX] = {0.};
   for( int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -3369,7 +3369,7 @@ RES_FUNC_TPETRA(residual_mu_)
                             + basis[ci_]->duudy() * basis[0]->dphidy(i)
                             + basis[ci_]->duudz() * basis[0]->dphidz(i));
   
-  double eta_array[N_ETA_MAX];
+  double eta_array[N_ETA_MAX] = {0.};
   for(int kk = 0; kk < N_ETA_; kk++){
     int kk_off = kk + eqn_off_;
     eta_array[kk] = basis[kk_off]->uu();
@@ -3439,8 +3439,14 @@ INI_FUNC(init_eta_)
 INI_FUNC(init_mu_)
 {
   const double c = init_c_(x, y, z, eqn_id, lid);
-  const double eta = init_eta_(x, y, z, 2, lid);
-  return parabolicenergy::df_dc(c, &eta);
+
+  double eta_array[N_ETA_MAX] = {0.};
+  for(int kk = 0; kk < N_ETA_; kk++){
+    int kk_off = kk + eqn_off_;
+    eta_array[kk] = init_eta_(x, y, z, kk_off, lid);
+  };
+
+  return parabolicenergy::df_dc(c, eta_array);
 }
 
 PPR_FUNC(postproc_mu_)

@@ -8,8 +8,8 @@
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="1."/>
-<!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
-`<Parameter name="testcase" type="string" value="heat"/>
+  <Parameter name="noxrelres" type="double" value="1.e-6"/>
+  <Parameter name="testcase" type="string" value="heat"/>
   <Parameter name="outputfreq" type="int" value = "1"/>
 
   <ParameterList name="Linear Solver"> 

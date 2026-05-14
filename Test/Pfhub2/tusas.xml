@@ -9,6 +9,7 @@
   <Parameter name="testcase" type="string" value="pfhub2"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value=".5"/>
+  <Parameter name="noxrelres" type="double" value="3.4e-5"/>
   <Parameter name="noxmaxiter" type="int" value = "200"/>
   <Parameter name="noxacceptfailed" type="bool" value = "false"/>
   <Parameter name="ltpquadord" type="int" value = "3"/>

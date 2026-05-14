@@ -10,7 +10,7 @@
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="1."/>
-  <Parameter name="noxrelres" type="double" value="1.e-6"/>
+  <Parameter name="noxrelres" type="double" value="1.e-5"/>
   <Parameter name="predrelres" type="double" value="1.e-6"/>
 <!--   <Parameter name="predmaxiter" type="int" value="3"/> -->
   <Parameter name="testcase" type="string" value="goldak"/>

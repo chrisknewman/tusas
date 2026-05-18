@@ -1,8 +1,9 @@
-TIME STEPS relative 6.6e-13 floor 1e-11
-NODAL VARIABLES
+NODAL VARIABLES all
 	!temperror0
 	!tempnorm0
 	!tempdyn0
 	!pp0
+    u relative 2.e-6
+    pp1 relative 2.e-6
 #ELEMENT VARIABLES
 	!color

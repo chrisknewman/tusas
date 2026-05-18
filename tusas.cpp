@@ -168,8 +168,6 @@ int main(int argc, char *argv[])
       std::cout<<"Invalid method."<<"\n"<<"\n";
       return EXIT_FAILURE;
     }
-    //maybe initialize() should be called in constructor just before init_nox?????
-    model->initialize();
     
     double curTime = model->get_start_time();
     long long elapsedSteps = model->get_start_step();

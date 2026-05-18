@@ -8,7 +8,7 @@
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="0"/>
   <Parameter name="testcase" type="string" value="cummins"/>
-<!--   <Parameter name="noxrelres" type="double" value="1.e-12"/> -->
+  <Parameter name="noxrelres" type="double" value="1.e-6"/> 
 
    <ParameterList name="ProblemParams">
      <Parameter name="delta" type="double" value=".03"/>

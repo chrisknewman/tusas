@@ -10,7 +10,7 @@
   <Parameter name="preconditioner" type="bool" value = "false"/>
   <Parameter name="theta" type="double" value="0.5"/>
   <Parameter name="outputfreq" type="int" value = "2"/>
-  <Parameter name="noxrelres" type="double" value="1.e-4"/>
+  <Parameter name="noxrelres" type="double" value="2.3e-3"/>
   <Parameter name="ltpquadord" type="int" value = "3"/>
   <Parameter name="noxmaxiter" type="int" value = "4"/>  
   <Parameter name="noxacceptfailed" type="bool" value = "true"/>

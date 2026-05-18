@@ -243,10 +243,27 @@ ModelEvaluatorNEMESIS(const Teuchos::RCP<const Epetra_Comm>& comm,
     Error_est.push_back(new error_estimator(comm_,mesh_,numeqs_,error_index));
   }
 
-  //initialize();
+  initialize();
   init_nox();
-  //exit(0);
 
+  Teuchos::ParameterList *atsList;
+  atsList = &paramList.sublist (TusasatslistNameString, false );
+  
+  //initial solve need by second derivative error estimate
+  //and for lagged coupled time derivatives
+  //ie get a solution at u_{-1}
+  if (
+       (
+         (atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
+ 	     && paramList.get<bool> (TusasestimateTimestepNameString)
+       ) || (
+         (atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
+ 	     && paramList.get<bool> (TusasestimateTimestepNameString) 
+         && t_theta_ < 1.
+       ) || paramList.get<bool> (TusasinitialSolveNameString)
+  ) {
+    initialsolve();
+  }  // if
 }
 
 // Initializers/Accessors
@@ -1506,21 +1523,6 @@ template<class Scalar>
     //u_old_old_old_->PutScalar(0.0);
     u_old_old_old_->Scale(1.,*u_old_);
 
-    Teuchos::ParameterList *atsList;
-    atsList = &paramList.sublist (TusasatslistNameString, false );
-
-    //initial solve need by second derivative error estimate
-    //and for lagged coupled time derivatives
-    //ie get a solution at u_{-1}
-    if(((atsList->get<std::string> (TusasatstypeNameString) == "second derivative")
-	&&paramList.get<bool> (TusasestimateTimestepNameString))
-       ||((atsList->get<std::string> (TusasatstypeNameString) == "predictor corrector")
-	&&paramList.get<bool> (TusasestimateTimestepNameString)&&t_theta_ < 1.)
-       ||paramList.get<bool> (TusasinitialSolveNameString)){
-
-      initialsolve();
-    }
-    
     //u_old_old_->Update (1.,*u_old_ , 0.);
     //u_old_old_old_->PutScalar(0.0);
 

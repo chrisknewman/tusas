@@ -607,12 +607,14 @@ typedef const double (*KKSTERNFUNC)(const double c1,
 double kks_tol_ = 1e-10;
 int kks_max_iter_ = 20;
 bool solve_kks_verbose_ = false;
+bool solve_kks_acceptfailed_ = false;
 
 PARAM_FUNC(param_)
 {
   kks_tol_ = plist->get<double>("kks_tol", kks_tol_); 
   kks_max_iter_ = plist->get<int>("kks_max_iter", kks_max_iter_);
   solve_kks_verbose_ = plist->get<bool>("solve_kks_verbose", solve_kks_verbose_);
+  solve_kks_acceptfailed_ = plist->get<bool>("solve_kks_acceptfailed", solve_kks_acceptfailed_);
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -759,6 +761,7 @@ int solve_kks(const double &c1,  // in: c1
 
   // meta variables
   double err2 = 0.;
+  double errd = 0.;;
   double delta_c1a = 0.;
   double delta_c1b = 0.;
   double delta_c2a = 0.;
@@ -778,12 +781,12 @@ int solve_kks(const double &c1,  // in: c1
   double dfb_dc1b = (*DFB_DC1B)(c1b, c2b);
   double dfa_dc2a = (*DFA_DC2A)(c1a, c2a);
   double dfb_dc2b = (*DFB_DC2B)(c1b, c2b);
-  if (solve_kks_verbose_) {
-    std::cout << "### initial dfa_dc1a = " << dfa_dc1a << std::endl;
-    std::cout << "### initial dfb_dc1b = " << dfb_dc1b << std::endl;
-    std::cout << "### initial dfa_dc2a = " << dfa_dc2a << std::endl;
-    std::cout << "### initial dfb_dc2b = " << dfb_dc2b << std::endl;
-  }
+//   if (solve_kks_verbose_) {
+//     std::cout << "### initial dfa_dc1a = " << dfa_dc1a << std::endl;
+//     std::cout << "### initial dfb_dc1b = " << dfb_dc1b << std::endl;
+//     std::cout << "### initial dfa_dc2a = " << dfa_dc2a << std::endl;
+//     std::cout << "### initial dfb_dc2b = " << dfb_dc2b << std::endl;
+//   }
 
   double d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a);
   double d2fb_dc1b2 = (*D2FB_DC1B2)(c1b, c2b);
@@ -791,19 +794,20 @@ int solve_kks(const double &c1,  // in: c1
   double d2fb_dc2b2 = (*D2FB_DC2B2)(c1b, c2b);
   double d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a);
   double d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1b, c2b);
-  if (solve_kks_verbose_) {
-    std::cout << "### initial d2fa_dc1a2 = " << d2fa_dc1a2 << std::endl; 
-    std::cout << "### initial d2fb_dc1b2 = " << d2fb_dc1b2 << std::endl; 
-    std::cout << "### initial d2fa_dc2a2 = " << d2fa_dc2a2 << std::endl; 
-    std::cout << "### initial d2fb_dc2b2 = " << d2fb_dc2b2 << std::endl; 
-    std::cout << "### initial d2fa_dc1adc2a = " << d2fa_dc1adc2a << std::endl;  
-    std::cout << "### initial d2fb_dc1bdc2b = " << d2fb_dc1bdc2b << std::endl;  
-  }
+//   if (solve_kks_verbose_) {
+//     std::cout << "### initial d2fa_dc1a2 = " << d2fa_dc1a2 << std::endl; 
+//     std::cout << "### initial d2fb_dc1b2 = " << d2fb_dc1b2 << std::endl; 
+//     std::cout << "### initial d2fa_dc2a2 = " << d2fa_dc2a2 << std::endl; 
+//     std::cout << "### initial d2fb_dc2b2 = " << d2fb_dc2b2 << std::endl; 
+//     std::cout << "### initial d2fa_dc1adc2a = " << d2fa_dc1adc2a << std::endl;  
+//     std::cout << "### initial d2fb_dc1bdc2b = " << d2fb_dc1bdc2b << std::endl;  
+//   }
 
   double f1 = hh * c1a + (1 - hh) * c1b - c1;
   double f2 = hh * c2a + (1 - hh) * c2b - c2;
   double f3 = dfa_dc1a - dfb_dc1b;
   double f4 = dfa_dc2a - dfb_dc2b;
+  const double err0 = f1*f1+f2*f2+f3*f3+f4*f4;
   if (solve_kks_verbose_) {
     std::cout << "### initial f1 = " << f1 << std::endl; 
     std::cout << "### initial f2 = " << f2 << std::endl; 
@@ -832,6 +836,21 @@ int solve_kks(const double &c1,  // in: c1
       std::cout << "## iteration = " << i << std::endl;
     }
 
+    double alpha = 1.; 
+    
+    double c1a_new = 0.;
+    double c1b_new = 0.;
+    double c2a_new = 0.;
+    double c2b_new = 0.;
+    double c3a_new = -1.;
+    double c3b_new = -1.;
+    double small = 0.;
+    while(c1a_new < small ||
+	  c1b_new < small || 
+	  c2a_new < small ||
+	  c2b_new < small ||
+	  c3a_new < small ||
+	  c3b_new < small ){
     detjac = -d2fa_dc1a2 * d2fa_dc2a2 
              + std::pow(d2fa_dc1adc2a, 2) 
              - std::pow(hh, 2) 
@@ -849,6 +868,9 @@ int solve_kks(const double &c1,  // in: c1
                 - 2 * d2fa_dc1adc2a * d2fb_dc1bdc2b 
                 + d2fa_dc2a2 * d2fb_dc1b2);
 
+    if (solve_kks_verbose_) {
+      std::cout << "## detjac = " << detjac << std::endl;
+    }
     // -J^-1 @ F
     delta_c1a = (f1 * (d2fa_dc1adc2a * d2fb_dc1bdc2b * hh 
                        - d2fa_dc1adc2a * d2fb_dc1bdc2b 
@@ -870,6 +892,9 @@ int solve_kks(const double &c1,  // in: c1
                          + d2fa_dc1adc2a 
                          - d2fb_dc1bdc2b * std::pow(hh, 2) 
                          + d2fb_dc1bdc2b * hh)) / detjac;
+    if (solve_kks_verbose_) {
+      std::cout << "###   delta_c1a = " << delta_c1a << std::endl;
+    }
     delta_c1b = (-f1 * (d2fa_dc1a2 * d2fa_dc2a2 * hh 
                         - d2fa_dc1a2 * d2fa_dc2a2 
                         - d2fa_dc1a2 * d2fb_dc2b2 * hh 
@@ -884,6 +909,9 @@ int solve_kks(const double &c1,  // in: c1
                  + f4 * hh * (-d2fa_dc1adc2a * hh 
                               + d2fa_dc1adc2a 
                               + d2fb_dc1bdc2b * hh)) / detjac;
+    if (solve_kks_verbose_) {
+      std::cout << "###   delta_c1b = " << delta_c1b << std::endl;
+    }
     delta_c2a = (-f1 * (d2fa_dc1a2 * d2fb_dc1bdc2b * hh 
                         - d2fa_dc1a2 * d2fb_dc1bdc2b 
                         - d2fa_dc1adc2a * d2fb_dc1b2 * hh 
@@ -904,6 +932,9 @@ int solve_kks(const double &c1,  // in: c1
                          + d2fa_dc1a2 
                          - d2fb_dc1b2 * std::pow(hh, 2) 
                          + d2fb_dc1b2 * hh)) / detjac;
+    if (solve_kks_verbose_) {
+      std::cout << "###   delta_c2a = " << delta_c2a << std::endl;
+    }
     delta_c2b = (-f1 * hh * (d2fa_dc1a2 * d2fb_dc1bdc2b 
                              - d2fa_dc1adc2a * d2fb_dc1b2) 
                  - f2 * (d2fa_dc1a2 * d2fa_dc2a2 * hh 
@@ -918,18 +949,31 @@ int solve_kks(const double &c1,  // in: c1
                  - f4 * hh * (-d2fa_dc1a2 * hh 
                               + d2fa_dc1a2 
                               + d2fb_dc1b2 * hh)) / detjac;
+    errd = delta_c1a*delta_c1a+delta_c1b*delta_c1b+delta_c2a*delta_c2a+delta_c2b*delta_c2b;
+    if (solve_kks_verbose_) {
+      std::cout << "###   delta_c1b = " << delta_c1b << std::endl;
+    }
 
     // new value for (c1a, c1b, c2a, c2b)
-    c1a += delta_c1a;
-    c1b += delta_c1b;
-    c2a += delta_c2a;
-    c2b += delta_c2b;
+    c1a_new = c1a + alpha*delta_c1a;
+    c1b_new = c1b + alpha*delta_c1b;
+    c2a_new = c2a + alpha*delta_c2a;
+    c2b_new = c2b + alpha*delta_c2b;
+    c3a_new = 1.-c1a_new-c2a_new;
+    c3b_new = 1.-c1b_new-c2b_new;
+    alpha=alpha/2.;
+    
+
     if (solve_kks_verbose_) {
-      std::cout << "# c1a = " << c1a << std::endl;
-      std::cout << "# c1b = " << c1b << std::endl;
-      std::cout << "# c2a = " << c2a << std::endl;
-      std::cout << "# c2b = " << c2b << std::endl;
+      std::cout << "# c1a = " << c1a_new  << std::endl;
+      std::cout << "# c1b = " << c1b_new  << std::endl;
+      std::cout << "# 1 - c1a - c2a = " << 1-c1a_new -c2a_new  << std::endl;
+      std::cout << "# c2a = " << c2a_new  << std::endl;
+      std::cout << "# c2b = " << c2b_new  << std::endl;
+      std::cout << "# 1 - c1b - c2b = " << 1-c1b_new -c2b_new  << std::endl;
     }
+    }
+    c1a=c1a_new;c1b=c1b_new;c2a=c2a_new;c2b=c2b_new;
     
     // recalculate subset of terms for next iteration
     dfa_dc1a = (*DFA_DC1A)(c1a, c2a);
@@ -937,14 +981,33 @@ int solve_kks(const double &c1,  // in: c1
     dfa_dc2a = (*DFA_DC2A)(c1a, c2a);
     dfb_dc2b = (*DFB_DC2B)(c1b, c2b);
 
+//     if (solve_kks_verbose_) {
+//       std::cout << "###   dfa_dc1a = " << dfa_dc1a << std::endl;
+//       std::cout << "###   dfb_dc1b = " << dfb_dc1b << std::endl;
+//       std::cout << "###   dfa_dc2a = " << dfa_dc2a << std::endl;
+//       std::cout << "###   dfb_dc2b = " << dfb_dc2b << std::endl;
+//     }
     f1 = hh * c1a + (1 - hh) * c1b - c1;
     f2 = hh * c2a + (1 - hh) * c2b - c2;
     f3 = dfa_dc1a - dfb_dc1b;
     f4 = dfa_dc2a - dfb_dc2b;
+    if (solve_kks_verbose_) {
+      std::cout << "### end f1 = " << f1 << std::endl; 
+      std::cout << "### end f2 = " << f2 << std::endl; 
+      std::cout << "### end f3 = " << f3 << std::endl; 
+      std::cout << "### end f4 = " << f4 << std::endl; 
+    }
 
     // check error and return if done
     err2 = f1 * f1 + f2 * f2 + f3 * f3 + f4 * f4;
-    if (err2 < tol * tol) return 0;
+    if (solve_kks_verbose_) {
+      std::cout<< "         ### current abs error = " << std::sqrt(err2) << std::endl
+	       << "         ### current rel error = " << std::sqrt(err2/err0) << std::endl
+	       << "         ### current del error = " << std::sqrt(errd) << std::endl
+	       << "         ### tol = " << tol << std::endl;
+    }
+    //if (err2 < tol * tol) return 0;
+    if (err2/err0 < tol * tol) return 0;
 
     // recalculate remaining terms for next iteration
     d2fa_dc1a2 = (*D2FA_DC1A2)(c1a, c2a);
@@ -954,12 +1017,24 @@ int solve_kks(const double &c1,  // in: c1
     d2fa_dc1adc2a = (*D2FA_DC1ADC2A)(c1a, c2a);
     d2fb_dc1bdc2b = (*D2FB_DC1BDC2B)(c1a, c2a);
   }
-
-  // max iters exceeded
-  std::cout << "#### solve_kks() failed to converge!" << std::endl
-            << "### current error = " << std::sqrt(err2) << std::endl
-            << "### tol = " << tol << std::endl;
-  exit(-1);
+  if (solve_kks_verbose_) {
+    std::cout << "#### solve_kks() failed to converge!" << std::endl
+	      << "### current abs error = " << std::sqrt(err2) << std::endl
+	      << "### current rel error = " << std::sqrt(err2/err0) << std::endl
+	      << "### current del error = " << std::sqrt(errd) << std::endl
+	      << "### tol = " << tol << std::endl;
+  }
+  if( solve_kks_acceptfailed_){
+    return 0;
+  }else{
+    // max iters exceeded
+//     std::cout << "#### solve_kks() failed to converge!" << std::endl
+// 	      << "### current abs error = " << std::sqrt(err2) << std::endl
+// 	      << "### current rel error = " << std::sqrt(err2/err0) << std::endl
+// 	      << "### current del error = " << std::sqrt(errd) << std::endl
+// 	      << "### tol = " << tol << std::endl;
+    exit(-1);
+  }
 }
 
   
@@ -3917,9 +3992,9 @@ RES_FUNC_TPETRA((*residual_c_split_kks_dp_)) = residual_c_split_kks_;
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_c_split_kks_ternary_)
 {
-  std::cout << "res c top" << std::endl
-            << "eqn_id = " << eqn_id << std::endl
-            << "local_id = " << eqn_id - c_start_idx_ << std::endl;
+//   std::cout << "res c top" << std::endl
+//             << "eqn_id = " << eqn_id << std::endl
+//             << "local_id = " << eqn_id - c_start_idx_ << std::endl;
   // number of time levels to compute
   // might want to pass this in to res func?
   const int Nt = 3;
@@ -4004,9 +4079,9 @@ RES_FUNC_TPETRA((*residual_mu_kks_dp_)) = residual_mu_kks_;
 KOKKOS_INLINE_FUNCTION
 RES_FUNC_TPETRA(residual_mu_kks_ternary_)
 {
-  std::cout << "res mu top" << std::endl
-            << "eqn_id = " << eqn_id << std::endl
-            << "local_id = " << eqn_id - mu_start_idx_ << std::endl;
+//   std::cout << "res mu top" << std::endl
+//             << "eqn_id = " << eqn_id << std::endl
+//             << "local_id = " << eqn_id - mu_start_idx_ << std::endl;
   const int Nt = 1;
 
   const int local_id = eqn_id - mu_start_idx_;
@@ -4158,9 +4233,9 @@ RES_FUNC_TPETRA((*residual_eta_kks_dp_)) = residual_eta_kks_;
 KOKKOS_INLINE_FUNCTION 
 RES_FUNC_TPETRA(residual_eta_kks_ternary_)
 {
-  std::cout << "res eta top" << std::endl
-            << "eqn_id = " << eqn_id << std::endl
-            << "local_id = " << eqn_id - eta_start_idx_ << std::endl;
+//   std::cout << "res eta top" << std::endl
+//             << "eqn_id = " << eqn_id << std::endl
+//             << "local_id = " << eqn_id - eta_start_idx_ << std::endl;
   const int Nt = 3;
 
   const int local_id = eqn_id - eta_start_idx_;
@@ -4293,23 +4368,23 @@ INI_FUNC(init_c_)
 
 INI_FUNC(init_c1_)
 {
-  std::cout << "init c1" << std::endl;
+  //std::cout << "init c1" << std::endl;
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = parabolicenergy::h(&eta);
-  std::cout << "eta = " << eta << std::endl;
-  std::cout << "hh = " << hh << std::endl;
-  std::cout << "c1 = " << calenergy::c1a_0_ * hh + calenergy::c1b_0_ * (1. - hh) << std::endl;
+  //std::cout << "eta = " << eta << std::endl;
+  //std::cout << "hh = " << hh << std::endl;
+  //std::cout << "c1 = " << calenergy::c1a_0_ * hh + calenergy::c1b_0_ * (1. - hh) << std::endl;
   return calenergy::c1a_0_ * hh + calenergy::c1b_0_ * (1. - hh);
 }
 
 INI_FUNC(init_c2_)
 {
-  std::cout << "init c2" << std::endl;
+  //std::cout << "init c2" << std::endl;
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = parabolicenergy::h(&eta);
-  std::cout << "eta = " << eta << std::endl;
-  std::cout << "hh = " << hh << std::endl;
-  std::cout << "c2 = " << calenergy::c2a_0_ * hh + calenergy::c2b_0_ * (1. - hh) << std::endl;
+  //std::cout << "eta = " << eta << std::endl;
+  //std::cout << "hh = " << hh << std::endl;
+  //std::cout << "c2 = " << calenergy::c2a_0_ * hh + calenergy::c2b_0_ * (1. - hh) << std::endl;
   return calenergy::c2a_0_ * hh + calenergy::c2b_0_ * (1. - hh);
 }
 
@@ -4336,11 +4411,11 @@ INI_FUNC(init_mu_)
 
 INI_FUNC(init_mu1_)
 {
-  std::cout << "init mu1" << std::endl;
+  //std::cout << "init mu1" << std::endl;
   const double c1 = init_c1_(x, y, z, c_start_idx_, lid);
   const double c2 = init_c2_(x, y, z, c_start_idx_ + 1, lid);
-  std::cout << "c1 = " << c1 << std::endl;
-  std::cout << "c2 = " << c2 << std::endl;
+  //std::cout << "c1 = " << c1 << std::endl;
+  //std::cout << "c2 = " << c2 << std::endl;
 
   /*double eta[N_ETA_MAX_];
   for(int k = 0; k < N_ETA_; ++k){
@@ -4349,8 +4424,8 @@ INI_FUNC(init_mu1_)
   }*/
   const double eta = init_eta_(x, y, z, eqn_id, lid);
   const double hh = parabolicenergy::h(&eta);
-  std::cout << "eta = " << eta << std::endl;
-  std::cout << "hh = " << hh << std::endl;
+  //std::cout << "eta = " << eta << std::endl;
+  //std::cout << "hh = " << hh << std::endl;
 
   double c1a = calenergy::c1a_0_;
   double c1b = calenergy::c1b_0_;
@@ -4379,7 +4454,7 @@ INI_FUNC(init_mu1_)
 
 INI_FUNC(init_mu2_)
 {
-  std::cout << "init mu2" << std::endl;
+  //std::cout << "init mu2" << std::endl;
   const double c1 = init_c1_(x, y, z, c_start_idx_, lid);
   const double c2 = init_c2_(x, y, z, c_start_idx_ + 1, lid);
 

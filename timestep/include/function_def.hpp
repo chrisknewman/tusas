@@ -836,21 +836,6 @@ int solve_kks(const double &c1,  // in: c1
       std::cout << "## iteration = " << i << std::endl;
     }
 
-    double alpha = 1.; 
-    
-    double c1a_new = 0.;
-    double c1b_new = 0.;
-    double c2a_new = 0.;
-    double c2b_new = 0.;
-    double c3a_new = -1.;
-    double c3b_new = -1.;
-    double small = 0.;
-    while(c1a_new < small ||
-	  c1b_new < small || 
-	  c2a_new < small ||
-	  c2b_new < small ||
-	  c3a_new < small ||
-	  c3b_new < small ){
     detjac = -d2fa_dc1a2 * d2fa_dc2a2 
              + std::pow(d2fa_dc1adc2a, 2) 
              - std::pow(hh, 2) 
@@ -954,24 +939,39 @@ int solve_kks(const double &c1,  // in: c1
       std::cout << "###   delta_c1b = " << delta_c1b << std::endl;
     }
 
-    // new value for (c1a, c1b, c2a, c2b)
-    c1a_new = c1a + alpha*delta_c1a;
-    c1b_new = c1b + alpha*delta_c1b;
-    c2a_new = c2a + alpha*delta_c2a;
-    c2b_new = c2b + alpha*delta_c2b;
-    c3a_new = 1.-c1a_new-c2a_new;
-    c3b_new = 1.-c1b_new-c2b_new;
-    alpha=alpha/2.;
+    double alpha = 1.; 
+    
+    double c1a_new = 0.;
+    double c1b_new = 0.;
+    double c2a_new = 0.;
+    double c2b_new = 0.;
+    double c3a_new = -1.;
+    double c3b_new = -1.;
+    double small = 0.;
+    while(c1a_new <= small ||
+	  c1b_new <= small || 
+	  c2a_new <= small ||
+	  c2b_new <= small ||
+	  c3a_new <= small ||
+	  c3b_new <= small ){
+      // new value for (c1a, c1b, c2a, c2b)
+      c1a_new = c1a + alpha*delta_c1a;
+      c1b_new = c1b + alpha*delta_c1b;
+      c2a_new = c2a + alpha*delta_c2a;
+      c2b_new = c2b + alpha*delta_c2b;
+      c3a_new = 1.-c1a_new-c2a_new;
+      c3b_new = 1.-c1b_new-c2b_new;
+      alpha=alpha/2.;
     
 
-    if (solve_kks_verbose_) {
-      std::cout << "# c1a = " << c1a_new  << std::endl;
-      std::cout << "# c1b = " << c1b_new  << std::endl;
-      std::cout << "# 1 - c1a - c2a = " << 1-c1a_new -c2a_new  << std::endl;
-      std::cout << "# c2a = " << c2a_new  << std::endl;
-      std::cout << "# c2b = " << c2b_new  << std::endl;
-      std::cout << "# 1 - c1b - c2b = " << 1-c1b_new -c2b_new  << std::endl;
-    }
+      if (solve_kks_verbose_) {
+	std::cout << "# c1a = " << c1a_new  << std::endl;
+	std::cout << "# c1b = " << c1b_new  << std::endl;
+	std::cout << "# 1 - c1a - c2a = " << 1-c1a_new -c2a_new  << std::endl;
+	std::cout << "# c2a = " << c2a_new  << std::endl;
+	std::cout << "# c2b = " << c2b_new  << std::endl;
+	std::cout << "# 1 - c1b - c2b = " << 1-c1b_new -c2b_new  << std::endl;
+      }
     }
     c1a=c1a_new;c1b=c1b_new;c2a=c2a_new;c2b=c2b_new;
     

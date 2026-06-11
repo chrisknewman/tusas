@@ -7384,9 +7384,9 @@ INI_FUNC(init_mu_)
 
 KOKKOS_INLINE_FUNCTION
 const double mobility(const double hh) {
-  // M = D * d2f_dc2
-  return D_ * parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
-           / ((1 - hh) * parabolicenergy::d2fa_dca2() + hh * parabolicenergy::d2fb_dcb2());
+  // M = D / d2f_dc2
+  return D_ / (parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
+	       / ((1 - hh) * parabolicenergy::d2fa_dca2() + hh * parabolicenergy::d2fb_dcb2()));
 } 
 
 

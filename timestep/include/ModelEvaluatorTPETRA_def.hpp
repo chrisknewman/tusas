@@ -1555,30 +1555,36 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 
   //custom linesearch
 
-  bool boundedLinesearch = false;
+  bool lineSearch = nl_params->isSublist ("Line Search");
 
-  if(boundedLinesearch) {
-    // 1. Create the factory
-    Teuchos::RCP<NOX::LineSearch::UserDefinedFactory> factory = 
-      Teuchos::rcp(new BoundedBacktrackingFactory());
-    
-    // 2. Get the Line Search sublist from nl_params (NOT a separate list!)
+  if(lineSearch){
     Teuchos::ParameterList& lsSublist = nl_params->sublist("Line Search");
-    
-    // 3. Configure the line search sublist
-    lsSublist.set("Method", "User Defined");  // THIS IS REQUIRED!
-    lsSublist.set("User Defined Line Search Factory", factory);
-    lsSublist.set("Num Equations", numeqs_);
+    bool method = lsSublist.isParameter("Method");
 
-    lsSublist.set("Bounded Equation IDs", Teuchos::Array<int>({0}));
-    lsSublist.set("Lower Bounds", Teuchos::Array<double>({0.}));
-    lsSublist.set("Upper Bounds", Teuchos::Array<double>({1.}));
-    
-    // 4. Set your custom parameters in the SAME sublist--we can eventually get these from input file
-    lsSublist.set("Minimum Step", 1.0e-12);
-    lsSublist.set("Step Reduction Factor", 0.5);
-    lsSublist.set("Max Iterations", 20);
-    lsSublist.set("Check Descent", false);
+    if(method){
+      bool boundedLinesearch = (lsSublist.get<std::string>("Method")=="User Defined");
+      
+      if(boundedLinesearch) {
+	
+	
+	//lsSublist.set("Method", "User Defined");  // THIS IS REQUIRED!
+	
+	Teuchos::RCP<NOX::LineSearch::UserDefinedFactory> factory = 
+	  Teuchos::rcp(new BoundedBacktrackingFactory());
+	lsSublist.set("User Defined Line Search Factory", factory);
+	lsSublist.set("Num Equations", numeqs_);
+	
+	lsSublist.set("Bounded Equation IDs", Teuchos::Array<int>({0}));
+	lsSublist.set("Lower Bounds", Teuchos::Array<double>({0.}));
+	lsSublist.set("Upper Bounds", Teuchos::Array<double>({1.}));
+	
+	// 4. Set your custom parameters in the SAME sublist--we can eventually get these from input file
+	lsSublist.set("Minimum Step", 1.0e-12);
+	lsSublist.set("Step Reduction Factor", 0.5);
+	lsSublist.set("Max Iterations", 20);
+	lsSublist.set("Check Descent", false);
+      }
+    }
   }
 
   //nlPrintParams.set("Output Information",0);

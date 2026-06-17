@@ -5122,6 +5122,43 @@ RES_FUNC_TPETRA(residual_test_)
 }
 }//namespace timeonly
 
+namespace nonlinearlog
+{
+double alpha = 4.;
+double c0 = .05;
+
+PARAM_FUNC(param_)
+{
+  alpha = plist->get<double>("alpha",alpha);
+  c0 = plist->get<double>("c0",c0);
+}
+
+const double ff(const double &c)
+{
+  return -(std::log(c/(1.-c)) + alpha*(1.-2.*c));
+}
+
+RES_FUNC_TPETRA(residual_test_)
+{
+  //test function
+  const double test = basis[0]->phi(i);
+  //u, phi
+  const double c[3] = {basis[0]->uu(),basis[0]->uuold(),basis[0]->uuoldold()};
+
+  const double ct = (c[0]-c[1])/dt_*test;
+
+  const double f[3] = {ff(c[0])*test,ff(c[1])*test,ff(c[2])*test};
+ 
+  return ct - (1.-t_theta2_)*t_theta_*f[0]
+    - (1.-t_theta2_)*(1.-t_theta_)*f[1]
+    -.5*t_theta2_*((2.+dt_/dtold_)*f[1]-dt_/dtold_*f[2]);
+}
+INI_FUNC(init_test_)
+{
+  return c0;
+}
+}//namespace nonlinearlog
+
 namespace radconvbc
 {
   double h = 50.;

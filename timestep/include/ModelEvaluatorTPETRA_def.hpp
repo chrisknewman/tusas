@@ -55,6 +55,7 @@
 
 #include "function_def.hpp"
 #include "cases.hpp"
+#include "BoundedBacktracking.hpp"
 #include "ParamNames.h"
 #include "greedy_tie_break.hpp"
 
@@ -1550,6 +1551,36 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 		    NOX::Utils::Details //+
 		    //NOX::Utils::LinearSolverDetails
 		    );
+
+
+  //custom linesearch
+
+  bool boundedLinesearch = false;
+
+  if(boundedLinesearch) {
+    // 1. Create the factory
+    Teuchos::RCP<NOX::LineSearch::UserDefinedFactory> factory = 
+      Teuchos::rcp(new BoundedBacktrackingFactory());
+    
+    // 2. Get the Line Search sublist from nl_params (NOT a separate list!)
+    Teuchos::ParameterList& lsSublist = nl_params->sublist("Line Search");
+    
+    // 3. Configure the line search sublist
+    lsSublist.set("Method", "User Defined");  // THIS IS REQUIRED!
+    lsSublist.set("User Defined Line Search Factory", factory);
+    lsSublist.set("Num Equations", numeqs_);
+
+    lsSublist.set("Bounded Equation IDs", Teuchos::Array<int>({0}));
+    lsSublist.set("Lower Bounds", Teuchos::Array<double>({0.}));
+    lsSublist.set("Upper Bounds", Teuchos::Array<double>({1.}));
+    
+    // 4. Set your custom parameters in the SAME sublist--we can eventually get these from input file
+    lsSublist.set("Minimum Step", 1.0e-12);
+    lsSublist.set("Step Reduction Factor", 0.5);
+    lsSublist.set("Max Iterations", 20);
+    lsSublist.set("Check Descent", false);
+  }
+
   //nlPrintParams.set("Output Information",0);
   // Create the solver
   solver_ =  NOX::Solver::buildSolver(nox_group, combo, nl_params);
@@ -3715,6 +3746,30 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(2);
     paramfunc_[0] = &tpetra::yang::param_;
     paramfunc_[1] = &tpetra::uehara::param_;
+
+  }else if("nonlinearlog0d" == paramList.get<std::string> (TusastestNameString)){
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = &tpetra::nonlinearlog::residual_test_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::heat::prec_heat_test_;
+
+    initfunc_ = new  std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::nonlinearlog::init_test_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+
+    // numeqs_ number of variables(equations) 
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(1);
+    paramfunc_[0] = &tpetra::nonlinearlog::param_;
 
   } else {
     auto comm_ = Teuchos::DefaultComm<int>::getComm(); 

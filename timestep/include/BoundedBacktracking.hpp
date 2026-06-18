@@ -74,9 +74,14 @@ public:
     maxIters_ = params->get("Max Iterations", 20);
     checkDescent_ = params->get("Check Descent", true);
 
+
     if (utils->isPrintType(NOX::Utils::Details)) {
-      utils->out() << "BoundedBacktracking: " 
-                   << boundedEqnids_.size() << " bounded equations\n";
+      utils->out() << "BoundedBacktracking:\n" 
+                   << "  bounded equations = "<<boundedEqnids_.size() <<"\n"
+		   << "  minStep_ = "<<minStep_ <<"\n"
+		   << "  stepReduction_ = "<<stepReduction_ <<"\n"
+		   << "  maxIters_ = "<<maxIters_ <<"\n"
+		   << "  checkDescent_ = "<<checkDescent_ <<"\n";
     }
   }
   

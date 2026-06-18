@@ -1574,15 +1574,15 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 	lsSublist.set("User Defined Line Search Factory", factory);
 	lsSublist.set("Num Equations", numeqs_);
 	
-	lsSublist.set("Bounded Equation IDs", Teuchos::Array<int>({0}));
-	lsSublist.set("Lower Bounds", Teuchos::Array<double>({0.}));
-	lsSublist.set("Upper Bounds", Teuchos::Array<double>({1.}));
+	lsSublist.get("Bounded Equation IDs", Teuchos::Array<int>({0}));
+	lsSublist.get("Lower Bounds", Teuchos::Array<double>({0.}));
+	lsSublist.get("Upper Bounds", Teuchos::Array<double>({1.}));
 	
 	// 4. Set your custom parameters in the SAME sublist--we can eventually get these from input file
-	lsSublist.set("Minimum Step", 1.0e-12);
-	lsSublist.set("Step Reduction Factor", 0.5);
-	lsSublist.set("Max Iterations", 20);
-	lsSublist.set("Check Descent", false);
+	lsSublist.get("Minimum Step", 1.0e-12);
+	lsSublist.get("Step Reduction Factor", 0.5);
+	lsSublist.get("Max Iterations", 20);
+	lsSublist.get("Check Descent", true);
       }
     }
   }

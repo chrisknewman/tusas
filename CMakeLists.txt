@@ -165,6 +165,7 @@ set(TUSAS_TESTS
   NeumannTetT
   NeumannTriPar
   NeumannTriQ
+  NonlinearLog0D
   PeriodicHexPar
   PeriodicQuad
   Pfhub2

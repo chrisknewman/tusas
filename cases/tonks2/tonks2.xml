@@ -1,0 +1,77 @@
+<ParameterList>
+
+    <!-- simulation parameters -->
+
+    <Parameter name="dt" type="double" value="1e-8"/>
+    <Parameter name="nt" type="int" value = "5000"/>
+    <Parameter name="meshfile" type="string" value="./tonks1_quad_1x300.e"/>
+    <Parameter name="testcase" type="string" value="tonks2splitkks"/>
+    <Parameter name="method" type="string" value="tpetra"/>
+    <Parameter name="preconditioner" type="bool" value="false"/>
+    <Parameter name="theta" type="double" value="1"/><!-- only 1 for now -->
+
+    <Parameter name="noxrelres" type="double" value="1.e-5"/>
+    <Parameter name="noxmaxiter" type="int" value = "40"/>
+    <Parameter name="noxacceptfailed" type="bool" value = "false"/>
+    <Parameter name="noxforcestep" type="bool" value = "false"/>
+
+    <Parameter name="predrelres" type="double" value="1.e-3"/>
+    <Parameter name="predmaxiter" type="int" value = "10"/>
+
+    <Parameter name="ltpquadord" type="int" value = "3"/>
+    <Parameter name="outputfreq" type="int" value = "1"/> 
+
+    <ParameterList name="ProblemParams">
+        <Parameter name="kks_max_iter" type="int" value="50"/>
+        <Parameter name="solve_kks_verbose" type="bool" value="false"/>
+        <Parameter name="solve_kks_acceptfailed" type="bool" value="false"/>
+    </ParameterList>
+
+    <ParameterList name="Nonlinear Solver">
+        <ParameterList name="Direction">
+            <ParameterList name="Newton">
+                <Parameter name ="Forcing Term Minimum Tolerance" type="double" value=" 1.0e-5"/>
+            </ParameterList>
+        </ParameterList>
+        <ParameterList name="Line Search">
+            <Parameter name="Method" type="string" value="User Defined"/>
+            <Parameter name="Bounded Equation IDs" type="Array(int)" value = "{0,1}"/>
+            <Parameter name="Lower Bounds" type="Array(double)" value="{1e-10,1e-10}"/>
+            <Parameter name="Upper Bounds" type="Array(double)" value="{9.99999e-1,9.99999e-1}"/>
+            <Parameter name="Minimum Step" type="double" value="1.e-10"/>
+            <Parameter name="Step Reduction Factor" type="double" value=".5"/>
+            <Parameter name="Max Iterations" type="int" value="10"/>
+            <Parameter name="Check Descent" type="bool" value="false"/>
+        </ParameterList>
+    </ParameterList>
+
+    <Parameter name="adaptivetimestep" type="bool" value = "false"/>
+    <ParameterList name="Adaptive Timestep Parameters">
+        <Parameter name="maxiter" type="int" value = "5"/>
+        <Parameter name="atol" type="double" value = "1.e-4"/>
+        <Parameter name="rtol" type="double" value = "1.e-3"/>
+        <Parameter name="safety factor" type="double" value = ".95"/>
+        <Parameter name="rmin" type="double" value = ".5"/>
+        <Parameter name="rmax" type="double" value = "2."/>
+        <Parameter name="max dt" type="double" value = "1.e-1"/>
+    </ParameterList>
+
+    <ParameterList name="Linear Solver"> 
+        <Parameter name="Linear Solver Type" type="string" value="Belos"/>
+        <ParameterList name="Linear Solver Types">
+            <ParameterList name="Belos"> 
+                <Parameter name="Solver Type" type="string" value="Pseudo Block GMRES"/>
+                <ParameterList name="Solver Types">
+                    <ParameterList name="Pseudo Block GMRES">
+                        <Parameter name="Orthogonalization" type="string" value="ICGS"/>
+                        <Parameter name="Maximum Iterations" type="int" value="40"/>
+                        <Parameter name="Output Frequency" type="int" value="1"/>
+                        <Parameter name="Verbosity" type="int" value="33"/>
+                        <Parameter name="Output Style" type="int" value="1"/>
+                    </ParameterList>
+                </ParameterList>
+            </ParameterList> 
+        </ParameterList>
+    </ParameterList>
+
+</ParameterList>

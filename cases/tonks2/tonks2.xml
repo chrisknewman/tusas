@@ -10,7 +10,7 @@
     <Parameter name="preconditioner" type="bool" value="false"/>
     <Parameter name="theta" type="double" value="1"/><!-- only 1 for now -->
 
-    <Parameter name="noxrelres" type="double" value="1.e-5"/>
+    <Parameter name="noxrelres" type="double" value="1.e-10"/>
     <Parameter name="noxmaxiter" type="int" value = "40"/>
     <Parameter name="noxacceptfailed" type="bool" value = "false"/>
     <Parameter name="noxforcestep" type="bool" value = "false"/>
@@ -64,7 +64,7 @@
                 <ParameterList name="Solver Types">
                     <ParameterList name="Pseudo Block GMRES">
                         <Parameter name="Orthogonalization" type="string" value="ICGS"/>
-                        <Parameter name="Maximum Iterations" type="int" value="40"/>
+                        <Parameter name="Maximum Iterations" type="int" value="60"/>
                         <Parameter name="Output Frequency" type="int" value="1"/>
                         <Parameter name="Verbosity" type="int" value="33"/>
                         <Parameter name="Output Style" type="int" value="1"/>

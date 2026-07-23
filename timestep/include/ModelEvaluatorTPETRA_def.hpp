@@ -3102,6 +3102,52 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[0] = &cases::tonks1::param_split;
     paramfunc_[1] = &cases::tonks1::param;
     
+  }else if("tonks2trans" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    const int Nc = 2;
+    const int Nmu = Nc;
+    const int Neta = 1;
+    numeqs_ = Nc + Nmu + Neta;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::tonks::residual_mu_split_ternary_trans_dp_;
+    (*residualfunc_)[1] = tpetra::tonks::residual_mu_split_ternary_trans_dp_;
+    (*residualfunc_)[2] = tpetra::tonks::residual_c_split_ternary_trans_dp_;
+    (*residualfunc_)[3] = tpetra::tonks::residual_c_split_ternary_trans_dp_;
+    (*residualfunc_)[4] = tpetra::tonks::residual_eta_kks_ternary_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::tonks::prec_mu_trans_;
+    (*preconfunc_)[1] = &tpetra::tonks::prec_mu_trans_;
+    (*preconfunc_)[2] = &tpetra::tonks::prec_c_trans_;
+    (*preconfunc_)[3] = &tpetra::tonks::prec_c_trans_;
+    (*preconfunc_)[4] = &tpetra::tonks::prec_eta_;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::tonks::init_mu1_;
+    (*initfunc_)[1] = &tpetra::tonks::init_mu2_;
+    (*initfunc_)[2] = &tpetra::tonks::init_c1_;
+    (*initfunc_)[3] = &tpetra::tonks::init_c2_;
+    (*initfunc_)[4] = &tpetra::tonks::init_eta_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "mu1";
+    (*varnames_)[1] = "mu2";
+    (*varnames_)[2] = "c1";
+    (*varnames_)[3] = "c2";
+    (*varnames_)[4] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &tpetra::tonks::param_set_ternary_trans_ids_;
+    paramfunc_[1] = &tpetra::kks::param_;
+    paramfunc_[2] = &tpetra::tonks::param_;
+
   }else if("tonks2splitkks" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

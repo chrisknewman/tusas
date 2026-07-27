@@ -5,15 +5,16 @@
     <Parameter name="dt" type="double" value="1e-8"/>
     <Parameter name="nt" type="int" value = "5000"/>
     <Parameter name="meshfile" type="string" value="./tonks1_quad_1x300.e"/>
-    <Parameter name="testcase" type="string" value="tonks2splitkks"/>
+    <!-- <Parameter name="testcase" type="string" value="tonks2splitkks"/> -->
+    <Parameter name="testcase" type="string" value="tonks2trans"/>
     <Parameter name="method" type="string" value="tpetra"/>
-    <Parameter name="preconditioner" type="bool" value="false"/>
+    <Parameter name="preconditioner" type="bool" value="true"/>
     <Parameter name="theta" type="double" value="1"/><!-- only 1 for now -->
 
     <Parameter name="noxrelres" type="double" value="1.e-10"/>
     <Parameter name="noxmaxiter" type="int" value = "40"/>
     <Parameter name="noxacceptfailed" type="bool" value = "false"/>
-    <Parameter name="noxforcestep" type="bool" value = "false"/>
+    <Parameter name="noxforcestep" type="bool" value = "true"/>
 
     <Parameter name="predrelres" type="double" value="1.e-3"/>
     <Parameter name="predmaxiter" type="int" value = "10"/>
@@ -35,7 +36,7 @@
         </ParameterList>
         <ParameterList name="Line Search">
             <Parameter name="Method" type="string" value="User Defined"/>
-            <Parameter name="Bounded Equation IDs" type="Array(int)" value = "{0,1}"/>
+            <Parameter name="Bounded Equation IDs" type="Array(int)" value = "{2,3}"/>
             <Parameter name="Lower Bounds" type="Array(double)" value="{1e-10,1e-10}"/>
             <Parameter name="Upper Bounds" type="Array(double)" value="{9.99999e-1,9.99999e-1}"/>
             <Parameter name="Minimum Step" type="double" value="1.e-10"/>

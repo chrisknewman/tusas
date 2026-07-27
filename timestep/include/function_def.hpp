@@ -4482,9 +4482,9 @@ PRE_FUNC_TPETRA(prec_c_trans_)
   double c1b = calenergy::c1b_0_;
   double c2a = calenergy::c2a_0_;
   double c2b = calenergy::c2b_0_;
-  kks::solve_kks(basis[c_start_idx_]->uuold(),
-                 basis[c_start_idx_ + 1]->uuold(),
-                 hhold,
+  kks::solve_kks(basis[c_start_idx_]->uu(),
+                 basis[c_start_idx_ + 1]->uu(),
+                 hh,
                  c1a,
                  c1b,
                  c2a,

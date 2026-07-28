@@ -23,6 +23,9 @@
     <Parameter name="outputfreq" type="int" value = "1"/> 
 
     <ParameterList name="ProblemParams">
+        <Parameter name="k_c" type="double" value="0.75"/>
+        <Parameter name="k_eta" type="double" value="0.75"/>
+
         <Parameter name="kks_max_iter" type="int" value="50"/>
         <Parameter name="solve_kks_verbose" type="bool" value="false"/>
         <Parameter name="solve_kks_acceptfailed" type="bool" value="false"/>

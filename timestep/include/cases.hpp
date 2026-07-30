@@ -38,6 +38,15 @@ namespace tonks1
     pdes::kks::mu_start_idx = 1;
   }
 
+  PARAM_FUNC(param_trans)
+  {
+    // might be worth trying to think of a way for the user
+    // to pass these values in from ModelEvaluator...
+    pdes::kks::eta_start_idx = 2;
+    pdes::kks::c_start_idx = 1;
+    pdes::kks::mu_start_idx = 0;
+  }
+
   KOKKOS_INLINE_FUNCTION
   const double mobility(const double hh) {
     return pdes::kks::M * (1. - hh) + hh;
@@ -113,6 +122,15 @@ namespace tonks1
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_split_dp)) = residual_c_split;
 
   KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_c_trans)
+  {
+    return pdes::kks::pde_mu(basis, i, dt_, dtold_,
+                             t_theta_, t_theta2_, time, eqn_id,
+                             vol, rand, true);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_trans_dp)) = residual_c_trans;
+
+  KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_mu)
   {
     return pdes::kks::pde_mu(basis, i, dt_, dtold_,
@@ -120,6 +138,16 @@ namespace tonks1
                              vol, rand);
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_dp)) = residual_mu;
+
+    
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_mu_trans)
+  {
+    return pdes::kks::pde_c_split(basis, i, dt_, dtold_,
+                                  t_theta_, t_theta2_, time, eqn_id,
+                                  vol, rand, mobility, true);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_trans_dp)) = residual_mu_trans;
 
   KOKKOS_INLINE_FUNCTION
   PRE_FUNC_TPETRA(prec_eta)
@@ -131,6 +159,18 @@ namespace tonks1
   PRE_FUNC_TPETRA(prec_c)
   {
     return pdes::kks::prec_c(basis, i, j, dt_, t_theta_, eqn_id, mobility);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_c_trans)
+  {
+    return pdes::kks::prec_c_trans(basis, i, j, dt_, t_theta_, eqn_id);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_mu_trans)
+  {
+    return pdes::kks::prec_mu_trans(basis, i, j, dt_, t_theta_, eqn_id, mobility);
   }
 
 

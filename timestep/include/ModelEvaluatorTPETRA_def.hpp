@@ -3067,7 +3067,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_.resize(1);
     paramfunc_[0] = &cases::tonks1::param;
 
-  }else if("tonks1splitkks" == paramList.get<std::string> (TusastestNameString)){
+  }else if("tonks1split" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist("ProblemParams", false);
@@ -3100,6 +3100,41 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(2);
     paramfunc_[0] = &cases::tonks1::param_split;
+    paramfunc_[1] = &cases::tonks1::param;
+    
+  }else if("tonks1trans" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    const int numeta = 1;
+    numeqs_ = numeta + 2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = cases::tonks1::residual_mu_trans_dp;
+    (*residualfunc_)[1] = cases::tonks1::residual_c_trans_dp;
+    (*residualfunc_)[2] = cases::tonks1::residual_eta_dp;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &cases::tonks1::prec_mu_trans;
+    (*preconfunc_)[1] = &cases::tonks1::prec_c_trans;
+    (*preconfunc_)[2] = &cases::tonks1::prec_eta;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cases::tonks1::init_mu;
+    (*initfunc_)[1] = &cases::tonks1::init_c;
+    (*initfunc_)[2] = &cases::tonks1::init_eta;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "mu";
+    (*varnames_)[1] = "c";
+    (*varnames_)[2] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(2);
+    paramfunc_[0] = &cases::tonks1::param_trans;
     paramfunc_[1] = &cases::tonks1::param;
     
   }else if("tonks2trans" == paramList.get<std::string> (TusastestNameString)){

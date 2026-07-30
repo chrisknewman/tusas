@@ -557,19 +557,22 @@ namespace kks
    * residual for c equations (split) using the kks model
    */
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(pde_c_split, const double mobility(const double hh))
+  RES_FUNC_TPETRA(pde_c_split, const double mobility(const double hh), const bool trans=false)
   {
     // number of time levels to compute
     // might want to pass this in to res func?
     const int Nt = 3;
 
-    const int local_id = eqn_id - c_start_idx;
+    const int local_id = trans ? eqn_id - mu_start_idx : eqn_id - c_start_idx;
 
     const double phi = basis[0]->phi(i);
     Grad grad_phi;
     grad_phi.dx = basis[0]->dphidx(i);
     grad_phi.dy = basis[0]->dphidy(i);
     grad_phi.dz = basis[0]->dphidz(i);
+
+    double c[Nt_max * Nc_max];
+    tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
 
     Grad grad_mu[Nt_max * Nmu_max];
     tools::utils::get_graduu(grad_mu, Nmu, Nmu_max, mu_start_idx, basis);
@@ -589,7 +592,9 @@ namespace kks
       Mdivgrad_mu[tdx] = mobility(hh) * grad_mu[idx] * grad_phi;
     }  // tdx = 0, < Nt loop
 
-    const double dc_dt = (basis[eqn_id]->uu() - basis[eqn_id]->uuold()) / dt_ * phi;
+    idx = tools::utils::idx(0, local_id, Nc_max);
+    const int idxold = tools::utils::idx(1, local_id, Nc_max);
+    const double dc_dt = (c[idx] - c[idxold]) / dt_ * phi; 
 
     return tools::utils::ret_value(dc_dt, Mdivgrad_mu, dt_, dtold_, t_theta_, t_theta2_);
   }
@@ -598,12 +603,12 @@ namespace kks
    * residual for mu equations using the kks model
    */
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(pde_mu)
+  RES_FUNC_TPETRA(pde_mu, const bool trans=false)
   {
     const int Nt = 1;
 
     // note that c and mu share a local_id
-    const int local_id = eqn_id - mu_start_idx;
+    const int local_id = trans ? eqn_id - c_start_idx : eqn_id - mu_start_idx;
 
     const double phi = basis[0]->phi(i);
     Grad grad_phi;
@@ -616,8 +621,9 @@ namespace kks
     tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
     tools::utils::get_graduu(grad_c, Nc, Nc_max, c_start_idx, basis);
 
-    const double mu = basis[eqn_id]->uu() * phi;
-
+    double mu[Nt_max * Nc_max];
+    tools::utils::get_uu(mu, Nmu, Nmu_max, mu_start_idx, basis);
+    
     double eta[Nt_max * Neta_max];
     tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
 
@@ -642,7 +648,8 @@ namespace kks
       df_dc[tdx] = parabolicenergy::dfa_dca(ca) * phi;
     }  // tdx = 0, < Nt loop
     
-    return -mu + df_dc[0] + kdivgrad_c[0];
+    idx = tools::utils::idx(0, local_id, Nmu_max);
+    return -mu[idx] + df_dc[0] + kdivgrad_c[0];
   }
 
   /*
@@ -703,7 +710,42 @@ namespace kks
 
     return ut + t_theta_ * Mdivgrad_c;
   }
-  
+
+  /*
+   * preconditioner for c equations using the kks model (transpose version)
+   */
+  KOKKOS_INLINE_FUNCTION 
+  PRE_FUNC_TPETRA(prec_c_trans)
+  {
+    const double phi_i = basis[0]->phi(i);
+    const double phi_j = basis[0]->phi(j);
+
+    const double dphi_dx_i = basis[0]->dphidx(i);
+    const double dphi_dy_i = basis[0]->dphidy(i);
+    const double dphi_dz_i = basis[0]->dphidz(i);
+    const double dphi_dx_j = basis[0]->dphidx(j);
+    const double dphi_dy_j = basis[0]->dphidy(j);
+    const double dphi_dz_j = basis[0]->dphidz(j);
+    
+    double eta[Neta_max];
+    for(int k = 0; k < Neta; ++k){
+      eta[k] = basis[k + eta_start_idx]->uu();
+    }
+    const double hh = parabolicenergy::h(eta);
+
+    // note that we can skip the kks solve here only
+    // because the free energy is parabolic -- the
+    // second derivatives are constant
+    const double d2f_dc2 = parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
+                             / ((1 - hh) * parabolicenergy::d2fa_dca2() + hh * parabolicenergy::d2fb_dcb2())
+                             * phi_i * phi_j;
+    const double kc_divgrad_mu = k_c * (dphi_dx_i * dphi_dx_j 
+                                        + dphi_dy_i * dphi_dy_j 
+                                        + dphi_dz_i * dphi_dz_j);
+
+    return L * (d2f_dc2 + kc_divgrad_mu);
+  }
+
   /*
    * preconditioner for mu equations using the kks model
    */
@@ -732,6 +774,31 @@ namespace kks
     const double ut = phi_i * phi_j / dt_;
 
     return ut + t_theta_ * Mdivgrad;
+  }
+
+  /*
+   * preconditioner for mu equations using the kks model (transpose version)
+   */
+  KOKKOS_INLINE_FUNCTION 
+  PRE_FUNC_TPETRA(prec_mu_trans, const double mobility(const double hh))
+  {
+    const double dphi_dx_i = basis[0]->dphidx(i);
+    const double dphi_dy_i = basis[0]->dphidy(i);
+    const double dphi_dz_i = basis[0]->dphidz(i);
+    const double dphi_dx_j = basis[0]->dphidx(j);
+    const double dphi_dy_j = basis[0]->dphidy(j);
+    const double dphi_dz_j = basis[0]->dphidz(j);
+    
+    double eta[Neta_max];
+    for(int k = 0; k < Neta; ++k){
+      eta[k] = basis[k + eta_start_idx]->uu();
+    }
+    const double hh = parabolicenergy::h(eta);
+
+    const double M_divgrad_c = mobility(hh) * (dphi_dx_i * dphi_dx_j 
+                                               + dphi_dy_i * dphi_dy_j 
+                                               + dphi_dz_i * dphi_dz_j);
+    return -M_divgrad_c;
   }
 
   PPR_FUNC(postproc_mu_a)

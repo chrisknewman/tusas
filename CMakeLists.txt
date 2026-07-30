@@ -191,7 +191,8 @@ set(TUSAS_TESTS
   RobinQuad
   Thermal
   Tonks1kks
-  #Uehara1
+  Tonks1trans
+  Uehara1
   UnstructuredHex
   WriteSkipDecomp
 )

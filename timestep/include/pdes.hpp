@@ -278,11 +278,9 @@ namespace parabolicenergy
   }
 
   KOKKOS_INLINE_FUNCTION
-  double d2f_dc2(const double *eta)
+  double d2f_dc2(const double hh)
   {
-    // assumes that ca and cb are the same quanitity
-    const double hh = h(eta);
-    return d2fa_dca2() * hh + d2fb_dcb2() * (1. - hh);
+    return d2fa_dca2() * d2fb_dcb2() / ((1 - hh) * d2fa_dca2() + hh * d2fb_dcb2());
   }
 
   KOKKOS_INLINE_FUNCTION 
@@ -533,8 +531,7 @@ namespace kks
                                 parabolicenergy::d2fb_dcb2);
 
       // calculate d2f_dc2 using KKS eq 29 
-      d2f_dc2[tdx] = parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
-                       / ((1 - hh[tdx]) * parabolicenergy::d2fa_dca2() + hh[tdx] * parabolicenergy::d2fb_dcb2());
+      d2f_dc2[tdx] = parabolicenergy::d2f_dc2(hh[tdx]);
 
       // calculating grad(f_c) based on KKS eq 33, assuming M = D / f_cc
       // this also follows from eq 30 and the chain rule
@@ -696,13 +693,12 @@ namespace kks
     for(int k = 0; k < Neta; ++k){
       eta[k] = basis[k + eta_start_idx]->uu();
     }
-    
     const double hh = parabolicenergy::h(eta);
+
     // note that we can skip the kks solve here only
     // because the free energy is parabolic -- the
     // second derivatives are constant
-    const double d2f_dc2 = parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
-                             / ((1 - hh) * parabolicenergy::d2fa_dca2() + hh * parabolicenergy::d2fb_dcb2());
+    const double d2f_dc2 = parabolicenergy::d2f_dc2(hh);
     const double Mdivgrad_c = mobility(hh) * d2f_dc2 * (dphi_dx_i * dphi_dx_j 
                                                         + dphi_dy_i * dphi_dy_j 
                                                         + dphi_dz_i * dphi_dz_j);
@@ -736,9 +732,7 @@ namespace kks
     // note that we can skip the kks solve here only
     // because the free energy is parabolic -- the
     // second derivatives are constant
-    const double d2f_dc2 = parabolicenergy::d2fa_dca2() * parabolicenergy::d2fb_dcb2() 
-                             / ((1 - hh) * parabolicenergy::d2fa_dca2() + hh * parabolicenergy::d2fb_dcb2())
-                             * phi_i * phi_j;
+    const double d2f_dc2 = parabolicenergy::d2f_dc2(hh) * phi_j * phi_i;
     const double kc_divgrad_mu = k_c * (dphi_dx_i * dphi_dx_j 
                                         + dphi_dy_i * dphi_dy_j 
                                         + dphi_dz_i * dphi_dz_j);

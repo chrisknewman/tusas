@@ -3064,8 +3064,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(1);
+    paramfunc_.resize(2);
     paramfunc_[0] = &cases::tonks1::param;
+    paramfunc_[1] = &cases::tonks1::param_freeenergy_parabolic;
 
   }else if("tonks1split" == paramList.get<std::string> (TusastestNameString)){
 
@@ -3098,9 +3099,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(2);
+    paramfunc_.resize(3);
     paramfunc_[0] = &cases::tonks1::param_split;
     paramfunc_[1] = &cases::tonks1::param;
+    paramfunc_[2] = &cases::tonks1::param_freeenergy_parabolic;
     
   }else if("tonks1trans" == paramList.get<std::string> (TusastestNameString)){
 
@@ -3133,9 +3135,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(2);
+    paramfunc_.resize(3);
     paramfunc_[0] = &cases::tonks1::param_trans;
     paramfunc_[1] = &cases::tonks1::param;
+    paramfunc_[2] = &cases::tonks1::param_freeenergy_parabolic;
     
   }else if("tonks2trans" == paramList.get<std::string> (TusastestNameString)){
 

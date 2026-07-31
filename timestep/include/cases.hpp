@@ -27,6 +27,7 @@ namespace tonks1
     // if we wanted to set default values for all the 
     // parameters in pdes::kks, we could set them manually here?
     pdes::kks::param(plist);
+    pdes::kks::param_freeenergy_parabolic(plist);
   }
 
   PARAM_FUNC(param_split)

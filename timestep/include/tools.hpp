@@ -48,6 +48,25 @@ Grad operator+=(Grad& lhs, Grad const& rhs) {
   return lhs;
 }
 
+typedef struct {
+  double ca = 0.;
+  double cb = 0.;
+
+  const double (*fa)(const double);
+  const double (*fb)(const double);
+  const double (*dfa_dca)(const double);
+  const double (*dfb_dcb)(const double);
+  const double (*d2fa_dca2)();
+  const double (*d2fb_dcb2)();
+  const double (*h)(const double *);
+  const double (*dh_deta)(const double );
+  const double (*dg_deta)(const double *, const int);
+  const double (*f)(const double, const double, const double *);
+  const double (*df_dc)(const double, const double, const double *);
+  const double (*d2f_dc2)(const double);
+  const double (*df_deta)(const double, const double, const double);
+} FreeEnergy;
+
 
 namespace tools
 {

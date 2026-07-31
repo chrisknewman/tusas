@@ -106,7 +106,7 @@
                                         __VA_OPT__(,) __VA_ARGS__)
 
 /*
- * Parameter function to propogate information from input file. Each parameter function is called at the beginning of each simulation.
+ * Parameter function to propagate information from input file. Each parameter function is called at the beginning of each simulation.
  *   NAME: name of function to call
  *   Teuchos::ParameterList *plist: paramterlist containing information defined in input file
  */
@@ -422,36 +422,33 @@ namespace kks
     tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
     tools::utils::get_graduu(grad_eta, Neta, Neta_max, eta_start_idx, basis);
 
-    double hh[Nt_max];
-    double ca[Nt_max];
-    double cb[Nt_max];
-    double k_divgrad_eta[Nt_max];
-    double df_deta[Nt_max];
+    double hh, ca, cb, k_divgrad_eta, df_deta;
     double f[Nt_max];
 
     int idx = 0;
     for (int tdx = 0; tdx < Nt; ++tdx) {
-      hh[tdx] = parabolicenergy::h(&eta[tdx * Neta_max]);
+      hh = parabolicenergy::h(&eta[tdx * Neta_max]);
       
-      ca[tdx] = parabolicenergy::c1;
-      cb[tdx] = parabolicenergy::c2;
+      ca = parabolicenergy::c1;
+      cb = parabolicenergy::c2;
       idx = tools::utils::idx(tdx, local_id, Nc_max);
-      tools::solvers::solve_kks(c[idx], hh[tdx], ca[tdx], cb[tdx],
+      tools::solvers::solve_kks(c[idx], hh, ca, cb,
                                 parabolicenergy::dfa_dca,
                                 parabolicenergy::dfb_dcb,
                                 parabolicenergy::d2fa_dca2,
                                 parabolicenergy::d2fb_dcb2);
 
       idx = tools::utils::idx(tdx, local_id, Neta_max);
-      df_deta[tdx] = (parabolicenergy::df_deta(ca[tdx], cb[tdx], eta[idx])
-                        + w * parabolicenergy::dg_deta(&eta[tdx * Neta_max], local_id)) * phi;
-      k_divgrad_eta[tdx] = k_eta * grad_eta[idx] * grad_phi;
+      df_deta = (parabolicenergy::df_deta(ca, cb, eta[idx])
+                   + w * parabolicenergy::dg_deta(&eta[tdx * Neta_max], local_id)) * phi;
+      k_divgrad_eta = k_eta * grad_eta[idx] * grad_phi;
 
-      f[tdx] = L * (k_divgrad_eta[tdx] + df_deta[tdx]);
+      f[tdx] = L * (k_divgrad_eta + df_deta);
     }
 
-    const double deta_dt = (eta[tools::utils::idx(0, local_id, Neta_max)] 
-                              - eta[tools::utils::idx(1, local_id, Neta_max)]) / dt_ * phi;
+    idx = tools::utils::idx(0, local_id, Neta_max);
+    const int idxold =  tools::utils::idx(1, local_id, Neta_max);
+    const double deta_dt = (eta[idx] - eta[idxold]) / dt_ * phi;
 
     return tools::utils::ret_value(deta_dt, f, dt_, dtold_, t_theta_, t_theta2_);
   }

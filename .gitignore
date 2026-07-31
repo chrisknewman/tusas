@@ -19,3 +19,6 @@ Test/*/vtip.dat
 Test/*/core
 Test/*/temp*.dat
 
+# ignore tmp files
+*.swp
+

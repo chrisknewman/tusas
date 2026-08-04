@@ -71,8 +71,8 @@ namespace tonks1
   INI_FUNC(init_c)
   {
     const double eta = init_eta(x, y, z, eqn_id, lid);
-    const double hh = pdes::parabolicenergy::h(&eta);
-    return pdes::parabolicenergy::c1 * hh + pdes::parabolicenergy::c2 * (1. - hh);
+    const double hh = pdes::kks::fe.h(&eta);
+    return pdes::kks::fe.ca * hh + pdes::kks::fe.cb * (1. - hh);
   }
 
   INI_FUNC(init_mu)
@@ -85,18 +85,18 @@ namespace tonks1
     for (int k = 0; k < Neta; ++k) {
       eta[k] = init_eta(x, y, z, k + eta_start_idx, lid);
     }
-    const double hh = pdes::parabolicenergy::h(eta);
+    const double hh = pdes::kks::fe.h(eta);
     const double c = init_c(x, y, z, eqn_id, lid);
 
-    double ca = pdes::parabolicenergy::c1;
-    double cb = pdes::parabolicenergy::c2;
+    double ca = pdes::kks::fe.ca;
+    double cb = pdes::kks::fe.cb;
     tools::solvers::solve_kks(c, hh, ca, cb,
-                              pdes::parabolicenergy::dfa_dca,
-                              pdes::parabolicenergy::dfb_dcb,
-                              pdes::parabolicenergy::d2fa_dca2,
-                              pdes::parabolicenergy::d2fb_dcb2);
+                              pdes::kks::fe.dfa_dca,
+                              pdes::kks::fe.dfb_dcb,
+                              pdes::kks::fe.d2fa_dca2,
+                              pdes::kks::fe.d2fb_dcb2);
     // based off eq (28) in the original KKS paper
-    return pdes::parabolicenergy::dfa_dca(ca);
+    return pdes::kks::fe.dfa_dca(ca);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -244,8 +244,8 @@ namespace sheng
   INI_FUNC(init_c)
   {
     const double eta = init_eta(x, y, z, eqn_id, lid);
-    const double hh = pdes::parabolicenergy::h(&eta);
-    return pdes::parabolicenergy::c1 * hh + initial_c_alpha * (1. - hh);
+    const double hh = pdes::kks::fe.h(&eta);
+    return pdes::kks::fe.ca * hh + initial_c_alpha * (1. - hh);
   }
 
   INI_FUNC(init_mu)
@@ -258,26 +258,24 @@ namespace sheng
     for (int k = 0; k < Neta; ++k) {
       eta[k] = init_eta(x, y, z, k + eta_start_idx, lid);
     }
-    const double hh = pdes::parabolicenergy::h(eta);
+    const double hh = pdes::kks::fe.h(eta);
     const double c = init_c(x, y, z, eqn_id, lid);
 
-    double ca = pdes::parabolicenergy::c1;
-    double cb = pdes::parabolicenergy::c2;
+    double ca = pdes::kks::fe.ca;
+    double cb = pdes::kks::fe.cb;
     tools::solvers::solve_kks(c, hh, ca, cb,
-                              pdes::parabolicenergy::dfa_dca,
-                              pdes::parabolicenergy::dfb_dcb,
-                              pdes::parabolicenergy::d2fa_dca2,
-                              pdes::parabolicenergy::d2fb_dcb2);
+                              pdes::kks::fe.dfa_dca,
+                              pdes::kks::fe.dfb_dcb,
+                              pdes::kks::fe.d2fa_dca2,
+                              pdes::kks::fe.d2fb_dcb2);
     // based off eq (28) in the original KKS paper
-    return pdes::parabolicenergy::dfa_dca(ca);
+    return pdes::kks::fe.dfa_dca(ca);
   }
 
   KOKKOS_INLINE_FUNCTION
   const double mobility(const double hh) {
     // M = D / d2f_dc2
-    //return D / (pdes::parabolicenergy::d2fa_dca2() * pdes::parabolicenergy::d2fb_dcb2() 
-    //         / ((1 - hh) * pdes::parabolicenergy::d2fa_dca2() + hh * pdes::parabolicenergy::d2fb_dcb2()));
-    return D / pdes::parabolicenergy::d2f_dc2(hh, 0., 0.);
+    return D / pdes::kks::fe.d2f_dc2(hh, 0., 0.);
   }
   
   KOKKOS_INLINE_FUNCTION 

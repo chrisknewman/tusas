@@ -339,6 +339,19 @@ namespace calenergy
     return 400 / (1 - c1b) + 400 / c1b;
   }
 
+  KOKKOS_INLINE_FUNCTION 
+  const double f(const double ca, const double cb, const double *eta)
+  {
+    const double hh = freeenergyinterp::h(eta);
+    return fa(ca) * hh + fb(cb) * (1. - hh);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  const double d2f_dc12(const double hh, const double c1a, const double c1b)
+  {
+    return d2fa_dc1a2(c1a) * d2fb_dc1b2(c1b) / ((1 - hh) * d2fa_dc1a2(c1a) + hh * d2fb_dc1b2(c1b));
+  }
+
   KOKKOS_INLINE_FUNCTION
   const double df_deta(const double c1a,
                        const double c1b,
@@ -461,6 +474,7 @@ namespace kks
     fe.f = &parabolicenergy::f;
     fe.d2f_dc2 = &parabolicenergy::d2f_dc2;
     fe.df_deta = &parabolicenergy::df_deta;
+
     fe.h = &freeenergyinterp::h;
     fe.dh_deta = &freeenergyinterp::dh_deta;
     fe.dg_deta = &freeenergyinterp::dg_deta;
@@ -478,9 +492,10 @@ namespace kks
     fe.dfb_dcb = &calenergy::dfb_dc1b;
     fe.d2fa_dca2 = &calenergy::d2fa_dc1a2;
     fe.d2fb_dcb2 = &calenergy::d2fb_dc1b2;
-    //fe.f = &calenergy::f;
-    //fe.d2f_dc2 = &calenergy::d2f_dc2;
+    fe.f = &calenergy::f;
+    fe.d2f_dc2 = &calenergy::d2f_dc12;
     fe.df_deta = &calenergy::df_deta;
+
     fe.h = &freeenergyinterp::h;
     fe.dh_deta = &freeenergyinterp::dh_deta;
     fe.dg_deta = &freeenergyinterp::dg_deta;

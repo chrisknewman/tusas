@@ -462,8 +462,8 @@ namespace kks
     parabolicenergy::f1 = parabolicenergy::f1 / f0;
     parabolicenergy::f2 = parabolicenergy::f2 / f0;
 
-    fe.ca = parabolicenergy::c1;
-    fe.cb = parabolicenergy::c2;
+    fe.c1a_0 = parabolicenergy::c1;
+    fe.c1b_0 = parabolicenergy::c2;
 
     fe.fa = &parabolicenergy::fa; 
     fe.fb = &parabolicenergy::fb; 
@@ -480,11 +480,11 @@ namespace kks
     fe.dg_deta = &freeenergyinterp::dg_deta;
   }
 
-  PARAM_FUNC(param_freeenergy_calphad)
+  PARAM_FUNC(param_freeenergy_calenergy)
   {
     // set params for free energy density
-    fe.ca = calenergy::c1a_0;
-    fe.cb = calenergy::c1b_0;
+    fe.c1a_0 = calenergy::c1a_0;
+    fe.c1b_0 = calenergy::c1b_0;
 
     fe.fa = &calenergy::fa; 
     fe.fb = &calenergy::fb; 
@@ -505,10 +505,10 @@ namespace kks
    * residual for eta equations using the kks model
    */
   KOKKOS_INLINE_FUNCTION 
-  RES_FUNC_TPETRA(pde_eta, const double mobility(const double hh))
+  RES_FUNC_TPETRA(pde_eta, const double mobility(const double hh), const bool lag_kks=false)
   {
-    const int Nt = 3;
-
+    const int kks_tdx_lag = lag_kks ? 1 : 0;
+    const int Nt = 3 - kks_tdx_lag;
     const int local_id = eqn_id - eta_start_idx;
 
     const double phi = basis[0]->phi(i);
@@ -532,11 +532,10 @@ namespace kks
 
     int idx = 0;
     for (int tdx = 0; tdx < Nt; ++tdx) {
-      hh = fe.h(&eta[tdx * Neta_max]);
-      
-      ca = fe.ca;
-      cb = fe.cb;
-      idx = tools::utils::idx(tdx, local_id, Nc_max);
+      hh = fe.h(&eta[(tdx + kks_tdx_lag) * Neta_max]);
+      ca = fe.c1a_0;
+      cb = fe.c1b_0;
+      idx = tools::utils::idx(tdx + kks_tdx_lag, local_id, Nc_max);
       tools::solvers::solve_kks(c[idx], hh, ca, cb,
                                 fe.dfa_dca,
                                 fe.dfb_dcb,
@@ -555,19 +554,19 @@ namespace kks
     const int idxold =  tools::utils::idx(1, local_id, Neta_max);
     const double deta_dt = (eta[idx] - eta[idxold]) / dt_ * phi;
 
-    return tools::utils::ret_value(deta_dt, f, dt_, dtold_, t_theta_, t_theta2_);
+    return lag_kks ?
+      tools::utils::ret_value(deta_dt, f, t_theta_) :
+      tools::utils::ret_value(deta_dt, f, dt_, dtold_, t_theta_, t_theta2_);
   }
 
   /*
    * residual for c equations (non-split) using the kks model
    */
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(pde_c, const double mobility(const double hh))
+  RES_FUNC_TPETRA(pde_c, const double mobility(const double hh), const bool lag_kks=false)
   {
-    // number of time levels to compute
-    // might want to pass this in to res func?
-    const int Nt = 3;
-
+    const int kks_tdx_lag = lag_kks ? 1 : 0;
+    const int Nt = 3 - kks_tdx_lag;
     const int local_id = eqn_id - c_start_idx;
 
     // test function
@@ -599,69 +598,64 @@ namespace kks
 
     // define all the variables we need to calculate 
     // the residual = Mdivgrad_df_dc
-    double hh[Nt_max];
-    Grad grad_h[Nt_max];
-    double ca[Nt_max];
-    double cb[Nt_max];
-    double d2f_dc2[Nt_max];
-    Grad grad_df_dc[Nt_max];
+    double hh, ca, cb, d2f_dc2;
+    Grad grad_h, grad_df_dc;
     double Mdivgrad_df_dc[Nt_max];
 
     // loop over each time level that we need data at
     int idx = 0;
     for (int tdx = 0; tdx < Nt; ++tdx) {
-      // calculate h
-      hh[tdx] = fe.h(&eta[tdx * Neta_max]);
-
-      // calculate grad h
-      for (int k = 0; k < Neta ; ++k) {
-        idx = tools::utils::idx(tdx, k, Neta_max);
-        grad_h[tdx] += fe.dh_deta(eta[idx]) * grad_eta[idx];
-      }
-
       // do the kks solve to get ca and cb
       // for the current component c_{eqn_id}
-      ca[tdx] = fe.ca;
-      cb[tdx] = fe.cb;
-      tools::solvers::solve_kks(c[tools::utils::idx(tdx, local_id, Nc_max)],
-                                hh[tdx],
-                                ca[tdx],
-                                cb[tdx],
+      hh = fe.h(&eta[(tdx + kks_tdx_lag) * Neta_max]);
+      ca = fe.c1a_0;
+      cb = fe.c1b_0;
+      idx = tools::utils::idx(tdx + kks_tdx_lag, local_id, Nc_max);
+      tools::solvers::solve_kks(c[idx], hh, ca, cb,
                                 fe.dfa_dca,
                                 fe.dfb_dcb,
                                 fe.d2fa_dca2,
                                 fe.d2fb_dcb2);
 
       // calculate d2f_dc2 using KKS eq 29 
-      d2f_dc2[tdx] = fe.d2f_dc2(hh[tdx], ca[tdx], cb[tdx]);
+      d2f_dc2 = fe.d2f_dc2(hh, ca, cb);
+
+      // calculate grad h
+      grad_h.dx = 0.; grad_h.dy = 0.; grad_h.dz = 0.; 
+      for (int k = 0; k < Neta ; ++k) {
+        idx = tools::utils::idx(tdx, k, Neta_max);
+        grad_h += fe.dh_deta(eta[idx]) * grad_eta[idx];
+      }
 
       // calculating grad(f_c) based on KKS eq 33, assuming M = D / f_cc
       // this also follows from eq 30 and the chain rule
       //   grad(f_c) = f_cc * h' * (cb - ca) * grad(eta) + f_cc * grad(c) 
       //             = f_cc * (cb - ca) * grad(h) + f_cc * grad(c) 
       idx = tools::utils::idx(tdx, local_id, Nc_max);
-      grad_df_dc[tdx] = d2f_dc2[tdx] * (cb[tdx] - ca[tdx]) * grad_h[tdx] + d2f_dc2[tdx] * grad_c[idx]; 
+      grad_df_dc = d2f_dc2 * (cb - ca) * grad_h + d2f_dc2 * grad_c[idx]; 
 
       // finally, calculate M * div(grad(f_c))
-      Mdivgrad_df_dc[tdx] = mobility(hh[tdx]) * grad_df_dc[tdx] * grad_phi;
+      hh = fe.h(&eta[tdx * Neta_max]);
+      Mdivgrad_df_dc[tdx] = mobility(hh) * grad_df_dc * grad_phi;
     }  // tdx = 0, < Nt loop
 
-    const double dc_dt = (c[tools::utils::idx(0, local_id, Nc_max)] 
-                            - c[tools::utils::idx(1, local_id, Nc_max)]) / dt_ * phi;
+    idx = tools::utils::idx(0, local_id, Nc_max);
+    const int idxold = tools::utils::idx(1, local_id, Nc_max);
+    const double dc_dt = (c[idx] - c[idxold]) / dt_ * phi;
 
-    return tools::utils::ret_value(dc_dt, Mdivgrad_df_dc, dt_, dtold_, t_theta_, t_theta2_);
+    return lag_kks ? 
+      tools::utils::ret_value(dc_dt, Mdivgrad_df_dc, t_theta_) :
+      tools::utils::ret_value(dc_dt, Mdivgrad_df_dc, dt_, dtold_, t_theta_, t_theta2_);
   }
   
   /*
    * residual for c equations (split) using the kks model
    */
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(pde_c_split, const double mobility(const double hh), const bool trans=false)
+  RES_FUNC_TPETRA(pde_c_split, const double mobility(const double hh), const bool trans=false, const bool lag_kks=false)
   {
-    // number of time levels to compute
-    // might want to pass this in to res func?
-    const int Nt = 3;
-
+    const int kks_tdx_lag = lag_kks ? 1 : 0;
+    const int Nt = 3 - kks_tdx_lag;
     const int local_id = trans ? eqn_id - mu_start_idx : eqn_id - c_start_idx;
 
     const double phi = basis[0]->phi(i);
@@ -693,20 +687,23 @@ namespace kks
 
     idx = tools::utils::idx(0, local_id, Nc_max);
     const int idxold = tools::utils::idx(1, local_id, Nc_max);
-    const double dc_dt = (c[idx] - c[idxold]) / dt_ * phi; 
+    const double dc_dt = (c[idx] - c[idxold]) / dt_ * phi;
 
-    return tools::utils::ret_value(dc_dt, Mdivgrad_mu, dt_, dtold_, t_theta_, t_theta2_);
+    const double ret_val = lag_kks ?
+      tools::utils::ret_value(dc_dt, Mdivgrad_mu, t_theta_) :
+      tools::utils::ret_value(dc_dt, Mdivgrad_mu, dt_, dtold_, t_theta_, t_theta2_);
+
+    return ret_val;
   }
 
   /*
    * residual for mu equations using the kks model
    */
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(pde_mu, const bool trans=false)
+  RES_FUNC_TPETRA(pde_mu, const bool trans=false, const bool lag_kks=false)
   {
+    const int kks_tdx_lag = lag_kks ? 1 : 0;
     const int Nt = 1;
-
-    // note that c and mu share a local_id
     const int local_id = trans ? eqn_id - c_start_idx : eqn_id - mu_start_idx;
 
     const double phi = basis[0]->phi(i);
@@ -735,9 +732,10 @@ namespace kks
       idx = tools::utils::idx(tdx, local_id, Nc_max);
       kdivgrad_c[tdx] = k_c * grad_c[idx] * grad_phi;
 
-      hh = fe.h(&eta[tdx * Neta_max]);
-      ca = fe.ca;
-      cb = fe.cb;
+      hh = fe.h(&eta[(tdx + kks_tdx_lag) * Neta_max]);
+      idx = tools::utils::idx(tdx + kks_tdx_lag, local_id, Nc_max);
+      ca = fe.c1a_0;
+      cb = fe.c1b_0;
       tools::solvers::solve_kks(c[idx], hh, ca, cb,
                                 fe.dfa_dca,
                                 fe.dfb_dcb,
@@ -907,8 +905,8 @@ namespace kks
     const double hh = fe.h(eta);
     const double c = u[c_start_idx];
 
-    double ca = fe.ca;
-    double cb = fe.cb;
+    double ca = fe.c1a_0;
+    double cb = fe.c1b_0;
     tools::solvers::solve_kks(c, hh, ca, cb,
                               fe.dfa_dca,
                               fe.dfb_dcb,
@@ -928,8 +926,8 @@ namespace kks
     const double hh = fe.h(eta);
     const double c = u[c_start_idx];
 
-    double ca = fe.ca;
-    double cb = fe.cb;
+    double ca = fe.c1a_0;
+    double cb = fe.c1b_0;
     tools::solvers::solve_kks(c, hh, ca, cb,
                               fe.dfa_dca,
                               fe.dfb_dcb,
@@ -949,8 +947,8 @@ namespace kks
     const double hh = fe.h(eta);
     const double c = u[c_start_idx];
 
-    double ca = fe.ca;
-    double cb = fe.cb;
+    double ca = fe.c1a_0;
+    double cb = fe.c1b_0;
     tools::solvers::solve_kks(c, hh, ca, cb,
                               fe.dfa_dca,
                               fe.dfb_dcb,
@@ -970,8 +968,8 @@ namespace kks
     const double hh = fe.h(eta);
     const double c = u[c_start_idx];
 
-    double ca = fe.ca;
-    double cb = fe.cb;
+    double ca = fe.c1a_0;
+    double cb = fe.c1b_0;
     tools::solvers::solve_kks(c, hh, ca, cb,
                               fe.dfa_dca,
                               fe.dfb_dcb,

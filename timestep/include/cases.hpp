@@ -33,6 +33,11 @@ namespace tonks1
   {
     pdes::kks::param_freeenergy_parabolic(plist);
   }
+  
+  PARAM_FUNC(param_freeenergy_calenergy)
+  {
+    pdes::kks::param_freeenergy_calenergy(plist);
+  }
 
   PARAM_FUNC(param_split)
   {
@@ -72,7 +77,7 @@ namespace tonks1
   {
     const double eta = init_eta(x, y, z, eqn_id, lid);
     const double hh = pdes::kks::fe.h(&eta);
-    return pdes::kks::fe.ca * hh + pdes::kks::fe.cb * (1. - hh);
+    return pdes::kks::fe.c1a_0 * hh + pdes::kks::fe.c1b_0 * (1. - hh);
   }
 
   INI_FUNC(init_mu)
@@ -88,8 +93,8 @@ namespace tonks1
     const double hh = pdes::kks::fe.h(eta);
     const double c = init_c(x, y, z, eqn_id, lid);
 
-    double ca = pdes::kks::fe.ca;
-    double cb = pdes::kks::fe.cb;
+    double ca = pdes::kks::fe.c1a_0;
+    double cb = pdes::kks::fe.c1b_0;
     tools::solvers::solve_kks(c, hh, ca, cb,
                               pdes::kks::fe.dfa_dca,
                               pdes::kks::fe.dfb_dcb,
@@ -245,7 +250,7 @@ namespace sheng
   {
     const double eta = init_eta(x, y, z, eqn_id, lid);
     const double hh = pdes::kks::fe.h(&eta);
-    return pdes::kks::fe.ca * hh + initial_c_alpha * (1. - hh);
+    return pdes::kks::fe.c1a_0 * hh + initial_c_alpha * (1. - hh);
   }
 
   INI_FUNC(init_mu)
@@ -261,8 +266,8 @@ namespace sheng
     const double hh = pdes::kks::fe.h(eta);
     const double c = init_c(x, y, z, eqn_id, lid);
 
-    double ca = pdes::kks::fe.ca;
-    double cb = pdes::kks::fe.cb;
+    double ca = pdes::kks::fe.c1a_0;
+    double cb = pdes::kks::fe.c1b_0;
     tools::solvers::solve_kks(c, hh, ca, cb,
                               pdes::kks::fe.dfa_dca,
                               pdes::kks::fe.dfb_dcb,

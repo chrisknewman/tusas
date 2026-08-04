@@ -49,8 +49,8 @@ Grad operator+=(Grad& lhs, Grad const& rhs) {
 }
 
 typedef struct {
-  double ca = 0.;
-  double cb = 0.;
+  double c1a_0 = 0.;
+  double c1b_0 = 0.;
 
   const double (*fa)(const double);
   const double (*fb)(const double);
@@ -96,8 +96,8 @@ namespace solvers
                       double &c1b,  // out: c1b, in: initial guess 
                       const double DFA_DC1A(const double c1a),  // in: fa'(c1a)
                       const double DFB_DC1B(const double c1b),  // in: fb'(c1b)
-                      const double D2FA_DC1A2(const double c1a),  // in: fa''() [constant for now]
-                      const double D2FB_DC1B2(const double c1b),  // in: fb''() [constant for now]
+                      const double D2FA_DC1A2(const double c1a),  // in: fa''(c1a)
+                      const double D2FB_DC1B2(const double c1b),  // in: fb''(c1b)
                       const double &T = 0.)  // in: time
   {
     /*

@@ -244,54 +244,16 @@ namespace parabolicenergy
   }
 
   KOKKOS_INLINE_FUNCTION 
-  const double f(const double c, const double *eta)
-  {
-    // assumes that ca and cb are the same quanitity 
-    const double hh = h(eta);
-    return fa(c) * hh + fb(c) * (1. - hh);
-  }
-
-  KOKKOS_INLINE_FUNCTION 
   const double f(const double ca, const double cb, const double *eta)
   {
     const double hh = h(eta);
     return fa(ca) * hh + fb(cb) * (1. - hh);
   }
 
-  KOKKOS_INLINE_FUNCTION 
-  const double df_dc(const double c, const double *eta)
-  {
-    // assumes that ca and cb are the same quanitity
-    const double hh = h(eta);
-    return dfa_dca(c) * hh + dfb_dcb(c) * (1. - hh);
-  }
-
-  KOKKOS_INLINE_FUNCTION 
-  const double df_dc(const double ca, const double cb, const double *eta)
-  {
-    // TODO: remove this function
-    // assumes that dca/dc = dcb/dc = 1, which is not true
-    // probably best to never use this function and use 
-    // eq 28 from KKS instead -- leaving it here for now
-    const double hh = h(eta);
-    return dfa_dca(ca) * hh + dfb_dcb(cb) * (1. - hh);
-  }
-
   KOKKOS_INLINE_FUNCTION
   const double d2f_dc2(const double hh, const double unused1, const double unused2)
   {
     return d2fa_dca2(unused1) * d2fb_dcb2(unused2) / ((1 - hh) * d2fa_dca2(unused1) + hh * d2fb_dcb2(unused2));
-  }
-
-  KOKKOS_INLINE_FUNCTION 
-  const double df_deta(const double c, const double eta)
-  {
-    // assumes that ca and cb are the same quanitity
-    // and does **not** include the w g' term
-
-    // dh(eta1, eta2) / deta1 is a function of eta1 only
-    const double dhdeta = dh_deta(eta);
-    return fa(c) * dhdeta + fb(c) * (-dhdeta);
   }
 
   KOKKOS_INLINE_FUNCTION 
@@ -476,7 +438,6 @@ namespace kks
     fe.dh_deta = &parabolicenergy::dh_deta;
     fe.dg_deta = &parabolicenergy::dg_deta;
     fe.f = &parabolicenergy::f;
-    fe.df_dc = &parabolicenergy::df_dc;
     fe.d2f_dc2 = &parabolicenergy::d2f_dc2;
     fe.df_deta = &parabolicenergy::df_deta;
   }

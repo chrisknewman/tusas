@@ -117,6 +117,58 @@ namespace pdes
 {
 
 
+namespace freeenergyinterp
+{
+  TUSAS_DEVICE const double alpha = 5.;  // pfhub2 coef in g
+  
+  TUSAS_DEVICE const int Neta_max = 4;
+  TUSAS_DEVICE int Neta = 1;
+
+  PARAM_FUNC(param)
+  {
+    int Np = plist->get<int>("N_ETA", Neta);
+#ifdef TUSAS_HAVE_CUDA
+    cudaMemcpyToSymbol(Neta, &Np, sizeof(int));
+#else
+    Neta = Np;
+#endif
+    if(Neta > Neta_max) exit(0);
+  }
+
+  KOKKOS_INLINE_FUNCTION 
+  const double h(const double *eta)
+  {
+    double val = 0.;
+    for (int i = 0; i < Neta; i++) {
+      val += eta[i] * eta[i] * eta[i] 
+               * (6. * eta[i] * eta[i] - 15. * eta[i] + 10.);
+    }
+    return val;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double dh_deta(const double eta)
+  {
+    return eta * eta * ((30. * eta - 60.) * eta + 30.);
+  }
+
+  KOKKOS_INLINE_FUNCTION 
+  const double dg_deta(const double *eta, const int eqn_id)
+  {
+    double aval = 0.;
+    for (int i = 0; i < Neta; i++) {
+      aval += eta[i] * eta[i];
+    }
+    aval = aval - eta[eqn_id]*eta[eqn_id];
+    return 2. * eta[eqn_id] * (1. - eta[eqn_id]) * (1. - eta[eqn_id])  
+             - 2. * eta[eqn_id] * eta[eqn_id] * (1. - eta[eqn_id])
+             + 4. * alpha * eta[eqn_id] * aval;
+  }
+
+
+}  // namespace freeenergyinterp
+
+
 namespace parabolicenergy
 {
   /*
@@ -134,9 +186,6 @@ namespace parabolicenergy
    *   fa(ca) = Aa * (ca - (c1 + delta_c1))^2 + f1
    *   fb(cb) = Ab * (cb - (c2 + delta_c2))^2 + f2
    *
-   * We also supply overloaded versions of relevant functions
-   * where we assume that ca = cb = c for non-kks solves
-   *
    */
   TUSAS_DEVICE double Aa = 2.;
   TUSAS_DEVICE double Ab = 2.;
@@ -153,14 +202,8 @@ namespace parabolicenergy
 
   PARAM_FUNC(param)
   {
-    int Np = plist->get<int>("N_ETA", Neta);
-#ifdef TUSAS_HAVE_CUDA
-    cudaMemcpyToSymbol(Neta, &Np, sizeof(int));
-#else
-    Neta = Np;
-#endif
-    if(Neta > Neta_max) exit(0);
-
+    freeenergyinterp::param(plist);
+    
     // parameters from Sheng 2022, eqns 8, 9
     Aa = plist->get<double>("Aa", Aa);
     Ab = plist->get<double>("Ab", Ab);
@@ -214,39 +257,9 @@ namespace parabolicenergy
   }
 
   KOKKOS_INLINE_FUNCTION 
-  const double h(const double *eta)
-  {
-    double val = 0.;
-    for (int i = 0; i < Neta; i++) {
-      val += eta[i] * eta[i] * eta[i] 
-               * (6. * eta[i] * eta[i] - 15. * eta[i] + 10.);
-    }
-    return val;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  const double dh_deta(const double eta)
-  {
-    return eta * eta * ((30. * eta - 60.) * eta + 30.);
-  }
-
-  KOKKOS_INLINE_FUNCTION 
-  const double dg_deta(const double *eta, const int eqn_id)
-  {
-    double aval = 0.;
-    for (int i = 0; i < Neta; i++) {
-      aval += eta[i] * eta[i];
-    }
-    aval = aval - eta[eqn_id]*eta[eqn_id];
-    return 2. * eta[eqn_id] * (1. - eta[eqn_id]) * (1. - eta[eqn_id])  
-             - 2. * eta[eqn_id] * eta[eqn_id] * (1. - eta[eqn_id])
-             + 4. * alpha * eta[eqn_id] * aval;
-  }
-
-  KOKKOS_INLINE_FUNCTION 
   const double f(const double ca, const double cb, const double *eta)
   {
-    const double hh = h(eta);
+    const double hh = freeenergyinterp::h(eta);
     return fa(ca) * hh + fb(cb) * (1. - hh);
   }
 
@@ -262,7 +275,7 @@ namespace parabolicenergy
     // does not include the w g' term
 
     // dh(eta1, eta2) / deta1 is a function of eta1 only
-    const double dhdeta = dh_deta(eta);
+    const double dhdeta = freeenergyinterp::dh_deta(eta);
     return fa(ca) * dhdeta + fb(cb) * (-dhdeta)
              + dhdeta * dfb_dcb(cb) * (cb - ca);
   }
@@ -274,59 +287,70 @@ namespace parabolicenergy
 namespace calenergy
 {
 
-TUSAS_DEVICE
-const double c1a_0 = 0.4;
-TUSAS_DEVICE
-const double c1b_0 = 0.6;
+  TUSAS_DEVICE
+  const double c1a_0 = 0.4;
+  TUSAS_DEVICE
+  const double c1b_0 = 0.6;
 
-KOKKOS_INLINE_FUNCTION
-const double fa(const double c1a) {
-  const double c2a = 1 - c1a;
-  return 10 * c1a + 40 * c2a
-           + 400 * (c1a * std::log(c1a) 
-                    + c2a * std::log(c2a));
-}
+  PARAM_FUNC(param)
+  {
+    freeenergyinterp::param(plist);
+  }
 
-KOKKOS_INLINE_FUNCTION
-const double fb(const double c1b) {
-  const double c2b = 1 - c1b;
-  return 100 * c1b + 0.001 * c2b
-           + 400 * (c1b * std::log(c1b) 
-                    + c2b * std::log(c2b));
-}
+  KOKKOS_INLINE_FUNCTION
+  const double fa(const double c1a)
+  {
+    const double c2a = 1 - c1a;
+    return 10 * c1a + 40 * c2a
+             + 400 * (c1a * std::log(c1a) 
+                      + c2a * std::log(c2a));
+  }
 
-KOKKOS_INLINE_FUNCTION
-const double dfa_dc1a(const double c1a) {
-  return 400 * (std::log(c1a) - std::log(1 - c1a)) - 30;
-}
+  KOKKOS_INLINE_FUNCTION
+  const double fb(const double c1b)
+  {
+    const double c2b = 1 - c1b;
+    return 100 * c1b + 0.001 * c2b
+             + 400 * (c1b * std::log(c1b) 
+                      + c2b * std::log(c2b));
+  }
 
-KOKKOS_INLINE_FUNCTION
-const double dfb_dc1b(const double c1b) {
-  return 400 * (std::log(c1b) - std::log(1 - c1b)) + 99.999;
-}
+  KOKKOS_INLINE_FUNCTION
+  const double dfa_dc1a(const double c1a)
+  {
+    return 400 * (std::log(c1a) - std::log(1 - c1a)) - 30;
+  }
 
-KOKKOS_INLINE_FUNCTION
-const double d2fa_dc1a2(const double c1a) {
-  return 400 / (1 - c1a) + 400 / c1a;
-}
+  KOKKOS_INLINE_FUNCTION
+  const double dfb_dc1b(const double c1b)
+  {
+    return 400 * (std::log(c1b) - std::log(1 - c1b)) + 99.999;
+  }
 
-KOKKOS_INLINE_FUNCTION
-const double d2fb_dc1b2(const double c1b) {
-  return 400 / (1 - c1b) + 400 / c1b;
-}
+  KOKKOS_INLINE_FUNCTION
+  const double d2fa_dc1a2(const double c1a)
+  {
+    return 400 / (1 - c1a) + 400 / c1a;
+  }
 
-KOKKOS_INLINE_FUNCTION
-const double df_deta(const double c1a,
-                     const double c1b,
-                     const double eta)
-{
-  // does not include the w g' term
-  // dh(eta1, eta2) / deta1 is a function of eta1 only
-  // uses tonks eq 10
-  const double dh_deta = parabolicenergy::dh_deta(eta);
-  return dh_deta * (fa(c1a) - fb(c1b))
-           + dfa_dc1a(c1a) * dh_deta * (c1a - c1b);
-}
+  KOKKOS_INLINE_FUNCTION
+  const double d2fb_dc1b2(const double c1b)
+  {
+    return 400 / (1 - c1b) + 400 / c1b;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double df_deta(const double c1a,
+                       const double c1b,
+                       const double eta)
+  {
+    // does not include the w g' term
+    // dh(eta1, eta2) / deta1 is a function of eta1 only
+    // uses tonks eq 10
+    const double dh_deta = freeenergyinterp::dh_deta(eta);
+    return dh_deta * (fa(c1a) - fb(c1b))
+             + dfa_dc1a(c1a) * dh_deta * (c1a - c1b);
+  }
 
 
 }  // namespace calenergy
@@ -434,12 +458,12 @@ namespace kks
     fe.dfb_dcb = &parabolicenergy::dfb_dcb;
     fe.d2fa_dca2 = &parabolicenergy::d2fa_dca2;
     fe.d2fb_dcb2 = &parabolicenergy::d2fb_dcb2;
-    fe.h = &parabolicenergy::h;
-    fe.dh_deta = &parabolicenergy::dh_deta;
-    fe.dg_deta = &parabolicenergy::dg_deta;
     fe.f = &parabolicenergy::f;
     fe.d2f_dc2 = &parabolicenergy::d2f_dc2;
     fe.df_deta = &parabolicenergy::df_deta;
+    fe.h = &freeenergyinterp::h;
+    fe.dh_deta = &freeenergyinterp::dh_deta;
+    fe.dg_deta = &freeenergyinterp::dg_deta;
   }
 
   PARAM_FUNC(param_freeenergy_calphad)
@@ -454,13 +478,12 @@ namespace kks
     fe.dfb_dcb = &calenergy::dfb_dc1b;
     fe.d2fa_dca2 = &calenergy::d2fa_dc1a2;
     fe.d2fb_dcb2 = &calenergy::d2fb_dc1b2;
-    //fe.h = &calenergy::h;
-    //fe.dh_deta = &calenergy::dh_deta;
-    //fe.dg_deta = &calenergy::dg_deta;
     //fe.f = &calenergy::f;
-    //fe.df_dc = &calenergy::df_dc;
     //fe.d2f_dc2 = &calenergy::d2f_dc2;
-    //fe.df_deta = &calenergy::df_deta;
+    fe.df_deta = &calenergy::df_deta;
+    fe.h = &freeenergyinterp::h;
+    fe.dh_deta = &freeenergyinterp::dh_deta;
+    fe.dg_deta = &freeenergyinterp::dg_deta;
   }
 
   /*

@@ -202,13 +202,13 @@ namespace parabolicenergy
   }
 
   KOKKOS_INLINE_FUNCTION
-  const double d2fa_dca2()
+  const double d2fa_dca2(const double unused)
   {
     return 2 * Aa;
   }
 
   KOKKOS_INLINE_FUNCTION
-  const double d2fb_dcb2()
+  const double d2fb_dcb2(const double unused)
   {
     return 2 * Ab;
   }
@@ -278,9 +278,9 @@ namespace parabolicenergy
   }
 
   KOKKOS_INLINE_FUNCTION
-  const double d2f_dc2(const double hh)
+  const double d2f_dc2(const double hh, const double unused1, const double unused2)
   {
-    return d2fa_dca2() * d2fb_dcb2() / ((1 - hh) * d2fa_dca2() + hh * d2fb_dcb2());
+    return d2fa_dca2(unused1) * d2fb_dcb2(unused2) / ((1 - hh) * d2fa_dca2(unused1) + hh * d2fb_dcb2(unused2));
   }
 
   KOKKOS_INLINE_FUNCTION 
@@ -307,6 +307,67 @@ namespace parabolicenergy
 
 
 }  // namespace parabolicenergy
+
+
+namespace calenergy
+{
+
+TUSAS_DEVICE
+const double c1a_0 = 0.4;
+TUSAS_DEVICE
+const double c1b_0 = 0.6;
+
+KOKKOS_INLINE_FUNCTION
+const double fa(const double c1a) {
+  const double c2a = 1 - c1a;
+  return 10 * c1a + 40 * c2a
+           + 400 * (c1a * std::log(c1a) 
+                    + c2a * std::log(c2a));
+}
+
+KOKKOS_INLINE_FUNCTION
+const double fb(const double c1b) {
+  const double c2b = 1 - c1b;
+  return 100 * c1b + 0.001 * c2b
+           + 400 * (c1b * std::log(c1b) 
+                    + c2b * std::log(c2b));
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfa_dc1a(const double c1a) {
+  return 400 * (std::log(c1a) - std::log(1 - c1a)) - 30;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double dfb_dc1b(const double c1b) {
+  return 400 * (std::log(c1b) - std::log(1 - c1b)) + 99.999;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fa_dc1a2(const double c1a) {
+  return 400 / (1 - c1a) + 400 / c1a;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double d2fb_dc1b2(const double c1b) {
+  return 400 / (1 - c1b) + 400 / c1b;
+}
+
+KOKKOS_INLINE_FUNCTION
+const double df_deta(const double c1a,
+                     const double c1b,
+                     const double eta)
+{
+  // does not include the w g' term
+  // dh(eta1, eta2) / deta1 is a function of eta1 only
+  // uses tonks eq 10
+  const double dh_deta = parabolicenergy::dh_deta(eta);
+  return dh_deta * (fa(c1a) - fb(c1b))
+           + dfa_dc1a(c1a) * dh_deta * (c1a - c1b);
+}
+
+
+}  // namespace calenergy
 
 
 namespace kks
@@ -418,6 +479,27 @@ namespace kks
     fe.df_dc = &parabolicenergy::df_dc;
     fe.d2f_dc2 = &parabolicenergy::d2f_dc2;
     fe.df_deta = &parabolicenergy::df_deta;
+  }
+
+  PARAM_FUNC(param_freeenergy_calphad)
+  {
+    // set params for free energy density
+    fe.ca = calenergy::c1a_0;
+    fe.cb = calenergy::c1b_0;
+
+    fe.fa = &calenergy::fa; 
+    fe.fb = &calenergy::fb; 
+    fe.dfa_dca = &calenergy::dfa_dc1a; 
+    fe.dfb_dcb = &calenergy::dfb_dc1b;
+    fe.d2fa_dca2 = &calenergy::d2fa_dc1a2;
+    fe.d2fb_dcb2 = &calenergy::d2fb_dc1b2;
+    //fe.h = &calenergy::h;
+    //fe.dh_deta = &calenergy::dh_deta;
+    //fe.dg_deta = &calenergy::dg_deta;
+    //fe.f = &calenergy::f;
+    //fe.df_dc = &calenergy::df_dc;
+    //fe.d2f_dc2 = &calenergy::d2f_dc2;
+    //fe.df_deta = &calenergy::df_deta;
   }
 
   /*
@@ -552,7 +634,7 @@ namespace kks
                                 fe.d2fb_dcb2);
 
       // calculate d2f_dc2 using KKS eq 29 
-      d2f_dc2[tdx] = fe.d2f_dc2(hh[tdx]);
+      d2f_dc2[tdx] = fe.d2f_dc2(hh[tdx], ca[tdx], cb[tdx]);
 
       // calculating grad(f_c) based on KKS eq 33, assuming M = D / f_cc
       // this also follows from eq 30 and the chain rule
@@ -719,7 +801,7 @@ namespace kks
     // note that we can skip the kks solve here only
     // because the free energy is parabolic -- the
     // second derivatives are constant
-    const double d2f_dc2 = fe.d2f_dc2(hh);
+    const double d2f_dc2 = fe.d2f_dc2(hh, 0., 0.);
     const double Mdivgrad_c = mobility(hh) * d2f_dc2 * (dphi_dx_i * dphi_dx_j 
                                                         + dphi_dy_i * dphi_dy_j 
                                                         + dphi_dz_i * dphi_dz_j);
@@ -753,7 +835,7 @@ namespace kks
     // note that we can skip the kks solve here only
     // because the free energy is parabolic -- the
     // second derivatives are constant
-    const double d2f_dc2 = fe.d2f_dc2(hh) * phi_j * phi_i;
+    const double d2f_dc2 = fe.d2f_dc2(hh, 0., 0.) * phi_j * phi_i;
     const double kc_divgrad_mu = k_c * (dphi_dx_i * dphi_dx_j 
                                         + dphi_dy_i * dphi_dy_j 
                                         + dphi_dz_i * dphi_dz_j);

@@ -56,14 +56,14 @@ typedef struct {
   const double (*fb)(const double);
   const double (*dfa_dca)(const double);
   const double (*dfb_dcb)(const double);
-  const double (*d2fa_dca2)();
-  const double (*d2fb_dcb2)();
+  const double (*d2fa_dca2)(const double);
+  const double (*d2fb_dcb2)(const double);
   const double (*h)(const double *);
   const double (*dh_deta)(const double );
   const double (*dg_deta)(const double *, const int);
   const double (*f)(const double, const double, const double *);
   const double (*df_dc)(const double, const double, const double *);
-  const double (*d2f_dc2)(const double);
+  const double (*d2f_dc2)(const double, const double, const double);
   const double (*df_deta)(const double, const double, const double);
 } FreeEnergy;
 
@@ -96,8 +96,8 @@ namespace solvers
                       double &c1b,  // out: c1b, in: initial guess 
                       const double DFA_DC1A(const double c1a),  // in: fa'(c1a)
                       const double DFB_DC1B(const double c1b),  // in: fb'(c1b)
-                      const double D2FA_DC1A2(),  // in: fa''() [constant for now]
-                      const double D2FB_DC1B2(),  // in: fb''() [constant for now]
+                      const double D2FA_DC1A2(const double c1a),  // in: fa''() [constant for now]
+                      const double D2FB_DC1B2(const double c1b),  // in: fb''() [constant for now]
                       const double &T = 0.)  // in: time
   {
     /*
@@ -135,8 +135,8 @@ namespace solvers
     //c1b = (1 - hh) * c1b;
 
     // terms for the kks solve
-    double d2fa_dc1a2 = (*D2FA_DC1A2)();
-    double d2fb_dc1b2 = (*D2FB_DC1B2)();
+    double d2fa_dc1a2 = (*D2FA_DC1A2)(c1a);
+    double d2fb_dc1b2 = (*D2FB_DC1B2)(c1b);
     double f1 = hh * c1a + (1 - hh) * c1b - c1;
     double f2 = (*DFA_DC1A)(c1a) - (*DFB_DC1B)(c1b);
     if (solve_kks_verbose) {
@@ -195,8 +195,8 @@ namespace solvers
       if (err2 < tol * tol) return 0;
 
       // recalculate remaining terms for next iteration
-      d2fa_dc1a2 = (*D2FA_DC1A2)();
-      d2fb_dc1b2 = (*D2FB_DC1B2)();
+      d2fa_dc1a2 = (*D2FA_DC1A2)(c1a);
+      d2fb_dc1b2 = (*D2FB_DC1B2)(c1b);
     }
 
     // max iters exceeded

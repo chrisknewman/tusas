@@ -746,7 +746,7 @@ namespace kks
     }  // tdx = 0, < Nt loop
     
     idx = tools::utils::idx(0, local_id, Nmu_max);
-    return -mu[idx] + df_dc[0] + kdivgrad_c[0];
+    return -(mu[idx] * phi) + df_dc[0] + kdivgrad_c[0];
   }
 
   /*

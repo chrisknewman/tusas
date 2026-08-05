@@ -114,6 +114,15 @@ namespace tonks1
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_eta_dp)) = residual_eta;
 
   KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_eta_lagkks)
+  {
+    return pdes::kks::pde_eta(basis, i, dt_, dtold_,
+                              t_theta_, t_theta2_, time, eqn_id,
+                              vol, rand, mobility, true);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_eta_lagkks_dp)) = residual_eta_lagkks;
+
+  KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_c)
   {
     return pdes::kks::pde_c(basis, i, dt_, dtold_,
@@ -141,6 +150,15 @@ namespace tonks1
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_trans_dp)) = residual_c_trans;
 
   KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_c_trans_lagkks)
+  {
+    return pdes::kks::pde_mu(basis, i, dt_, dtold_,
+                             t_theta_, t_theta2_, time, eqn_id,
+                             vol, rand, true, true);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_trans_lagkks_dp)) = residual_c_trans_lagkks;
+
+  KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_mu)
   {
     return pdes::kks::pde_mu(basis, i, dt_, dtold_,
@@ -158,6 +176,15 @@ namespace tonks1
                                   vol, rand, mobility, true);
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_trans_dp)) = residual_mu_trans;
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_mu_trans_lagkks)
+  {
+    return pdes::kks::pde_c_split(basis, i, dt_, dtold_,
+                                  t_theta_, t_theta2_, time, eqn_id,
+                                  vol, rand, mobility, true, true);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_trans_lagkks_dp)) = residual_mu_trans_lagkks;
 
   KOKKOS_INLINE_FUNCTION
   PRE_FUNC_TPETRA(prec_eta)

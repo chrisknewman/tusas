@@ -703,7 +703,7 @@ namespace kks
   RES_FUNC_TPETRA(pde_mu, const bool trans=false, const bool lag_kks=false)
   {
     const int kks_tdx_lag = lag_kks ? 1 : 0;
-    const int Nt = 1;
+    const int Nt = 2;
     const int local_id = trans ? eqn_id - c_start_idx : eqn_id - mu_start_idx;
 
     const double phi = basis[0]->phi(i);
@@ -746,7 +746,9 @@ namespace kks
     }  // tdx = 0, < Nt loop
     
     idx = tools::utils::idx(0, local_id, Nmu_max);
-    return -(mu[idx] * phi) + df_dc[0] + kdivgrad_c[0];
+    return -(mu[idx] * phi) 
+           + t_theta_ * (df_dc[0] + kdivgrad_c[0])
+           + (1 - t_theta_) * (df_dc[1] + kdivgrad_c[1]);
   }
 
   /*

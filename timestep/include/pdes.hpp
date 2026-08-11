@@ -724,13 +724,14 @@ namespace kks
     tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
 
     double hh, ca, cb;
-    double kdivgrad_c[Nt_max];
-    double df_dc[Nt_max];
+    double kdivgrad_c;
+    double df_dc;
+    double f[Nt_max];
 
     int idx = 0;
     for (int tdx = 0; tdx < Nt; ++tdx) {
       idx = tools::utils::idx(tdx, local_id, Nc_max);
-      kdivgrad_c[tdx] = k_c * grad_c[idx] * grad_phi;
+      kdivgrad_c = k_c * grad_c[idx] * grad_phi;
 
       hh = fe.h(&eta[(tdx + kks_tdx_lag) * Neta_max]);
       idx = tools::utils::idx(tdx + kks_tdx_lag, local_id, Nc_max);
@@ -741,14 +742,15 @@ namespace kks
                                 fe.dfb_dcb,
                                 fe.d2fa_dca2,
                                 fe.d2fb_dcb2);
-
-      df_dc[tdx] = fe.dfa_dca(ca) * phi;
+      df_dc = fe.dfa_dca(ca) * phi;
+      
+      f[tdx] = df_dc + kdivgrad_c;
     }  // tdx = 0, < Nt loop
     
     idx = tools::utils::idx(0, local_id, Nmu_max);
-    return -(mu[idx] * phi) 
-           + t_theta_ * (df_dc[0] + kdivgrad_c[0])
-           + (1 - t_theta_) * (df_dc[1] + kdivgrad_c[1]);
+    const double mu_phi = mu[idx] * phi;
+
+    return tools::utils::ret_value(-mu_phi, f, t_theta_);
   }
 
   /*

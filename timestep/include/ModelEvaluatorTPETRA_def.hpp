@@ -3140,7 +3140,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &cases::tonks1::param;
     paramfunc_[2] = &cases::tonks1::param_freeenergy_parabolic;
     
-  }else if("tonks1trans_calenergy" == paramList.get<std::string> (TusastestNameString)){
+  }else if("tonks1trans_lagkks" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist("ProblemParams", false);

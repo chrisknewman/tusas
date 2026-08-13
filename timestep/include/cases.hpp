@@ -152,9 +152,10 @@ namespace tonks1
   KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_c_trans_lagkks)
   {
+    // TODO -- lagkks bug here??
     return pdes::kks::pde_mu(basis, i, dt_, dtold_,
                              t_theta_, t_theta2_, time, eqn_id,
-                             vol, rand, true, true);
+                             vol, rand, true, true);  // should be true
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_trans_lagkks_dp)) = residual_c_trans_lagkks;
 

@@ -723,9 +723,7 @@ namespace kks
     double eta[Nt_max * Neta_max];
     tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
 
-    double hh, ca, cb;
-    double kdivgrad_c;
-    double df_dc;
+    double hh, ca, cb, kdivgrad_c, df_dc;
     double f[Nt_max];
 
     int idx = 0;

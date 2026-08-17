@@ -703,7 +703,7 @@ namespace kks
   RES_FUNC_TPETRA(pde_mu, const bool trans=false, const bool lag_kks=false)
   {
     const int kks_tdx_lag = lag_kks ? 1 : 0;
-    const int Nt = 2;
+    const int Nt = 1;  // only one time-level needed 
     const int local_id = trans ? eqn_id - c_start_idx : eqn_id - mu_start_idx;
 
     const double phi = basis[0]->phi(i);
@@ -748,7 +748,13 @@ namespace kks
     idx = tools::utils::idx(0, local_id, Nmu_max);
     const double mu_phi = mu[idx] * phi;
 
-    return tools::utils::ret_value(-mu_phi, f, t_theta_);
+    // the return value for the current residual should not
+    // depend on theta_t_!
+    // we already know what mu(t^n) is from the last time-step,
+    // and it will be used in the residual for c as appropriate
+    // for the user configured value of theta_t_
+    // here, we only need to minimize the residual finding mu(t^n+1)
+    return -mu_phi + f[0];
   }
 
   /*

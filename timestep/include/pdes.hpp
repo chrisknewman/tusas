@@ -86,6 +86,39 @@
                                                      __VA_OPT__(,) __VA_ARGS__)
 
 /*
+ * Definition for Dirichlet function. Each Dirichlet function is called at each node for each equation 
+ * with this signature:
+ *   NAME: name of function to call
+ *   const double &x: the x-ccordinate of the node
+ *   const double &y: the y-ccordinate of the node
+ *   const double &z: the z-ccordinate of the node
+ *   const int &eqn_id: the index of the current equation
+ *   const double &t: the current time
+ */
+#define DBC_FUNC(NAME) const double NAME(const double x, \
+					                     const double y, \
+					                     const double z, \
+					                     const double t) 
+
+/* Definition for Neumann function. Each Neumann function is called at each Gauss point for the current
+ * equation with this signature:
+ * NAME: name of function to call
+ * const Basis *basis: basis function object for current equation
+ * const int &i: the current basis function (row in residual vector)
+ * const double &dt_: the timestep size as prescribed in input file						
+ * const double &t_theta_: the timestep parameter as prescribed in input file
+ * const double &time: the current simulation time
+ */
+#define NBC_FUNC_TPETRA(NAME) const double NAME(const GPUBasis *basis, \
+						                        const int i, \
+						                        const double dt_, \
+						                        const double dtold_, \
+						                        const double t_theta_, \
+						                        const double t_theta2_, \
+						                        const double time)
+
+
+/*
  * Definition for post-process function. Each post-process function is called at each node for each equation at the 
  * end of each timestep with this signature:
  *   NAME: name of function to call
@@ -500,6 +533,64 @@ namespace kks
     fe.dh_deta = &freeenergyinterp::dh_deta;
     fe.dg_deta = &freeenergyinterp::dg_deta;
   }
+  
+  /* 
+   * TODO: remove this -- this is only temporary while we work on
+   * the manufacture solution test case
+   * residual for eta equations using the kks model
+   */
+  KOKKOS_INLINE_FUNCTION 
+  RES_FUNC_TPETRA(pde_eta_nokks, const double mobility(const double hh), const bool lag_kks=false)
+  {
+    const int kks_tdx_lag = lag_kks ? 1 : 0;
+    const int Nt = 3 - kks_tdx_lag;
+    const int local_id = eqn_id - eta_start_idx;
+
+    const double phi = basis[0]->phi(i);
+    Grad grad_phi;
+    grad_phi.dx = basis[0]->dphidx(i);
+    grad_phi.dy = basis[0]->dphidy(i);
+    grad_phi.dz = basis[0]->dphidz(i);
+
+    double c[Nt_max * Nc_max];
+    tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
+
+    double eta[Nt_max * Neta_max];
+    Grad grad_eta[Nt_max * Neta_max];
+    tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
+    tools::utils::get_graduu(grad_eta, Neta, Neta_max, eta_start_idx, basis);
+
+    double hh, ca, cb, k_divgrad_eta, df_deta;
+    double f[Nt_max];
+
+    int idx = 0;
+    for (int tdx = 0; tdx < Nt; ++tdx) {
+      hh = fe.h(&eta[(tdx + kks_tdx_lag) * Neta_max]);
+      ca = fe.c1a_0;
+      cb = fe.c1b_0;
+      /*idx = tools::utils::idx(tdx + kks_tdx_lag, local_id, Nc_max);
+      tools::solvers::solve_kks(c[idx], hh, ca, cb,
+                                fe.dfa_dca,
+                                fe.dfb_dcb,
+                                fe.d2fa_dca2,
+                                fe.d2fb_dcb2);*/
+
+      idx = tools::utils::idx(tdx, local_id, Neta_max);
+      df_deta = (fe.df_deta(ca, cb, eta[idx])
+                   + w * fe.dg_deta(&eta[tdx * Neta_max], local_id)) * phi;
+      k_divgrad_eta = k_eta * grad_eta[idx] * grad_phi;
+
+      f[tdx] = L * (k_divgrad_eta + df_deta);
+    }
+
+    idx = tools::utils::idx(0, local_id, Neta_max);
+    const int idxold =  tools::utils::idx(1, local_id, Neta_max);
+    const double deta_dt = (eta[idx] - eta[idxold]) / dt_ * phi;
+
+    return lag_kks ?
+      tools::utils::ret_value(deta_dt, f, t_theta_) :
+      tools::utils::ret_value(deta_dt, f, dt_, dtold_, t_theta_, t_theta2_);
+  }
 
   /*
    * residual for eta equations using the kks model
@@ -518,9 +609,7 @@ namespace kks
     grad_phi.dz = basis[0]->dphidz(i);
 
     double c[Nt_max * Nc_max];
-    Grad grad_c[Nt_max * Nc_max];
     tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
-    tools::utils::get_graduu(grad_c, Nc, Nc_max, c_start_idx, basis);
 
     double eta[Nt_max * Neta_max];
     Grad grad_eta[Nt_max * Neta_max];

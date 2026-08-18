@@ -18,6 +18,127 @@ namespace cases
 {
 
 
+namespace mansoln
+{
+
+
+  TUSAS_DEVICE double epsilon = 0.5;
+  TUSAS_DEVICE double v = 1.;
+
+
+  PARAM_FUNC(param)
+  {
+    pdes::kks::param(plist);
+    pdes::kks::eta_start_idx = 0;
+
+    epsilon = plist->get<double>("epsilon", epsilon);
+    v = plist->get<double>("v", v);
+  }
+
+  PARAM_FUNC(param_freeenergy_parabolic)
+  {
+    pdes::kks::param_freeenergy_parabolic(plist);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double w(const double x, const double t) {
+    return ((x - 10.) - v * t) / (epsilon * std::sqrt(2));
+  } 
+
+  KOKKOS_INLINE_FUNCTION
+  const double eta_mms(const double x, const double t)
+  {
+    return 0.5 * (1 + tanh(w(x, t)));
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double mobility(const double unused) {
+    return pdes::kks::M;
+  } 
+
+  INI_FUNC(init_eta)
+  {
+    return eta_mms(x, 0.);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double source_eta_constmu(GPUBasis *basis[], 
+                                  const int i,
+                                  const double dt_,
+                                  const double dtold_,
+                                  const double t_theta_,
+                                  const double t_theta2_,
+                                  const int eqn_id)
+  {
+    const int Nt_max = pdes::kks::Nt_max;
+    const int Neta_max = pdes::kks::Neta_max;
+    const int Neta = pdes::kks::Neta;
+    const int eta_start_idx = pdes::kks::eta_start_idx;
+
+    const double L = pdes::kks::L;
+    const double k_eta = pdes::kks::k_eta;
+    const double w = pdes::kks::w;
+
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const int Nt = 3;
+    const int local_id = eqn_id - eta_start_idx;
+
+    const double phi = basis[0]->phi(i);
+
+    double eta[Nt_max * Neta_max];
+    tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
+
+    double ms_deta_dt, double_well, df_deta;
+    double source[Nt_max];
+
+    int idx = 0;
+    for (int tdx = 0; tdx < Nt; ++tdx) {
+      idx = tools::utils::idx(tdx, local_id, Neta_max);
+      ms_deta_dt = ((2 * v) / (epsilon * std::sqrt(2))) * eta[idx] * (1 - eta[idx]);
+      double_well = L * (w - std::pow(k_eta / epsilon, 2)) * pdes::kks::fe.dg_deta(&eta[tdx + Neta_max], local_id);
+      df_deta = L * pdes::kks::fe.dh_deta(eta[idx]) * (
+                  pdes::kks::fe.fa(ca) 
+                  - pdes::kks::fe.fb(cb) 
+                  + pdes::kks::fe.dfa_dca(ca) * (cb - ca)
+                );
+
+      source[tdx] = (ms_deta_dt - double_well - df_deta) * phi;
+    }
+
+    // time derivative entry is zero here because it will be added to the residual
+    // by pde_eta()
+    return false ?
+      tools::utils::ret_value(0., source, t_theta_) :
+      tools::utils::ret_value(0., source, dt_, dtold_, t_theta_, t_theta2_);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_eta_constmu)
+  {
+    return pdes::kks::pde_eta_nokks(basis, i, dt_, dtold_,
+                                    t_theta_, t_theta2_, time, eqn_id,
+                                    vol, rand, mobility) + source_eta_constmu(basis, i, dt_, dtold_, 
+                                                                              t_theta_, t_theta2_, eqn_id);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_eta_constmu_dp)) = residual_eta_constmu;
+
+  DBC_FUNC(dbc)
+  {
+    return 0.5 * (1 + tanh(w(x, t)));
+  }
+
+  PPR_FUNC(postproc_exact_soln)
+  {
+    const double x = xyz[0];
+    return eta_mms(x, time);
+  }
+
+
+}
+
+
 namespace tonks1
 {
 

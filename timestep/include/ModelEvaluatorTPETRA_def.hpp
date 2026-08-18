@@ -3003,6 +3003,47 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &tpetra::pfhub2::param_trans_;
     paramfunc_[2] = &tpetra::pfhub2::param_;
 
+  }else if("mansoln_constmu" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = cases::mansoln::residual_eta_constmu_dp;
+
+    preconfunc_ = NULL;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cases::mansoln::init_eta;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "eta";
+
+    // cubit nodesets start at 1; exodus nodesets start at 0, hence 
+    // off by one here:
+    //   [eqn_id][nodeset_id]
+    // nodeset_id:  
+    //   0 = bottom
+    //   1 = right
+    //   2 = top
+    //   3 = left
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    (*dirichletfunc_)[0][0] = &cases::mansoln::dbc;
+    (*dirichletfunc_)[0][1] = &cases::mansoln::dbc;
+    (*dirichletfunc_)[0][2] = &cases::mansoln::dbc;
+    (*dirichletfunc_)[0][3] = &cases::mansoln::dbc;
+
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln;
+
+    paramfunc_.resize(2);
+    paramfunc_[0] = &cases::mansoln::param;
+    paramfunc_[1] = &cases::mansoln::param_freeenergy_parabolic;
+
   }else if("tonks1wbm" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

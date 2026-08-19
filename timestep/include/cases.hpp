@@ -22,6 +22,7 @@ namespace mansoln
 {
 
 
+  TUSAS_DEVICE double x_offset = 10.;
   TUSAS_DEVICE double epsilon = 0.5;
   TUSAS_DEVICE double v = 1.;
 
@@ -31,6 +32,7 @@ namespace mansoln
     pdes::kks::param(plist);
     pdes::kks::eta_start_idx = 0;
 
+    x_offset = plist->get<double>("x_offset", x_offset);
     epsilon = plist->get<double>("epsilon", epsilon);
     v = plist->get<double>("v", v);
   }
@@ -42,7 +44,7 @@ namespace mansoln
 
   KOKKOS_INLINE_FUNCTION
   const double w(const double x, const double t) {
-    return ((x - 10.) - v * t) / (epsilon * std::sqrt(2));
+    return ((x - x_offset) - v * t) / (epsilon * std::sqrt(2));
   } 
 
   KOKKOS_INLINE_FUNCTION
@@ -126,7 +128,7 @@ namespace mansoln
 
   DBC_FUNC(dbc)
   {
-    return 0.5 * (1 + tanh(w(x, t)));
+    return eta_mms(x, t);
   }
 
   PPR_FUNC(postproc_exact_soln)

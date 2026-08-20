@@ -2,24 +2,24 @@
 
   <!-- simulation parameters -->
 
-  <Parameter name="dt" type="double" value="1"/>
-  <Parameter name="nt" type="int" value = "80"/>
+  <Parameter name="dt" type="double" value="0.1"/>
+  <Parameter name="nt" type="int" value = "800"/>
   <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_1x300.e"/>
   <Parameter name="testcase" type="string" value="mansoln_constmu"/>
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="preconditioner" type="bool" value="false"/>
   <Parameter name="theta" type="double" value=".5"/>
 
-  <Parameter name="noxrelres" type="double" value="1"/>
-  <Parameter name="noxmaxiter" type="int" value = "10"/>
-  <Parameter name="noxacceptfailed" type="bool" value = "true"/>
+  <Parameter name="noxrelres" type="double" value="1.e-5"/>
+  <Parameter name="noxmaxiter" type="int" value = "40"/>
+  <Parameter name="noxacceptfailed" type="bool" value = "false"/>
   <Parameter name="noxforcestep" type="bool" value = "false"/>
 
   <Parameter name="predrelres" type="double" value="1.e-3"/>
   <Parameter name="predmaxiter" type="int" value = "10"/>
 
   <Parameter name="ltpquadord" type="int" value = "3"/>
-  <Parameter name="outputfreq" type="int" value = "1"/> 
+  <Parameter name="outputfreq" type="int" value = "10"/> 
 
   <ParameterList name="ProblemParams">
     <Parameter name="Aa" type="double" value="100"/><!--J/m^3-->
@@ -33,7 +33,7 @@
   <ParameterList name="Nonlinear Solver">
     <ParameterList name="Direction">
       <ParameterList name="Newton">
-        <Parameter name ="Forcing Term Minimum Tolerance" type="double" value="1."/>
+        <Parameter name ="Forcing Term Minimum Tolerance" type="double" value="1.e-5"/>
       </ParameterList>
     </ParameterList>
     <ParameterList name="Line Search">
@@ -49,7 +49,7 @@
         <ParameterList name="Solver Types">
           <ParameterList name="Pseudo Block GMRES">
             <Parameter name="Orthogonalization" type="string" value="ICGS"/>
-            <Parameter name="Maximum Iterations" type="int" value="10"/>
+            <Parameter name="Maximum Iterations" type="int" value="40"/>
             <Parameter name="Output Frequency" type="int" value="1"/>
             <Parameter name="Verbosity" type="int" value="33"/>
             <Parameter name="Output Style" type="int" value="1"/>

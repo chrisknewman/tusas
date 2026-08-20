@@ -1095,7 +1095,7 @@ const GPURefBasis * BGPURef = BGPURefB;
 			       const double xx = x_1dra(lid);
 			       const double yy = y_1dra(lid);
 			       const double zz = z_1dra(lid);	
-			       const double val1 = (it->second)(xx,yy,zz,time);
+			       const double val1 = (it->second)(xx,yy,zz,time+dt);
 
 			       const double val = u_1dra(numeqs_*lid + k)  - val1;
 			       f_1d(numeqs_*lid + k) = val;
@@ -3014,6 +3014,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[0] = cases::mansoln::residual_eta_constmu_dp;
 
     preconfunc_ = NULL;
+    //preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    //(*preconfunc_)[0] = &cases::tonks1::prec_c;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &cases::mansoln::init_eta;
@@ -3030,9 +3032,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //   2 = top
     //   3 = left
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
-    (*dirichletfunc_)[0][0] = &cases::mansoln::dbc;
     (*dirichletfunc_)[0][1] = &cases::mansoln::dbc;
-    (*dirichletfunc_)[0][2] = &cases::mansoln::dbc;
     (*dirichletfunc_)[0][3] = &cases::mansoln::dbc;
 
     neumannfunc_ = NULL;

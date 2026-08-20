@@ -23,7 +23,7 @@ namespace mansoln
 
 
   TUSAS_DEVICE double x_offset = 10.;
-  TUSAS_DEVICE double epsilon = 0.5;
+  TUSAS_DEVICE double epsilon = 0.4;
   TUSAS_DEVICE double v = 1.;
 
 
@@ -94,7 +94,7 @@ namespace mansoln
 
     for (int tdx = 0; tdx < Nt; ++tdx) {
       deta_dt = ((2 * v) / (epsilon * std::sqrt(2))) * eta[tdx] * (1 - eta[tdx]);
-      double_well = L * (w - std::pow(k_eta / epsilon, 2)) * pdes::kks::fe.dg_deta(&eta[tdx], local_id);
+      double_well = L * (w - k_eta / std::pow(epsilon, 2)) * pdes::kks::fe.dg_deta(&eta[tdx], local_id);
       df_deta = L * pdes::kks::fe.dh_deta(eta[tdx]) * (
                   pdes::kks::fe.fa(ca) 
                   - pdes::kks::fe.fb(cb) 

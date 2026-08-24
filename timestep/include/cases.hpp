@@ -27,21 +27,6 @@ namespace mansoln
   TUSAS_DEVICE double v = 1.;
 
 
-  PARAM_FUNC(param)
-  {
-    pdes::kks::param(plist);
-    pdes::kks::eta_start_idx = 0;
-
-    x_offset = plist->get<double>("x_offset", x_offset);
-    epsilon = plist->get<double>("epsilon", epsilon);
-    v = plist->get<double>("v", v);
-  }
-
-  PARAM_FUNC(param_freeenergy_parabolic)
-  {
-    pdes::kks::param_freeenergy_parabolic(plist);
-  }
-
   KOKKOS_INLINE_FUNCTION
   const double w(const double x, const double t) {
     return ((x - x_offset) - v * t) / (epsilon * std::sqrt(2));
@@ -57,6 +42,29 @@ namespace mansoln
   const double mobility(const double unused) {
     return pdes::kks::M;
   } 
+
+  KOKKOS_INLINE_FUNCTION
+  const double dg_deta(const double *etas, const int eqn_id)
+  {
+    const double eta = etas[eqn_id];
+    return 2 * eta * (2 * eta - 1) * (eta - 1);
+  }
+
+  PARAM_FUNC(param)
+  {
+    pdes::kks::param(plist);
+    pdes::kks::eta_start_idx = 0;
+
+    x_offset = plist->get<double>("x_offset", x_offset);
+    epsilon = plist->get<double>("epsilon", epsilon);
+    v = plist->get<double>("v", v);
+  }
+
+  PARAM_FUNC(param_freeenergy_parabolic)
+  {
+    pdes::kks::param_freeenergy_parabolic(plist);
+    pdes::kks::fe.dg_deta = &dg_deta;
+  }
 
   INI_FUNC(init_eta)
   {
@@ -130,6 +138,12 @@ namespace mansoln
   {
     const double x = xyz[0];
     return eta_mms(x, time);
+  }
+
+  PPR_FUNC(postproc_ptwise_abs)
+  {
+    const double x = xyz[0];
+    return std::abs(eta_mms(x, time) - u[0]);
   }
 
 

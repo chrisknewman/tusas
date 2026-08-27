@@ -160,6 +160,7 @@ set(TUSAS_TESTS
   #LinIsoHeatHexPar
   #LinIsoHex
   LocalProjectionT
+  MMSConstMu
   NLHeatHexCN
   NLHeatHexIMR
   NeumannHex

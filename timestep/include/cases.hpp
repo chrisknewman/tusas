@@ -140,10 +140,10 @@ namespace mansoln
     return eta_mms(x, time);
   }
 
-  PPR_FUNC(postproc_ptwise_abs)
+  PPR_FUNC(postproc_diff_vs_exact)
   {
     const double x = xyz[0];
-    return std::abs(eta_mms(x, time) - u[0]);
+    return eta_mms(x, time) - u[0];
   }
 
 

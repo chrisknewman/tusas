@@ -3004,6 +3004,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[2] = &tpetra::pfhub2::param_;
 
   }else if("mansoln_constmu" == paramList.get<std::string> (TusastestNameString)){
+    const double eta_id = 0;
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist("ProblemParams", false);
@@ -3037,10 +3038,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     neumannfunc_ = NULL;
 
-    post_proc.push_back(new post_process(mesh_,(int)0));
+    post_proc.push_back(new post_process(mesh_, (int)0));
     post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln;
-    post_proc.push_back(new post_process(mesh_,(int)1));
-    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_ptwise_abs;
+    post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
+                                         false, eta_id, "rms", 16));
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact;
 
     paramfunc_.resize(2);
     paramfunc_[0] = &cases::mansoln::param;

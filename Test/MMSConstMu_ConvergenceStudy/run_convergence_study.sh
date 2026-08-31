@@ -1,7 +1,30 @@
 #!/bin/bash
 
 
+calculate() { printf "%s\n" "$@" | bc -l; }
+sci2float() { printf "%f\n" "$@"; }
+float2int() { printf "%.0f\n" "$@"; }
+
+
+# BEGIN user configurable variables
 LOG=log.txt
+CONFDIR=./configs
+OUTDIR=./out
+
+BASENAME=mms-constmu
+MESHES='1x2000
+        1x4000
+        1x8000'
+DTS='1e-1
+     5e-2
+     25e-3
+     125e-4
+     625e-5
+     3125e-6'
+THETAS='1'
+BCS='dirichlet'
+# END user configurable variables
+
 
 EXEDIR=$1
 if [[ $(echo $EXEDIR | cut -c ${#EXEDIR}) == '/' ]]; then
@@ -26,34 +49,19 @@ NPROCS=8  # need to change epuscript too!
 RUNTUSAS="$MPIRUN -n $NPROCS $TUSAS --kokkos-num-threads=1"
 
 
-CONFDIR=./configs
-OUTDIR=./out
-CONFS='mansoln_1x2000_dt1e-1_theta1
-       mansoln_1x2000_dt5e-2_theta1
-       mansoln_1x2000_dt25e-3_theta1
-       mansoln_1x2000_dt125e-4_theta1
-       mansoln_1x2000_dt625e-5_theta1
-       mansoln_1x2000_dt3125e-6_theta1
-       mansoln_1x4000_dt1e-1_theta1
-       mansoln_1x4000_dt5e-2_theta1
-       mansoln_1x4000_dt25e-3_theta1
-       mansoln_1x4000_dt125e-4_theta1
-       mansoln_1x4000_dt625e-5_theta1
-       mansoln_1x4000_dt3125e-6_theta1
-       mansoln_1x8000_dt1e-1_theta1
-       mansoln_1x8000_dt5e-2_theta1
-       mansoln_1x8000_dt25e-3_theta1
-       mansoln_1x8000_dt125e-4_theta1
-       mansoln_1x8000_dt625e-5_theta1
-       mansoln_1x8000_dt3125e-6_theta1'
+for MESH in $MESHES; do for DT in $DTS; do for THETA in $THETAS; do for BC in $BCS; do
+  export MESH=$MESH; export DT=$DT; export THETA=$THETA; export BC=$BC
+  export NT=$(float2int $(calculate "1 / $(sci2float $DT)"))
 
-
-for CONF in $CONFS; do
+  CONF=${BASENAME}-${BC}_mesh@${MESH}_dt@${DT}_theta@${THETA}
   INPUT=$CONFDIR/$CONF.xml
   OUTPUT=$OUTDIR/$CONF.e
   RMSOUT=$OUTDIR/RMS_$CONF.dat
+
+  # write config to file
+  cat ${BASENAME}_TEMPLATE.xml | envsubst > $CONFDIR/$CONF.xml
   
-  # clean up
+  # clean up previous run
   rm -rf results.e decomp/ decompscript nem_spread.inp input-ldbl *.dat
 
   echo "--- RUNNING: $RUNTUSAS --input-file=$INPUT --writedecomp" | tee -a $LOG
@@ -69,5 +77,6 @@ for CONF in $CONFS; do
 
   echo "--- RUNNING: mv rms1.dat $RMSOUT" | tee -a $LOG
   mv rms1.dat $RMSOUT
-done
+
+done; done; done; done
 

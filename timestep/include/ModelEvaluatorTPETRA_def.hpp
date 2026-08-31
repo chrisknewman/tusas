@@ -3003,7 +3003,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &tpetra::pfhub2::param_trans_;
     paramfunc_[2] = &tpetra::pfhub2::param_;
 
-  }else if("mansoln_constmu" == paramList.get<std::string> (TusastestNameString)){
+  }else if("mms-constmu-dirichlet" == paramList.get<std::string> (TusastestNameString)){
     const double eta_id = 0;
 
     Teuchos::ParameterList *problemList;

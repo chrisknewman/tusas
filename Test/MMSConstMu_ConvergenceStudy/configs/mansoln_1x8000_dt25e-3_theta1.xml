@@ -1,0 +1,70 @@
+<ParameterList>
+
+  <!-- simulation parameters -->
+
+  <Parameter name="dt" type="double" value="25e-3"/>
+  <Parameter name="nt" type="int" value = "40"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_1x8000.e"/>
+  <Parameter name="testcase" type="string" value="mansoln_constmu"/>
+  <Parameter name="method" type="string" value="tpetra"/>
+  <Parameter name="preconditioner" type="bool" value="false"/>
+  <Parameter name="theta" type="double" value="1.0"/>
+
+  <Parameter name="noxrelres" type="double" value="1.e-11"/>
+  <Parameter name="noxmaxiter" type="int" value = "40"/>
+  <Parameter name="noxacceptfailed" type="bool" value = "true"/>
+  <Parameter name="noxforcestep" type="bool" value = "false"/>
+
+  <Parameter name="predrelres" type="double" value="1.e-3"/>
+  <Parameter name="predmaxiter" type="int" value = "10"/>
+
+  <Parameter name="ltpquadord" type="int" value = "3"/>
+  <Parameter name="outputfreq" type="int" value = "1"/> 
+
+  <ParameterList name="ProblemParams">
+    <Parameter name="Aa" type="double" value="100"/><!--J/m^3-->
+    <Parameter name="Ab" type="double" value="100"/><!--J/m^3-->
+    <Parameter name="c1" type="double" value="0.4"/>
+    <Parameter name="c2" type="double" value="0.6"/>
+
+    <Parameter name="kks_max_iter" type="int" value="1"/>
+
+    <Parameter name="v" type="double" value="1."/>
+    <Parameter name="epsilon" type="double" value=".4"/>
+
+    <Parameter name="L" type="double" value="2."/>
+    <Parameter name="w" type="double" value="12."/>
+    <Parameter name="k_eta" type="double" value="1.92"/>
+  </ParameterList>
+
+  <ParameterList name="Nonlinear Solver">
+    <ParameterList name="Direction">
+      <ParameterList name="Newton">
+        <Parameter name ="Forcing Term Minimum Tolerance" type="double" value="1."/>
+      </ParameterList>
+    </ParameterList>
+    <ParameterList name="Line Search">
+      <Parameter name ="Method" type="string" value="Polynomial"/>
+    </ParameterList>
+  </ParameterList>
+
+  <ParameterList name="Linear Solver"> 
+    <Parameter name="Linear Solver Type" type="string" value="Belos"/>
+    <ParameterList name="Linear Solver Types">
+      <ParameterList name="Belos"> 
+        <Parameter name="Solver Type" type="string" value="Pseudo Block GMRES"/>
+        <ParameterList name="Solver Types">
+          <ParameterList name="Pseudo Block GMRES">
+            <Parameter name="Orthogonalization" type="string" value="ICGS"/>
+            <Parameter name="Maximum Iterations" type="int" value="40"/>
+            <Parameter name="Output Frequency" type="int" value="1"/>
+            <Parameter name="Verbosity" type="int" value="33"/>
+            <Parameter name="Output Style" type="int" value="1"/>
+          </ParameterList>
+        </ParameterList>
+      </ParameterList> 
+    </ParameterList>
+  </ParameterList>
+
+</ParameterList>
+

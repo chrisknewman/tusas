@@ -18,6 +18,8 @@ Test/*/pp*.dat
 Test/*/vtip.dat
 Test/*/core
 Test/*/temp*.dat
+Test/*/out*/
+Test/*/*.txt
 
 # ignore tmp files
 *.swp

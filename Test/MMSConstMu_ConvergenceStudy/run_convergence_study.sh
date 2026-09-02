@@ -6,7 +6,7 @@ sci2float() { printf "%f\n" "$@"; }
 float2int() { printf "%.0f\n" "$@"; }
 
 
-# BEGIN user configurable variables
+#### BEGIN user configurable variables
 LOG=log.txt
 CONFDIR=./configs
 OUTDIR=./out
@@ -23,7 +23,7 @@ DTS='1e-1
      3125e-6'
 THETAS='1'
 BCS='dirichlet'
-# END user configurable variables
+#### END user configurable variables
 
 
 EXEDIR=$1
@@ -44,6 +44,13 @@ if [[ ! $(which $MPIRUN) ]]; then
   exit 1
 fi
 echo "--- Running MPI with $MPIRUN." | tee -a $LOG
+
+if [[ ! -d $CONFDIR ]]; then
+    mkdir $CONFDIR
+fi
+if [[ ! -d $OUTDIR ]]; then
+    mkdir $OUTDIR
+fi
 
 NPROCS=8  # need to change epuscript too!
 RUNTUSAS="$MPIRUN -n $NPROCS $TUSAS --kokkos-num-threads=1"

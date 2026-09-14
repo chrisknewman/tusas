@@ -39,6 +39,13 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
+  const double deta_dx_mms(const double x, const double t)
+  {
+    const double eta = eta_mms(x, t);
+    return (2 / (epsilon * std::sqrt(2))) * eta * (1 - eta);
+  }
+
+  KOKKOS_INLINE_FUNCTION
   const double mobility(const double unused) {
     return pdes::kks::M;
   } 
@@ -132,6 +139,12 @@ namespace mansoln
   DBC_FUNC(dbc)
   {
     return eta_mms(x, t);
+  }
+
+  NBC_FUNC_TPETRA(nbc)
+  {
+    const double x = basis[0].xx();
+    return deta_dx_mms(x, time);
   }
 
   PPR_FUNC(postproc_exact_soln)

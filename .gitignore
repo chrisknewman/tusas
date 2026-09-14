@@ -15,6 +15,7 @@ Test/*/results.e
 Test/*/input-ldbl
 Test/*/nem_spread.inp
 Test/*/pp*.dat
+Test/*/rms*.dat
 Test/*/vtip.dat
 Test/*/core
 Test/*/temp*.dat

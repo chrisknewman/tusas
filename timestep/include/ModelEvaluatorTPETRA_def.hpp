@@ -3003,7 +3003,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &tpetra::pfhub2::param_trans_;
     paramfunc_[2] = &tpetra::pfhub2::param_;
 
-  }else if("mms-constmu-dirichlet" == paramList.get<std::string> (TusastestNameString)){
+  }else if("mms-eta-constmu-dirichlet" == paramList.get<std::string> (TusastestNameString)){
     const double eta_id = 0;
 
     Teuchos::ParameterList *problemList;
@@ -3037,6 +3037,41 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*dirichletfunc_)[0][3] = &cases::mansoln::dbc;
 
     neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(mesh_, (int)0));
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln;
+    post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
+                                         false, eta_id, "rms", 16));
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact;
+
+    paramfunc_.resize(2);
+    paramfunc_[0] = &cases::mansoln::param;
+    paramfunc_[1] = &cases::mansoln::param_freeenergy_parabolic;
+
+  }else if("mms-eta-constmu-neumann" == paramList.get<std::string> (TusastestNameString)){
+    const double eta_id = 0;
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = cases::mansoln::residual_eta_constmu_dp;
+
+    preconfunc_ = NULL;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cases::mansoln::init_eta;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "eta";
+
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    (*neumannfunc_)[0][1] = &cases::mansoln::nbc;
+    (*neumannfunc_)[0][3] = &cases::mansoln::nbc;
 
     post_proc.push_back(new post_process(mesh_, (int)0));
     post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln;

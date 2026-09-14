@@ -21,8 +21,10 @@ DTS='1e-1
      125e-4
      625e-5
      3125e-6'
-THETAS='1'
-BCS='dirichlet'
+THETAS='1.0
+        0.5'
+BCS='dirichlet
+     neumann'
 #### END user configurable variables
 
 

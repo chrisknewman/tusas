@@ -5,7 +5,7 @@
   <Parameter name="dt" type="double" value="$DT"/>
   <Parameter name="nt" type="int" value = "$NT"/>
   <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_$MESH.e"/>
-  <Parameter name="testcase" type="string" value="mms-constmu-$BC"/>
+  <Parameter name="testcase" type="string" value="mms-eta-constmu-$BC"/>
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="preconditioner" type="bool" value="false"/>
   <Parameter name="theta" type="double" value="$THETA"/>
@@ -33,7 +33,7 @@
     <Parameter name="epsilon" type="double" value=".4"/>
 
     <Parameter name="L" type="double" value="2."/>
-    <Parameter name="w" type="double" value="12."/>
+    <Parameter name="w" type="double" value="14."/>
     <Parameter name="k_eta" type="double" value="1.92"/>
   </ParameterList>
 

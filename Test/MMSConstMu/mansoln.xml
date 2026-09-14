@@ -5,7 +5,7 @@
   <Parameter name="dt" type="double" value="0.1"/>
   <Parameter name="nt" type="int" value = "800"/>
   <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_1x300.e"/>
-  <Parameter name="testcase" type="string" value="mansoln-constmu-dirichlet"/>
+  <Parameter name="testcase" type="string" value="mms-eta-constmu-dirichlet"/>
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="preconditioner" type="bool" value="false"/>
   <Parameter name="theta" type="double" value=".5"/>
@@ -33,7 +33,7 @@
     <Parameter name="epsilon" type="double" value=".4"/>
 
     <Parameter name="L" type="double" value="2."/>
-    <Parameter name="w" type="double" value="12."/>
+    <Parameter name="w" type="double" value="10."/>
     <Parameter name="k_eta" type="double" value="1.92"/>
   </ParameterList>
 

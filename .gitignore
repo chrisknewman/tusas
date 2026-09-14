@@ -21,6 +21,7 @@ Test/*/core
 Test/*/temp*.dat
 Test/*/out*/
 Test/*/*.txt
+Test/*/config*
 
 # ignore tmp files
 *.swp

@@ -114,11 +114,20 @@ namespace mansoln
   PARAM_FUNC(param)
   {
     pdes::kks::param(plist);
-    pdes::kks::eta_start_idx = 0;
 
     x_offset = plist->get<double>("x_offset", x_offset);
     epsilon = plist->get<double>("epsilon", epsilon);
     v = plist->get<double>("v", v);
+  }
+
+  PARAM_FUNC(param_eta_constmu)
+  {
+    pdes::kks::eta_start_idx = 0;
+  }
+
+  PARAM_FUNC(param_c_constmu)
+  {
+    pdes::kks::c_start_idx = 0;
   }
 
   PARAM_FUNC(param_freeenergy_parabolic)
@@ -250,7 +259,7 @@ namespace mansoln
                     + dh_deta(eta[tdx]) * d4eta_dx4[tdx]
                   );
 
-        source[tdx] = -(dc_dt + M * k_c * d4c_dx4);
+        source[tdx] = -(dc_dt + M * k_c * d4c_dx4) * phi;
     }  // for tdx = 0, Nt
 
     // time derivative entry is zero here because it will be added to the residual

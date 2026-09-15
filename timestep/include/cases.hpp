@@ -177,7 +177,7 @@ namespace mansoln
                 );
 
       source[tdx] = (deta_dt - double_well - df_deta) * phi;
-    }
+    }  // for tdx = 0, Nt
 
     // time derivative entry is zero here because it will be added to the residual
     // by pde_eta()
@@ -187,7 +187,75 @@ namespace mansoln
   KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(source_c_constmu)
   {
-    return 0;
+    const int Nt_max = pdes::kks::Nt_max;
+    const int Neta_max = pdes::kks::Neta_max;
+    const int Neta = pdes::kks::Neta;
+    const int c_start_idx = pdes::kks::c_start_idx;
+
+    const double M = pdes::kks::M;
+    const double k_c = pdes::kks::k_eta;
+
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+  
+    const double (*h)(const double *) = pdes::freeenergyinterp::h;
+    const double (*dh_deta)(const double) = pdes::freeenergyinterp::dh_deta;
+    const double (*d2h_deta2)(const double) = pdes::freeenergyinterp::d2h_deta2;
+    const double (*d3h_deta3)(const double) = pdes::freeenergyinterp::d3h_deta3;
+    const double (*d4h_deta4)(const double) = pdes::freeenergyinterp::d4h_deta4;
+
+    const int Nt = 3;
+    const int local_id = eqn_id - c_start_idx;
+
+    const double phi = basis[0]->phi(i);
+    const double x = basis[0]->xx();
+
+    double eta[Nt_max];
+    eta[0] = eta_mms(x, time + dt_);
+    eta[1] = eta_mms(x, time);
+    eta[2] = eta_mms(x, time - dtold_);
+
+    double deta_dx[Nt_max];
+    eta[0] = deta_dx_mms(x, time + dt_);
+    eta[1] = deta_dx_mms(x, time);
+    eta[2] = deta_dx_mms(x, time - dtold_);
+    
+    double d2eta_dx2[Nt_max];
+    eta[0] = d2eta_dx2_mms(x, time + dt_);
+    eta[1] = d2eta_dx2_mms(x, time);
+    eta[2] = d2eta_dx2_mms(x, time - dtold_);
+
+    double d3eta_dx3[Nt_max];
+    eta[0] = d3eta_dx3_mms(x, time + dt_);
+    eta[1] = d3eta_dx3_mms(x, time);
+    eta[2] = d3eta_dx3_mms(x, time - dtold_);
+    
+    double d4eta_dx4[Nt_max];
+    eta[0] = d4eta_dx4_mms(x, time + dt_);
+    eta[1] = d4eta_dx4_mms(x, time);
+    eta[2] = d4eta_dx4_mms(x, time - dtold_);
+
+    double dc_dt, d4c_dx4;
+    double source[Nt_max];
+
+    for (int tdx = 0; tdx < Nt; ++tdx) {
+        dc_dt = (ca - cb) * dh_deta(eta[tdx]) 
+                  * ((2 * v) / (epsilon * std::sqrt(2))) 
+                  * eta[tdx] * (1 - eta[tdx]);;
+
+        d4c_dx4 = (ca - cb) * (
+                    d4h_deta4(eta[tdx]) * deta_dx[tdx]
+                    + 3 * d3h_deta3(eta[tdx]) * d2eta_dx2[tdx] 
+                    + 3 * d2h_deta2(eta[tdx]) * d3eta_dx3[tdx]
+                    + dh_deta(eta[tdx]) * d4eta_dx4[tdx]
+                  );
+
+        source[tdx] = -(dc_dt + M * k_c * d4c_dx4);
+    }  // for tdx = 0, Nt
+
+    // time derivative entry is zero here because it will be added to the residual
+    // by pde_c()
+    return tools::utils::ret_value(0., source, dt_, dtold_, t_theta_, t_theta2_);
   }
   
   KOKKOS_INLINE_FUNCTION

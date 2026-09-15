@@ -678,35 +678,22 @@ namespace kks
     const int Nt = 3 - kks_tdx_lag;
     const int local_id = eqn_id - c_start_idx;
 
-    // test function
     const double phi = basis[0]->phi(i);
     Grad grad_phi;
     grad_phi.dx = basis[0]->dphidx(i);
     grad_phi.dy = basis[0]->dphidy(i);
     grad_phi.dz = basis[0]->dphidz(i);
 
-    // populate c viewed as a "matrix"
-    //   c[time_idx, c_idx]
-    // but really a 1D array that
-    // we can index this using
-    //   utils::idx(time_idx, c_idx, Nc_max)
     double c[Nt_max * Nc_max];
     Grad grad_c[Nt_max * Nc_max];
     tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
     tools::utils::get_graduu(grad_c, Nc, Nc_max, c_start_idx, basis);
 
-    // populate eta viewed as a "matrix"
-    //   eta[time_idx, eta_idx]
-    // but really a 1D array that
-    // we can index this using
-    //   utils::idx(time_idx, eta_idx, Neta_max)
     double eta[Nt_max * Neta_max];
     Grad grad_eta[Nt_max * Neta_max];
     tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
     tools::utils::get_graduu(grad_eta, Neta, Neta_max, eta_start_idx, basis);
 
-    // define all the variables we need to calculate 
-    // the residual = Mdivgrad_df_dc
     double hh, ca, cb, d2f_dc2;
     Grad grad_h, grad_df_dc;
     double Mdivgrad_df_dc[Nt_max];
@@ -719,12 +706,12 @@ namespace kks
       hh = fe.h(&eta[(tdx + kks_tdx_lag) * Neta_max]);
       ca = fe.c1a_0;
       cb = fe.c1b_0;
-      idx = tools::utils::idx(tdx + kks_tdx_lag, local_id, Nc_max);
+      /*idx = tools::utils::idx(tdx + kks_tdx_lag, local_id, Nc_max);
       tools::solvers::solve_kks(c[idx], hh, ca, cb,
                                 fe.dfa_dca,
                                 fe.dfb_dcb,
                                 fe.d2fa_dca2,
-                                fe.d2fb_dcb2);
+                                fe.d2fb_dcb2);*/
 
       // calculate d2f_dc2 using KKS eq 29 
       d2f_dc2 = fe.d2f_dc2(hh, ca, cb);
@@ -736,10 +723,6 @@ namespace kks
         grad_h += fe.dh_deta(eta[idx]) * grad_eta[idx];
       }
 
-      // calculating grad(f_c) based on KKS eq 33, assuming M = D / f_cc
-      // this also follows from eq 30 and the chain rule
-      //   grad(f_c) = f_cc * h' * (cb - ca) * grad(eta) + f_cc * grad(c) 
-      //             = f_cc * (cb - ca) * grad(h) + f_cc * grad(c) 
       idx = tools::utils::idx(tdx, local_id, Nc_max);
       grad_df_dc = d2f_dc2 * (cb - ca) * grad_h + d2f_dc2 * grad_c[idx]; 
 

@@ -185,6 +185,24 @@ namespace freeenergyinterp
     return eta * eta * ((30. * eta - 60.) * eta + 30.);
   }
 
+  KOKKOS_INLINE_FUNCTION
+  const double d2h_deta2(const double eta)
+  {
+    return 120. * std::pow(eta, 3) - 180. * std::pow(eta, 2) + 60. * eta;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double d3h_deta3(const double eta)
+  {
+    return 360. * std::pow(eta, 2) - 360. * eta + 60.;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double d4h_deta4(const double eta)
+  {
+    return 720. * eta - 360.;
+  }
+
   KOKKOS_INLINE_FUNCTION 
   const double dg_deta(const double *eta, const int eqn_id)
   {
@@ -646,6 +664,97 @@ namespace kks
     return lag_kks ?
       tools::utils::ret_value(deta_dt, f, t_theta_) :
       tools::utils::ret_value(deta_dt, f, dt_, dtold_, t_theta_, t_theta2_);
+  }
+
+  /*
+   * TODO: remove this -- this is only temporary while we work on
+   * the manufacture solution test case
+   * residual for c equations (non-split) using the kks model
+   */
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(pde_c_nokks, const double mobility(const double hh), const bool lag_kks=false)
+  {
+    const int kks_tdx_lag = lag_kks ? 1 : 0;
+    const int Nt = 3 - kks_tdx_lag;
+    const int local_id = eqn_id - c_start_idx;
+
+    // test function
+    const double phi = basis[0]->phi(i);
+    Grad grad_phi;
+    grad_phi.dx = basis[0]->dphidx(i);
+    grad_phi.dy = basis[0]->dphidy(i);
+    grad_phi.dz = basis[0]->dphidz(i);
+
+    // populate c viewed as a "matrix"
+    //   c[time_idx, c_idx]
+    // but really a 1D array that
+    // we can index this using
+    //   utils::idx(time_idx, c_idx, Nc_max)
+    double c[Nt_max * Nc_max];
+    Grad grad_c[Nt_max * Nc_max];
+    tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
+    tools::utils::get_graduu(grad_c, Nc, Nc_max, c_start_idx, basis);
+
+    // populate eta viewed as a "matrix"
+    //   eta[time_idx, eta_idx]
+    // but really a 1D array that
+    // we can index this using
+    //   utils::idx(time_idx, eta_idx, Neta_max)
+    double eta[Nt_max * Neta_max];
+    Grad grad_eta[Nt_max * Neta_max];
+    tools::utils::get_uu(eta, Neta, Neta_max, eta_start_idx, basis);
+    tools::utils::get_graduu(grad_eta, Neta, Neta_max, eta_start_idx, basis);
+
+    // define all the variables we need to calculate 
+    // the residual = Mdivgrad_df_dc
+    double hh, ca, cb, d2f_dc2;
+    Grad grad_h, grad_df_dc;
+    double Mdivgrad_df_dc[Nt_max];
+
+    // loop over each time level that we need data at
+    int idx = 0;
+    for (int tdx = 0; tdx < Nt; ++tdx) {
+      // do the kks solve to get ca and cb
+      // for the current component c_{eqn_id}
+      hh = fe.h(&eta[(tdx + kks_tdx_lag) * Neta_max]);
+      ca = fe.c1a_0;
+      cb = fe.c1b_0;
+      idx = tools::utils::idx(tdx + kks_tdx_lag, local_id, Nc_max);
+      tools::solvers::solve_kks(c[idx], hh, ca, cb,
+                                fe.dfa_dca,
+                                fe.dfb_dcb,
+                                fe.d2fa_dca2,
+                                fe.d2fb_dcb2);
+
+      // calculate d2f_dc2 using KKS eq 29 
+      d2f_dc2 = fe.d2f_dc2(hh, ca, cb);
+
+      // calculate grad h
+      grad_h.dx = 0.; grad_h.dy = 0.; grad_h.dz = 0.; 
+      for (int k = 0; k < Neta ; ++k) {
+        idx = tools::utils::idx(tdx, k, Neta_max);
+        grad_h += fe.dh_deta(eta[idx]) * grad_eta[idx];
+      }
+
+      // calculating grad(f_c) based on KKS eq 33, assuming M = D / f_cc
+      // this also follows from eq 30 and the chain rule
+      //   grad(f_c) = f_cc * h' * (cb - ca) * grad(eta) + f_cc * grad(c) 
+      //             = f_cc * (cb - ca) * grad(h) + f_cc * grad(c) 
+      idx = tools::utils::idx(tdx, local_id, Nc_max);
+      grad_df_dc = d2f_dc2 * (cb - ca) * grad_h + d2f_dc2 * grad_c[idx]; 
+
+      // finally, calculate M * div(grad(f_c))
+      hh = fe.h(&eta[tdx * Neta_max]);
+      Mdivgrad_df_dc[tdx] = mobility(hh) * grad_df_dc * grad_phi;
+    }  // tdx = 0, < Nt loop
+
+    idx = tools::utils::idx(0, local_id, Nc_max);
+    const int idxold = tools::utils::idx(1, local_id, Nc_max);
+    const double dc_dt = (c[idx] - c[idxold]) / dt_ * phi;
+
+    return lag_kks ? 
+      tools::utils::ret_value(dc_dt, Mdivgrad_df_dc, t_theta_) :
+      tools::utils::ret_value(dc_dt, Mdivgrad_df_dc, dt_, dtold_, t_theta_, t_theta2_);
   }
 
   /*

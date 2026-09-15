@@ -3033,16 +3033,16 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     //   2 = top
     //   3 = left
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
-    (*dirichletfunc_)[0][1] = &cases::mansoln::dbc;
-    (*dirichletfunc_)[0][3] = &cases::mansoln::dbc;
+    (*dirichletfunc_)[0][1] = &cases::mansoln::dbc_eta;
+    (*dirichletfunc_)[0][3] = &cases::mansoln::dbc_eta;
 
     neumannfunc_ = NULL;
 
     post_proc.push_back(new post_process(mesh_, (int)0));
-    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln;
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
     post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
                                          false, eta_id, "rms", 16));
-    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact;
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
 
     paramfunc_.resize(2);
     paramfunc_[0] = &cases::mansoln::param;
@@ -3070,14 +3070,49 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
 
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
-    (*neumannfunc_)[0][1] = &cases::mansoln::nbc;
-    (*neumannfunc_)[0][3] = &cases::mansoln::nbc;
+    (*neumannfunc_)[0][1] = &cases::mansoln::nbc_eta;
+    (*neumannfunc_)[0][3] = &cases::mansoln::nbc_eta;
 
     post_proc.push_back(new post_process(mesh_, (int)0));
-    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln;
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
     post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
                                          false, eta_id, "rms", 16));
-    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact;
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
+
+    paramfunc_.resize(2);
+    paramfunc_[0] = &cases::mansoln::param;
+    paramfunc_[1] = &cases::mansoln::param_freeenergy_parabolic;
+
+  }else if("mms-c-constmu-dirichlet" == paramList.get<std::string> (TusastestNameString)){
+    const double c_id = 0;
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = cases::mansoln::residual_c_constmu_dp;
+
+    preconfunc_ = NULL;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cases::mansoln::init_c_constmu;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "c";
+
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    (*dirichletfunc_)[0][1] = &cases::mansoln::dbc_c_constmu;
+    (*dirichletfunc_)[0][3] = &cases::mansoln::dbc_c_constmu;
+
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(mesh_, (int)0));
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_c_constmu;
+    post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
+                                         false, c_id, "rms", 16));
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_c_constmu;
 
     paramfunc_.resize(2);
     paramfunc_[0] = &cases::mansoln::param;

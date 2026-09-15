@@ -46,6 +46,60 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
+  const double d2eta_dx2_mms(const double x, const double t)
+  {
+    const double eta = eta_mms(x, t);
+    return (2. / std::pow(epsilon, 2)) * (2. * std::pow(eta, 3) 
+                                          - 3. * std::pow(eta, 2)
+                                          + eta); 
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double d3eta_dx3_mms(const double x, const double t)
+  {
+    const double eta = eta_mms(x, t);
+    return (4. / (std::pow(epsilon, 3) * std::sqrt(2.))) * (-6. * std::pow(eta, 4)
+                                                            + 12. * std::pow(eta, 3)
+                                                            - 7. * std::pow(eta, 2)
+                                                            + eta);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double d4eta_dx4_mms(const double x, const double t)
+  {
+    const double eta = eta_mms(x, t);
+    return (4. / std::pow(epsilon, 4)) * eta * (1. - eta) * (-24. * std::pow(eta, 3) 
+                                                             + 36. * std::pow(eta, 2)
+                                                             -14. * eta
+                                                             + 1.); 
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double c_mms_constmu(const double x, const double t)
+  {
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const double eta = eta_mms(x, t);
+    const double hh = pdes::kks::fe.h(&eta);
+
+    return hh * ca + (1. - hh) * cb;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double dc_dx_mms_constmu(const double x, const double t)
+  {
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const double eta = eta_mms(x, t);
+    const double deta_dx = deta_dx_mms(x, t);
+    const double dh_deta = pdes::kks::fe.dh_deta(eta);
+
+    return (ca - cb) * dh_deta * deta_dx;
+  }
+
+  KOKKOS_INLINE_FUNCTION
   const double mobility(const double unused) {
     return pdes::kks::M;
   } 
@@ -77,6 +131,12 @@ namespace mansoln
   {
     return eta_mms(x, 0.);
   }
+
+  INI_FUNC(init_c_constmu)
+  {
+    return c_mms_constmu(x, 0.);
+  }
+
 
   KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(source_eta_constmu)
@@ -125,6 +185,12 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(source_c_constmu)
+  {
+    return 0;
+  }
+  
+  KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_eta_constmu)
   {
     return pdes::kks::pde_eta_nokks(basis, i, dt_, dtold_,
@@ -136,29 +202,63 @@ namespace mansoln
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_eta_constmu_dp)) = residual_eta_constmu;
 
-  DBC_FUNC(dbc)
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_c_constmu)
+  {
+    return pdes::kks::pde_c_nokks(basis, i, dt_, dtold_,
+                                  t_theta_, t_theta2_, time, eqn_id,
+                                  vol, rand, mobility) +
+           source_c_constmu(basis, i, dt_, dtold_, 
+                            t_theta_, t_theta2_, time, eqn_id,
+                            vol, rand);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_constmu_dp)) = residual_c_constmu;
+
+  DBC_FUNC(dbc_eta)
   {
     return eta_mms(x, t);
   }
 
-  NBC_FUNC_TPETRA(nbc)
+  NBC_FUNC_TPETRA(nbc_eta)
   {
     const double x = basis[0].xx();
     return deta_dx_mms(x, time);
   }
 
-  PPR_FUNC(postproc_exact_soln)
+  DBC_FUNC(dbc_c_constmu)
+  {
+    return c_mms_constmu(x, t);
+  }
+
+  NBC_FUNC_TPETRA(nbc_c_constmu)
+  {
+    const double x = basis[0].xx();
+    return dc_dx_mms_constmu(x, time);
+  }
+
+  PPR_FUNC(postproc_exact_soln_eta)
   {
     const double x = xyz[0];
     return eta_mms(x, time);
   }
+  
+  PPR_FUNC(postproc_exact_soln_c_constmu)
+  {
+    const double x = xyz[0];
+    return c_mms_constmu(x, time);
+  }
 
-  PPR_FUNC(postproc_diff_vs_exact)
+  PPR_FUNC(postproc_diff_vs_exact_eta)
   {
     const double x = xyz[0];
     return eta_mms(x, time) - u[0];
   }
 
+  PPR_FUNC(postproc_diff_vs_exact_c_constmu)
+  {
+    const double x = xyz[0];
+    return c_mms_constmu(x, time) - u[0];
+  }
 
 }
 

@@ -100,6 +100,82 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
+  const double d2c_dx2_mms_constmu(const double x, const double t)
+  {
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const double eta = eta_mms(x, t);
+    const double deta_dx = deta_dx_mms(x, t);
+    const double d2eta_dx2 = d2eta_dx2_mms(x, t);
+
+    const double dh_deta = pdes::freeenergyinterp::dh_deta(eta);
+    const double d2h_deta2 = pdes::freeenergyinterp::d2h_deta2(eta);
+
+    return (ca - cb) * (d2h_deta2 * deta_dx + dh_deta * d2eta_dx2);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double d3c_dx3_mms_constmu(const double x, const double t)
+  {
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const double eta = eta_mms(x, t);
+    const double deta_dx = deta_dx_mms(x, t);
+    const double d2eta_dx2 = d2eta_dx2_mms(x, t);
+    const double d3eta_dx3 = d3eta_dx3_mms(x, t);
+
+    const double dh_deta = pdes::freeenergyinterp::dh_deta(eta);
+    const double d2h_deta2 = pdes::freeenergyinterp::d2h_deta2(eta);
+    const double d3h_deta3 = pdes::freeenergyinterp::d3h_deta3(eta);
+
+    return (ca - cb) * (d3h_deta3 * deta_dx
+                        + 2 * d2h_deta2 * d2eta_dx2
+                        + dh_deta * d3eta_dx3);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  const double d4c_dx4_mms_constmu(const double x, const double t)
+  {
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const double eta = eta_mms(x, t);
+    const double deta_dx = deta_dx_mms(x, t);
+    const double d2eta_dx2 = d2eta_dx2_mms(x, t);
+    const double d3eta_dx3 = d3eta_dx3_mms(x, t);
+    const double d4eta_dx4 = d4eta_dx4_mms(x, t);
+
+    const double dh_deta = pdes::freeenergyinterp::dh_deta(eta);
+    const double d2h_deta2 = pdes::freeenergyinterp::d2h_deta2(eta);
+    const double d3h_deta3 = pdes::freeenergyinterp::d3h_deta3(eta);
+    const double d4h_deta4 = pdes::freeenergyinterp::d4h_deta4(eta);
+
+    return (ca - cb) * (d4h_deta4 * deta_dx
+                        + 3 * d3h_deta3 * d2eta_dx2
+                        + 3 * d2h_deta2 * d3eta_dx3
+                        + dh_deta * d4eta_dx4);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double mu_mms_constmu(const double x, const double t)
+  {
+    const double k_c = pdes::kks::k_c;
+    const double ca = pdes::kks::fe.c1a_0;
+
+    return pdes::kks::fe.dfa_dca(ca) - k_c * d2c_dx2_mms_constmu(x, t);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double dmu_dx_mms_constmu(const double x, const double t)
+  {
+    const double k_c = pdes::kks::k_c;
+
+    return -k_c * d3c_dx3_mms_constmu(x, t);
+  }
+
+  KOKKOS_INLINE_FUNCTION
   const double mobility(const double unused) {
     return pdes::kks::M;
   } 
@@ -125,9 +201,11 @@ namespace mansoln
     pdes::kks::eta_start_idx = 0;
   }
 
-  PARAM_FUNC(param_c_constmu)
+  PARAM_FUNC(param_coupled_constmu)
   {
-    pdes::kks::c_start_idx = 0;
+    pdes::kks::eta_start_idx = 0;
+    pdes::kks::c_start_idx = 1;
+    pdes::kks::mu_start_idx = 2;
   }
 
   PARAM_FUNC(param_freeenergy_parabolic)
@@ -145,7 +223,11 @@ namespace mansoln
   {
     return c_mms_constmu(x, 0.);
   }
-
+  
+  INI_FUNC(init_mu_constmu)
+  {
+    return mu_mms_constmu(x, 0.);
+  }
 
   KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(source_eta_constmu)
@@ -282,7 +364,7 @@ namespace mansoln
   KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_c_constmu)
   {
-    return pdes::kks::pde_c_nokks(basis, i, dt_, dtold_,
+    return pdes::kks::pde_c_split(basis, i, dt_, dtold_,
                                   t_theta_, t_theta2_, time, eqn_id,
                                   vol, rand, mobility) +
            source_c_constmu(basis, i, dt_, dtold_, 
@@ -290,6 +372,15 @@ namespace mansoln
                             vol, rand);
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_constmu_dp)) = residual_c_constmu;
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_mu_constmu)
+  {
+    return pdes::kks::pde_mu(basis, i, dt_, dtold_,
+                             t_theta_, t_theta2_, time, eqn_id,
+                             vol, rand);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_constmu_dp)) = residual_mu_constmu;
 
   DBC_FUNC(dbc_eta)
   {
@@ -311,6 +402,17 @@ namespace mansoln
   {
     const double x = basis[0].xx();
     return dc_dx_mms_constmu(x, time);
+  }
+
+  DBC_FUNC(dbc_mu_constmu)
+  {
+    return mu_mms_constmu(x, t);
+  }
+
+  NBC_FUNC_TPETRA(nbc_mu_constmu)
+  {
+    const double x = basis[0].xx();
+    return dmu_dx_mms_constmu(x, time);
   }
 
   PPR_FUNC(postproc_exact_soln_eta)

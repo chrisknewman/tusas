@@ -3004,6 +3004,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[2] = &tpetra::pfhub2::param_;
 
   }else if("mms-eta-constmu-dirichlet" == paramList.get<std::string> (TusastestNameString)){
+    /* TODO: need to change all references to constmu here and
+     * elsewhere to const_cacb or something
+     */
     const double eta_id = 0;
 
     Teuchos::ParameterList *problemList;

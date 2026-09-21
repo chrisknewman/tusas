@@ -570,8 +570,8 @@ namespace kks
     grad_phi.dy = basis[0]->dphidy(i);
     grad_phi.dz = basis[0]->dphidz(i);
 
-    double c[Nt_max * Nc_max];
-    tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
+    //double c[Nt_max * Nc_max];
+    //tools::utils::get_uu(c, Nc, Nc_max, c_start_idx, basis);
 
     double eta[Nt_max * Neta_max];
     Grad grad_eta[Nt_max * Neta_max];

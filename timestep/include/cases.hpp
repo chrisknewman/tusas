@@ -284,7 +284,7 @@ namespace mansoln
     const int c_start_idx = pdes::kks::c_start_idx;
 
     const double M = pdes::kks::M;
-    const double k_c = pdes::kks::k_eta;
+    const double k_c = pdes::kks::k_c;
 
     const double ca = pdes::kks::fe.c1a_0;
     const double cb = pdes::kks::fe.c1b_0;
@@ -376,9 +376,9 @@ namespace mansoln
   KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_mu_constmu)
   {
-    return pdes::kks::pde_mu(basis, i, dt_, dtold_,
-                             t_theta_, t_theta2_, time, eqn_id,
-                             vol, rand);
+    return pdes::kks::pde_mu_nokks(basis, i, dt_, dtold_,
+                                   t_theta_, t_theta2_, time, eqn_id,
+                                   vol, rand);
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_constmu_dp)) = residual_mu_constmu;
 
@@ -430,13 +430,13 @@ namespace mansoln
   PPR_FUNC(postproc_diff_vs_exact_eta)
   {
     const double x = xyz[0];
-    return eta_mms(x, time) - u[0];
+    return eta_mms(x, time) - u[pdes::kks::eta_start_idx];
   }
 
   PPR_FUNC(postproc_diff_vs_exact_c_constmu)
   {
     const double x = xyz[0];
-    return c_mms_constmu(x, time) - u[0];
+    return c_mms_constmu(x, time) - u[pdes::kks::c_start_idx];
   }
 
 }

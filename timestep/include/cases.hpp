@@ -279,9 +279,9 @@ namespace mansoln
   RES_FUNC_TPETRA(source_c_constmu)
   {
     const int Nt_max = pdes::kks::Nt_max;
-    const int Neta_max = pdes::kks::Neta_max;
-    const int Neta = pdes::kks::Neta;
-    const int c_start_idx = pdes::kks::c_start_idx;
+    //const int Neta_max = pdes::kks::Neta_max;
+    //const int Neta = pdes::kks::Neta;
+    //const int c_start_idx = pdes::kks::c_start_idx;
 
     const double M = pdes::kks::M;
     const double k_c = pdes::kks::k_c;
@@ -296,7 +296,7 @@ namespace mansoln
     const double (*d4h_deta4)(const double) = pdes::freeenergyinterp::d4h_deta4;
 
     const int Nt = 3;
-    const int local_id = eqn_id - c_start_idx;
+    //const int local_id = eqn_id - c_start_idx;
 
     const double phi = basis[0]->phi(i);
     const double x = basis[0]->xx();
@@ -307,24 +307,24 @@ namespace mansoln
     eta[2] = eta_mms(x, time - dtold_);
 
     double deta_dx[Nt_max];
-    eta[0] = deta_dx_mms(x, time + dt_);
-    eta[1] = deta_dx_mms(x, time);
-    eta[2] = deta_dx_mms(x, time - dtold_);
+    deta_dx[0] = deta_dx_mms(x, time + dt_);
+    deta_dx[1] = deta_dx_mms(x, time);
+    deta_dx[2] = deta_dx_mms(x, time - dtold_);
     
     double d2eta_dx2[Nt_max];
-    eta[0] = d2eta_dx2_mms(x, time + dt_);
-    eta[1] = d2eta_dx2_mms(x, time);
-    eta[2] = d2eta_dx2_mms(x, time - dtold_);
+    d2eta_dx2[0] = d2eta_dx2_mms(x, time + dt_);
+    d2eta_dx2[1] = d2eta_dx2_mms(x, time);
+    d2eta_dx2[2] = d2eta_dx2_mms(x, time - dtold_);
 
     double d3eta_dx3[Nt_max];
-    eta[0] = d3eta_dx3_mms(x, time + dt_);
-    eta[1] = d3eta_dx3_mms(x, time);
-    eta[2] = d3eta_dx3_mms(x, time - dtold_);
+    d3eta_dx3[0] = d3eta_dx3_mms(x, time + dt_);
+    d3eta_dx3[1] = d3eta_dx3_mms(x, time);
+    d3eta_dx3[2] = d3eta_dx3_mms(x, time - dtold_);
     
     double d4eta_dx4[Nt_max];
-    eta[0] = d4eta_dx4_mms(x, time + dt_);
-    eta[1] = d4eta_dx4_mms(x, time);
-    eta[2] = d4eta_dx4_mms(x, time - dtold_);
+    d4eta_dx4[0] = d4eta_dx4_mms(x, time + dt_);
+    d4eta_dx4[1] = d4eta_dx4_mms(x, time);
+    d4eta_dx4[2] = d4eta_dx4_mms(x, time - dtold_);
 
     double dc_dt, d4c_dx4;
     double source[Nt_max];

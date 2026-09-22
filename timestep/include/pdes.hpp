@@ -583,7 +583,7 @@ namespace kks
 
     int idx = 0;
     for (int tdx = 0; tdx < Nt; ++tdx) {
-      hh = fe.h(&eta[(tdx + kks_tdx_lag) * Neta_max]);
+      //hh = fe.h(&eta[(tdx + kks_tdx_lag) * Neta_max]);
       ca = fe.c1a_0;
       cb = fe.c1b_0;
       /*idx = tools::utils::idx(tdx + kks_tdx_lag, local_id, Nc_max);

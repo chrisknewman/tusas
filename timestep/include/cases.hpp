@@ -112,9 +112,9 @@ namespace mansoln
     const double dh_deta = pdes::freeenergyinterp::dh_deta(eta);
     const double d2h_deta2 = pdes::freeenergyinterp::d2h_deta2(eta);
 
-    return (ca - cb) * (d2h_deta2 * deta_dx + dh_deta * d2eta_dx2);
+    return (ca - cb) * (d2h_deta2 * std::pow(deta_dx, 2) + dh_deta * d2eta_dx2);
   }
-
+  
   KOKKOS_INLINE_FUNCTION
   const double d3c_dx3_mms_constmu(const double x, const double t)
   {
@@ -130,11 +130,11 @@ namespace mansoln
     const double d2h_deta2 = pdes::freeenergyinterp::d2h_deta2(eta);
     const double d3h_deta3 = pdes::freeenergyinterp::d3h_deta3(eta);
 
-    return (ca - cb) * (d3h_deta3 * deta_dx
-                        + 2 * d2h_deta2 * d2eta_dx2
+    return (ca - cb) * (d3h_deta3 * std::pow(deta_dx, 3)
+                        + 3 * d2h_deta2 * deta_dx * d2eta_dx2
                         + dh_deta * d3eta_dx3);
   }
-  
+
   KOKKOS_INLINE_FUNCTION
   const double d4c_dx4_mms_constmu(const double x, const double t)
   {
@@ -152,9 +152,10 @@ namespace mansoln
     const double d3h_deta3 = pdes::freeenergyinterp::d3h_deta3(eta);
     const double d4h_deta4 = pdes::freeenergyinterp::d4h_deta4(eta);
 
-    return (ca - cb) * (d4h_deta4 * deta_dx
-                        + 3 * d3h_deta3 * d2eta_dx2
-                        + 3 * d2h_deta2 * d3eta_dx3
+    return (ca - cb) * (d4h_deta4 * std::pow(deta_dx, 4)
+                        + 6 * d3h_deta3 * std::pow(deta_dx, 2) * d2eta_dx2
+                        + 4 * d2h_deta2 * deta_dx * d3eta_dx3 
+                        + d2h_deta2 * std::pow(d2eta_dx2, 2)
                         + dh_deta * d4eta_dx4);
   }
 

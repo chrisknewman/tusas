@@ -3,11 +3,11 @@
   <!-- simulation parameters -->
 
   <Parameter name="dt" type="double" value="0.1"/>
-  <Parameter name="nt" type="int" value = "20"/>
+  <Parameter name="nt" type="int" value = "80"/>
   <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_1x300.e"/>
   <Parameter name="testcase" type="string" value="mms-coupled-constcab-dirichlet"/>
   <Parameter name="method" type="string" value="tpetra"/>
-  <Parameter name="preconditioner" type="bool" value="false"/>
+  <Parameter name="preconditioner" type="bool" value="true"/>
   <Parameter name="theta" type="double" value=".5"/>
 
   <Parameter name="noxrelres" type="double" value="1.e-11"/>

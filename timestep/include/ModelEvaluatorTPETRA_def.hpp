@@ -3041,7 +3041,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(mesh_, (int)0));
     post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
     post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
-                                         false, eta_id, "rms", 16));
+                                         false, eta_id, "eta_rms", 16));
     post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
 
     paramfunc_.resize(3);
@@ -3077,7 +3077,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc.push_back(new post_process(mesh_, (int)0));
     post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
     post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
-                                         false, eta_id, "rms", 16));
+                                         false, eta_id, "eta_rms", 16));
     post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
 
     paramfunc_.resize(3);
@@ -3129,21 +3129,21 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
     
     post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
-                                         false, eta_id, "rms", 16));
+                                         false, eta_id, "eta_rms", 16));
     post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
     
     post_proc.push_back(new post_process(mesh_, (int)2));
     post_proc[2].postprocfunc_ = &cases::mansoln::postproc_exact_soln_c_constcab;
     
     post_proc.push_back(new post_process(mesh_, (int)3, post_process::NORM2,
-                                         false, c_id, "rms", 16));
+                                         false, c_id, "c_rms", 16));
     post_proc[3].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_c_constcab;
 
     post_proc.push_back(new post_process(mesh_, (int)4));
     post_proc[4].postprocfunc_ = &cases::mansoln::postproc_exact_soln_mu_constcab;
     
     post_proc.push_back(new post_process(mesh_, (int)5, post_process::NORM2,
-                                         false, mu_id, "rms", 16));
+                                         false, mu_id, "mu_rms", 16));
     post_proc[5].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_mu_constcab;
 
     paramfunc_.resize(3);
@@ -3194,21 +3194,21 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
     
     post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
-                                         false, eta_id, "rms", 16));
+                                         false, eta_id, "eta_rms", 16));
     post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
     
     post_proc.push_back(new post_process(mesh_, (int)2));
     post_proc[2].postprocfunc_ = &cases::mansoln::postproc_exact_soln_c_constcab;
     
     post_proc.push_back(new post_process(mesh_, (int)3, post_process::NORM2,
-                                         false, c_id, "rms", 16));
+                                         false, c_id, "c_rms", 16));
     post_proc[3].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_c_constcab;
 
     post_proc.push_back(new post_process(mesh_, (int)4));
     post_proc[4].postprocfunc_ = &cases::mansoln::postproc_exact_soln_mu_constcab;
     
     post_proc.push_back(new post_process(mesh_, (int)5, post_process::NORM2,
-                                         false, mu_id, "rms", 16));
+                                         false, mu_id, "mu_rms", 16));
     post_proc[5].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_mu_constcab;
 
     paramfunc_.resize(3);

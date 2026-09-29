@@ -11,7 +11,8 @@ LOG=log.txt
 CONFDIR=./configs
 OUTDIR=./out
 
-BASENAME=mms-constcab
+BASENAMES='mms-eta-constcab
+           mms-coupled-constcab'
 MESHES='1x2000
         1x4000
         1x8000'
@@ -26,6 +27,11 @@ THETAS='1.0
 BCS='dirichlet
      neumann'
 #### END user configurable variables
+
+
+VARS='eta
+      c
+      mu'
 
 
 EXEDIR=$1
@@ -58,17 +64,17 @@ NPROCS=8  # need to change epuscript too!
 RUNTUSAS="$MPIRUN -n $NPROCS $TUSAS --kokkos-num-threads=1"
 
 
-for MESH in $MESHES; do for DT in $DTS; do for THETA in $THETAS; do for BC in $BCS; do
-  export MESH=$MESH; export DT=$DT; export THETA=$THETA; export BC=$BC
+for BASENAME in $BASENAMES; do for MESH in $MESHES; do for DT in $DTS; do for THETA in $THETAS; do for BC in $BCS; do
+  export BASENAME=$BASENAME; export MESH=$MESH; export DT=$DT; export THETA=$THETA; export BC=$BC
   export NT=$(float2int $(calculate "1 / $(sci2float $DT)"))
+  export TESTCASE="$BASENAME-$BC"
 
-  CONF=${BASENAME}-${BC}_mesh@${MESH}_dt@${DT}_theta@${THETA}
+  CONF=${BASENAME}_bc@${BC}_mesh@${MESH}_dt@${DT}_theta@${THETA}
   INPUT=$CONFDIR/$CONF.xml
   OUTPUT=$OUTDIR/$CONF.e
-  RMSOUT=$OUTDIR/RMS_$CONF.dat
 
   # write config to file
-  cat ${BASENAME}_TEMPLATE.xml | envsubst > $CONFDIR/$CONF.xml
+  cat mms_TEMPLATE.xml | envsubst > $CONFDIR/$CONF.xml
   
   # clean up previous run
   rm -rf results.e decomp/ decompscript nem_spread.inp input-ldbl *.dat
@@ -84,8 +90,15 @@ for MESH in $MESHES; do for DT in $DTS; do for THETA in $THETAS; do for BC in $B
   echo "--- RUNNING: mv results.e $OUTPUT" | tee -a $LOG
   mv results.e $OUTPUT
 
-  echo "--- RUNNING: mv rms1.dat $RMSOUT" | tee -a $LOG
-  mv rms1.dat $RMSOUT
+  for VAR in $VARS; do
+    RMSFILE=$(ls | grep ${VAR}_rms*.dat)
+    RMSOUT=$OUTDIR/RMS_${VAR}_${CONF}.dat
+    
+    if [[ -e $RMSFILE ]]; then
+      echo "--- RUNNING: mv $RMSFILE $RMSOUT" | tee -a $LOG
+      mv $RMSFILE $RMSOUT
+    fi
+  done
 
-done; done; done; done
+done; done; done; done; done
 

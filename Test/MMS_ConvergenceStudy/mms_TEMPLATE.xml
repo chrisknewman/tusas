@@ -5,7 +5,7 @@
   <Parameter name="dt" type="double" value="$DT"/>
   <Parameter name="nt" type="int" value = "$NT"/>
   <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_$MESH.e"/>
-  <Parameter name="testcase" type="string" value="mms-eta-constcab-$BC"/>
+  <Parameter name="testcase" type="string" value="$TESTCASE"/>
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="preconditioner" type="bool" value="false"/>
   <Parameter name="theta" type="double" value="$THETA"/>

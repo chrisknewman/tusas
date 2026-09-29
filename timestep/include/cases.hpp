@@ -138,9 +138,9 @@ namespace mansoln
 
   PARAM_FUNC(param_coupled_constcab)
   {
-    pdes::kks::eta_start_idx = 0;
+    pdes::kks::eta_start_idx = 2;
     pdes::kks::c_start_idx = 1;
-    pdes::kks::mu_start_idx = 2;
+    pdes::kks::mu_start_idx = 0;
   }
 
   PARAM_FUNC(param_freeenergy_parabolic)
@@ -287,22 +287,22 @@ namespace mansoln
   KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_c_constcab)
   {
-    return pdes::kks::pde_c_split(basis, i, dt_, dtold_,
-                                  t_theta_, t_theta2_, time, eqn_id,
-                                  vol, rand, mobility) +
-           source_c_constcab(basis, i, dt_, dtold_, 
-                            t_theta_, t_theta2_, time, eqn_id,
-                            vol, rand);
+    return pdes::kks::pde_mu_nokks(basis, i, dt_, dtold_,
+                                   t_theta_, t_theta2_, time, eqn_id,
+                                   vol, rand, true) +
+           source_mu_constcab(basis, i, dt_, dtold_,
+                             t_theta_, t_theta2_, time, eqn_id,
+                             vol, rand);
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_constcab_dp)) = residual_c_constcab;
 
   KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_mu_constcab)
   {
-    return pdes::kks::pde_mu_nokks(basis, i, dt_, dtold_,
-                                   t_theta_, t_theta2_, time, eqn_id,
-                                   vol, rand) +
-           source_mu_constcab(basis, i, dt_, dtold_,
+    return pdes::kks::pde_c_split(basis, i, dt_, dtold_,
+                                t_theta_, t_theta2_, time, eqn_id,
+                                vol, rand, mobility, true) +
+           source_c_constcab(basis, i, dt_, dtold_, 
                              t_theta_, t_theta2_, time, eqn_id,
                              vol, rand);
   }

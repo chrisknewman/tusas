@@ -3100,7 +3100,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     (*residualfunc_)[1] = cases::mansoln::residual_c_constcab_dp;
     (*residualfunc_)[0] = cases::mansoln::residual_mu_constcab_dp;
 
-    preconfunc_ = NULL;
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[2] = &cases::mansoln::prec_eta;
+    (*preconfunc_)[1] = &cases::mansoln::prec_c_trans;
+    (*preconfunc_)[0] = &cases::mansoln::prec_mu_trans;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[2] = &cases::mansoln::init_eta;

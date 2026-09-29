@@ -308,6 +308,24 @@ namespace mansoln
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_constcab_dp)) = residual_mu_constcab;
 
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_eta)
+  {
+    return pdes::kks::prec_eta(basis, i, j, dt_, t_theta_, eqn_id);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_c_trans)
+  {
+    return pdes::kks::prec_c_trans(basis, i, j, dt_, t_theta_, eqn_id);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_mu_trans)
+  {
+    return pdes::kks::prec_mu_trans(basis, i, j, dt_, t_theta_, eqn_id, mobility);
+  }
+
   DBC_FUNC(dbc_eta)
   {
     return eta_mms(x, t);

@@ -315,9 +315,9 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
-  PRE_FUNC_TPETRA(prec_c_trans)
+  PRE_FUNC_TPETRA(prec_c_trans_constcab)
   {
-    return pdes::kks::prec_c_trans(basis, i, j, dt_, t_theta_, eqn_id);
+    return pdes::kks::prec_c_trans_constcab(basis, i, j, dt_, t_theta_, eqn_id);
   }
 
   KOKKOS_INLINE_FUNCTION

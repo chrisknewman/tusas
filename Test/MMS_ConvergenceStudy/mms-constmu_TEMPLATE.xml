@@ -2,17 +2,17 @@
 
   <!-- simulation parameters -->
 
-  <Parameter name="dt" type="double" value="0.1"/>
-  <Parameter name="nt" type="int" value = "800"/>
-  <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_1x300.e"/>
-  <Parameter name="testcase" type="string" value="mms-coupled-constmu-dirichlet"/>
+  <Parameter name="dt" type="double" value="$DT"/>
+  <Parameter name="nt" type="int" value = "$NT"/>
+  <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_$MESH.e"/>
+  <Parameter name="testcase" type="string" value="mms-eta-constcab-$BC"/>
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="preconditioner" type="bool" value="false"/>
-  <Parameter name="theta" type="double" value=".5"/>
+  <Parameter name="theta" type="double" value="$THETA"/>
 
   <Parameter name="noxrelres" type="double" value="1.e-11"/>
   <Parameter name="noxmaxiter" type="int" value = "40"/>
-  <Parameter name="noxacceptfailed" type="bool" value = "false"/>
+  <Parameter name="noxacceptfailed" type="bool" value = "true"/>
   <Parameter name="noxforcestep" type="bool" value = "false"/>
 
   <Parameter name="predrelres" type="double" value="1.e-3"/>
@@ -33,10 +33,8 @@
     <Parameter name="epsilon" type="double" value=".4"/>
 
     <Parameter name="L" type="double" value="2."/>
-    <Parameter name="w" type="double" value="10."/>
+    <Parameter name="w" type="double" value="14."/>
     <Parameter name="k_eta" type="double" value="1.92"/>
-
-    <Parameter name="k_c" type="double" value="1."/>
   </ParameterList>
 
   <ParameterList name="Nonlinear Solver">

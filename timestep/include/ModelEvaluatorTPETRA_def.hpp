@@ -3003,8 +3003,8 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &tpetra::pfhub2::param_trans_;
     paramfunc_[2] = &tpetra::pfhub2::param_;
 
-  }else if("mms-eta-constmu-dirichlet" == paramList.get<std::string> (TusastestNameString)){
-    /* TODO: need to change all references to constmu here and
+  }else if("mms-eta-constcab-dirichlet" == paramList.get<std::string> (TusastestNameString)){
+    /* TODO: need to change all references to constcab here and
      * elsewhere to const_cacb or something
      */
     const double eta_id = 0;
@@ -3015,7 +3015,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = cases::mansoln::residual_eta_constmu_dp;
+    (*residualfunc_)[0] = cases::mansoln::residual_eta_constcab_dp;
 
     preconfunc_ = NULL;
     //preconfunc_ = new std::vector<PREFUNC>(numeqs_);
@@ -3049,10 +3049,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(3);
     paramfunc_[0] = &cases::mansoln::param;
-    paramfunc_[1] = &cases::mansoln::param_eta_constmu;
+    paramfunc_[1] = &cases::mansoln::param_eta_constcab;
     paramfunc_[2] = &cases::mansoln::param_freeenergy_parabolic;
 
-  }else if("mms-eta-constmu-neumann" == paramList.get<std::string> (TusastestNameString)){
+  }else if("mms-eta-constcab-neumann" == paramList.get<std::string> (TusastestNameString)){
     const double eta_id = 0;
 
     Teuchos::ParameterList *problemList;
@@ -3061,7 +3061,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = cases::mansoln::residual_eta_constmu_dp;
+    (*residualfunc_)[0] = cases::mansoln::residual_eta_constcab_dp;
 
     preconfunc_ = NULL;
 
@@ -3085,10 +3085,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     paramfunc_.resize(3);
     paramfunc_[0] = &cases::mansoln::param;
-    paramfunc_[1] = &cases::mansoln::param_eta_constmu;
+    paramfunc_[1] = &cases::mansoln::param_eta_constcab;
     paramfunc_[2] = &cases::mansoln::param_freeenergy_parabolic;
 
-  }else if("mms-coupled-constmu-dirichlet" == paramList.get<std::string> (TusastestNameString)){
+  }else if("mms-coupled-constcab-dirichlet" == paramList.get<std::string> (TusastestNameString)){
     const int eta_id = 0;
     const int c_id = 1;
     const int mu_id = 2;
@@ -3099,16 +3099,16 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 3;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = cases::mansoln::residual_eta_constmu_dp;
-    (*residualfunc_)[1] = cases::mansoln::residual_c_constmu_dp;
-    (*residualfunc_)[2] = cases::mansoln::residual_mu_constmu_dp;
+    (*residualfunc_)[0] = cases::mansoln::residual_eta_constcab_dp;
+    (*residualfunc_)[1] = cases::mansoln::residual_c_constcab_dp;
+    (*residualfunc_)[2] = cases::mansoln::residual_mu_constcab_dp;
 
     preconfunc_ = NULL;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
     (*initfunc_)[0] = &cases::mansoln::init_eta;
-    (*initfunc_)[1] = &cases::mansoln::init_c_constmu;
-    (*initfunc_)[2] = &cases::mansoln::init_mu_constmu;
+    (*initfunc_)[1] = &cases::mansoln::init_c_constcab;
+    (*initfunc_)[2] = &cases::mansoln::init_mu_constcab;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "eta";
@@ -3118,10 +3118,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
     (*dirichletfunc_)[0][1] = &cases::mansoln::dbc_eta;
     (*dirichletfunc_)[0][3] = &cases::mansoln::dbc_eta;
-    (*dirichletfunc_)[1][1] = &cases::mansoln::dbc_c_constmu;
-    (*dirichletfunc_)[1][3] = &cases::mansoln::dbc_c_constmu;
-    (*dirichletfunc_)[2][1] = &cases::mansoln::dbc_mu_constmu;
-    (*dirichletfunc_)[2][3] = &cases::mansoln::dbc_mu_constmu;
+    (*dirichletfunc_)[1][1] = &cases::mansoln::dbc_c_constcab;
+    (*dirichletfunc_)[1][3] = &cases::mansoln::dbc_c_constcab;
+    (*dirichletfunc_)[2][1] = &cases::mansoln::dbc_mu_constcab;
+    (*dirichletfunc_)[2][3] = &cases::mansoln::dbc_mu_constcab;
 
     neumannfunc_ = NULL;
 
@@ -3133,25 +3133,25 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
     
     post_proc.push_back(new post_process(mesh_, (int)2));
-    post_proc[2].postprocfunc_ = &cases::mansoln::postproc_exact_soln_c_constmu;
+    post_proc[2].postprocfunc_ = &cases::mansoln::postproc_exact_soln_c_constcab;
     
     post_proc.push_back(new post_process(mesh_, (int)3, post_process::NORM2,
                                          false, c_id, "rms", 16));
-    post_proc[3].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_c_constmu;
+    post_proc[3].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_c_constcab;
 
     post_proc.push_back(new post_process(mesh_, (int)4));
-    post_proc[4].postprocfunc_ = &cases::mansoln::postproc_exact_soln_mu_constmu;
+    post_proc[4].postprocfunc_ = &cases::mansoln::postproc_exact_soln_mu_constcab;
     
     post_proc.push_back(new post_process(mesh_, (int)5, post_process::NORM2,
                                          false, mu_id, "rms", 16));
-    post_proc[5].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_mu_constmu;
+    post_proc[5].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_mu_constcab;
 
     paramfunc_.resize(3);
     paramfunc_[0] = &cases::mansoln::param;
-    paramfunc_[1] = &cases::mansoln::param_coupled_constmu;
+    paramfunc_[1] = &cases::mansoln::param_coupled_constcab;
     paramfunc_[2] = &cases::mansoln::param_freeenergy_parabolic;
 
-  }else if("mms-coupled-constmu-neumann" == paramList.get<std::string> (TusastestNameString)){
+  }else if("mms-coupled-constcab-neumann" == paramList.get<std::string> (TusastestNameString)){
     const double c_id = 0;
 
     Teuchos::ParameterList *problemList;
@@ -3160,12 +3160,12 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     numeqs_ = 1;
 
     residualfunc_ = new std::vector<RESFUNC>(numeqs_);
-    (*residualfunc_)[0] = cases::mansoln::residual_c_constmu_dp;
+    (*residualfunc_)[0] = cases::mansoln::residual_c_constcab_dp;
 
     preconfunc_ = NULL;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
-    (*initfunc_)[0] = &cases::mansoln::init_c_constmu;
+    (*initfunc_)[0] = &cases::mansoln::init_c_constcab;
 
     varnames_ = new std::vector<std::string>(numeqs_);
     (*varnames_)[0] = "c";
@@ -3173,18 +3173,18 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
 
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
-    (*neumannfunc_)[0][1] = &cases::mansoln::nbc_c_constmu;
-    (*neumannfunc_)[0][3] = &cases::mansoln::nbc_c_constmu;
+    (*neumannfunc_)[0][1] = &cases::mansoln::nbc_c_constcab;
+    (*neumannfunc_)[0][3] = &cases::mansoln::nbc_c_constcab;
 
     post_proc.push_back(new post_process(mesh_, (int)0));
-    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_c_constmu;
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_c_constcab;
     post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
                                          false, c_id, "rms", 16));
-    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_c_constmu;
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_c_constcab;
 
     paramfunc_.resize(2);
     paramfunc_[0] = &cases::mansoln::param;
-    paramfunc_[1] = &cases::mansoln::param_coupled_constmu;
+    paramfunc_[1] = &cases::mansoln::param_coupled_constcab;
     paramfunc_[2] = &cases::mansoln::param_freeenergy_parabolic;
 
   }else if("tonks1wbm" == paramList.get<std::string> (TusastestNameString)){

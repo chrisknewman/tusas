@@ -11,7 +11,7 @@ LOG=log.txt
 CONFDIR=./configs
 OUTDIR=./out
 
-BASENAME=mms-constmu
+BASENAME=mms-constcab
 MESHES='1x2000
         1x4000
         1x8000'

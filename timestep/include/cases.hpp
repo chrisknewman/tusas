@@ -55,7 +55,7 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
-  const double c_mms_constmu(const double x, const double t)
+  const double c_mms_constcab(const double x, const double t)
   {
     const double ca = pdes::kks::fe.c1a_0;
     const double cb = pdes::kks::fe.c1b_0;
@@ -67,7 +67,7 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
-  const double dc_dx_mms_constmu(const double x, const double t)
+  const double dc_dx_mms_constcab(const double x, const double t)
   {
     const double ca = pdes::kks::fe.c1a_0;
     const double cb = pdes::kks::fe.c1b_0;
@@ -80,7 +80,7 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
-  const double d2c_dx2_mms_constmu(const double x, const double t)
+  const double d2c_dx2_mms_constcab(const double x, const double t)
   {
     const double ca = pdes::kks::fe.c1a_0;
     const double cb = pdes::kks::fe.c1b_0;
@@ -96,7 +96,7 @@ namespace mansoln
   }
   
   KOKKOS_INLINE_FUNCTION
-  const double mu_mms_constmu(const double x, const double t)
+  const double mu_mms_constcab(const double x, const double t)
   {
     const double k_c = pdes::kks::k_c;
     const double ca = pdes::kks::fe.c1a_0;
@@ -105,7 +105,7 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
-  const double dmu_dx_mms_constmu(const double x, const double t)
+  const double dmu_dx_mms_constcab(const double x, const double t)
   {
     return 0;
   }
@@ -131,12 +131,12 @@ namespace mansoln
     v = plist->get<double>("v", v);
   }
 
-  PARAM_FUNC(param_eta_constmu)
+  PARAM_FUNC(param_eta_constcab)
   {
     pdes::kks::eta_start_idx = 0;
   }
 
-  PARAM_FUNC(param_coupled_constmu)
+  PARAM_FUNC(param_coupled_constcab)
   {
     pdes::kks::eta_start_idx = 0;
     pdes::kks::c_start_idx = 1;
@@ -154,18 +154,18 @@ namespace mansoln
     return eta_mms(x, 0.);
   }
 
-  INI_FUNC(init_c_constmu)
+  INI_FUNC(init_c_constcab)
   {
-    return c_mms_constmu(x, 0.);
+    return c_mms_constcab(x, 0.);
   }
   
-  INI_FUNC(init_mu_constmu)
+  INI_FUNC(init_mu_constcab)
   {
-    return mu_mms_constmu(x, 0.);
+    return mu_mms_constcab(x, 0.);
   }
 
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(source_eta_constmu)
+  RES_FUNC_TPETRA(source_eta_constcab)
   {
     const int Nt_max = pdes::kks::Nt_max;
     const int Neta_max = pdes::kks::Neta_max;
@@ -211,7 +211,7 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(source_c_constmu)
+  RES_FUNC_TPETRA(source_c_constcab)
   {
     const int Nt_max = pdes::kks::Nt_max;
     const int Nt = 3;
@@ -246,7 +246,7 @@ namespace mansoln
   }
 
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(source_mu_constmu)
+  RES_FUNC_TPETRA(source_mu_constcab)
   {
     const int Nt_max = pdes::kks::Nt_max;
     const int Nt = 3;
@@ -257,9 +257,9 @@ namespace mansoln
     const double x = basis[0]->xx();
 
     double d2c_dx2[Nt_max];
-    d2c_dx2[0] = d2c_dx2_mms_constmu(x, time + dt_);
-    d2c_dx2[1] = d2c_dx2_mms_constmu(x, time);
-    d2c_dx2[2] = d2c_dx2_mms_constmu(x, time - dtold_);
+    d2c_dx2[0] = d2c_dx2_mms_constcab(x, time + dt_);
+    d2c_dx2[1] = d2c_dx2_mms_constcab(x, time);
+    d2c_dx2[2] = d2c_dx2_mms_constcab(x, time - dtold_);
 
     double source[Nt_max];
 
@@ -273,40 +273,40 @@ namespace mansoln
   }
   
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(residual_eta_constmu)
+  RES_FUNC_TPETRA(residual_eta_constcab)
   {
     return pdes::kks::pde_eta_nokks(basis, i, dt_, dtold_,
                                     t_theta_, t_theta2_, time, eqn_id,
                                     vol, rand, mobility) +
-           source_eta_constmu(basis, i, dt_, dtold_, 
+           source_eta_constcab(basis, i, dt_, dtold_, 
                               t_theta_, t_theta2_, time, eqn_id,
                               vol, rand);
   }
-  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_eta_constmu_dp)) = residual_eta_constmu;
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_eta_constcab_dp)) = residual_eta_constcab;
 
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(residual_c_constmu)
+  RES_FUNC_TPETRA(residual_c_constcab)
   {
     return pdes::kks::pde_c_split(basis, i, dt_, dtold_,
                                   t_theta_, t_theta2_, time, eqn_id,
                                   vol, rand, mobility) +
-           source_c_constmu(basis, i, dt_, dtold_, 
+           source_c_constcab(basis, i, dt_, dtold_, 
                             t_theta_, t_theta2_, time, eqn_id,
                             vol, rand);
   }
-  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_constmu_dp)) = residual_c_constmu;
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_constcab_dp)) = residual_c_constcab;
 
   KOKKOS_INLINE_FUNCTION
-  RES_FUNC_TPETRA(residual_mu_constmu)
+  RES_FUNC_TPETRA(residual_mu_constcab)
   {
     return pdes::kks::pde_mu_nokks(basis, i, dt_, dtold_,
                                    t_theta_, t_theta2_, time, eqn_id,
                                    vol, rand) +
-           source_mu_constmu(basis, i, dt_, dtold_,
+           source_mu_constcab(basis, i, dt_, dtold_,
                              t_theta_, t_theta2_, time, eqn_id,
                              vol, rand);
   }
-  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_constmu_dp)) = residual_mu_constmu;
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_constcab_dp)) = residual_mu_constcab;
 
   DBC_FUNC(dbc_eta)
   {
@@ -319,26 +319,26 @@ namespace mansoln
     return deta_dx_mms(x, time);
   }
 
-  DBC_FUNC(dbc_c_constmu)
+  DBC_FUNC(dbc_c_constcab)
   {
-    return c_mms_constmu(x, t);
+    return c_mms_constcab(x, t);
   }
 
-  NBC_FUNC_TPETRA(nbc_c_constmu)
+  NBC_FUNC_TPETRA(nbc_c_constcab)
   {
     const double x = basis[0].xx();
-    return dc_dx_mms_constmu(x, time);
+    return dc_dx_mms_constcab(x, time);
   }
 
-  DBC_FUNC(dbc_mu_constmu)
+  DBC_FUNC(dbc_mu_constcab)
   {
-    return mu_mms_constmu(x, t);
+    return mu_mms_constcab(x, t);
   }
 
-  NBC_FUNC_TPETRA(nbc_mu_constmu)
+  NBC_FUNC_TPETRA(nbc_mu_constcab)
   {
     const double x = basis[0].xx();
-    return dmu_dx_mms_constmu(x, time);
+    return dmu_dx_mms_constcab(x, time);
   }
 
   PPR_FUNC(postproc_exact_soln_eta)
@@ -347,16 +347,16 @@ namespace mansoln
     return eta_mms(x, time);
   }
   
-  PPR_FUNC(postproc_exact_soln_c_constmu)
+  PPR_FUNC(postproc_exact_soln_c_constcab)
   {
     const double x = xyz[0];
-    return c_mms_constmu(x, time);
+    return c_mms_constcab(x, time);
   }
 
-  PPR_FUNC(postproc_exact_soln_mu_constmu)
+  PPR_FUNC(postproc_exact_soln_mu_constcab)
   {
     const double x = xyz[0];
-    return mu_mms_constmu(x, time);
+    return mu_mms_constcab(x, time);
   }
 
   PPR_FUNC(postproc_diff_vs_exact_eta)
@@ -365,16 +365,16 @@ namespace mansoln
     return eta_mms(x, time) - u[pdes::kks::eta_start_idx];
   }
 
-  PPR_FUNC(postproc_diff_vs_exact_c_constmu)
+  PPR_FUNC(postproc_diff_vs_exact_c_constcab)
   {
     const double x = xyz[0];
-    return c_mms_constmu(x, time) - u[pdes::kks::c_start_idx];
+    return c_mms_constcab(x, time) - u[pdes::kks::c_start_idx];
   }
 
-  PPR_FUNC(postproc_diff_vs_exact_mu_constmu)
+  PPR_FUNC(postproc_diff_vs_exact_mu_constcab)
   {
     const double x = xyz[0];
-    return mu_mms_constmu(x, time) - u[pdes::kks::mu_start_idx];
+    return mu_mms_constcab(x, time) - u[pdes::kks::mu_start_idx];
   }
 
 }

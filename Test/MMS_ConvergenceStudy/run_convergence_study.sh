@@ -68,17 +68,22 @@ for BASENAME in $BASENAMES; do for MESH in $MESHES; do for DT in $DTS; do for TH
   export BASENAME=$BASENAME; export MESH=$MESH; export DT=$DT; export THETA=$THETA; export BC=$BC
   export NT=$(float2int $(calculate "1 / $(sci2float $DT)"))
   export TESTCASE="$BASENAME-$BC"
+  if [[ $BASENAME == @('mms-coupled-constcab'|'other') ]]; then
+    export USEPREC='true'
+  else
+    export USEPREC='false'
+  fi
 
   CONF=${BASENAME}_bc@${BC}_mesh@${MESH}_dt@${DT}_theta@${THETA}
   INPUT=$CONFDIR/$CONF.xml
   OUTPUT=$OUTDIR/$CONF.e
 
+  # clean up previous run
+  rm -rf results.e decomp/ decompscript nem_spread.inp input-ldbl *.dat *_rms*.dat
+
   # write config to file
   cat mms_TEMPLATE.xml | envsubst > $CONFDIR/$CONF.xml
   
-  # clean up previous run
-  rm -rf results.e decomp/ decompscript nem_spread.inp input-ldbl *.dat
-
   echo "--- RUNNING: $RUNTUSAS --input-file=$INPUT --writedecomp" | tee -a $LOG
   $RUNTUSAS --input-file=$INPUT --writedecomp &>> $LOG
   bash decompscript &>> $LOG

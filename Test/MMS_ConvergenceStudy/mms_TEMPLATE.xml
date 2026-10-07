@@ -5,12 +5,12 @@
   <Parameter name="dt" type="double" value="$DT"/>
   <Parameter name="nt" type="int" value = "$NT"/>
   <Parameter name="meshfile" type="string" value="../../meshes/tonks1_quad_$MESH.e"/>
-  <Parameter name="testcase" type="string" value="$TESTCASE"/>
+  <Parameter name="testcase" type="string" value="$CASENAME"/>
   <Parameter name="method" type="string" value="tpetra"/>
   <Parameter name="preconditioner" type="bool" value="$USEPREC"/>
   <Parameter name="theta" type="double" value="$THETA"/>
 
-  <Parameter name="noxrelres" type="double" value="1.e-11"/>
+  <Parameter name="noxrelres" type="double" value="$RELRES"/>
   <Parameter name="noxmaxiter" type="int" value = "40"/>
   <Parameter name="noxacceptfailed" type="bool" value = "false"/>
   <Parameter name="noxforcestep" type="bool" value = "false"/>

@@ -94,7 +94,7 @@ for CASENAME in $CASENAMES; do for MESH in $MESHES; do for THETA in $THETAS; do
       export USEPREC='false'
     fi
 
-    CONF=${CASENAME}_mesh@${MESH}_dt@${DT}_theta@${THETA}
+    CONF=case@${CASENAME}_mesh@${MESH}_dt@${DT}_theta@${THETA}
     INPUT=$CONFDIR/$CONF.xml
     OUTPUT=$OUTDIR/$CONF.e
 

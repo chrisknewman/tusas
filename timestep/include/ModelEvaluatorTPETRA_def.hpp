@@ -3102,7 +3102,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[2] = &cases::mansoln::prec_eta;
-    (*preconfunc_)[1] = &cases::mansoln::prec_c_trans_constcab;
+    (*preconfunc_)[1] = &cases::mansoln::prec_c_trans;
     (*preconfunc_)[0] = &cases::mansoln::prec_mu_trans;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);
@@ -3167,7 +3167,7 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     preconfunc_ = new std::vector<PREFUNC>(numeqs_);
     (*preconfunc_)[2] = &cases::mansoln::prec_eta;
-    (*preconfunc_)[1] = &cases::mansoln::prec_c_trans_constcab;
+    (*preconfunc_)[1] = &cases::mansoln::prec_c_trans;
     (*preconfunc_)[0] = &cases::mansoln::prec_mu_trans;
 
     initfunc_ = new std::vector<INITFUNC>(numeqs_);

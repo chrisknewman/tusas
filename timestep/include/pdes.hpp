@@ -1019,30 +1019,6 @@ namespace kks
   }
 
   /*
-   * preconditioner for c equations using the kks model (transpose version)
-   */
-  KOKKOS_INLINE_FUNCTION 
-  PRE_FUNC_TPETRA(prec_c_trans_constcab)
-  {
-    const double phi_i = basis[0]->phi(i);
-    const double phi_j = basis[0]->phi(j);
-
-    const double dphi_dx_i = basis[0]->dphidx(i);
-    const double dphi_dy_i = basis[0]->dphidy(i);
-    const double dphi_dz_i = basis[0]->dphidz(i);
-    const double dphi_dx_j = basis[0]->dphidx(j);
-    const double dphi_dy_j = basis[0]->dphidy(j);
-    const double dphi_dz_j = basis[0]->dphidz(j);
-    
-    const double kc_divgrad_mu = k_c * (dphi_dx_i * dphi_dx_j 
-                                        + dphi_dy_i * dphi_dy_j 
-                                        + dphi_dz_i * dphi_dz_j);
-
-    // normally there is a d2f_dc2 term here, but it is 
-    // zero in the constcab case
-    return L * kc_divgrad_mu;
-  }
-  /*
    * preconditioner for mu equations using the kks model
    */
   KOKKOS_INLINE_FUNCTION 
@@ -1094,7 +1070,7 @@ namespace kks
     const double M_divgrad_c = mobility(hh) * (dphi_dx_i * dphi_dx_j 
                                                + dphi_dy_i * dphi_dy_j 
                                                + dphi_dz_i * dphi_dz_j);
-    return -M_divgrad_c;
+    return M_divgrad_c;
   }
 
   PPR_FUNC(postproc_mu_a)

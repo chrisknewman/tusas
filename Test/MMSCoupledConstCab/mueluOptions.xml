@@ -2,14 +2,14 @@
   <!-- none low medium high extreme -->
   <Parameter name="verbosity" type="string" value="low"/>
   <!-- <Parameter name="problem: symmetric" type="bool" value="false"/> -->
-  <Parameter name="max levels" type="int" value="2"/>
+  <Parameter name="max levels" type="int" value="1"/>
   <Parameter name="coarse: max size" type="int" value="128"/>
   <!-- <Parameter name="multigrid algorithm" type="string" value="sa"/> -->
   <Parameter name="multigrid algorithm" type="string" value="unsmoothed"/>
   <!-- none or S -->
   <Parameter name="reuse: type" type="string" value="tP"/>
   <!-- <Parameter name="problem: symmetric" type="bool" value="false"/> -->
-  <Parameter name="number of equations" type="int" value="2"/>
+  <Parameter name="number of equations" type="int" value="3"/>
   <Parameter name="transpose: use implicit" type="bool" value="true"/>
   <Parameter name="rap: triple product" type="bool" value="true"/>
 
@@ -55,7 +55,7 @@
     <!-- <Parameter name="relaxation: type" type="string" value="Jacobi"/> -->
     <!-- <Parameter name="relaxation: type" type="string" value="MT Symmetric Gauss-Seidel"/>   -->
     <Parameter name="relaxation: type" type="string" value="Symmetric Gauss-Seidel"/>
-    <Parameter name="relaxation: sweeps" type="int" value="2"/>
+    <Parameter name="relaxation: sweeps" type="int" value="4"/>
     <!-- <Parameter name="relaxation: damping factor" type="double" value="0.9"/> -->
     <Parameter name="relaxation: damping factor" type="double" value="0.6"/>
   </ParameterList>

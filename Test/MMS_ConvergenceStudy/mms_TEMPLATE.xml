@@ -33,7 +33,7 @@
     <Parameter name="epsilon" type="double" value=".4"/>
 
     <Parameter name="L" type="double" value="2."/>
-    <Parameter name="w" type="double" value="14."/>
+    <Parameter name="w" type="double" value="10."/>
     <Parameter name="k_eta" type="double" value="1.92"/>
 
     <Parameter name="k_c" type="double" value="1."/>

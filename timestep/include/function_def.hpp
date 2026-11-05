@@ -6433,9 +6433,9 @@ RES_FUNC_TPETRA(residual_)
   return (u-uold)/dt_*test + L* ((-alpha*u + beta*u*u*u +2.*gamma*u*s)*test +  divgradu); 
 
 }
+#if 0
 PRE_FUNC(prec_)
 {
-#if 0
   //cn probably want to move each of these operations inside of getbasis
   //derivatives of the test function
   double dtestdx = basis[0].dphidxi[i]*basis[0].dxidx
@@ -6475,9 +6475,9 @@ PRE_FUNC(prec_)
   double gammau = 2.*gamma*L*basis[0].phi(j)*s*test;
 
   return u_t + divgrad + betau + gammau;// + alphau ;
-#endif
   return 1.;
 }
+#endif
 PPR_FUNC(postproc_)
 {
   //u is u0,u1,...

@@ -7,6 +7,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
+#if 0
 #ifndef NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DEF_HPP
 
@@ -4970,3 +4971,5 @@ void ModelEvaluatorNEMESIS<Scalar>::init_predictor()
   }
 #endif //TUSAS_HAVE_CUDA
 #endif
+
+#endif //if 0

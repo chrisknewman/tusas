@@ -34,6 +34,7 @@
 #include "timestep.hpp"
 #include "post_process.h"
 #include "random_distribution.h"
+#include "basis.hpp"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
@@ -41,7 +42,7 @@ template<class Scalar> class ModelEvaluatorTPETRA;
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
-modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
+modelEvaluatorTPETRA( //const Teuchos::RCP<const Epetra_Comm>& comm,
 			Mesh &mesh,
 			 Teuchos::ParameterList plist 
 			 );

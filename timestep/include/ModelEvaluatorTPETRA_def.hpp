@@ -43,7 +43,9 @@
 #include "Thyra_MueLuPreconditionerFactory.hpp"
 
 //#include <Stratimikos_MueLuHelpers.hpp>
+#include "Stratimikos_DefaultLinearSolverBuilder.hpp"
 
+#include "NOX_Thyra.H"
 #include "NOX_Thyra_MatrixFreeJacobianOperator.hpp"
 #include "NOX_MatrixFree_ModelEvaluatorDecorator.hpp"
 #include <NOX_StatusTest_NStep.H>
@@ -54,6 +56,7 @@
 //#include <string>
 
 #include "function_def.hpp"
+#include "function_def_nem.hpp"
 #include "cases.hpp"
 #include "BoundedBacktracking.hpp"
 #include "ParamNames.h"
@@ -79,7 +82,7 @@ public:
   bool supportsScaleLeftImpl() const {return true;};
   bool supportsScaleRightImpl() const {return false;};
   Teuchos::RCP< ::Thyra::VectorBase<Scalar> >  scaling;
-  void scaleLeftImpl (const VectorBase< Scalar > &row_scaling){ 
+  void scaleLeftImpl (const ::Thyra::VectorBase< Scalar > &row_scaling){ 
 //     using Teuchos::rcpFromRef;
     
 //     const RCP<const Tpetra::Vector<Scalar,Tpetra::Vector<>::local_ordinal_type,Tpetra::Vector<>::global_ordinal_type,Tpetra::Vector<>::node_type> > rs =
@@ -100,11 +103,11 @@ public:
     //scaling = row_scaling.clone_v();
   };
   
-  void scaleRightImpl (const VectorBase< Scalar > &col_scaling){};
-  RCP< const VectorSpaceBase< Scalar > > range() const {return NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::range();};
-  RCP< const VectorSpaceBase< Scalar > > domain() const {return NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::domain();};
-  bool opSupportedImpl(EOpTransp M_trans) const {return false;};
-  void applyImpl(const EOpTransp M_trans, const MultiVectorBase< Scalar > &X, const Ptr< MultiVectorBase< Scalar > > &Y, const Scalar alpha, const Scalar beta) const
+  void scaleRightImpl (const ::Thyra::VectorBase< Scalar > &col_scaling){};
+  Teuchos::RCP< const ::Thyra::VectorSpaceBase< Scalar > > range() const {return NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::range();};
+  Teuchos::RCP< const ::Thyra::VectorSpaceBase< Scalar > > domain() const {return NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::domain();};
+  bool opSupportedImpl(Thyra::EOpTransp M_trans) const {return false;};
+  void applyImpl(const Thyra::EOpTransp M_trans, const Thyra::MultiVectorBase< Scalar > &X, const Teuchos::Ptr< Thyra::MultiVectorBase< Scalar > > &Y, const Scalar alpha, const Scalar beta) const
   {
     //std::cout<<"applyImpl"<<std::endl;
     NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::applyImpl(M_trans, X, Y, alpha, beta);
@@ -331,7 +334,7 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
       //}//i
       //muelucoords_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
       Teuchos::ParameterList &userDataList = mueluParamList.sublist("user data");
-      userDataList.set<RCP<mv_type> >("Coordinates",muelucoords_);
+      userDataList.set<Teuchos::RCP<mv_type> >("Coordinates",muelucoords_);
       
       mueluParamList.set("number of equations",numeqs_);
     }
@@ -399,7 +402,9 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
   for(it = indices.begin();it != indices.end(); ++it){
     //std::cout<<*it<<" "<<std::endl;
     const int error_index = *it;
-    Error_est.push_back(new error_estimator(Comm,mesh_,numeqs_,error_index));
+    Error_est.push_back(new error_estimator(mesh_,
+					    numeqs_,
+					    error_index));
   }
   initialize();
   init_nox();  
@@ -4275,6 +4280,13 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
   auto uoldview = u_old_->get1dView();
   auto uoldoldview = u_old_old_->get1dView();
 
+  std::vector<Teuchos::ArrayRCP<const scalar_type> > gradxview(numee), gradyview(numee), gradzview(numee);
+  for( int k = 0; k < numee; k++ ){
+    gradxview[k] = Error_est[k].gradx_->get1dView();
+    gradyview[k] = Error_est[k].grady_->get1dView();
+    gradzview[k] = Error_est[k].gradz_->get1dView();
+  }
+
   for (int nn=0; nn < num_owned_nodes_; nn++) {
   //Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,num_owned_nodes_),[=](const int& nn){
 
@@ -4285,9 +4297,9 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
     }
 
     for( int k = 0; k < numee; k++ ){
-      ug[k*dim] = (*(Error_est[k].gradx_))[nn];
-      ug[k*dim+1] = (*(Error_est[k].grady_))[nn];
-      ug[k*dim+2] = (*(Error_est[k].gradz_))[nn];
+      ug[k*dim] = gradxview[k][nn];
+      ug[k*dim+1] = gradyview[k][nn];
+      ug[k*dim+2] = gradzview[k][nn];
     }
 
     boost::ptr_vector<post_process>::iterator itp;
@@ -4444,7 +4456,7 @@ double ModelEvaluatorTPETRA<Scalar>::estimatetimestep()
     const double h1 = sf*dt_*rr;
     maxdt[k] = std::max(h1,dt_*rmin);
     mindt[k] = std::min(h1,dt_*rmax);
-    if( 0 == Comm->MyPID()){
+    if( 0 == comm_->getRank()){
       std::cout<<std::endl<<"     Variable: "<<(*varnames_)[k]<<std::endl<<std::scientific;
       //std::cout<<"                              tol = "<<tol<<std::endl;
       std::cout<<"                            error = "<<error[k]<<std::endl;

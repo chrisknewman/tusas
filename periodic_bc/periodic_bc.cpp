@@ -7,7 +7,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
-
+#if 0
 #include "periodic_bc.h"
 #include "greedy_tie_break.hpp"
 
@@ -266,3 +266,5 @@ void periodic_bc::uniquifyWithOrder_set_remove_if(const std::vector<int>& input,
 
     output.erase(newEnd, output.end());
 }
+
+#endif //if 0

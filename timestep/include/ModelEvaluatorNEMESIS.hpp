@@ -7,6 +7,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
+#if 0
 #ifndef NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DECL_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_NEMESIS_DECL_HPP
 
@@ -365,3 +366,5 @@ Epetra_Map Create_OneToOne_Map64(const Epetra_Map& usermap,
 
 #endif //TUSAS_HAVE_CUDA
 #endif
+
+#endif //if 0

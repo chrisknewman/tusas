@@ -10,7 +10,6 @@
 
 // NOX Objects
 #include "NOX.H"
-#include "NOX_Thyra.H"
 
 // Trilinos Objects
 #ifdef HAVE_MPI
@@ -18,12 +17,8 @@
 #else
 #include "Epetra_SerialComm.h"
 #endif
-#include "Epetra_Map.h"
-#include "Epetra_Vector.h"
-#include "Epetra_RowMatrix.h"
-#include "Epetra_CrsMatrix.h"
-#include "Epetra_Map.h"
-#include "Epetra_LinearProblem.h"
+
+#include <Kokkos_Core.hpp>
 
 #include <Teuchos_ConfigDefs.hpp>
 #include <Teuchos_UnitTestHarness.hpp>
@@ -33,17 +28,9 @@
 #include "Teuchos_CommandLineProcessor.hpp"
 #include "Teuchos_FancyOStream.hpp"
 
-#include "Stratimikos_DefaultLinearSolverBuilder.hpp"
-#include "Thyra_LinearOpWithSolveFactoryHelpers.hpp"
-#include "Thyra_SpmdVectorBase.hpp"
-
-#include <Kokkos_Core.hpp>
-
-#include "ModelEvaluatorNEMESIS.hpp"
+//#include "ModelEvaluatorNEMESIS.hpp"
 #include "ModelEvaluatorTPETRA.hpp"
-
 #include "Mesh.h"
-
 #include "ParamNames.h"
 #include "ReadInput.h"
 #include "tusas.h"
@@ -58,7 +45,14 @@ extern char **environ;
 
 using namespace std;
 
-int decomp(const int mypid, const int numproc, const std::string& infile, std::string& outfile, const bool restart, const bool skipdecomp, const bool writedecomp, const bool usenemesis64, const Epetra_Comm * comm);
+int decomp(const int mypid, 
+	   const int numproc, 
+	   const std::string& infile, 
+	   std::string& outfile, 
+	   const bool restart, 
+	   const bool skipdecomp, 
+	   const bool writedecomp, 
+	   const bool usenemesis64 );
 int do_sys_call(const char* command, char * const arg[] = NULL );
 int join(const int mypid, const int numproc, const bool skipdecomp);
 void print_disclaimer(const int mypid);
@@ -129,8 +123,7 @@ int main(int argc, char *argv[])
 		    paramList.get<bool> (TusasrestartNameString), 
 		    paramList.get<bool> (TusasskipdecompNameString), 
 		    paramList.get<bool> (TusaswritedecompNameString),
-		    paramList.get<bool> (Tusasusenemesis64bitNameString),
-		    &Comm);      
+		    paramList.get<bool> (Tusasusenemesis64bitNameString) );      
       Comm.Barrier();
     }
   }
@@ -156,12 +149,16 @@ int main(int argc, char *argv[])
     timestep<double> * model;
 
     if( paramList.get<std::string> (TusasmethodNameString)  == "tpetra") {
-      model = new ModelEvaluatorTPETRA<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
+      model = new ModelEvaluatorTPETRA<double>(Teuchos::rcp(&Comm,false),
+					       in_mesh,
+					       paramList);
     }
 #ifdef TUSAS_HAVE_CUDA
 #else
     else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
-      model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
+      //model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
+      std::cout<<"NEMESIS method no longer supported."<<"\n"<<"\n";
+      return EXIT_FAILURE;
     }
 #endif
     else {
@@ -230,8 +227,7 @@ int decomp(const int mypid,
 	   const bool restart, 
 	   const bool skipdecomp, 
 	   const bool writedecomp, 
-	   const bool usenemesis64,
-	   const Epetra_Comm * comm){
+	   const bool usenemesis64 ){
 
   //return 1 for writedecomp; return 0 otherwise
   //probably need to clean this up to return -1 on error, rather than exit(0)
@@ -396,7 +392,8 @@ int decomp(const int mypid,
     }//if( !restart && !skipdecomp)
   }//if(  0 == mypid )
   
-  comm->Barrier();
+  auto comm_ = Teuchos::DefaultComm<int>::getComm();
+  comm_->barrier();
   if( writedecomp ){
 #ifdef HAVE_MPI
     //(void) MPI_Finalize ();

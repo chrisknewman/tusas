@@ -3,9 +3,11 @@
 <!-- simulation parameters -->
 
   <Parameter name="dt" type="double" value=".001"/>
-  <Parameter name="nt" type="int" value = "10"/>
-  <Parameter name="meshfile" type="string" value="../../meshes/dendquad300_q.e"/>
-  <Parameter name="testcase" type="string" value="cummins"/>
+  <Parameter name="nt" type="int" value = "10"/> 
+  <Parameter name="meshfile" type="string" value="../../meshes/pfhub3_2d_120x120quad.e"/>
+<!--   <Parameter name="meshfile" type="string" value="../../meshes/dendquad300_q.e"/> -->
+<!--   <Parameter name="testcase" type="string" value="cummins"/> -->
+  <Parameter name="testcase" type="string" value="pfhub3"/>
   <Parameter name="preconditioner" type="bool" value = "true"/>
   <Parameter name="theta" type="double" value="0.5"/>
   <Parameter name="outputfreq" type="int" value = "1"/>   

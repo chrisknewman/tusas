@@ -49,7 +49,7 @@ target_sources(tusas
     error_estimator/error_estimator.cpp
     input/ReadInput.cpp
     mesh/Mesh.C
-    periodic_bc/periodic_bc.cpp 
+    #periodic_bc/periodic_bc.cpp 
     post_process/post_process.cpp
     projection/interpflux.cpp 
     projection/interpfluxavg.cpp 
@@ -65,7 +65,7 @@ target_sources(tusas
       error_estimator/include
       input/include
       mesh/include
-      periodic_bc/include
+      #periodic_bc/include
       post_process/include
       preconditioner/include
       projection/include
@@ -78,7 +78,7 @@ target_sources(tusas
       error_estimator/include/error_estimator.h
       input/include/ReadInput.h 
       mesh/include/Mesh.h
-      periodic_bc/include/periodic_bc.h 
+      #periodic_bc/include/periodic_bc.h 
       post_process/include/post_process.h 
       preconditioner/include/preconditioner.hpp
       preconditioner/include/preconditioner_def.hpp
@@ -132,16 +132,16 @@ endif()
 
 # list all test cases here
 set(TUSAS_TESTS 
-  AutoCatalytic 
+  #AutoCatalytic 
   AutoCatalyticT
   CahnHilliardQuadPar
   CahnHilliardTriQPar
-  CoupledStressQuad
+  #CoupledStressQuad
   Farzadi
   FarzadiSphere
   FullyCoupled
   Goldak
-  HeatHex
+  #HeatHex
   HeatHexNoPrec
   HeatHexQT
   HeatHexT
@@ -150,9 +150,9 @@ set(TUSAS_TESTS
   HeatTet
   HeatTetQ
   HeatTri
-  LinIsoBodyForceHexPrec
-  LinIsoHeatHexPar
-  LinIsoHex
+  #LinIsoBodyForceHexPrec
+  #LinIsoHeatHexPar
+  #LinIsoHex
   LocalProjectionT
   NLHeatHexCN
   NLHeatHexIMR
@@ -166,16 +166,16 @@ set(TUSAS_TESTS
   NeumannTriPar
   NeumannTriQ
   NonlinearLog0D
-  PeriodicHexPar
-  PeriodicQuad
+  #PeriodicHexPar
+  #PeriodicQuad
   Pfhub2
   Pfhub2Split
   PhaseHeatQuad
-  PhaseHeatQuadExp
-  PhaseHeatQuadImp
-  PhaseHeatQuadNoPrec
-  PhaseHeatQuadPar
-  PhaseHeatQuadParNoPrec
+  #PhaseHeatQuadExp
+  #PhaseHeatQuadImp
+  #PhaseHeatQuadNoPrec
+  #PhaseHeatQuadPar
+  #PhaseHeatQuadParNoPrec
   PhaseHeatTris
   RadConvBC
   RestartFaultT
@@ -184,7 +184,7 @@ set(TUSAS_TESTS
   RobinQuad
   Thermal
   Tonks1kks
-  Uehara1
+  #Uehara1
   UnstructuredHex
   WriteSkipDecomp
 )

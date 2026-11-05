@@ -7,7 +7,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
-
+#if 0
 #ifndef PERIODIC_BC_H
 #define PERIODIC_BC_H
 
@@ -153,3 +153,5 @@ Epetra_Map Create_OneToOne_Map64(const Epetra_Map& usermap,
 
 
 #endif
+
+#endif //if 0

@@ -15,7 +15,6 @@
 #include <Teuchos_RCP.hpp>
 #include "Teuchos_TimeMonitor.hpp"
 //	#include "Teuchos_StandardParameterEntryValidators.hpp"
-#include <ml_MultiLevelPreconditioner.h>
 
 #include "ReadInput.h"
 #include "ParamNames.h"
@@ -106,32 +105,6 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
   ATSList->set(TusasatstypeNameString,"predictor corrector",TusasatstypeDocString);
   ATSList->set(TusaspredmaxiterNameString,(int)20,TusaspredmaxiterDocString);
   //ATSList->set(TusaspredrelresNameString,paramList.get<double>(TusasnoxrelresNameString),TusaspredrelresDocString);//not sure where to put this, the residual tol is set in atslist
-
-  //ML parameters for ML and MueLu
-  Teuchos::ParameterList *MLList;
-  MLList = &paramList.sublist ( TusasmlNameString, false );
-
-  //cn right now this does not make sense as the xml file, namely the method string has not been read--need to fix
-  if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis"){
-    ML_Epetra::SetDefaults("SA",paramList.sublist (TusasmlNameString ));
-    //MLList.set("coarse: max size",(int)128);
-    //    MLList->set("cycle applications",(int)2);
-    //     MLList.set("prec type","full-MGV");
-    //     MLList.set("smoother: type","Chebyshev");
-    MLList->set("smoother: type","Jacobi");
-    MLList->set("smoother: sweeps",(int)2); 
-    //     MLList.set("smoother: damping factor", 1.0);
-    
-    //    MLList.set("coarse: type","Chebyshev");
-    //     MLList.set("coarse: type","Jacobi"); 
-    //     MLList.set("coarse: sweeps",4);
-    
-    //     MLList.set("coarse: damping factor", 1.0);
-    
-    //     MLList.set("ML output",10);
-    
-    //    MLList->set("PDE equations",1);
-  }
 
   //Linear solver parameters
   Teuchos::ParameterList *LSList;
@@ -244,13 +217,9 @@ void readParametersFromFile(    int argc, char *argv[], Teuchos::ParameterList &
     }
   }
 
-  //also want to remove ml if methodname is Tpetra
-  bool remove_ml = !( paramList.get<bool> (TusaspreconNameString) )
-    || (paramList.get<std::string> (TusasmethodNameString)  == "tpetra");
-  if( remove_ml ){
-    paramList.remove(TusasmlNameString);
-    //exit(0);
-  }
+  //ML is no longer supported (MueLu is configured via mueluOptions.xml);
+  //drop any ML sublist left over in older input files
+  paramList.remove(TusasmlNameString,false);
 
   if( 0 == mypid ){
     paramList.print(std::cout, 2, true, true );

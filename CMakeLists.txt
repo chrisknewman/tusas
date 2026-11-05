@@ -67,7 +67,6 @@ target_sources(tusas
       mesh/include
       #periodic_bc/include
       post_process/include
-      preconditioner/include
       #projection/include
       random_distribution/include
       timestep/include
@@ -80,8 +79,6 @@ target_sources(tusas
       mesh/include/Mesh.h
       #periodic_bc/include/periodic_bc.h 
       post_process/include/post_process.h 
-      preconditioner/include/preconditioner.hpp
-      preconditioner/include/preconditioner_def.hpp
       #projection/include/interpflux.h 
       #projection/include/interpfluxavg.h 
       #projection/include/projection.h 

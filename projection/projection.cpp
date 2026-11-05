@@ -6,7 +6,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-
+#if 0
 
 #include "projection.h"
 #include "basis.hpp"
@@ -345,3 +345,5 @@ bool projection::get_source_value(const double x, const double y, const double z
   std::cout<<"get_source_value:  not found"<<std::endl<<std::endl<<std::endl<<std::endl;
   return false;
 }
+
+#endif //if o

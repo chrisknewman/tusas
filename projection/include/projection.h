@@ -6,7 +6,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-
+#if 0
 
 #ifndef PROJECTION_H
 #define PROJECTION_H
@@ -60,3 +60,4 @@ private:
 
 };
 #endif
+#endif //if 0

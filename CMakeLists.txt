@@ -51,9 +51,9 @@ target_sources(tusas
     mesh/Mesh.C
     #periodic_bc/periodic_bc.cpp 
     post_process/post_process.cpp
-    projection/interpflux.cpp 
-    projection/interpfluxavg.cpp 
-    projection/projection.cpp 
+    #projection/interpflux.cpp 
+    #projection/interpfluxavg.cpp 
+    #projection/projection.cpp 
     random_distribution/random_distribution.cpp
     tusas.cpp
 
@@ -68,7 +68,7 @@ target_sources(tusas
       #periodic_bc/include
       post_process/include
       preconditioner/include
-      projection/include
+      #projection/include
       random_distribution/include
       timestep/include
       utilities/include
@@ -82,9 +82,9 @@ target_sources(tusas
       post_process/include/post_process.h 
       preconditioner/include/preconditioner.hpp
       preconditioner/include/preconditioner_def.hpp
-      projection/include/interpflux.h 
-      projection/include/interpfluxavg.h 
-      projection/include/projection.h 
+      #projection/include/interpflux.h 
+      #projection/include/interpfluxavg.h 
+      #projection/include/projection.h 
       random_distribution/include/random_distribution.h
       timestep/include/ModelEvaluatorTPETRA.hpp
       timestep/include/ModelEvaluatorTPETRA_def.hpp

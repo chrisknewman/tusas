@@ -6,7 +6,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-
+#if 0
 
 #include "interpflux.h"
 
@@ -91,3 +91,4 @@ bool interpflux::interp_time(const double time)
 
   return found;
 }
+#endif //if 0

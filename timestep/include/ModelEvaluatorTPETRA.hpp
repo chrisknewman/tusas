@@ -42,8 +42,7 @@ template<class Scalar> class ModelEvaluatorTPETRA;
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
-modelEvaluatorTPETRA( //const Teuchos::RCP<const Epetra_Comm>& comm,
-			Mesh &mesh,
+modelEvaluatorTPETRA( Mesh *mesh,
 			 Teuchos::ParameterList plist 
 			 );
 /// Implentation of timestep with MPI and OpenMP support.
@@ -53,8 +52,7 @@ class ModelEvaluatorTPETRA
 {
 public:
   /// Constructor
-  ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
-			Mesh *mesh,
+  ModelEvaluatorTPETRA( Mesh *mesh,
 			   Teuchos::ParameterList plist 
 		       );
   /// Destructor
@@ -272,7 +270,6 @@ private:
 
   //hacked stuff for elem_color
   Teuchos::RCP<elem_color> Elem_col;
-  Teuchos::RCP<const Epetra_Comm>  Comm;
   //Kokkos::View<const double*, Kokkos::MemoryTraits<Kokkos::RandomAccess>> x_1dra;
   //Kokkos::View<const double*> x_1dra; 
   

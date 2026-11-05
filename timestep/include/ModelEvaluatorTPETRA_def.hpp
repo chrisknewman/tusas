@@ -118,8 +118,7 @@ public:
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
-modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
-			Mesh *mesh,
+modelEvaluatorTPETRA( Mesh *mesh,
 			 Teuchos::ParameterList plist
 			 )
 {
@@ -130,13 +129,11 @@ modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
 template<class Scalar>
 ModelEvaluatorTPETRA<Scalar>::
-ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
-			Mesh *mesh,
+ModelEvaluatorTPETRA( Mesh *mesh,
 			 Teuchos::ParameterList plist 
 		     ) :
   paramList(plist),
-  mesh_(mesh),
-  Comm(comm)
+  mesh_(mesh)
 {
 
   //std::cout<<FP_FAST_FMA<<" "<<FP_FAST_FMAF<<" "<<FP_FAST_FMAL<<std::endl<<__FMA__<<" "<<__AVX__<<" "<<__AVX2__<<std::endl;exit(0);
@@ -4227,7 +4224,6 @@ template<class scalar_type>
   //cn lets not worry about two different time steps for normal simulations
 
   Teuchos::RCP< vector_type> u_temp = Teuchos::rcp(new vector_type(x_overlap_map_));
-  //Teuchos::RCP< Epetra_Vector> u_old_temp = Teuchos::rcp(new Epetra_Vector(*x_overlap_map_));
   //on host only now
   auto u_view = u_temp->getLocalViewHost(Tpetra::Access::ReadWrite);
   auto u_1d = Kokkos::subview (u_view, Kokkos::ALL (), 0);

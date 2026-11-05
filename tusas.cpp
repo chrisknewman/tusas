@@ -11,13 +11,6 @@
 // NOX Objects
 #include "NOX.H"
 
-// Trilinos Objects
-#ifdef HAVE_MPI
-#include "Epetra_MpiComm.h"
-#else
-#include "Epetra_SerialComm.h"
-#endif
-
 #include <Kokkos_Core.hpp>
 
 #include <Teuchos_ConfigDefs.hpp>
@@ -25,6 +18,7 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_GlobalMPISession.hpp"
+#include "Teuchos_DefaultComm.hpp"
 #include "Teuchos_CommandLineProcessor.hpp"
 #include "Teuchos_FancyOStream.hpp"
 
@@ -64,8 +58,6 @@ int main(int argc, char *argv[])
 {
   Teuchos::TimeMonitor::zeroOutTimers();
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
- //  auto comm_ = Teuchos::DefaultComm<int>::getComm();
-//   comm_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
   
   Kokkos::initialize(argc, argv);
 #ifdef TUSAS_KOKKOS_PRINT_CONFIG
@@ -75,12 +67,7 @@ int main(int argc, char *argv[])
   Teuchos::RCP<Teuchos::Time> ts_time_decomp = Teuchos::TimeMonitor::getNewTimer("Tusas: Total Decomp Time");
   Teuchos::ParameterList paramList;
 
-  // Create a communicator for Epetra objects
-#ifdef HAVE_MPI
-  Epetra_MpiComm Comm( MPI_COMM_WORLD );
-#else
-  Epetra_SerialComm Comm;
-#endif
+  Teuchos::RCP<const Teuchos::Comm<int> > comm = Teuchos::DefaultComm<int>::getComm();
   
   int mypid;
   int numproc;
@@ -89,8 +76,8 @@ int main(int argc, char *argv[])
   std::string pfile;
   int dval = 0;
   {
-    mypid = Comm.MyPID();
-    numproc = Comm.NumProc();
+    mypid = comm->getRank();
+    numproc = comm->getSize();
 
     Teuchos::TimeMonitor TotalTimer(*ts_time_total);
     print_disclaimer(mypid);
@@ -115,7 +102,7 @@ int main(int argc, char *argv[])
     }
     else {
       Teuchos::TimeMonitor DecompTimer(*ts_time_decomp);
-      Comm.Barrier();
+      comm->barrier();
       dval = decomp(mypid, 
 		    numproc, 
 		    paramList.get<std::string> (TusasmeshNameString), 
@@ -124,7 +111,7 @@ int main(int argc, char *argv[])
 		    paramList.get<bool> (TusasskipdecompNameString), 
 		    paramList.get<bool> (TusaswritedecompNameString),
 		    paramList.get<bool> (Tusasusenemesis64bitNameString) );      
-      Comm.Barrier();
+      comm->barrier();
     }
   }
   if(0 != dval) {
@@ -149,14 +136,12 @@ int main(int argc, char *argv[])
     timestep<double> * model;
 
     if( paramList.get<std::string> (TusasmethodNameString)  == "tpetra") {
-      model = new ModelEvaluatorTPETRA<double>(Teuchos::rcp(&Comm,false),
-					       in_mesh,
+      model = new ModelEvaluatorTPETRA<double>(in_mesh,
 					       paramList);
     }
 #ifdef TUSAS_HAVE_CUDA
 #else
     else if( paramList.get<std::string> (TusasmethodNameString)  == "nemesis") {
-      //model = new ModelEvaluatorNEMESIS<double>(Teuchos::rcp(&Comm,false),in_mesh,paramList);
       std::cout<<"NEMESIS method no longer supported."<<"\n"<<"\n";
       return EXIT_FAILURE;
     }
@@ -200,7 +185,7 @@ int main(int argc, char *argv[])
     
     model->finalize();
     
-    Comm.Barrier();
+    comm->barrier();
     
     if(1 != numproc ) {
       if(paramList.get<std::string> (TusasmethodNameString)  == "nemesis") join(mypid, numproc, 

@@ -301,29 +301,31 @@ int decomp(const int mypid,
 	std::string sliceFile="./input-ldbl";
 	std::ofstream slicefile;
 	slicefile.open(sliceFile.c_str());
-	slicefile 
-	  <<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n" 
-	  <<"GRAPH TYPE			= ELEMENTAL"<<"\n" 
-	  <<"DECOMPOSITION METHOD		= "<<decompMethod<<"\n" 
+	// The decomposition method is passed with -l rather than as a
+	// DECOMPOSITION METHOD line: nem_slice in Trilinos 17.x ignores that
+	// line in the ascii file and fails with "unknown load balance type".
+	slicefile
+	  <<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n"
+	  <<"GRAPH TYPE			= ELEMENTAL"<<"\n"
 	  <<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
 	slicefile.close();
-	char * sliceArg[] = {(char*)"nem_slice",const_cast<char*>((use64Str).c_str()),(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
-	
+	char * sliceArg[] = {(char*)"nem_slice",const_cast<char*>((use64Str).c_str()),(char*)"-l",const_cast<char*>((decompMethod).c_str()),(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
+
 	decompfile
-	  <<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<" "<<sliceArg[4]<<"\n";
+	  <<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<" "<<sliceArg[4]<<" "<<sliceArg[5]<<" "<<sliceArg[6]<<"\n";
       }
       else {
 	std::string sliceFile=decompPath+"input-ldbl";
 	std::ofstream slicefile;
 	slicefile.open(sliceFile.c_str());
-	slicefile 
+	// Decomposition method passed with -l; see comment above.
+	slicefile
 	  <<"OUTPUT NEMESISI FILE = "<<nemFile<<"\n"
 	  <<"GRAPH TYPE			= ELEMENTAL"<<"\n"
-	  <<"DECOMPOSITION METHOD		= "<<decompMethod<<"\n" 
 	  <<"MACHINE DESCRIPTION = MESH="<<std::to_string(numproc)<<"\n";
 	slicefile.close();
-	char * sliceArg[] = {(char*)"nem_slice",const_cast<char*>((use64Str).c_str()),(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
-	std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<" "<<sliceArg[4]<<"\n";
+	char * sliceArg[] = {(char*)"nem_slice",const_cast<char*>((use64Str).c_str()),(char*)"-l",const_cast<char*>((decompMethod).c_str()),(char*)"-a",const_cast<char*>((sliceFile).c_str()),const_cast<char*>((infile).c_str()),(char*)NULL};
+	std::cout<<"  Running nemslice command: "<<sliceStr<<" "<<sliceArg[1]<<" "<<sliceArg[2]<<" "<<sliceArg[3]<<" "<<sliceArg[4]<<" "<<sliceArg[5]<<" "<<sliceArg[6]<<"\n";
 	
 	//if(-1 == system(sliceStr.c_str()) ){
 	if(-1 == do_sys_call(sliceStr.c_str(),sliceArg) ){

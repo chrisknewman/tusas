@@ -17,11 +17,24 @@ else()
     message(SEND_ERROR "Could not find Trilinos cmake library")
 endif()
 set(CMAKE_CXX_EXTENSIONS OFF)
-find_package(Trilinos REQUIRED)
 
-# set our compilers to the same used to build Trilinos
-set(CMAKE_CXX_COMPILER ${Trilinos_CXX_COMPILER})
-set(CMAKE_C_COMPILER ${Trilinos_C_COMPILER})
+# set our compilers to the same used to build Trilinos.
+# Languages must be enabled before find_package(Trilinos), since newer
+# Kokkos configs call find_dependency(OpenMP COMPONENTS CXX), which needs
+# an enabled CXX language. Read the compilers directly from TrilinosConfig.cmake.
+file(STRINGS ${Trilinos_DIR}/TrilinosConfig.cmake _tusas_trilinos_compilers
+     REGEX "^set\\(Trilinos_(CXX|C)_COMPILER ")
+foreach(_line IN LISTS _tusas_trilinos_compilers)
+  if(_line MATCHES "^set\\(Trilinos_(CXX|C)_COMPILER \"([^\"]*)\"")
+    set(CMAKE_${CMAKE_MATCH_1}_COMPILER "${CMAKE_MATCH_2}")
+  endif()
+endforeach()
+
+# now check for working compilers
+enable_language(C)
+enable_language(CXX)
+
+find_package(Trilinos REQUIRED)
 
 # set compiler flags
 set(CMAKE_CXX_FLAGS
@@ -30,10 +43,6 @@ set(CMAKE_CXX_FLAGS
 set(CMAKE_C_FLAGS
   "${Trilinos_C_COMPILER_FLAGS} ${CMAKE_C_FLAGS}"
 )
-
-# now check for working compilers
-enable_language(C)
-enable_language(CXX)
 
 # add an execuatble target
 add_executable(tusas)

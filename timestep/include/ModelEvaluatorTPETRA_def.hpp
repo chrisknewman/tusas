@@ -18,7 +18,7 @@
 #include <Teuchos_XMLParameterListCoreHelpers.hpp>
 #include "Teuchos_AbstractFactoryStd.hpp"
 //#include <Kokkos_View.hpp> 	
-#include <Kokkos_Vector.hpp>
+//#include <Kokkos_Vector.hpp>
 #include <Kokkos_Core.hpp>
 //#include <Kokkos_CrsMatrix.hpp>
 

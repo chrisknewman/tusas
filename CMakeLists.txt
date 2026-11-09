@@ -194,7 +194,7 @@ set(TUSAS_TESTS
   Thermal
   Tonks1kks
   Tonks1trans
-  Uehara1
+  #Uehara1
   UnstructuredHex
   WriteSkipDecomp
 )

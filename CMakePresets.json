@@ -69,11 +69,11 @@
       "displayName": "Default Ubuntu Config",
       "description": "Default build for Ubuntu 24.04 using standard Unix Makefiles",
       "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/GCC_KOKKOS_15_1/",
+      "binaryDir": "${sourceDir}/GCC_KOKKOS_17_3/",
       "cacheVariables": {
         "TRILINOS_DIR": {
           "type": "STRING",
-          "value": "/home/jlilly/projects/tusas/sources/Trilinos15.1/install/"
+          "value": "/home/jlilly/projects/tusas/sources/Trilinos17.3/install/"
         },
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",

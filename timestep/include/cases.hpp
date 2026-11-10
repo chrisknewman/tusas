@@ -249,7 +249,7 @@ namespace mansoln
   RES_FUNC_TPETRA(source_mu_constcab)
   {
     const int Nt_max = pdes::kks::Nt_max;
-    const int Nt = 3;
+    const int Nt = 1;
 
     const double k_c = pdes::kks::k_c;
 
@@ -267,9 +267,8 @@ namespace mansoln
       source[tdx] = k_c * d2c_dx2[tdx] * phi;
     }
 
-    // time derivative entry is zero here because it will be added to the residual
-    // by pde_mu()
-    return tools::utils::ret_value(0., source, dt_, dtold_, t_theta_, t_theta2_);
+    // the primary residual for mu only uses one time-level
+    return source[0];
   }
   
   KOKKOS_INLINE_FUNCTION

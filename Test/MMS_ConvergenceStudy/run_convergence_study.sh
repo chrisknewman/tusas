@@ -24,11 +24,10 @@ LOG=log.txt
 CONFDIR=./configs
 OUTDIR=./out
 
-#CASENAMES=('mms-eta-constcab-dirichlet'
-#           'mms-eta-constcab-neumann'
-#           'mms-coupled-constcab-dirichlet'
-#           'mms-coupled-constcab-neumann')
-CASENAMES=('mms-coupled-constcab-neumann')
+CASENAMES=(
+    'mms-eta-constcab-neumann'
+    'mms-coupled-constcab-neumann'
+)
 MESHES=('1x250' '1x500' '1x1000' '1x2000')
 THETAS=('1.0' '0.5')
 VARS=('eta' 'c' 'mu')

@@ -16,6 +16,8 @@ Test/*/out*/
 Test/*/*.dat
 Test/*/*.txt
 Test/*/config*
+Test/*/*/*.pdf
+Test/*/*/*.png
 
 # ignore tmp files
 *.swp

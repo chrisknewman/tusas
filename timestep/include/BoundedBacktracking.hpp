@@ -6,7 +6,10 @@
 //
 /////////////////////////////////////////////////////////////////////////////
 
+#ifndef BOUNDEDBACKTRACKING_HPP
+#define BOUNDEDBACKTRACKING_HPP
 
+#include <cmath>
 #include "NOX_LineSearch_Generic.H"
 #include "NOX_LineSearch_UserDefinedFactory.H"
 #include "NOX_GlobalData.H"
@@ -15,7 +18,9 @@
 #include "NOX_Abstract_Vector.H"
 #include "NOX_Thyra_Vector.H"
 #include "Thyra_TpetraThyraWrappers.hpp"
+#include "Thyra_SpmdVectorSpaceBase.hpp"
 #include "Teuchos_RCP.hpp"
+#include "Teuchos_CommHelpers.hpp"
 
 // Forward declarations
 namespace NOX {
@@ -67,6 +72,20 @@ public:
         lowerboundedVals_.size() != boundedEqnids_.size() ) {
       throw std::runtime_error(
           "BoundedBacktracking: Array sizes must match!");
+    }
+    if (numeqs_ < 1) {
+      throw std::runtime_error(
+          "BoundedBacktracking: Num Equations must be set and positive!");
+    }
+    for (size_t k = 0; k < boundedEqnids_.size(); k++) {
+      if (boundedEqnids_[k] < 0 || boundedEqnids_[k] >= numeqs_) {
+        throw std::runtime_error(
+            "BoundedBacktracking: Bounded Equation IDs must be in [0, Num Equations)!");
+      }
+      if (lowerboundedVals_[k] > upperboundedVals_[k]) {
+        throw std::runtime_error(
+            "BoundedBacktracking: Lower Bounds must not exceed Upper Bounds!");
+      }
     }
 
     minStep_ = params->get("Minimum Step", 1.0e-12);
@@ -132,7 +151,7 @@ public:
 	      utils->out() << " new f = " << utils->sciformat(newF);
 	      utils->out() << std::endl;
 	    }
-          // Armijo condition with alpha = 1e-4
+          // Armijo condition with alpha = 1e-4 (false for NaN)
           if (newF < oldF * (1.0 - 1.0e-4 * step)) {
 	    if (utils->isPrintType(NOX::Utils::InnerIteration))
 	      {
@@ -141,26 +160,38 @@ public:
             return true;  // Accept step
           }
         } else {
-          // Accept based on bounds alone
+          // Accept based on bounds alone, as long as the residual is finite
           newGrp.computeF();  // Still need to compute residual
-	  if (utils->isPrintType(NOX::Utils::InnerIteration))
-	    {
-	      utils->out() << NOX::Utils::fill(72) << "\n\n";
-	    }
-          return true;
+          if (std::isfinite(newGrp.getNormF())) {
+	    if (utils->isPrintType(NOX::Utils::InnerIteration))
+	      {
+		utils->out() << NOX::Utils::fill(72) << "\n\n";
+	      }
+            return true;
+          }
         }
       }
       
       // Reduce step and try again
       step *= stepReduction_;
       if (step < minStep_) {
-        std::cout << "Warning: Step size below minimum in bounded backtracking"
-                  << std::endl;
-        return false;
+        if (utils->isPrintType(NOX::Utils::Warning))
+          utils->out() << "BoundedBacktracking: step size below minimum ("
+                       << utils->sciformat(minStep_) << ")" << std::endl;
+        break;
       }
     }
-    
-    return false;  // Failed to find acceptable step
+
+    // Failed to find an acceptable step. Restore the previous solution and
+    // return step = 0 so NOX reports a line search failure rather than
+    // accepting an out-of-bounds "recovery step".
+    if (utils->isPrintType(NOX::Utils::Warning))
+      utils->out() << "BoundedBacktracking: failed to find an acceptable step"
+                   << std::endl;
+    step = 0.0;
+    newGrp.computeX(oldGrp, dir, step);
+    newGrp.computeF();
+    return false;
   }
   
 private:
@@ -176,6 +207,8 @@ private:
     Teuchos::ArrayRCP<const scalar_type> vals = x_vec.values();
 
     const size_t localLength = vals.size();
+
+    int localOK = 1;
 
     // Loop over ALL unknowns once
     for (size_t lid = 0; lid < localLength; lid++) {
@@ -199,13 +232,24 @@ private:
 			   << ", " << upperboundedVals_[k] << "]\n";
             }
             
-            return false;
+            localOK = 0;
           }
           break;  // Found the equation, stop searching
         }
       }
+      if (!localOK) break;
     }
-    return true;
+
+    // All ranks must agree, otherwise they take different branches in
+    // compute() and the collective computeF() hangs.
+    int globalOK = localOK;
+    Teuchos::RCP<const Thyra::SpmdVectorSpaceBase<double> > spmdSpace =
+      Teuchos::rcp_dynamic_cast<const Thyra::SpmdVectorSpaceBase<double> >(xx->col(0)->space());
+    if (Teuchos::nonnull(spmdSpace) && Teuchos::nonnull(spmdSpace->getComm())) {
+      Teuchos::reduceAll<Teuchos_Ordinal, int>(*spmdSpace->getComm(), Teuchos::REDUCE_MIN,
+                                   localOK, Teuchos::outArg(globalOK));
+    }
+    return (1 == globalOK);
   }
 };
 
@@ -225,3 +269,5 @@ public:
         Teuchos::rcpFromRef(params)));
   }
 };
+
+#endif // BOUNDEDBACKTRACKING_HPP

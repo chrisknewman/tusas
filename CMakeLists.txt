@@ -172,6 +172,7 @@ set(TUSAS_TESTS
   NeumannTriPar
   NeumannTriQ
   NonlinearLog0D
+  NonlinearLog0DResBounds
   #PeriodicHexPar
   #PeriodicQuad
   Pfhub2

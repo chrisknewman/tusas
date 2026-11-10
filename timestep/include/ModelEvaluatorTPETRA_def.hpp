@@ -11,6 +11,7 @@
 #define NOX_THYRA_MODEL_EVALUATOR_TPETRA_DEF_HPP
 
 #include <Teuchos_DefaultComm.hpp>
+#include <Teuchos_CommHelpers.hpp>
 #include <Teuchos_Describable.hpp>
 #include <Teuchos_ArrayViewDecl.hpp>
 #include <Teuchos_TimeMonitor.hpp>
@@ -82,6 +83,9 @@ public:
   bool supportsScaleLeftImpl() const {return true;};
   bool supportsScaleRightImpl() const {return false;};
   Teuchos::RCP< ::Thyra::VectorBase<Scalar> >  scaling;
+  /// If set, *jacobian_eval is true while a Jacobian-vector product is computed;
+  /// lets the model evaluator tell perturbed (Jacobian) residual evaluations apart.
+  bool * jacobian_eval = nullptr;
   void scaleLeftImpl (const ::Thyra::VectorBase< Scalar > &row_scaling){ 
 //     using Teuchos::rcpFromRef;
     
@@ -110,7 +114,14 @@ public:
   void applyImpl(const Thyra::EOpTransp M_trans, const Thyra::MultiVectorBase< Scalar > &X, const Teuchos::Ptr< Thyra::MultiVectorBase< Scalar > > &Y, const Scalar alpha, const Scalar beta) const
   {
     //std::cout<<"applyImpl"<<std::endl;
-    NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::applyImpl(M_trans, X, Y, alpha, beta);
+    if (nullptr != jacobian_eval) *jacobian_eval = true;
+    try {
+      NOX::Thyra::MatrixFreeJacobianOperator<Scalar>::applyImpl(M_trans, X, Y, alpha, beta);
+    } catch (...) {
+      if (nullptr != jacobian_eval) *jacobian_eval = false;
+      throw;
+    }
+    if (nullptr != jacobian_eval) *jacobian_eval = false;
     if (nonnull(scaling))
       ele_wise_scale(*scaling,(Y->col(0)).ptr());
   };
@@ -135,6 +146,7 @@ ModelEvaluatorTPETRA( Mesh *mesh,
   paramList(plist),
   mesh_(mesh)
 {
+  jacobian_eval_ = false;
 
   //std::cout<<FP_FAST_FMA<<" "<<FP_FAST_FMAF<<" "<<FP_FAST_FMAL<<std::endl<<__FMA__<<" "<<__AVX__<<" "<<__AVX2__<<std::endl;exit(0);
   dt_ = paramList.get<double> (TusasdtNameString);
@@ -404,6 +416,7 @@ ModelEvaluatorTPETRA( Mesh *mesh,
 					    error_index));
   }
   initialize();
+  init_residual_bounds();
   init_nox();  
   Teuchos::ParameterList *atsList;
   atsList = &paramList.sublist (TusasatslistNameString, false );
@@ -549,6 +562,20 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
 
   const Teuchos::RCP<const vector_type > x_vec =
     ConverterT::getConstTpetraVector(inArgs.get_x());
+
+  // Reject residual evaluations at unphysical states (e.g. c outside (0,1) for log(c)).
+  // f is filled with NaN, which causes the NOX line search to backtrack.
+  // Not enforced for the perturbed evaluations inside JFNK Jacobian-vector products,
+  // since the base point has already been accepted.
+  if (nonnull(outArgs.get_f()) && !resbound_eqns_.empty() && !jacobian_eval_){
+    if (!check_residual_bounds(*x_vec)){
+      //we fill f with NaN rather than calling outArgs.setFailed(); the NOX backtracking
+      //line searches treat a non-finite ||F|| as a reason to cut the step, while
+      //NOX::LineSearch::Backtrack throws if computeF() reports Failed
+      Thyra::assign(outArgs.get_f().ptr(), Teuchos::ScalarTraits<Scalar>::nan());
+      return;
+    }
+  }
 
   Teuchos::RCP<vector_type > u = Teuchos::rcp(new vector_type(x_overlap_map_));
   Teuchos::RCP<vector_type > uold = Teuchos::rcp(new vector_type(x_overlap_map_));
@@ -1422,6 +1449,82 @@ const GPURefBasis * BGPURef = BGPURefB;
 
 //====================================================================
 
+template<class Scalar>
+void ModelEvaluatorTPETRA<Scalar>::init_residual_bounds()
+{
+  jacobian_eval_ = false;
+  resbound_eqns_.clear();
+  resbound_lower_.clear();
+  resbound_upper_.clear();
+
+  if(!paramList.isSublist(TusasresboundsNameString)) return;
+
+  Teuchos::ParameterList &rbList = paramList.sublist(TusasresboundsNameString);
+  Teuchos::Array<int> eqns = rbList.get<Teuchos::Array<int> >("Bounded Equation IDs");
+  Teuchos::Array<double> lower = rbList.get<Teuchos::Array<double> >("Lower Bounds");
+  Teuchos::Array<double> upper = rbList.get<Teuchos::Array<double> >("Upper Bounds");
+
+  TEUCHOS_TEST_FOR_EXCEPTION(eqns.size() != lower.size() || eqns.size() != upper.size(),
+			     std::runtime_error,
+			     TusasresboundsNameString<<": array sizes must match.");
+  for(int k = 0; k < eqns.size(); k++){
+    TEUCHOS_TEST_FOR_EXCEPTION(eqns[k] < 0 || eqns[k] >= numeqs_, std::runtime_error,
+			       TusasresboundsNameString<<": Bounded Equation IDs must be in [0, "<<numeqs_<<").");
+    TEUCHOS_TEST_FOR_EXCEPTION(lower[k] > upper[k], std::runtime_error,
+			       TusasresboundsNameString<<": Lower Bounds must not exceed Upper Bounds.");
+  }
+  resbound_eqns_.assign(eqns.begin(), eqns.end());
+  resbound_lower_.assign(lower.begin(), lower.end());
+  resbound_upper_.assign(upper.begin(), upper.end());
+
+  auto comm_ = Teuchos::DefaultComm<int>::getComm();
+  if( 0 == comm_->getRank() ){
+    std::cout<<std::endl<<TusasresboundsNameString<<":"<<std::endl;
+    for(size_t k = 0; k < resbound_eqns_.size(); k++)
+      std::cout<<"  equation "<<resbound_eqns_[k]<<" in ["<<resbound_lower_[k]
+	       <<", "<<resbound_upper_[k]<<"]"<<std::endl;
+    std::cout<<std::endl;
+  }
+}
+
+template<class Scalar>
+bool ModelEvaluatorTPETRA<Scalar>::check_residual_bounds(const vector_type &x) const
+{
+  auto x_view = x.getLocalViewHost(Tpetra::Access::ReadOnly);
+  const size_t localLength = x.getLocalLength();
+  const int numeqs = numeqs_;
+
+  int localOK = 1;
+  size_t badlid = 0;
+  for(size_t lid = 0; lid < localLength && localOK; lid++){
+    const int eqn = lid % numeqs;
+    for(size_t k = 0; k < resbound_eqns_.size(); k++){
+      if(eqn == resbound_eqns_[k]){
+	const double val = x_view(lid,0);
+	//written so that NaN fails the check
+	if(!(val >= resbound_lower_[k] && val <= resbound_upper_[k])){
+	  localOK = 0;
+	  badlid = lid;
+	}
+	break;
+      }
+    }
+  }
+
+  auto comm_ = Teuchos::DefaultComm<int>::getComm();
+  int globalOK = localOK;
+  Teuchos::reduceAll<int,int>(*comm_, Teuchos::REDUCE_MIN, localOK, Teuchos::outArg(globalOK));
+
+  if(!localOK){
+    std::cout<<"  "<<TusasresboundsNameString<<": rejecting residual evaluation; proc "<<comm_->getRank()
+	     <<", local node "<<badlid/numeqs<<", equation "<<badlid%numeqs
+	     <<", value = "<<x_view(badlid,0)<<std::endl;
+  }
+  return (1 == globalOK);
+}
+
+//====================================================================
+
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::init_nox()
 {
@@ -1538,6 +1641,8 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
   Teuchos::RCP<NOX::StatusTest::Combo> combo =
     Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
   //combo->addStatusTest(fv);
+  //with residual bounds a rejected evaluation gives a NaN residual; stop rather than iterate on it
+  if(!resbound_eqns_.empty()) combo->addStatusTest(fv);
   combo->addStatusTest(converged);
   combo->addStatusTest(maxiters);
 
@@ -1601,8 +1706,10 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
       Teuchos::ParameterList printParams;
       Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
 
-      Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp1 =
-	Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
+      Teuchos::RCP<tusasjfnkOp<double> > tjfnkOp1 =
+	Teuchos::rcp(new tusasjfnkOp<double>(printParams));
+      tjfnkOp1->jacobian_eval = &jacobian_eval_;
+      Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp1 = tjfnkOp1;
       jfnkOp1->setParameterList(jfnkParams);
       
       Teuchos::RCP<NOX::Thyra::Group> noxpred_group =
@@ -1697,8 +1804,10 @@ ModelEvaluatorTPETRA<Scalar>::create_W_op() const
   Teuchos::ParameterList printParams;//cn this is empty??? for now
 //   Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
 //     Teuchos::rcp(new NOX::Thyra::MatrixFreeJacobianOperator<double>(printParams));
-  Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp =
+  Teuchos::RCP<tusasjfnkOp<double> > tjfnkOp =
     Teuchos::rcp(new tusasjfnkOp<double>(printParams));
+  tjfnkOp->jacobian_eval = &jacobian_eval_;
+  Teuchos::RCP<NOX::Thyra::MatrixFreeJacobianOperator<double> > jfnkOp = tjfnkOp;
 
   Teuchos::RCP<Teuchos::ParameterList> jfnkParams = Teuchos::rcp(new Teuchos::ParameterList(paramList.sublist(TusasjfnkNameString)));
   jfnkOp->setParameterList(jfnkParams);

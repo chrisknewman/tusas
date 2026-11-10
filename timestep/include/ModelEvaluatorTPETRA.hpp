@@ -299,6 +299,16 @@ private:
   bool predictor_step;
   bool corrector_step;
 
+  /// Residual bounds: equations, lower and upper bounds; see TusasresboundsNameString
+  std::vector<int> resbound_eqns_;
+  std::vector<double> resbound_lower_;
+  std::vector<double> resbound_upper_;
+  /// True while a JFNK Jacobian-vector product is being evaluated; residual bounds are not enforced then
+  mutable bool jacobian_eval_;
+  void init_residual_bounds();
+  /// Collective. Returns true if all bounded variables in x are within bounds on all procs.
+  bool check_residual_bounds(const vector_type &x) const;
+
   std::string get_basis_name(const std::string elem_type) const;
 };
 

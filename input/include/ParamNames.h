@@ -82,6 +82,10 @@ std::string const TusasjfnkDocString = "over ride JFNK solver; probably should n
 std::string const TusasnlsNameString = "Nonlinear Solver";
 /// Nonlinear solver parameters list.
 std::string const TusasnlsDocString = "over ride nonlinear solver parameters";
+/// Residual bounds parameters list.
+std::string const TusasresboundsNameString = "Residual Bounds";
+/// Residual bounds parameters list.
+std::string const TusasresboundsDocString = "if present, residual evaluations with a bounded variable outside [Lower Bounds, Upper Bounds] are rejected (residual set to NaN) so the line search backtracks; parameters: Bounded Equation IDs (Array(int)), Lower Bounds (Array(double)), Upper Bounds (Array(double))";
 /// Create error estimator for this variable.
 std::string const TusaserrorestimatorNameString = "errorestimator";
 /// Create error estimator for this variable.

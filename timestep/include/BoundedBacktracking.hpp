@@ -18,9 +18,8 @@
 #include "NOX_Abstract_Vector.H"
 #include "NOX_Thyra_Vector.H"
 #include "Thyra_TpetraThyraWrappers.hpp"
-#include "Thyra_SpmdVectorSpaceBase.hpp"
 #include "Teuchos_RCP.hpp"
-#include "Teuchos_CommHelpers.hpp"
+#include "VariableBounds.hpp"
 
 // Forward declarations
 namespace NOX {
@@ -38,10 +37,7 @@ private:
 
   typedef Thyra::TpetraOperatorVectorExtraction<scalar_type,int> ConverterT;
 
-  int numeqs_;
-  std::vector<double> lowerboundedVals_;
-  std::vector<double> upperboundedVals_;
-  std::vector<int> boundedEqnids_;
+  VariableBounds bounds_;
   double minStep_;
   double stepReduction_;
   int maxIters_;
@@ -54,39 +50,20 @@ public:
   {
     utils = gd->getUtils();
  
-    numeqs_ = params->get("Num Equations",-99);
- 
-    Teuchos::Array<int> eqnIds = 
+    const int numeqs = params->get("Num Equations",-99);
+
+    Teuchos::Array<int> eqnIds =
       params->get<Teuchos::Array<int>>("Bounded Equation IDs");
-    boundedEqnids_.assign(eqnIds.begin(), eqnIds.end());
-
-    Teuchos::Array<double> lowervals = 
+    Teuchos::Array<double> lowervals =
       params->get<Teuchos::Array<double>>("Lower Bounds");
-    lowerboundedVals_.assign(lowervals.begin(), lowervals.end());
-
-    Teuchos::Array<double> uppervals = 
+    Teuchos::Array<double> uppervals =
       params->get<Teuchos::Array<double>>("Upper Bounds");
-    upperboundedVals_.assign(uppervals.begin(), uppervals.end());
 
-    if (lowerboundedVals_.size() != upperboundedVals_.size() || 
-        lowerboundedVals_.size() != boundedEqnids_.size() ) {
-      throw std::runtime_error(
-          "BoundedBacktracking: Array sizes must match!");
-    }
-    if (numeqs_ < 1) {
-      throw std::runtime_error(
-          "BoundedBacktracking: Num Equations must be set and positive!");
-    }
-    for (size_t k = 0; k < boundedEqnids_.size(); k++) {
-      if (boundedEqnids_[k] < 0 || boundedEqnids_[k] >= numeqs_) {
-        throw std::runtime_error(
-            "BoundedBacktracking: Bounded Equation IDs must be in [0, Num Equations)!");
-      }
-      if (lowerboundedVals_[k] > upperboundedVals_[k]) {
-        throw std::runtime_error(
-            "BoundedBacktracking: Lower Bounds must not exceed Upper Bounds!");
-      }
-    }
+    bounds_ = VariableBounds(numeqs,
+                             std::vector<int>(eqnIds.begin(), eqnIds.end()),
+                             std::vector<double>(lowervals.begin(), lowervals.end()),
+                             std::vector<double>(uppervals.begin(), uppervals.end()),
+                             "BoundedBacktracking");
 
     minStep_ = params->get("Minimum Step", 1.0e-12);
     stepReduction_ = params->get("Step Reduction Factor", 0.5);
@@ -96,7 +73,7 @@ public:
 
     if (utils->isPrintType(NOX::Utils::Details)) {
       utils->out() << "BoundedBacktracking:\n" 
-                   << "  bounded equations = "<<boundedEqnids_.size() <<"\n"
+                   << "  bounded equations = "<<bounds_.size() <<"\n"
 		   << "  minStep_ = "<<minStep_ <<"\n"
 		   << "  stepReduction_ = "<<stepReduction_ <<"\n"
 		   << "  maxIters_ = "<<maxIters_ <<"\n"
@@ -119,7 +96,6 @@ public:
                const NOX::Solver::Generic& s) {
     
     const NOX::Abstract::Group& oldGrp = s.getPreviousSolutionGroup();
-    const NOX::Abstract::Vector& oldX = oldGrp.getX();
     double oldF = oldGrp.getNormF();
     
     step = 1.0;  // Start with full Newton step
@@ -188,68 +164,20 @@ public:
     if (utils->isPrintType(NOX::Utils::Warning))
       utils->out() << "BoundedBacktracking: failed to find an acceptable step"
                    << std::endl;
+    // Copying the group brings along the already computed F, avoiding a
+    // residual evaluation.
     step = 0.0;
-    newGrp.computeX(oldGrp, dir, step);
-    newGrp.computeF();
+    newGrp = oldGrp;
     return false;
   }
   
 private:
   bool checkBounds(const NOX::Abstract::Vector& x) {
-
-    //std::cout<<"BoundedBacktracking::checkBounds"<<std::endl;
-
-    const Thyra::VectorBase<double> * xx = 
-      &(dynamic_cast<const NOX::Thyra::Vector&>(x).getThyraVector());
-
-    Thyra::ConstDetachedSpmdVectorView<double> x_vec(xx->col(0));
-
-    Teuchos::ArrayRCP<const scalar_type> vals = x_vec.values();
-
-    const size_t localLength = vals.size();
-
-    int localOK = 1;
-
-    // Loop over ALL unknowns once
-    for (size_t lid = 0; lid < localLength; lid++) {
-      
-      // Determine which equation this unknown belongs to
-      int eqn = lid % numeqs_;
-      
-      // Check if this equation is bounded
-      for (int k = 0; k < boundedEqnids_.size(); k++) {
-        if (eqn == boundedEqnids_[k]) {
-          // This equation is bounded - check it
-          if (vals[lid] < lowerboundedVals_[k] || 
-              vals[lid] > upperboundedVals_[k]) {
-            
-            if (utils->isPrintType(NOX::Utils::Details)) {
-              int node = lid / numeqs_;
-              utils->out() << "  Out of bounds at node " << node 
-			   << ", equation " << eqn 
-			   << ": value = " << vals[lid]
-			   << ", bounds = [" << lowerboundedVals_[k] 
-			   << ", " << upperboundedVals_[k] << "]\n";
-            }
-            
-            localOK = 0;
-          }
-          break;  // Found the equation, stop searching
-        }
-      }
-      if (!localOK) break;
-    }
-
-    // All ranks must agree, otherwise they take different branches in
-    // compute() and the collective computeF() hangs.
-    int globalOK = localOK;
-    Teuchos::RCP<const Thyra::SpmdVectorSpaceBase<double> > spmdSpace =
-      Teuchos::rcp_dynamic_cast<const Thyra::SpmdVectorSpaceBase<double> >(xx->col(0)->space());
-    if (Teuchos::nonnull(spmdSpace) && Teuchos::nonnull(spmdSpace->getComm())) {
-      Teuchos::reduceAll<Teuchos_Ordinal, int>(*spmdSpace->getComm(), Teuchos::REDUCE_MIN,
-                                   localOK, Teuchos::outArg(globalOK));
-    }
-    return (1 == globalOK);
+    Teuchos::RCP<const Thyra::VectorBase<double> > xx =
+      dynamic_cast<const NOX::Thyra::Vector&>(x).getThyraRCPVector();
+    Teuchos::RCP<const vector_type> x_vec = ConverterT::getConstTpetraVector(xx);
+    return bounds_.check(*x_vec, *(x_vec->getMap()->getComm()),
+                         utils->isPrintType(NOX::Utils::Details));
   }
 };
 

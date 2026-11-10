@@ -11,6 +11,7 @@
 #ifndef NOX_THYRA_MODEL_EVALUATOR_TPETRA_DECL_HPP
 #define NOX_THYRA_MODEL_EVALUATOR_TPETRA_DECL_HPP
 
+#include "VariableBounds.hpp"
 #include <Teuchos_Comm.hpp>
 
 #include <Tpetra_Vector.hpp>
@@ -299,15 +300,11 @@ private:
   bool predictor_step;
   bool corrector_step;
 
-  /// Residual bounds: equations, lower and upper bounds; see TusasresboundsNameString
-  std::vector<int> resbound_eqns_;
-  std::vector<double> resbound_lower_;
-  std::vector<double> resbound_upper_;
+  /// Residual bounds; see TusasresboundsNameString
+  VariableBounds resbounds_;
   /// True while a JFNK Jacobian-vector product is being evaluated; residual bounds are not enforced then
   mutable bool jacobian_eval_;
   void init_residual_bounds();
-  /// Collective. Returns true if all bounded variables in x are within bounds on all procs.
-  bool check_residual_bounds(const vector_type &x) const;
 
   std::string get_basis_name(const std::string elem_type) const;
 };

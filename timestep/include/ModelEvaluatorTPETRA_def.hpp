@@ -567,8 +567,8 @@ void ModelEvaluatorTPETRA<Scalar>::evalModelImpl(
   // f is filled with NaN, which causes the NOX line search to backtrack.
   // Not enforced for the perturbed evaluations inside JFNK Jacobian-vector products,
   // since the base point has already been accepted.
-  if (nonnull(outArgs.get_f()) && !resbound_eqns_.empty() && !jacobian_eval_){
-    if (!check_residual_bounds(*x_vec)){
+  if (nonnull(outArgs.get_f()) && !resbounds_.empty() && !jacobian_eval_){
+    if (!resbounds_.check(*x_vec, *(x_vec->getMap()->getComm()), true)){
       //we fill f with NaN rather than calling outArgs.setFailed(); the NOX backtracking
       //line searches treat a non-finite ||F|| as a reason to cut the step, while
       //NOX::LineSearch::Backtrack throws if computeF() reports Failed
@@ -1453,9 +1453,7 @@ template<class Scalar>
 void ModelEvaluatorTPETRA<Scalar>::init_residual_bounds()
 {
   jacobian_eval_ = false;
-  resbound_eqns_.clear();
-  resbound_lower_.clear();
-  resbound_upper_.clear();
+  resbounds_ = VariableBounds();
 
   if(!paramList.isSublist(TusasresboundsNameString)) return;
 
@@ -1464,66 +1462,21 @@ void ModelEvaluatorTPETRA<Scalar>::init_residual_bounds()
   Teuchos::Array<double> lower = rbList.get<Teuchos::Array<double> >("Lower Bounds");
   Teuchos::Array<double> upper = rbList.get<Teuchos::Array<double> >("Upper Bounds");
 
-  TEUCHOS_TEST_FOR_EXCEPTION(eqns.size() != lower.size() || eqns.size() != upper.size(),
-			     std::runtime_error,
-			     TusasresboundsNameString<<": array sizes must match.");
-  for(int k = 0; k < eqns.size(); k++){
-    TEUCHOS_TEST_FOR_EXCEPTION(eqns[k] < 0 || eqns[k] >= numeqs_, std::runtime_error,
-			       TusasresboundsNameString<<": Bounded Equation IDs must be in [0, "<<numeqs_<<").");
-    TEUCHOS_TEST_FOR_EXCEPTION(lower[k] > upper[k], std::runtime_error,
-			       TusasresboundsNameString<<": Lower Bounds must not exceed Upper Bounds.");
-  }
-  resbound_eqns_.assign(eqns.begin(), eqns.end());
-  resbound_lower_.assign(lower.begin(), lower.end());
-  resbound_upper_.assign(upper.begin(), upper.end());
+  resbounds_ = VariableBounds(numeqs_,
+			      std::vector<int>(eqns.begin(), eqns.end()),
+			      std::vector<double>(lower.begin(), lower.end()),
+			      std::vector<double>(upper.begin(), upper.end()),
+			      TusasresboundsNameString);
 
   auto comm_ = Teuchos::DefaultComm<int>::getComm();
   if( 0 == comm_->getRank() ){
     std::cout<<std::endl<<TusasresboundsNameString<<":"<<std::endl;
-    for(size_t k = 0; k < resbound_eqns_.size(); k++)
-      std::cout<<"  equation "<<resbound_eqns_[k]<<" in ["<<resbound_lower_[k]
-	       <<", "<<resbound_upper_[k]<<"]"<<std::endl;
+    for(size_t k = 0; k < resbounds_.size(); k++)
+      std::cout<<"  equation "<<resbounds_.eqn(k)<<" in ["<<resbounds_.lower(k)
+	       <<", "<<resbounds_.upper(k)<<"]"<<std::endl;
     std::cout<<std::endl;
   }
 }
-
-template<class Scalar>
-bool ModelEvaluatorTPETRA<Scalar>::check_residual_bounds(const vector_type &x) const
-{
-  auto x_view = x.getLocalViewHost(Tpetra::Access::ReadOnly);
-  const size_t localLength = x.getLocalLength();
-  const int numeqs = numeqs_;
-
-  int localOK = 1;
-  size_t badlid = 0;
-  for(size_t lid = 0; lid < localLength && localOK; lid++){
-    const int eqn = lid % numeqs;
-    for(size_t k = 0; k < resbound_eqns_.size(); k++){
-      if(eqn == resbound_eqns_[k]){
-	const double val = x_view(lid,0);
-	//written so that NaN fails the check
-	if(!(val >= resbound_lower_[k] && val <= resbound_upper_[k])){
-	  localOK = 0;
-	  badlid = lid;
-	}
-	break;
-      }
-    }
-  }
-
-  auto comm_ = Teuchos::DefaultComm<int>::getComm();
-  int globalOK = localOK;
-  Teuchos::reduceAll<int,int>(*comm_, Teuchos::REDUCE_MIN, localOK, Teuchos::outArg(globalOK));
-
-  if(!localOK){
-    std::cout<<"  "<<TusasresboundsNameString<<": rejecting residual evaluation; proc "<<comm_->getRank()
-	     <<", local node "<<badlid/numeqs<<", equation "<<badlid%numeqs
-	     <<", value = "<<x_view(badlid,0)<<std::endl;
-  }
-  return (1 == globalOK);
-}
-
-//====================================================================
 
 template<class scalar_type>
 void ModelEvaluatorTPETRA<scalar_type>::init_nox()
@@ -1642,7 +1595,7 @@ void ModelEvaluatorTPETRA<scalar_type>::init_nox()
     Teuchos::rcp(new NOX::StatusTest::Combo(NOX::StatusTest::Combo::OR));
   //combo->addStatusTest(fv);
   //with residual bounds a rejected evaluation gives a NaN residual; stop rather than iterate on it
-  if(!resbound_eqns_.empty()) combo->addStatusTest(fv);
+  if(!resbounds_.empty()) combo->addStatusTest(fv);
   combo->addStatusTest(converged);
   combo->addStatusTest(maxiters);
 

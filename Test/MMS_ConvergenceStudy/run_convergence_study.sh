@@ -79,7 +79,7 @@ for CASENAME in ${CASENAMES[@]}; do for MESH in ${MESHES[@]}; do for THETA in ${
     STOPTIME='1e-0'
     DTS=('1e-1' '5e-2' '25e-3' '125e-4' '625e-5' '3125e-6')
   else
-    export USEPREC='true'
+    export USEPREC='false'
     export RELRES='1.e-11'
     STOPTIME='1e-0'
     DTS=('1e-1' '5e-2' '25e-3' '125e-4' '625e-5' '3125e-6')

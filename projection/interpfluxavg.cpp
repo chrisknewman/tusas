@@ -6,7 +6,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-
+#if 0
 
 #include "interpfluxavg.h"
 
@@ -95,3 +95,4 @@ bool interpfluxavg::get_source_value(const double time, const int index, double 
 
   return found;
 }
+#endif //if 0

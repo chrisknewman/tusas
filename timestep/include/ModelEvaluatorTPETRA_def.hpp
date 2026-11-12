@@ -84,8 +84,7 @@ std::string getmypidstring(const int mypid, const int numproc);
 
 template<class Scalar>
 Teuchos::RCP<ModelEvaluatorTPETRA<Scalar> >
-modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
-			Mesh *mesh,
+modelEvaluatorTPETRA( Mesh *mesh,
 			 Teuchos::ParameterList plist
 			 )
 {
@@ -96,13 +95,11 @@ modelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
 template<class Scalar>
 ModelEvaluatorTPETRA<Scalar>::
-ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
-			Mesh *mesh,
+ModelEvaluatorTPETRA( Mesh *mesh,
 			 Teuchos::ParameterList plist 
 		     ) :
   paramList(plist),
-  mesh_(mesh),
-  Comm(comm)
+  mesh_(mesh)
 {
 
 
@@ -345,7 +342,9 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   if( paramList.get<bool>(TusasrandomDistributionNameString) ){
     const int LTP_quadrature_order = paramList.get<int> (TusasltpquadordNameString);
-    randomdistribution = Teuchos::rcp(new random_distribution(Comm, mesh_, LTP_quadrature_order));
+    // GAW TO DO // need to set this up for other quadrature orders
+    std::cout<<"Using Random distribution memory access; currently assumes linear tensor product elements!"<<std::endl;
+    randomdistribution = Teuchos::rcp(new random_distribution(mesh_, LTP_quadrature_order));
   }
 
   Kokkos::fence();
@@ -359,8 +358,10 @@ ModelEvaluatorTPETRA( const Teuchos::RCP<const Epetra_Comm>& comm,
 
   for(it = indices.begin();it != indices.end(); ++it){
     //std::cout<<*it<<" "<<std::endl;
-    int error_index = *it;
-    Error_est.push_back(new error_estimator(Comm,mesh_,numeqs_,error_index));
+    const int error_index = *it;
+    Error_est.push_back(new error_estimator(mesh_,
+					    numeqs_,
+					    error_index));
   }
 
 }
@@ -2036,14 +2037,10 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,
-					 (int)0, 
-					 post_process::NONE,
-					 (int)0,
-					 (std::string)"pp",
-					 (double)16,
-					 (bool)true ));
+    post_proc.push_back(new post_process(mesh_,(int)0));
     post_proc[0]->postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
+    post_proc.push_back(new post_process(mesh_,(int)1));
+    post_proc[1]->postprocfunc_ = &tpetra::farzadi3d::postproc_t_;
 
     paramfunc_.resize(1);
     paramfunc_[0] = &tpetra::farzadi3d::param_;
@@ -2079,30 +2076,20 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
 
     dirichletfunc_ = NULL;
 
-    post_proc.push_back(new post_process(Comm,mesh_,
-					 (int)0, 
-					 post_process::NORM2,
-					 (int)0,
-					 (std::string)"pp",
-					 (double)16 ));
+    post_proc.push_back(new post_process(mesh_,
+					 (int)0));
     post_proc[0]->postprocfunc_ = &tpetra::farzadi3d::postproc_c_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
+    post_proc.push_back(new post_process(mesh_,(int)1, post_process::MAXVALUE));
     post_proc[1]->postprocfunc_ = &tpetra::fullycoupled::postproc_t_;
-    post_proc.push_back(new post_process(Comm,mesh_,
+    post_proc.push_back(new post_process(mesh_,
 					 (int)2, 
-					 post_process::NORM2,
-					 (int)0,
-					 "pp",
-					 16 ));
+					 post_process::NORM2 ));
     post_proc[2]->postprocfunc_ = &tpetra::fullycoupled::postproc_phi_;
-    post_proc.push_back(new post_process(Comm,mesh_,
+    post_proc.push_back(new post_process(mesh_,
 					 (int)3, 
-					 post_process::NORM2,
-					 (int)0,
-					 "pp",
-					 16 ));
+					 post_process::NORM2));
     post_proc[3]->postprocfunc_ = &tpetra::fullycoupled::postproc_theta_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)4, post_process::MAXVALUE));
+    post_proc.push_back(new post_process(mesh_,(int)4, post_process::MAXVALUE));
     post_proc[4]->postprocfunc_ = &tpetra::farzadi3d::postproc_sigmoid_;
 
     paramfunc_.resize(5);
@@ -2418,9 +2405,9 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);	 
     (*neumannfunc_)[0][4] = &tpetra::radconvbc::nbc_;
 
-    post_proc.push_back(new post_process(Comm,mesh_,(int)0, post_process::MAXVALUE));
+    post_proc.push_back(new post_process(mesh_,(int)0, post_process::MAXVALUE));
     post_proc[0]->postprocfunc_ = &tpetra::goldak::postproc_qdot_;
-    post_proc.push_back(new post_process(Comm,mesh_,(int)1, post_process::MAXVALUE));
+    post_proc.push_back(new post_process(mesh_,(int)1, post_process::MAXVALUE));
     post_proc[1]->postprocfunc_ = &tpetra::goldak::postproc_u_;
 
   } else {
@@ -2820,20 +2807,16 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
   std::vector<double> uuoldold(numeqs_);
   std::vector<double> ug(dim*numee);
 
-  {
-#if 0
-    auto uview = u_new_->get1dView();
-    auto uoldview = u_old_->get1dView();
-    auto uoldoldview = u_old_old_->get1dView();
-#else
-    auto u_n_view = u_new_->getLocalViewHost(Tpetra::Access::ReadOnly);
-    auto u_o_view = u_old_->getLocalViewHost(Tpetra::Access::ReadOnly);
-    auto u_oo_view = u_old_old_->getLocalViewHost(Tpetra::Access::ReadOnly);
+  auto uview = u_new_->get1dView();
+  auto uoldview = u_old_->get1dView();
+  auto uoldoldview = u_old_old_->get1dView();
 
-    auto uview = Kokkos::subview (u_n_view, Kokkos::ALL (), 0);
-    auto uoldview = Kokkos::subview (u_o_view, Kokkos::ALL (), 0);
-    auto uoldoldview = Kokkos::subview (u_oo_view, Kokkos::ALL (), 0);
-#endif
+  std::vector<Teuchos::ArrayRCP<const scalar_type> > gradxview(numee), gradyview(numee), gradzview(numee);
+  for( int k = 0; k < numee; k++ ){
+    gradxview[k] = Error_est[k]->gradx_->get1dView();
+    gradyview[k] = Error_est[k]->grady_->get1dView();
+    gradzview[k] = Error_est[k]->gradz_->get1dView();
+  }
 
     for (int nn=0; nn < num_owned_nodes_; nn++) {
 
@@ -2843,11 +2826,11 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
         uuoldold[k] = uoldoldview[numeqs_*nn+k];
       }
 
-      for( int k = 0; k < numee; k++ ){
-        ug[k*dim] = (*(Error_est[k]->gradx_))[nn];
-        ug[k*dim+1] = (*(Error_est[k]->grady_))[nn];
-        ug[k*dim+2] = (*(Error_est[k]->gradz_))[nn];
-      }
+    for( int k = 0; k < numee; k++ ){
+      ug[k*dim] = gradxview[k][nn];
+      ug[k*dim+1] = gradyview[k][nn];
+      ug[k*dim+2] = gradzview[k][nn];
+    }
 
       std::vector<post_process*>::iterator itp;
       for(itp = post_proc.begin();itp != post_proc.end();++itp){
@@ -2856,7 +2839,7 @@ void ModelEvaluatorTPETRA<Scalar>::postprocess()
 
     }//nn
 
-  }
+  //}
 }
 
 template<class Scalar>
@@ -3167,10 +3150,10 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
       Teuchos::ParameterList *atsList;
       atsList = &paramList.sublist (TusasatslistNameString, false );
       for( int k = 0; k < numeqs_; k++ ){
-	temporal_est.push_back(new post_process(Comm,
-						mesh_,
+	temporal_est.push_back(new post_process(mesh_,
 						k, 
 						post_process::NORMRMS, 
+false,//dorestart
 						k, 
 						"temperror",
 						16,
@@ -3195,10 +3178,10 @@ void ModelEvaluatorTPETRA<Scalar>::setadaptivetimestep()
 	//see https://www.cs.princeton.edu/courses/archive/fall11/cos323/notes/cos323_f11_lecture17_ode2.pdf
 	//we would utilize t_theta2_ similarly
 
-	temporal_norm.push_back(new post_process(Comm,
-						 mesh_,
+	temporal_norm.push_back(new post_process(mesh_,
 						 k, 
 						 post_process::NORMRMS, 
+false,//dorestart
 						 k, 
 						 "tempnorm",
 						 16,

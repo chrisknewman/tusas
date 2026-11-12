@@ -15,52 +15,44 @@
 
 //teuchos support
 #include <Teuchos_RCP.hpp>
-
-// Epetra support
-#include "Epetra_Vector.h"
-#include "Epetra_Map.h"
-#include "Epetra_Import.h"
+#include <Teuchos_Comm.hpp>
 #include <Teuchos_TimeMonitor.hpp>
 
+// Tpetra support
+#include <Tpetra_Map.hpp>
 #include <Tpetra_Vector.hpp>
+#include <Tpetra_MultiVector.hpp>
+#include <Tpetra_Import.hpp>
 
-
-
-
-//needed for create_onetoone hack below
-#include "Epetra_Comm.h"
-#include "Epetra_Directory.h"
-
-
-
-
+class Basis;
 
 //#define ERROR_ESTIMATOR_OMP
 
 //template<class Scalar>
 /// Gradient recovery / error estimation.
-/** Compute a Zienkiewicz-Zhu gradient recovery and H^1 error estimator. Supports only bilinear quad and tri elements in serial at this time.*/
+/** Compute a Zienkiewicz-Zhu (superconvergent patch recovery) gradient and H^1 error estimator.
+    Supports linear tri/quad/hex/tet and quadratic quad elements.
+
+    For each node n the recovered gradient component is the polynomial g = p(x)^T a fit in the
+    least squares sense to grad u_h at the Gauss points of all elements in the nodal patch, ie
+    (sum_gp p p^T) a = sum_gp p (grad u_h). Each processor accumulates the contributions of the
+    elements it owns; the contributions are summed on the owning processor with a Tpetra export,
+    so the patch spans processor boundaries and the result is independent of the decomposition.
+    p is evaluated in coordinates shifted to the node and scaled by the patch size. */
 class error_estimator
 {
 public:
   /// Constructor.
   /** Input total number of PDEs in the system numeqs, and the index index of the variable to create error estimator for. */
-  error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,  ///< MPI communicator 
-		  Mesh *mesh,  ///< mesh object
+  error_estimator(Mesh *mesh,  ///< mesh object
 		  const int numeqs,  ///< the total number of pdes
 		  const int index ///< the index of the variable 
 		  );
   /// Destructor.
   ~error_estimator();
   /// Estimate the gradient at each node.
-  void estimate_gradient(const Teuchos::RCP<Epetra_Vector>& ///< solution vector (input)
-			 );
-  /// Estimate the gradient at each node.
   void estimate_gradient(const Teuchos::RCP<Tpetra::Vector<> >& ///< solution vector (input)
 			 );
-  /// Estimate the error on each element.
-  void estimate_error(const Teuchos::RCP<Epetra_Vector>& ///< solution vector (input)
-		      );
   /// Estimate the error on each element.
   void estimate_error(const Teuchos::RCP<Tpetra::Vector<> >& ///< solution vector (input)
 			 );
@@ -70,12 +62,21 @@ public:
   void update_mesh_data();
   /// Estimate the global H^1 error.
   double estimate_global_error();
-  /// Estimated nodal derivative wrt to x.
-  Teuchos::RCP<Epetra_Vector> gradx_;
-  /// Estimated nodal derivative wrt to y.
-  Teuchos::RCP<Epetra_Vector> grady_;
-  /// Estimated nodal derivative wrt to y.
-  Teuchos::RCP<Epetra_Vector> gradz_;
+  typedef Tpetra::Vector<>::scalar_type scalar_type;
+  typedef Tpetra::Vector<>::local_ordinal_type local_ordinal_type;
+  typedef Tpetra::Vector<>::global_ordinal_type global_ordinal_type;
+  typedef Tpetra::Vector<>::node_type node_type;
+  typedef Tpetra::Map<local_ordinal_type, global_ordinal_type, node_type> map_type;
+  typedef Tpetra::Vector<scalar_type, local_ordinal_type, global_ordinal_type, node_type> vector_type;
+  typedef Tpetra::MultiVector<scalar_type, local_ordinal_type, global_ordinal_type, node_type> mv_type;
+  typedef Tpetra::Import<local_ordinal_type, global_ordinal_type, node_type> import_type;
+
+  /// Estimated nodal derivative wrt to x (on the owned node map).
+  Teuchos::RCP<vector_type> gradx_;
+  /// Estimated nodal derivative wrt to y (on the owned node map).
+  Teuchos::RCP<vector_type> grady_;
+  /// Estimated nodal derivative wrt to z (on the owned node map).
+  Teuchos::RCP<vector_type> gradz_;
 
 private:
   ///Mesh object
@@ -85,17 +86,23 @@ private:
   /// Variable index.
   int index_;
   /// MPI comm object.
-  const Teuchos::RCP<const Epetra_Comm>  comm_;
+  Teuchos::RCP<const Teuchos::Comm<int> > comm_;
   /// Node map object.
-  Teuchos::RCP<const Epetra_Map>   node_map_;
+  Teuchos::RCP<const map_type>   node_map_;
   /// Node overlap map object.
-  Teuchos::RCP<const Epetra_Map>   overlap_map_;
+  Teuchos::RCP<const map_type>   overlap_map_;
   /// Element map object.
-  Teuchos::RCP<const Epetra_Map>   elem_map_;
+  Teuchos::RCP<const map_type>   elem_map_;
   /// Error contribution on each element.
-  Teuchos::RCP<Epetra_Vector> elem_error_;
-  /// Import object.
-  Teuchos::RCP<const Epetra_Import> importer_;
+  Teuchos::RCP<vector_type> elem_error_;
+  /// Import object (node_map_ -> overlap_map_).
+  Teuchos::RCP<const import_type> importer_;
+  /// Patch length scale for each node on the overlap map (consistent across processors).
+  Teuchos::RCP<vector_type> patch_scale_;
+  /// Number of terms in the recovery polynomial.
+  int dimp_;
+  /// Number of Gauss points per element used to sample the gradient.
+  int num_q_pts_;
   /// Global H^1 error estimate.
   double global_error_;
   /// Timing object.
@@ -111,64 +118,11 @@ private:
   void estimate_error(const double * uvec ///< solution vector (input)
 			 );
 
-  //we need this in some public utility class...
-  const Mesh::mesh_lint_t epetra_map_gid(Teuchos::RCP<const Epetra_Map> map, const int lid)
-  {
-#ifdef MESH_64
-      const Mesh::mesh_lint_t gid = map->GID64(lid);
-#else
-      const Mesh::mesh_lint_t gid = map->GID(lid);
-#endif
-      return gid;
-  };
+  /// Create a basis object for the element type of block 0, sampled at the recovery Gauss points.
+  Basis * create_recovery_basis() const;
 
-
-
-  //we need these in some static public utility class...
-Epetra_Map Create_OneToOne_Map64(const Epetra_Map& usermap,
-         bool high_rank_proc_owns_shared=false)
-{
-  //if usermap is already 1-to-1 then we'll just return a copy of it.
-  if (usermap.IsOneToOne()) {
-    Epetra_Map newmap(usermap);
-    return(newmap);
-  }
-
-  int myPID = usermap.Comm().MyPID();
-  Epetra_Directory* directory = usermap.Comm().CreateDirectory(usermap);
-
-  int numMyElems = usermap.NumMyElements();
-  const long long* myElems = usermap.MyGlobalElements64();
-
-  int* owner_procs = new int[numMyElems];
-
-  directory->GetDirectoryEntries(usermap, numMyElems, myElems, owner_procs,
-         0, 0, high_rank_proc_owns_shared);
-
-  //we'll fill a list of map-elements which belong on this processor
-
-  long long* myOwnedElems = new long long[numMyElems];
-  int numMyOwnedElems = 0;
-
-  for(int i=0; i<numMyElems; ++i) {
-    long long GID = myElems[i];
-    int owner = owner_procs[i];
-
-    if (myPID == owner) {
-      myOwnedElems[numMyOwnedElems++] = GID;
-    }
-  }
-
-  Epetra_Map one_to_one_map((long long)-1, numMyOwnedElems, myOwnedElems,
-       usermap.IndexBase(), usermap.Comm()); // CJ TODO FIXME long long
-
-  delete [] myOwnedElems;
-  delete [] owner_procs;
-  delete directory;
-
-  return(one_to_one_map);
-};
-
+  /// Evaluate the recovery polynomial terms at the scaled local coordinates (x,y,z); p has length dimp_.
+  void eval_poly(const double x, const double y, const double z, double * p) const;
 
 };
 

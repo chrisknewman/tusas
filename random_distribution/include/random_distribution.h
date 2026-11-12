@@ -12,16 +12,10 @@
 
 #include "Mesh.h"
 
-#include <Teuchos_RCP.hpp>
-
-#include "Epetra_Comm.h"
-#include "Epetra_Map.h"
-
 class random_distribution
 {
 public:
-  random_distribution(const Teuchos::RCP<const Epetra_Comm>& comm,  ///< MPI communicator 
-		      Mesh *mesh,  ///< mesh object
+  random_distribution(Mesh *mesh,  ///< mesh object
 		      const int ltpquadorder  ///< quadrature order
 		      );
 
@@ -37,19 +31,13 @@ public:
 
   void print() const;
 
-  //int nelem() {return elem_map_->NumMyElements();}
-
-  //void print(const int elemlid, const int gp) const{};
-
 private:
   /// number of Gauss points in element
   int ngp;
-  /// Element map object.
-  Teuchos::RCP<const Epetra_Map>   elem_map_;
   /// random values at Gauss points
   std::vector<std::vector<double> > gauss_val;
-  /// MPI comm object.
-  const Teuchos::RCP<const Epetra_Comm>  comm_;
+  /// number of elements on this proc
+  int num_elem;
 
 };
 

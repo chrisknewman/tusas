@@ -6,7 +6,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-
+#if 0
 
 #ifndef INTERPFLUX_H
 #define INTERPFLUX_H
@@ -47,3 +47,4 @@ private:
 };
 
 #endif
+#endif //if 0

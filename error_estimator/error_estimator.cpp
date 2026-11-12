@@ -21,40 +21,29 @@
 #elif defined TUSAS_NO_LAPACK
 #elif defined TUSAS_HAVE_CLAPACK
 #include "clapack.h"
-#else
-#include "Epetra_LAPACK.h"
 #endif
-
-
-#ifdef HAVE_MPI
-#include "Epetra_MpiComm.h"
-#else
-#include "Epetra_SerialComm.h"
-#endif
+#include <Teuchos_LAPACK.hpp>
 
 #include <Teuchos_ArrayViewDecl.hpp>
+#include <Teuchos_DefaultComm.hpp>
+#include <Teuchos_OrdinalTraits.hpp>
 
+#include "greedy_tie_break.hpp"
 
 //template<class Scalar>
-error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm, 
-				 Mesh *mesh, 
+error_estimator::error_estimator(Mesh *mesh, 
 				 const int numeqs, 
 				 const int index):  
-  comm_(comm),
   mesh_(mesh),
   numeqs_(numeqs),
   index_(index)
 {
+  comm_ = Teuchos::DefaultComm<int>::getComm();
 
-  //Right now, in parallel MPI, grdients and error estimates are one-sided along processor boundaries
-  //and averaged at shared nodes.  Alternatively, one could reach across to elements on neighboring processors
-  //to compute a non-averaged gradient.  We do not have this sort of communication set up at this time.
-  //Only nodes are ghosted, elements are not ghosted.
-
-  //We could also do mesh replication here
-
-
-  //if( 0 == comm_->MyPID() )std::cout<<"Creating error estimator"<<std::endl;
+  //In parallel MPI, only nodes are ghosted, elements are not. Each processor accumulates the
+  //least squares normal equations of the zz patch recovery from the elements it owns, and these
+  //are summed on the owning processor (see estimate_gradient), so the recovered gradient uses the
+  //full patch across processor boundaries.
 
   int blk = 0;
   std::string elem_type=mesh_->get_blk_elem_type(blk);
@@ -70,41 +59,93 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
     || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra"));
  
   if( !(quad_type || tri_type || hex_type || tet_type) ){ 
-    if( 0 == comm_->MyPID() )std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl
-	     <<elem_type<<" not supported."<<std::endl;
+    if( 0 == comm_->getRank() ){
+      std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl
+	       <<elem_type<<" not supported."<<std::endl;
+    }
     exit(0);
   }
-
+  //this is probably one of the problems
+  //we can get the bounday nodes from nemesis::node_mapb, then use this to get boundary elements
+  //note that elem_mapb only provides boundary elements with a face, so it does not give elems in
+  //a reentrent corner, which is needed for the patch
+  //we could then communicate the boundary elems and their nodal connectivity to create the maps
   mesh_->compute_nodal_patch_overlap();
 
-
-  std::vector<Mesh::mesh_lint_t> node_num_map(mesh_->get_node_num_map());
+  std::vector<Mesh::mesh_lint_t> node_num_int(mesh_->get_node_num_map());
+  std::vector<global_ordinal_type> node_num_map(node_num_int.begin(),node_num_int.end());
 
   //we want this map to be a one equation version of the x_owned_map in tusas
-  //do it this way and hope it is the same
+  //do it this way and hope it is the same (same tie break as ModelEvaluatorTPETRA)
 
-  overlap_map_ = Teuchos::rcp(new Epetra_Map((Mesh::mesh_lint_t)-1,
-					     node_num_map.size(),
-					     &node_num_map[0],
-					     0,
-					     *comm_));
-  if( 1 == comm_->NumProc() ){
+  const Tpetra::global_size_t numGlobalEntries = Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid();
+  const global_ordinal_type indexBase = 0;
+
+  overlap_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
+					   Teuchos::ArrayView<const global_ordinal_type>(node_num_map),
+					   indexBase,
+					   comm_));
+  if( 1 == comm_->getSize() ){
     node_map_ = overlap_map_;
   }else{
-#ifdef MESH_64
-    node_map_ = Teuchos::rcp(new Epetra_Map(Create_OneToOne_Map64(*overlap_map_)));
-#else
-    node_map_ = Teuchos::rcp(new Epetra_Map(Epetra_Util::Create_OneToOne_Map(*overlap_map_)));
-#endif
+    GreedyTieBreak<local_ordinal_type,global_ordinal_type> greedy_tie_break;
+    node_map_ = Tpetra::createOneToOne(overlap_map_,greedy_tie_break);
   }
-  //node_map_->Print(std::cout);
-  importer_ = Teuchos::rcp(new Epetra_Import(*overlap_map_, *node_map_));
+  //node_map_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  importer_ = Teuchos::rcp(new import_type(node_map_, overlap_map_));
+
+  //recovery polynomial dimension and sampling points for this element type
+  {
+    const int nrhs = mesh_->get_num_dim();
+    Basis * basis = create_recovery_basis();
+    num_q_pts_ = basis->ngp;
+    delete basis;
+    if( quad_type ){
+      const int nnpe = mesh_->get_num_nodes_per_elem_in_blk(blk);
+      dimp_ = (9 == nnpe) ? 9 : 4;               //biquadratic : bilinear
+    }
+    else if( tri_type ) dimp_ = 3;               //linear
+    else if( hex_type ) dimp_ = 8;               //trilinear
+    else dimp_ = 4;                              //tet4, linear
+    if( 3 == nrhs && quad_type ){
+      if( 0 == comm_->getRank() ) std::cout<<"Error estimator: 2D elements in a 3D mesh not supported."<<std::endl;
+      exit(0);
+    }
+  }
+
+  //patch length scale for each node: max distance from the node to the nodes of its patch elements.
+  //computed locally, reduced with ABSMAX on the owner and imported back so all processors agree.
+  {
+    vector_type hloc(overlap_map_);
+    {
+      Teuchos::ArrayRCP<scalar_type> hv = hloc.get1dViewNonConst();
+      const int nnpe = mesh_->get_num_nodes_per_elem_in_blk(blk);
+      for(int nn = 0; nn < mesh_->get_num_nodes(); nn++ ){
+	const double x0 = mesh_->get_x(nn), y0 = mesh_->get_y(nn), z0 = mesh_->get_z(nn);
+	double h = 0.;
+	std::vector<int> n_patch(mesh_->get_nodal_patch_overlap(nn));
+	for(int ne = 0; ne < (int)n_patch.size(); ne++){
+	  for(int k = 0; k < nnpe; k++){
+	    const int nodeid = mesh_->get_node_id(blk, n_patch[ne], k);
+	    const double dx = mesh_->get_x(nodeid)-x0, dy = mesh_->get_y(nodeid)-y0, dz = mesh_->get_z(nodeid)-z0;
+	    h = std::max(h, std::sqrt(dx*dx+dy*dy+dz*dz));
+	  }
+	}
+	hv[nn] = h;
+      }
+    }
+    vector_type hown(node_map_);
+    hown.putScalar(0.);
+    hown.doExport(hloc, *importer_, Tpetra::ABSMAX);
+    patch_scale_ = Teuchos::rcp(new vector_type(overlap_map_));
+    patch_scale_->doImport(hown, *importer_, Tpetra::INSERT);
+  }
 
   int nrhs = mesh_->get_num_dim();
 
-  gradx_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
-  grady_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
-  gradz_ = Teuchos::rcp(new Epetra_Vector(*node_map_));
+  gradx_ = Teuchos::rcp(new vector_type(node_map_));
+  grady_ = Teuchos::rcp(new vector_type(node_map_));
+  gradz_ = Teuchos::rcp(new vector_type(node_map_));
 
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
@@ -114,19 +155,19 @@ error_estimator::error_estimator(const Teuchos::RCP<const Epetra_Comm>& comm,
   mesh_->add_nodal_field(zstring);
 
   //cn this is the map of elements belonging to this processor
-  std::vector<Mesh::mesh_lint_t> elem_num_map(*(mesh_->get_elem_num_map()));
-  elem_map_ = Teuchos::rcp(new Epetra_Map(-1,
-				      elem_num_map.size(),
-				      &elem_num_map[0],
-				      0,
-				      *comm_));
-  //elem_map_->Print(std::cout);
-  elem_error_ = Teuchos::rcp(new Epetra_Vector(*elem_map_));
+  std::vector<global_ordinal_type> elem_num_map(mesh_->get_elem_num_map()->begin(),
+						mesh_->get_elem_num_map()->end());
+  elem_map_ = Teuchos::rcp(new map_type(numGlobalEntries,
+					Teuchos::ArrayView<const global_ordinal_type>(elem_num_map),
+					indexBase,
+					comm_));
+  //elem_map_->describe(*(Teuchos::VerboseObjectBase::getDefaultOStream()),Teuchos::EVerbosityLevel::VERB_EXTREME );
+  elem_error_ = Teuchos::rcp(new vector_type(elem_map_));
   std::string estring="error"+std::to_string(index_);
   mesh_->add_elem_field(estring);
   global_error_ = 0.;
    
-  if( 0 == comm_->MyPID() )std::cout<<"Error estimator created for variable "<<index_<<std::endl;
+  if( 0 == comm_->getRank() )std::cout<<"Error estimator created for variable "<<index_<<std::endl;
 
   ts_time_grad= Teuchos::TimeMonitor::getNewTimer("Total Gradient Est Time");
   ts_time_error= Teuchos::TimeMonitor::getNewTimer("Total Error Est Time");
@@ -146,410 +187,176 @@ void error_estimator::estimate_gradient(const Teuchos::RCP<Tpetra::Vector<> >& u
   estimate_gradient(&uvec[0]);
 }
 
-void error_estimator::estimate_gradient(const Teuchos::RCP<Epetra_Vector>& u_in){
-  const int n = u_in->MyLength();
-  std::vector<double> uvec(n);
-  u_in->ExtractCopy(&uvec[0]);
-  estimate_gradient(&uvec[0]);
-}
-
-void error_estimator::estimate_gradient(const double * uvec ){
+Basis * error_estimator::create_recovery_basis() const
+{
   //according to the ainsworth book, for bilinear quads it is better to sample
-  //at centroids, rather than guass pts as is done here. This is due to
-  //superconvergence at centroids. Guass pts are used for biquadratic quads.
-  //There is a mechanism in the basis class where one guass point at the centroid could
-  //be used. p would then be [x y 1] rather than [y*x x y 1].
-
-  //Also alot of cleaning up could be done another time.  The changes above
-  //could be incorporated then during ass wiping and generalization to other elements.
-
-  //the vector coming in is dimensioned to numeqs_*num_nodes, hence we need to rethink the import here
-  //the maps created above assume output of one variable
-  //hack a copy/import for now....
-
-
-
-  //also, currently working in 2D means a mesh in the x-y plane.
-  //what do we do about a 2D mesh in the general x-y-z plane?
-  //need to address this-- probably map x y z into a canonical 2d elem
-  //similar to what is done for Neumann BCs
-  //it is possible that this is already handled correctly within the basis class
-
-
-  //also right now, with quadratic tris, it seems the midside nodes are getting garbage,
-  //while the vertex nodes are correct
-  //it looks like reasonable numbers are provided to lapack, but the solution is way off...
-
-  //this corresponds to a square 6 x 6 matrix, could it be ill conditioned?--according to matlab
-  //a significant number of these matrices have full rank
-  //seems as though lapack is fucking up?
-  //on QuadQ mesh, node 224:
-  //a= [1 0.499429 0.458333 0.228905 0.249429 0.210069] b=[0.999963 -1.81203e-07] x=[7.04542  2.45351e+08]
-  //   [1 0.454993 0.395833 0.180102 0.207019 0.156684]   [0.99996 -8.17299e-08]    [-20.7964  -8.44006e+08]
-  //   [1 0.544074 0.395833 0.215362 0.296016 0.156684]   [0.999965 -1.77881e-07]   [-4.7735  -1.93729e+08]
-  //   [1 0.499588 0.291667 0.145713 0.249589 0.0850694]  [0.999962 -1.51674e-07]   [0.0399212  1.62017e+06]
-  //   [ 1 0.544114 0.354167 0.192707 0.29606 0.125434]   [0.999965 -1.95127e-08]   [20.8001  8.44152e+08]
-  //   [1 0.455033 0.354167 0.161158 0.207055 0.125434]   [0.99996 -2.66636e-07]    [6.33808  2.57226e+08]
-  // x(:,1) solves the system while x(:,2) is not even close
-
-  //it could be that we need to call
-  //dgesv_(integer *n, integer *nrhs, doublereal *a, integer 
-  //	*lda, integer *ipiv, doublereal *b, integer *ldb, integer *info)
-  //when n = m ?
-  //or possibly use more than 3 guass pts for Qtri?
-
-  //5-22-2017 cn thinks the best approach 
-  //would check for qtri && m==n, then use dgesv_ instead of dgels_
-
-  Teuchos::TimeMonitor GradEstTimer(*ts_time_grad);  
-
-  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
-#pragma omp parallel for 
-  for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
-    //(*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
-    (*u1)[nn]=uvec[numeqs_*nn+index_]; 
-  }
-
-  Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
-  u->Import(*u1, *importer_, Insert);
-
+  //at centroids, rather than gauss pts as is done here. This is due to
+  //superconvergence at centroids. Gauss pts are used for biquadratic quads.
   const int blk = 0;//for now
-
-  int num_q_pts = -999;
-
-  int dimp = -999;//dimension of 2d basis
-
-  //cn i think we always need nrhs = 3
-  //cn but we need to distinguish between shape functions for different element types better below
-  int nrhs = mesh_->get_num_dim();
-
   std::string elem_type=mesh_->get_blk_elem_type(blk);
-   
-  //we do the computations on and fill overlap_map_, then export to a vector on the node_map_ to avg on shared nodes
-  Epetra_Vector *tempx,*tempy,*tempz;
-  tempx = new Epetra_Vector(*overlap_map_);
-  tempy = new Epetra_Vector(*overlap_map_);
-  tempz = new Epetra_Vector(*overlap_map_);
-
-#ifdef ERROR_ESTIMATOR_OMP
-#pragma omp parallel for
-  for(int nn = 0; nn < mesh_->get_num_nodes(); nn++ ){
-#endif
- 
-  Basis * basis;
-
   if( (0==elem_type.compare("QUAD4")) || (0==elem_type.compare("QUAD")) || (0==elem_type.compare("quad4")) || (0==elem_type.compare("quad")) ){ // linear quad   
-    dimp = 4;//polynomial dimension; ie number of basis functions
-    num_q_pts = 4;
-    int qpt_for_basis = sqrt(num_q_pts);
-    basis = new BasisLQuad(qpt_for_basis);
+    return new BasisLQuad(2);
   } 
   else if( (0==elem_type.compare("TRI3")) || (0==elem_type.compare("TRI")) || (0==elem_type.compare("tri3"))  || (0==elem_type.compare("tri"))) { // linear triangle
-    dimp = 3;
-    num_q_pts = 3;
-    basis=new BasisLTri(3);
+    return new BasisLTri(3);
   }
   else if( (0==elem_type.compare("QUAD9")) || (0==elem_type.compare("quad9")) ){ // quadratic quad 
-    dimp = 9;
-    num_q_pts = 9;
-    basis = new BasisQQuad();
-  }
-  else if( (0==elem_type.compare("TRI6")) || (0==elem_type.compare("tri6"))) { // quadratic triangle
-    dimp = 6;
-    num_q_pts = 3;
-    basis=new BasisQTri();
+    return new BasisQQuad();
   }
   else if((0==elem_type.compare("HEX8")) || (0==elem_type.compare("HEX")) 
 	  || (0==elem_type.compare("hex8")) || (0==elem_type.compare("hex"))){// hex8
-    dimp = 8;
-    num_q_pts = 8;
-    basis=new BasisLHex(2);
+    return new BasisLHex(2);
   }
   else if((0==elem_type.compare("TETRA4")) || (0==elem_type.compare("TETRA")) 
     || (0==elem_type.compare("tetra4")) || (0==elem_type.compare("tetra"))){// tet4
-    dimp = 4;
-    num_q_pts = 4;
-    basis=new BasisLTet();
+    return new BasisLTet();
   }
-  else{
-    std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl;
-    std::cout<<elem_type<<" not supported."<<std::endl;
-    exit(0);
+  std::cout<<"Error estimator only supports bilinear and quadratic quad and tri element types at this time."<<std::endl;
+  std::cout<<elem_type<<" not supported."<<std::endl;
+  exit(0);
+  return NULL;
+}
+
+void error_estimator::eval_poly(const double x, const double y, const double z, double * p) const
+{
+  p[0] = 1.;            //tri3 || quad4 || quad9 || hex8 || tet4
+  p[1] = x;
+  p[2] = y;
+  if(3 == dimp_) return;                       //tri3
+  if(4 == dimp_ && 3 == mesh_->get_num_dim()){ //tet4
+    p[3] = z;
+    return;
+  }
+  p[3] = x*y;
+  if(4 == dimp_) return;                       //quad4
+  if(8 == dimp_){                              //hex8
+    p[4] = z;
+    p[5] = x*z;
+    p[6] = y*z;
+    p[7] = x*y*z;
+    return;
+  }
+  p[4] = x*x;                                  //quad9
+  p[5] = y*y;
+  p[6] = x*x*y;
+  p[7] = x*y*y;
+  p[8] = x*x*y*y;
+}
+
+void error_estimator::estimate_gradient(const double * uvec ){
+  //Zienkiewicz-Zhu superconvergent patch recovery.
+  //For node n with patch elements e and Gauss points g, solve for each gradient component d
+  //   A a_d = b_d,  A = sum_{e,g} p(xg) p(xg)^T,  b_d = sum_{e,g} p(xg) du_h/dx_d(xg)
+  //with p evaluated in the local coordinates xi = (x - x_n)/h_n, then the recovered gradient
+  //at the node is p(0)^T a_d = a_d[0].
+  //Each processor sums over the elements it owns; the partial sums live on the overlap map
+  //and are added on the owning processor with an export, so the patch crosses processor
+  //boundaries without ghosting elements.
+
+  //also, currently working in 2D means a mesh in the x-y plane.
+  //what do we do about a 2D mesh in the general x-y-z plane?
+
+  Teuchos::TimeMonitor GradEstTimer(*ts_time_grad);  
+
+  Teuchos::RCP<vector_type> u1 = Teuchos::rcp(new vector_type(node_map_));
+  {
+    Teuchos::ArrayRCP<scalar_type> u1view = u1->get1dViewNonConst();
+    //uvec is on the owned solution map (x_owned_map_ in ModelEvaluatorTPETRA), which has the same
+    //nodes in the same order as node_map_. Note this can be more than mesh_->get_num_my_nodes(),
+    //since shared nodes are assigned to the lowest rank by the tie break.
+    const int num_my_nodes = (int)node_map_->getLocalNumElements();
+#pragma omp parallel for 
+    for(int nn = 0; nn < num_my_nodes; nn++ ){
+      u1view[nn]=uvec[numeqs_*nn+index_]; 
+    }
   }
 
-#ifdef ERROR_ESTIMATOR_OMP
-#else
-  for(int nn = 0; nn < mesh_->get_num_nodes(); nn++ ){
-#endif
+  Teuchos::RCP<vector_type> u_ov = Teuchos::rcp(new vector_type(overlap_map_));
+  u_ov->doImport(*u1, *importer_, Tpetra::INSERT);
 
-    int num_elem_in_patch = mesh_->get_nodal_patch_overlap(nn).size();
+  const int blk = 0;//for now
+  const int nrhs = mesh_->get_num_dim();
+  const int n = dimp_;
+  const int nA = n*n;
+  const int ncols = nA + n*nrhs;//column major A (n x n), then b (n x nrhs)
 
-    //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<num_elem_in_patch<<std::endl;
+  //partial normal equations on the overlap map
+  mv_type sys_ov(overlap_map_, ncols);
+  {
+    Teuchos::ArrayRCP<const scalar_type> u = u_ov->get1dView();
+    Teuchos::ArrayRCP<const scalar_type> hv = patch_scale_->get1dView();
+    Teuchos::ArrayRCP<Teuchos::ArrayRCP<scalar_type> > sys = sys_ov.get2dViewNonConst();
 
-    int q = num_q_pts*num_elem_in_patch;//the matrix p will be q rows x dimp cols, 
-    //the rows of p will be the basis evaluated at quadrature pts
-//     if ( q < 3 || q > 18 )
-    //std::cout<<"nn = "<<nn<<" q = "<<q<<" num_elem_in_patch = "<<num_elem_in_patch<<std::endl<<std::endl<<std::endl;
+    Basis * basis = create_recovery_basis();
+    const int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
+    std::vector<double> xx(n_nodes_per_elem), yy(n_nodes_per_elem), zz(n_nodes_per_elem), uu(n_nodes_per_elem);
+    std::vector<double> p(n);
 
-    std::vector<std::vector<double>> p(q);//q rows
+    for(int nn = 0; nn < mesh_->get_num_nodes(); nn++ ){
+      const double x0 = mesh_->get_x(nn), y0 = mesh_->get_y(nn), z0 = mesh_->get_z(nn);
+      const double h = (hv[nn] > 0.) ? hv[nn] : 1.;
+      std::vector<int> n_patch(mesh_->get_nodal_patch_overlap(nn));
 
-    for(int i = 0; i < q; i++) p[i].resize(dimp);//dimp cols
-    //the vector b will be q rows and dimp cols, grad u evaluated at the quadrature points
-
-    int m = q;
-    int n = dimp;
-    int lda = q;
-    int ldb = q;//b needs to hold the solution on return
-    if ( n > m ) {ldb = n;}//cn need to really figure out what ldb is--- I think this is a corner case
-    double * b = new double[ldb*nrhs];
-
-    int row = 0;
-
-    std::vector<int> n_patch(mesh_->get_nodal_patch_overlap(nn));
-
-    for(int ne = 0; ne < num_elem_in_patch; ne++){
-
-      int n_nodes_per_elem = mesh_->get_num_nodes_per_elem_in_blk(blk);
-
-      //these are coords at nodes
-      double *xx, *yy, *zz, *uu;
-      xx = new double[n_nodes_per_elem];
-      yy = new double[n_nodes_per_elem];
-      zz = new double[n_nodes_per_elem];
-      uu = new double[n_nodes_per_elem];
-
-      for(int k = 0; k < n_nodes_per_elem; k++){
-	
-	//cn I believe mesh_->get_node_id(blk, n_patch[ne], k); takes a local elem id in the second slot, not a global one
-	//cn ie it expects the ith elem on this proc
-
-	//cn right now, the patch has elements (on and off proc) according to the nodes on this proc, but the underlying mesh
-	// does not know about off proc elements
-
-
-	//int nodeid = mesh_->get_node_id(blk, ne, k);
-
-	//n_patch[ne] is the local elemid
-
-#ifdef MESH_64
-	//const Mesh::mesh_lint_t gid = epetra_map_gid(elem_map_,n_patch[ne]);//elem_map_ is not an overlap map
-	const Mesh::mesh_lint_t gid = elem_map_->GID64(n_patch[ne]);
-#else
-	const int gid = elem_map_->GID(n_patch[ne]);
-#endif
-      
+      for(int ne = 0; ne < (int)n_patch.size(); ne++){
+	//n_patch[ne] is the local elem id; the patch only contains elements owned by this proc
 	const int lid = n_patch[ne];
+	for(int k = 0; k < n_nodes_per_elem; k++){
+	  const int nodeid = mesh_->get_node_id(blk, lid, k);
+	  xx[k] = mesh_->get_x(nodeid);
+	  yy[k] = mesh_->get_y(nodeid);
+	  zz[k] = mesh_->get_z(nodeid);
+	  uu[k] = u[nodeid]; 
+	}//k
 
-
-	//int nodeid = mesh_->get_node_id(blk, n_patch[ne], k);
-	const int nodeid = mesh_->get_node_id(blk,lid, k);
-	//std::cout<<comm_->MyPID()<<" "<<nn<<" "<<mesh_->node_num_map[nn]<<" "<<k<<" "<<n_patch[ne]<<" "<<nodeid<<" "<<lid<<std::endl;
-	xx[k] = mesh_->get_x(nodeid);
-	yy[k] = mesh_->get_y(nodeid);
-	zz[k] = mesh_->get_z(nodeid);
-
-	//uu[k] = (*u)[numeqs_*nodeid+index_]; 
-	uu[k] = (*u)[nodeid]; 
-
-      }//k
-
-      //we could loop over dimension of p here to avoid if statements....
-      for(int gp=0; gp < basis->ngp; gp++) {// Loop Over Gauss Points 
-	basis->getBasis(gp, xx, yy, zz, uu);
-	double x = basis->xx;
-	double y = basis->yy;
-	double z = basis->zz;
-	p[row][0] = 1.;            //tri3 || quad4 || tri6 || quad9 || hex8 || tet4
-	p[row][1] = x;             //tri3 || quad4 || tri6 || quad9 || hex8 || tet4
-	p[row][2] = y;             //tri3 || quad4 || tri6 || quad9 || hex8 || tet4
-	//cn we would skip this for tris. However we compute it, but this column is not copied to a below
-	//cn we need something better for quadratic and 3d
-
-	//cn we could have a polynomial class that takes element type
-	//cn returns number of rows and provides an evaluate(x,y,z,n) that returns the 
-	//cn term for each n=0,...,number rows
-
-	if(2 == nrhs){
-	  if(3 < dimp) p[row][3] = x*y;      //quad4 || tri6 || quad9 || hex8
-	  if(5 < dimp) {
-	    p[row][4] = x*x;             //tri6 || quad9
-	    p[row][5] = y*y;             //tri6 || quad9
+	for(int gp=0; gp < basis->ngp; gp++) {
+	  basis->getBasis(gp, &xx[0], &yy[0], &zz[0], &uu[0]);
+	  eval_poly((basis->xx-x0)/h, (basis->yy-y0)/h, (basis->zz-z0)/h, &p[0]);
+	  const double g[3] = {basis->dudx, basis->dudy, basis->dudz};
+	  for(int j = 0; j < n; j++){
+	    for(int i = 0; i < n; i++) sys[j*n+i][nn] += p[i]*p[j];
+	    for(int d = 0; d < nrhs; d++) sys[nA+d*n+j][nn] += p[j]*g[d];
 	  }
-	  if(8 < dimp) {
-	    p[row][6] = x*x*y;                   //quad9
-	    p[row][7] = x*y*y;                   //quad9
-	    p[row][8] = x*x*y*y;                 //quad9
-	  }
-	}
-	if(3 == nrhs){
-	  if(7 < dimp) {
-	    p[row][3] = x*y;      //quad4 || tri6 || quad9 || hex8
-	    p[row][4] = z;             //hex8
-	    p[row][5] = x*z;           //hex8
-	    p[row][6] = y*z;           //hex8
-	    p[row][7] = x*y*z;         //hex8
-	  }
-	  if(4 ==dimp) p[row][3] = z; //tet4
-	}
-	b[row] = basis->dudx;// du/dx
-	b[row+ldb]  = basis->dudy;// du/dy
-	if(3 == nrhs) {
-	  b[row+2*ldb]  = basis->dudz;// du/dz, ie in 3d => nrhs = 3 cols of b
-	  //std::cout<<row<<" "<<b[row+2*ldb]<<std::endl;
-	}
-
-	row++;
-      }//gp
-      delete xx;
-      delete yy;
-      delete zz;
-      delete uu;
-    }//ne
-  
-
-    //cn there is definitely something weird at domain corners and ltris with one quass pt,
-    //cn this corresponds with ldb = q = 1 and the lapack error,
-    //cn probably because there is only one guass pt per tri
-    //cn on quads there are 4 guass pts
-
-    //cn when changing  ltris to 3 gauss pts above, it seems fixed
-
-    int info, lwork;
-    
-    double wkopt;
-    double* work;
-    
-    double * a;
-    
-    //note that we fill a by column
-    a = new double[lda*n];
-#pragma omp parallel for collapse(2)
-    for(int j = 0; j < n; j++){
-      for(int i = 0; i < m; i++){
-	a[j*lda+i] = p[i][j];
-      }
-    }
-    
-    //the first call queries the workspace
-    lwork = -1;
-    char msg[] = "No transpose";
-    //char msg[] = "N";
-#if TUSAS_HAVE_ACML
-    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
-	    &info,0 );
-#elif defined TUSAS_NO_LAPACK
-    exit(0);
-#elif defined TUSAS_HAVE_MKL
-    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
-	    &info );
-#elif defined TUSAS_HAVE_CLAPACK
-    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
-	    &info );
-#else
-    Epetra_LAPACK lapack; 
-    //GELS (const char TRANS, const int M, const int N, const int NRHS, double *A, const int LDA, double *B, const int LDB, double *WORK, const int LWORK, int *INFO) 
-    lapack.GELS( 'N', m, n, nrhs, a, lda, b, ldb, &wkopt, lwork,
-		 &info );
-#endif
-
-    //std::cout<<"info 1 = "<<info<<std::endl<<std::endl;
-    lwork = (int)wkopt;
-    work = new double[lwork];
-
-    //second call does the solve
-
-#if TUSAS_HAVE_ACML
-    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
-	    &info,0 );
-#elif defined TUSAS_NO_LAPACK
-#elif defined TUSAS_HAVE_MKL
-    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
-	    &info );
-#elif defined TUSAS_HAVE_CLAPACK
-    dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork,
-	    &info );
-#else
-    lapack.GELS( 'N', m, n, nrhs, a, lda, b, ldb, work, lwork,
-	    &info );
-#endif
-    if( info < 0 ) exit(0);
-    //std::cout<<"info 2 = "<<info<<std::endl<<std::endl;
-    //std::cout<<"info 2 = "<<info<<" ldb = "<<ldb<<std::endl; cout<<std::endl;
-      
-    delete[] work;
-
-    double x = mesh_->get_x(nn);
-    double y = mesh_->get_y(nn);
-    double z = mesh_->get_z(nn);
-    p[0][0] = 1.;            //tri3 || quad4 || tri6 || quad9 || hex8 || tet4
-    p[0][1] = x;             //tri3 || quad4 || tri6 || quad9 || hex8 || tet4
-    p[0][2] = y;             //tri3 || quad4 || tri6 || quad9 || hex8 || tet4
-    //cn this would be skipped for tris as well; however it does not get summed in below
-    //cn we only dimension p to 3 cols for tris and 4 cols for quad earlier
-    if(2 == nrhs){
-      if(3 < dimp) p[0][3] = x*y;      //quad4 || tri6 || quad9 || hex8
-      if(5 < dimp) {
-	p[0][4] = x*x;             //tri6 || quad9
-	p[0][5] = y*y;             //tri6 || quad9
-      }
-      if(8 < dimp) {
-	p[0][6] = x*x*y;                   //quad9
-	p[0][7] = x*y*y;                   //quad9
-	p[0][8] = x*x*y*y;                 //quad9
-      }
-    }
-    if(3 == nrhs){
-      if(7 < dimp) {
-	p[0][3] = x*y;      //quad4 || tri6 || quad9 || hex8
-	p[0][4] = z;             //hex8
-	p[0][5] = x*z;           //hex8
-	p[0][6] = y*z;           //hex8
-	p[0][7] = x*y*z;         //hex8
-      }
-      if(4 ==dimp) p[0][3] = z; //tet4
-    }
-    double gradx = 0.;
-    double grady = 0.;
-    double gradz = 0.;
-    for(int i = 0; i < n; i++){//cn could we use dimp rather than n here?
-      gradx = gradx + p[0][i]*b[i];
-      //grady = grady + p[0][i]*b[i+q];
-      grady = grady + p[0][i]*b[i+ldb];
-      if(3 == nrhs) {
-	gradz = gradz + p[0][i]*b[i+2*ldb];
-	//std::cout<<i<<" "<<b[i+2*ldb]<<"    "<<gradz<<std::endl;
-      }
-    }
-    //std::cout<<nn<<" "<<x<<" "<<y<<" "<<gradx<<" "<<grady<<std::endl;
-    //std::cout<<x<<"   "<<y<<"            "<<gradx<<std::endl;
-    
-    Mesh::mesh_lint_t gid = (mesh_->get_node_num_map())[nn];
-    tempx->ReplaceGlobalValues ((int) 1, &gradx, &gid);
-    tempy->ReplaceGlobalValues ((int) 1, &grady, &gid);
-    tempz->ReplaceGlobalValues ((int) 1, &gradz, &gid);
-   
-    delete[] a;
-    delete[] b;
-#ifdef ERROR_ESTIMATOR_OMP
+	}//gp
+      }//ne
+    }//nn
     delete basis;
-#endif
-  }//nn
-#ifdef ERROR_ESTIMATOR_OMP
-#else
-  delete basis;
-#endif
+  }//scope for host views
 
-  gradx_->Export(*tempx, *importer_, Average);
-  grady_->Export(*tempy, *importer_, Average);
-  gradz_->Export(*tempz, *importer_, Average);
+  //sum the partial systems on the owning processor
+  mv_type sys_own(node_map_, ncols);
+  sys_own.doExport(sys_ov, *importer_, Tpetra::ADD);
 
-  delete tempx;
-  delete tempy;
-  delete tempz;
-  //gradx_->Print(std::cout);
-  //grady_->Print(std::cout);
-  //gradz_->Print(std::cout);
-  //exit(0);
+  //solve on owned nodes
+  {
+    Teuchos::ArrayRCP<Teuchos::ArrayRCP<const scalar_type> > sys = sys_own.get2dView();
+    Teuchos::ArrayRCP<scalar_type> gx = gradx_->get1dViewNonConst();
+    Teuchos::ArrayRCP<scalar_type> gy = grady_->get1dViewNonConst();
+    Teuchos::ArrayRCP<scalar_type> gz = gradz_->get1dViewNonConst();
+
+    Teuchos::LAPACK<int,double> lapack;
+    std::vector<double> a(nA), b(n*nrhs), sv(n);
+    //SVD least squares handles rank deficient patches (eg corners with few elements) with the min norm solution
+    const double rcond = 1.e-12;
+    int rank, info;
+    double wkopt;
+    lapack.GELSS(n, n, nrhs, &a[0], n, &b[0], n, &sv[0], rcond, &rank, &wkopt, -1, &info);
+    std::vector<double> work((int)wkopt);
+
+    const int num_owned = (int)node_map_->getLocalNumElements();
+    for(int i = 0; i < num_owned; i++){
+      for(int c = 0; c < nA; c++) a[c] = sys[c][i];
+      for(int c = 0; c < n*nrhs; c++) b[c] = sys[nA+c][i];
+      lapack.GELSS(n, n, nrhs, &a[0], n, &b[0], n, &sv[0], rcond, &rank, &work[0], (int)work.size(), &info);
+      if( info != 0 ){
+	std::cout<<"Error estimator: GELSS failed with info = "<<info<<std::endl;
+	exit(0);
+      }
+      //recovered gradient at the node is the constant coefficient, since p(0) = e_0
+      gx[i] = b[0];
+      gy[i] = b[n];
+      gz[i] = (3 == nrhs) ? b[2*n] : 0.;
+    }
+  }
 }
 
 void error_estimator::test_lapack(){
@@ -627,7 +434,7 @@ void error_estimator::test_lapack(){
   dgels_( msg, &m, &n, &nrhs, a, &lda, b, &ldb, &wkopt, &lwork,
 	 &info );
 #else
-    Epetra_LAPACK lapack;    
+    Teuchos::LAPACK<int,double> lapack;    
     lapack.GELS( 'N', m, n, nrhs, a, lda, b, ldb, &wkopt, lwork,
 	 &info );
 #endif
@@ -670,24 +477,25 @@ void error_estimator::update_mesh_data(){
   
   int nrhs = mesh_->get_num_dim();
 
-  Epetra_Vector *tempx,*tempy,*tempz;
-  tempx = new Epetra_Vector(*overlap_map_);
-  tempx->Import(*gradx_, *importer_, Insert);
-  tempy = new Epetra_Vector(*overlap_map_);
-  tempy->Import(*grady_, *importer_, Insert);
-  tempz = new Epetra_Vector(*overlap_map_);
-  tempz->Import(*gradz_, *importer_, Insert);
+  vector_type tempx(overlap_map_);
+  tempx.doImport(*gradx_, *importer_, Tpetra::INSERT);
+  vector_type tempy(overlap_map_);
+  tempy.doImport(*grady_, *importer_, Tpetra::INSERT);
+  vector_type tempz(overlap_map_);
+  tempz.doImport(*gradz_, *importer_, Tpetra::INSERT);
+  Teuchos::ArrayRCP<const scalar_type> tempxview = tempx.get1dView();
+  Teuchos::ArrayRCP<const scalar_type> tempyview = tempy.get1dView();
+  Teuchos::ArrayRCP<const scalar_type> tempzview = tempz.get1dView();
   
-  int num_nodes = overlap_map_->NumMyElements ();
+  const int num_nodes = (int)tempxview.size();
   std::vector<double> gradx(num_nodes,0.);
   std::vector<double> grady(num_nodes,0.);
   std::vector<double> gradz(num_nodes,0.);
 #pragma omp parallel for
   for (int nn=0; nn < num_nodes; nn++) {
-      gradx[nn]=(*tempx)[nn];
-      grady[nn]=(*tempy)[nn];
-      //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<grady[nn]<<" "<<(*grady_)[nn]<<std::endl;
-      gradz[nn]=(*tempz)[nn];
+      gradx[nn]=tempxview[nn];
+      grady[nn]=tempyview[nn];
+      gradz[nn]=tempzview[nn];
   }
   std::string xstring="grad"+std::to_string(index_)+"x";
   std::string ystring="grad"+std::to_string(index_)+"y";
@@ -698,17 +506,15 @@ void error_estimator::update_mesh_data(){
 
   int num_elem = mesh_->get_elem_num_map()->size();
   std::vector<double> error(num_elem,0.);
+  {
+    Teuchos::ArrayRCP<const scalar_type> errview = elem_error_->get1dView();
 #pragma omp parallel for
-  for (int nn=0; nn < num_elem; nn++) {
-      error[nn]=(*elem_error_)[nn];
-      //std::cout<<comm_->MyPID()<<" "<<nn<<" "<<error[nn]<<" "<<(*elem_error_)[nn]<<std::endl;
+    for (int nn=0; nn < num_elem; nn++) {
+      error[nn]=errview[nn];
+    }
   }
   std::string estring="error"+std::to_string(index_);
   mesh_->update_elem_data(estring, &error[0]);
-
-  delete tempx;
-  delete tempy;
-  delete tempz;
 }
 
 void error_estimator::estimate_error(const Teuchos::RCP<Tpetra::Vector<> >& u_in){
@@ -718,36 +524,40 @@ void error_estimator::estimate_error(const Teuchos::RCP<Tpetra::Vector<> >& u_in
   estimate_error(&uvec[0]);
 }
 
-void error_estimator::estimate_error(const Teuchos::RCP<Epetra_Vector>& u_in){
-  const int n = u_in->MyLength();
-  std::vector<double> uvec(n);
-  u_in->ExtractCopy(&uvec[0]);
-  estimate_error(&uvec[0]);
-}
-
 void error_estimator::estimate_error(const double * uvec ){
   
   Teuchos::TimeMonitor ErrorEstTimer(*ts_time_error); 
 
   int nrhs = mesh_->get_num_dim();
 
-  Teuchos::RCP< Epetra_Vector> u1 = Teuchos::rcp(new Epetra_Vector(*node_map_));    
+  Teuchos::RCP<vector_type> u1 = Teuchos::rcp(new vector_type(node_map_));
+  {
+    Teuchos::ArrayRCP<scalar_type> u1view = u1->get1dViewNonConst();
+    //uvec is on the owned solution map (x_owned_map_ in ModelEvaluatorTPETRA), which has the same
+    //nodes in the same order as node_map_. Note this can be more than mesh_->get_num_my_nodes(),
+    //since shared nodes are assigned to the lowest rank by the tie break.
+    const int num_my_nodes = (int)node_map_->getLocalNumElements();
 #pragma omp parallel for 
-  for(int nn = 0; nn < mesh_->get_num_my_nodes(); nn++ ){
-    //(*u1)[nn]=(*u_in)[numeqs_*nn+index_]; 
-    (*u1)[nn]=uvec[numeqs_*nn+index_]; 
+    for(int nn = 0; nn < num_my_nodes; nn++ ){
+      u1view[nn]=uvec[numeqs_*nn+index_]; 
+    }
   }
 
-  Teuchos::RCP< Epetra_Vector> u = Teuchos::rcp(new Epetra_Vector(*overlap_map_));
-  u->Import(*u1, *importer_, Insert);
+  Teuchos::RCP<vector_type> u_ov = Teuchos::rcp(new vector_type(overlap_map_));
+  u_ov->doImport(*u1, *importer_, Tpetra::INSERT);
 
-  Epetra_Vector *tempx,*tempy,*tempz;
-  tempx = new Epetra_Vector(*overlap_map_);
-  tempx->Import(*gradx_, *importer_, Insert);
-  tempy = new Epetra_Vector(*overlap_map_);
-  tempy->Import(*grady_, *importer_, Insert);
-  tempz = new Epetra_Vector(*overlap_map_);
-  tempz->Import(*gradz_, *importer_, Insert);
+  vector_type tempx(overlap_map_);
+  tempx.doImport(*gradx_, *importer_, Tpetra::INSERT);
+  vector_type tempy(overlap_map_);
+  tempy.doImport(*grady_, *importer_, Tpetra::INSERT);
+  vector_type tempz(overlap_map_);
+  tempz.doImport(*gradz_, *importer_, Tpetra::INSERT);
+
+  Teuchos::ArrayRCP<const scalar_type> u = u_ov->get1dView();
+  Teuchos::ArrayRCP<const scalar_type> tempxview = tempx.get1dView();
+  Teuchos::ArrayRCP<const scalar_type> tempyview = tempy.get1dView();
+  Teuchos::ArrayRCP<const scalar_type> tempzview = tempz.get1dView();
+  Teuchos::ArrayRCP<scalar_type> errview = elem_error_->get1dViewNonConst();
 
   const int blk = 0;//for now
 
@@ -814,10 +624,10 @@ void error_estimator::estimate_error(const double * uvec ){
       xx[k] = mesh_->get_x(nodeid);
       yy[k] = mesh_->get_y(nodeid);
       zz[k] = mesh_->get_z(nodeid);
-      uu[k] = (*u)[nodeid]; 
-      ux[k] = (*tempx)[nodeid];
-      uy[k] = (*tempy)[nodeid];
-      uz[k] = (*tempz)[nodeid];
+      uu[k] = u[nodeid]; 
+      ux[k] = tempxview[nodeid];
+      uy[k] = tempyview[nodeid];
+      uz[k] = tempzview[nodeid];
     }//k
     for(int gp=0; gp < basis->ngp; gp++) { 
       //ux is uuold, uy is uuoldold
@@ -834,13 +644,10 @@ void error_estimator::estimate_error(const double * uvec ){
 	error += basis->jac * basis->wt *(ex*ex);
       }
 
-      
-//       std::cout<<comm_->MyPID()<<" "<<ne<<"  "<<gp<<"  "<<basis->dudx<<" "<<basis->uuold<<std::endl;
-//       std::cout<<comm_->MyPID()<<" "<<ne<<"  "<<gp<<"  "<<ex*ex<<" "<<ey*ey<<std::endl;
     }//gp
     error = sqrt(error);
-    Mesh::mesh_lint_t gid = (*(mesh_->get_elem_num_map()))[ne];
-    elem_error_->ReplaceGlobalValues ((int) 1, &error, &gid);
+    //elem_map_ is built from elem_num_map, so local elem ne is local index ne in elem_map_
+    errview[ne] = error;
     //std::cout<<ne<<"  "<<error<<std::endl;
 #ifdef ERROR_ESTIMATOR_OMP
     delete xx;
@@ -864,16 +671,12 @@ void error_estimator::estimate_error(const double * uvec ){
   delete uy;
   delete uz;
 #endif
-  delete tempx;
-  delete tempy;
-  delete tempz;
   //elem_error_->Print(std::cout);
   //std::cout<<estimate_global_error()<<std::endl;
   //   exit(0);
 }
 
 double error_estimator::estimate_global_error(){
-  elem_error_->Norm2(&global_error_);
+  global_error_ = elem_error_->norm2();
   return global_error_;
 }
-

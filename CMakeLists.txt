@@ -160,6 +160,8 @@ set(TUSAS_TESTS
   #LinIsoHeatHexPar
   #LinIsoHex
   LocalProjectionT
+  MMSEtaConstCab
+  MMSCoupledConstCab
   NLHeatHexCN
   NLHeatHexIMR
   NeumannHex
@@ -191,6 +193,7 @@ set(TUSAS_TESTS
   RobinQuad
   Thermal
   Tonks1kks
+  Tonks1trans
   #Uehara1
   UnstructuredHex
   WriteSkipDecomp

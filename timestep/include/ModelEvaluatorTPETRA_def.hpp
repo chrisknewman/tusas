@@ -1095,7 +1095,7 @@ const GPURefBasis * BGPURef = BGPURefB;
 			       const double xx = x_1dra(lid);
 			       const double yy = y_1dra(lid);
 			       const double zz = z_1dra(lid);	
-			       const double val1 = (it->second)(xx,yy,zz,time);
+			       const double val1 = (it->second)(xx,yy,zz,time+dt);
 
 			       const double val = u_1dra(numeqs_*lid + k)  - val1;
 			       f_1d(numeqs_*lid + k) = val;
@@ -3003,6 +3003,218 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     paramfunc_[1] = &tpetra::pfhub2::param_trans_;
     paramfunc_[2] = &tpetra::pfhub2::param_;
 
+  }else if("mms-eta-constcab-dirichlet" == paramList.get<std::string> (TusastestNameString)){
+    const double eta_id = 0;
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = cases::mansoln::residual_eta_constcab_dp;
+
+    preconfunc_ = NULL;
+    //preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    //(*preconfunc_)[0] = &cases::tonks1::prec_c;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cases::mansoln::init_eta;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "eta";
+
+    // cubit nodesets start at 1; exodus nodesets start at 0, hence 
+    // off by one here:
+    //   [eqn_id][nodeset_id]
+    // nodeset_id:  
+    //   0 = bottom
+    //   1 = right
+    //   2 = top
+    //   3 = left
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    (*dirichletfunc_)[0][1] = &cases::mansoln::dbc_eta;
+    (*dirichletfunc_)[0][3] = &cases::mansoln::dbc_eta;
+
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(mesh_, (int)0));
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
+    post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
+                                         false, eta_id, "eta_rms", 16));
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &cases::mansoln::param;
+    paramfunc_[1] = &cases::mansoln::param_eta_constcab;
+    paramfunc_[2] = &cases::mansoln::param_freeenergy_parabolic;
+
+  }else if("mms-eta-constcab-neumann" == paramList.get<std::string> (TusastestNameString)){
+    const double eta_id = 0;
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    numeqs_ = 1;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = cases::mansoln::residual_eta_constcab_dp;
+
+    preconfunc_ = NULL;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cases::mansoln::init_eta;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "eta";
+
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    (*neumannfunc_)[0][1] = &cases::mansoln::nbc_eta;
+    (*neumannfunc_)[0][3] = &cases::mansoln::nbc_eta;
+
+    post_proc.push_back(new post_process(mesh_, (int)0));
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
+    post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
+                                         false, eta_id, "eta_rms", 16));
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &cases::mansoln::param;
+    paramfunc_[1] = &cases::mansoln::param_eta_constcab;
+    paramfunc_[2] = &cases::mansoln::param_freeenergy_parabolic;
+
+  }else if("mms-coupled-constcab-dirichlet" == paramList.get<std::string> (TusastestNameString)){
+    const int eta_id = 2;
+    const int c_id = 1;
+    const int mu_id = 0;
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    numeqs_ = 3;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[2] = cases::mansoln::residual_eta_constcab_dp;
+    (*residualfunc_)[1] = cases::mansoln::residual_c_constcab_dp;
+    (*residualfunc_)[0] = cases::mansoln::residual_mu_constcab_dp;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[2] = &cases::mansoln::prec_eta;
+    (*preconfunc_)[1] = &cases::mansoln::prec_c_trans;
+    (*preconfunc_)[0] = &cases::mansoln::prec_mu_trans;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[2] = &cases::mansoln::init_eta;
+    (*initfunc_)[1] = &cases::mansoln::init_c_constcab;
+    (*initfunc_)[0] = &cases::mansoln::init_mu_constcab;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[2] = "eta";
+    (*varnames_)[1] = "c";
+    (*varnames_)[0] = "mu";
+
+    dirichletfunc_ = new std::vector<std::map<int,DBCFUNC>>(numeqs_);
+    (*dirichletfunc_)[2][1] = &cases::mansoln::dbc_eta;
+    (*dirichletfunc_)[2][3] = &cases::mansoln::dbc_eta;
+    (*dirichletfunc_)[1][1] = &cases::mansoln::dbc_c_constcab;
+    (*dirichletfunc_)[1][3] = &cases::mansoln::dbc_c_constcab;
+    (*dirichletfunc_)[0][1] = &cases::mansoln::dbc_mu_constcab;
+    (*dirichletfunc_)[0][3] = &cases::mansoln::dbc_mu_constcab;
+
+    neumannfunc_ = NULL;
+
+    post_proc.push_back(new post_process(mesh_, (int)0));
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
+    
+    post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
+                                         false, eta_id, "eta_rms", 16));
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
+    
+    post_proc.push_back(new post_process(mesh_, (int)2));
+    post_proc[2].postprocfunc_ = &cases::mansoln::postproc_exact_soln_c_constcab;
+    
+    post_proc.push_back(new post_process(mesh_, (int)3, post_process::NORM2,
+                                         false, c_id, "c_rms", 16));
+    post_proc[3].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_c_constcab;
+
+    post_proc.push_back(new post_process(mesh_, (int)4));
+    post_proc[4].postprocfunc_ = &cases::mansoln::postproc_exact_soln_mu_constcab;
+    
+    post_proc.push_back(new post_process(mesh_, (int)5, post_process::NORM2,
+                                         false, mu_id, "mu_rms", 16));
+    post_proc[5].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_mu_constcab;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &cases::mansoln::param;
+    paramfunc_[1] = &cases::mansoln::param_coupled_constcab;
+    paramfunc_[2] = &cases::mansoln::param_freeenergy_parabolic;
+  }else if("mms-coupled-constcab-neumann" == paramList.get<std::string> (TusastestNameString)){
+    const int eta_id = 2;
+    const int c_id = 1;
+    const int mu_id = 0;
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    numeqs_ = 3;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[2] = cases::mansoln::residual_eta_constcab_dp;
+    (*residualfunc_)[1] = cases::mansoln::residual_c_constcab_dp;
+    (*residualfunc_)[0] = cases::mansoln::residual_mu_constcab_dp;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[2] = &cases::mansoln::prec_eta;
+    (*preconfunc_)[1] = &cases::mansoln::prec_c_trans;
+    (*preconfunc_)[0] = &cases::mansoln::prec_mu_trans;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[2] = &cases::mansoln::init_eta;
+    (*initfunc_)[1] = &cases::mansoln::init_c_constcab;
+    (*initfunc_)[0] = &cases::mansoln::init_mu_constcab;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[2] = "eta";
+    (*varnames_)[1] = "c";
+    (*varnames_)[0] = "mu";
+
+    dirichletfunc_ = NULL;
+
+    neumannfunc_ = new std::vector<std::map<int,NBCFUNC>>(numeqs_);
+    (*neumannfunc_)[2][1] = &cases::mansoln::nbc_eta;
+    (*neumannfunc_)[2][3] = &cases::mansoln::nbc_eta;
+    (*neumannfunc_)[1][1] = &cases::mansoln::nbc_c_constcab;
+    (*neumannfunc_)[1][3] = &cases::mansoln::nbc_c_constcab;
+    (*neumannfunc_)[0][1] = &cases::mansoln::nbc_mu_constcab;
+    (*neumannfunc_)[0][3] = &cases::mansoln::nbc_mu_constcab;
+
+    post_proc.push_back(new post_process(mesh_, (int)0));
+    post_proc[0].postprocfunc_ = &cases::mansoln::postproc_exact_soln_eta;
+    
+    post_proc.push_back(new post_process(mesh_, (int)1, post_process::NORM2,
+                                         false, eta_id, "eta_rms", 16));
+    post_proc[1].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_eta;
+    
+    post_proc.push_back(new post_process(mesh_, (int)2));
+    post_proc[2].postprocfunc_ = &cases::mansoln::postproc_exact_soln_c_constcab;
+    
+    post_proc.push_back(new post_process(mesh_, (int)3, post_process::NORM2,
+                                         false, c_id, "c_rms", 16));
+    post_proc[3].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_c_constcab;
+
+    post_proc.push_back(new post_process(mesh_, (int)4));
+    post_proc[4].postprocfunc_ = &cases::mansoln::postproc_exact_soln_mu_constcab;
+    
+    post_proc.push_back(new post_process(mesh_, (int)5, post_process::NORM2,
+                                         false, mu_id, "mu_rms", 16));
+    post_proc[5].postprocfunc_ = &cases::mansoln::postproc_diff_vs_exact_mu_constcab;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &cases::mansoln::param;
+    paramfunc_[1] = &cases::mansoln::param_coupled_constcab;
+    paramfunc_[2] = &cases::mansoln::param_freeenergy_parabolic;
   }else if("tonks1wbm" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
@@ -3064,10 +3276,11 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(1);
+    paramfunc_.resize(2);
     paramfunc_[0] = &cases::tonks1::param;
+    paramfunc_[1] = &cases::tonks1::param_freeenergy_parabolic;
 
-  }else if("tonks1splitkks" == paramList.get<std::string> (TusastestNameString)){
+  }else if("tonks1split" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;
     problemList = &paramList.sublist("ProblemParams", false);
@@ -3098,10 +3311,129 @@ void ModelEvaluatorTPETRA<scalar_type>::set_test_case()
     dirichletfunc_ = NULL;
     neumannfunc_ = NULL;
 
-    paramfunc_.resize(2);
+    paramfunc_.resize(3);
     paramfunc_[0] = &cases::tonks1::param_split;
     paramfunc_[1] = &cases::tonks1::param;
+    paramfunc_[2] = &cases::tonks1::param_freeenergy_parabolic;
     
+  }else if("tonks1trans" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    const int numeta = 1;
+    numeqs_ = numeta + 2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = cases::tonks1::residual_mu_trans_dp;
+    (*residualfunc_)[1] = cases::tonks1::residual_c_trans_dp;
+    (*residualfunc_)[2] = cases::tonks1::residual_eta_dp;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &cases::tonks1::prec_mu_trans;
+    (*preconfunc_)[1] = &cases::tonks1::prec_c_trans;
+    (*preconfunc_)[2] = &cases::tonks1::prec_eta;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cases::tonks1::init_mu;
+    (*initfunc_)[1] = &cases::tonks1::init_c;
+    (*initfunc_)[2] = &cases::tonks1::init_eta;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "mu";
+    (*varnames_)[1] = "c";
+    (*varnames_)[2] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &cases::tonks1::param_trans;
+    paramfunc_[1] = &cases::tonks1::param;
+    paramfunc_[2] = &cases::tonks1::param_freeenergy_parabolic;
+    
+  }else if("tonks1trans_lagkks" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    const int numeta = 1;
+    numeqs_ = numeta + 2;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = cases::tonks1::residual_mu_trans_lagkks_dp;
+    (*residualfunc_)[1] = cases::tonks1::residual_c_trans_lagkks_dp;
+    (*residualfunc_)[2] = cases::tonks1::residual_eta_lagkks_dp;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &cases::tonks1::prec_mu_trans;
+    (*preconfunc_)[1] = &cases::tonks1::prec_c_trans;
+    (*preconfunc_)[2] = &cases::tonks1::prec_eta;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &cases::tonks1::init_mu;
+    (*initfunc_)[1] = &cases::tonks1::init_c;
+    (*initfunc_)[2] = &cases::tonks1::init_eta;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "mu";
+    (*varnames_)[1] = "c";
+    (*varnames_)[2] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &cases::tonks1::param_trans;
+    paramfunc_[1] = &cases::tonks1::param;
+    paramfunc_[2] = &cases::tonks1::param_freeenergy_parabolic;
+    
+  }else if("tonks2trans" == paramList.get<std::string> (TusastestNameString)){
+
+    Teuchos::ParameterList *problemList;
+    problemList = &paramList.sublist("ProblemParams", false);
+
+    const int Nc = 2;
+    const int Nmu = Nc;
+    const int Neta = 1;
+    numeqs_ = Nc + Nmu + Neta;
+
+    residualfunc_ = new std::vector<RESFUNC>(numeqs_);
+    (*residualfunc_)[0] = tpetra::tonks::residual_mu_split_ternary_trans_dp_;
+    (*residualfunc_)[1] = tpetra::tonks::residual_mu_split_ternary_trans_dp_;
+    (*residualfunc_)[2] = tpetra::tonks::residual_c_split_ternary_trans_dp_;
+    (*residualfunc_)[3] = tpetra::tonks::residual_c_split_ternary_trans_dp_;
+    (*residualfunc_)[4] = tpetra::tonks::residual_eta_kks_ternary_dp_;
+
+    preconfunc_ = new std::vector<PREFUNC>(numeqs_);
+    (*preconfunc_)[0] = &tpetra::tonks::prec_mu_trans_;
+    (*preconfunc_)[1] = &tpetra::tonks::prec_mu_trans_;
+    (*preconfunc_)[2] = &tpetra::tonks::prec_c_trans_;
+    (*preconfunc_)[3] = &tpetra::tonks::prec_c_trans_;
+    (*preconfunc_)[4] = &tpetra::tonks::prec_eta_;
+
+    initfunc_ = new std::vector<INITFUNC>(numeqs_);
+    (*initfunc_)[0] = &tpetra::tonks::init_mu1_;
+    (*initfunc_)[1] = &tpetra::tonks::init_mu2_;
+    (*initfunc_)[2] = &tpetra::tonks::init_c1_;
+    (*initfunc_)[3] = &tpetra::tonks::init_c2_;
+    (*initfunc_)[4] = &tpetra::tonks::init_eta_;
+
+    varnames_ = new std::vector<std::string>(numeqs_);
+    (*varnames_)[0] = "mu1";
+    (*varnames_)[1] = "mu2";
+    (*varnames_)[2] = "c1";
+    (*varnames_)[3] = "c2";
+    (*varnames_)[4] = "eta";
+
+    dirichletfunc_ = NULL;
+    neumannfunc_ = NULL;
+
+    paramfunc_.resize(3);
+    paramfunc_[0] = &tpetra::tonks::param_set_ternary_trans_ids_;
+    paramfunc_[1] = &tpetra::kks::param_;
+    paramfunc_[2] = &tpetra::tonks::param_;
+
   }else if("tonks2splitkks" == paramList.get<std::string> (TusastestNameString)){
 
     Teuchos::ParameterList *problemList;

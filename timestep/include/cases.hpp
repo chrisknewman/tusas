@@ -18,6 +18,385 @@ namespace cases
 {
 
 
+namespace mansoln
+{
+
+
+  TUSAS_DEVICE double x_offset = 10.;
+  TUSAS_DEVICE double epsilon = 0.4;
+  TUSAS_DEVICE double v = 1.;
+
+
+  KOKKOS_INLINE_FUNCTION
+  const double w(const double x, const double t) {
+    return ((x - x_offset) - v * t) / (epsilon * std::sqrt(2));
+  } 
+
+  KOKKOS_INLINE_FUNCTION
+  const double eta_mms(const double x, const double t)
+  {
+    return 0.5 * (1 + tanh(w(x, t)));
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double deta_dx_mms(const double x, const double t)
+  {
+    const double eta = eta_mms(x, t);
+    return (2 / (epsilon * std::sqrt(2))) * eta * (1 - eta);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double d2eta_dx2_mms(const double x, const double t)
+  {
+    const double eta = eta_mms(x, t);
+    return (2. / std::pow(epsilon, 2)) * (2. * std::pow(eta, 3) 
+                                          - 3. * std::pow(eta, 2)
+                                          + eta); 
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double c_mms_constcab(const double x, const double t)
+  {
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const double eta = eta_mms(x, t);
+    const double hh = pdes::kks::fe.h(&eta);
+
+    return hh * ca + (1. - hh) * cb;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double dc_dx_mms_constcab(const double x, const double t)
+  {
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const double eta = eta_mms(x, t);
+    const double deta_dx = deta_dx_mms(x, t);
+    const double dh_deta = pdes::kks::fe.dh_deta(eta);
+
+    return (ca - cb) * dh_deta * deta_dx;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double d2c_dx2_mms_constcab(const double x, const double t)
+  {
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const double eta = eta_mms(x, t);
+    const double deta_dx = deta_dx_mms(x, t);
+    const double d2eta_dx2 = d2eta_dx2_mms(x, t);
+
+    const double dh_deta = pdes::freeenergyinterp::dh_deta(eta);
+    const double d2h_deta2 = pdes::freeenergyinterp::d2h_deta2(eta);
+
+    return (ca - cb) * (d2h_deta2 * std::pow(deta_dx, 2) + dh_deta * d2eta_dx2);
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  const double mu_mms_constcab(const double x, const double t)
+  {
+    const double k_c = pdes::kks::k_c;
+    const double ca = pdes::kks::fe.c1a_0;
+
+    return pdes::kks::fe.dfa_dca(ca);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double dmu_dx_mms_constcab(const double x, const double t)
+  {
+    return 0;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  const double mobility(const double unused) {
+    return pdes::kks::M;
+  } 
+
+  KOKKOS_INLINE_FUNCTION
+  const double dg_deta(const double *etas, const int eqn_id)
+  {
+    const double eta = etas[eqn_id];
+    return 2 * eta * (2 * eta - 1) * (eta - 1);
+  }
+
+  PARAM_FUNC(param)
+  {
+    pdes::kks::param(plist);
+
+    x_offset = plist->get<double>("x_offset", x_offset);
+    epsilon = plist->get<double>("epsilon", epsilon);
+    v = plist->get<double>("v", v);
+  }
+
+  PARAM_FUNC(param_eta_constcab)
+  {
+    pdes::kks::eta_start_idx = 0;
+  }
+
+  PARAM_FUNC(param_coupled_constcab)
+  {
+    pdes::kks::eta_start_idx = 2;
+    pdes::kks::c_start_idx = 1;
+    pdes::kks::mu_start_idx = 0;
+  }
+
+  PARAM_FUNC(param_freeenergy_parabolic)
+  {
+    pdes::kks::param_freeenergy_parabolic(plist);
+    pdes::kks::fe.dg_deta = &dg_deta;
+  }
+
+  INI_FUNC(init_eta)
+  {
+    return eta_mms(x, 0.);
+  }
+
+  INI_FUNC(init_c_constcab)
+  {
+    return c_mms_constcab(x, 0.);
+  }
+  
+  INI_FUNC(init_mu_constcab)
+  {
+    return mu_mms_constcab(x, 0.);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(source_eta_constcab)
+  {
+    const int Nt_max = pdes::kks::Nt_max;
+    const int Neta_max = pdes::kks::Neta_max;
+    const int Neta = pdes::kks::Neta;
+    const int eta_start_idx = pdes::kks::eta_start_idx;
+
+    const double L = pdes::kks::L;
+    const double k_eta = pdes::kks::k_eta;
+    const double w = pdes::kks::w;
+
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+
+    const int Nt = 3;
+    const int local_id = eqn_id - eta_start_idx;
+
+    const double phi = basis[0]->phi(i);
+    const double x = basis[0]->xx();
+
+    double eta[Nt_max];
+    eta[0] = eta_mms(x, time + dt_);
+    eta[1] = eta_mms(x, time);
+    eta[2] = eta_mms(x, time - dtold_);
+
+    double deta_dt, double_well, df_deta;
+    double source[Nt_max];
+
+    for (int tdx = 0; tdx < Nt; ++tdx) {
+      deta_dt = ((2 * v) / (epsilon * std::sqrt(2))) * eta[tdx] * (1 - eta[tdx]);
+      double_well = L * (w - k_eta / std::pow(epsilon, 2)) * pdes::kks::fe.dg_deta(&eta[tdx], local_id);
+      df_deta = L * pdes::kks::fe.dh_deta(eta[tdx]) * (
+                  pdes::kks::fe.fa(ca) 
+                  - pdes::kks::fe.fb(cb) 
+                  + pdes::kks::fe.dfa_dca(ca) * (cb - ca)
+                );
+
+      source[tdx] = (deta_dt - double_well - df_deta) * phi;
+    }  // for tdx = 0, Nt
+
+    // time derivative entry is zero here because it will be added to the residual
+    // by pde_eta()
+    return tools::utils::ret_value(0., source, dt_, dtold_, t_theta_, t_theta2_);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(source_c_constcab)
+  {
+    const int Nt_max = pdes::kks::Nt_max;
+    const int Nt = 3;
+
+    const double ca = pdes::kks::fe.c1a_0;
+    const double cb = pdes::kks::fe.c1b_0;
+  
+    const double (*dh_deta)(const double) = pdes::kks::fe.dh_deta;
+
+    const double phi = basis[0]->phi(i);
+    const double x = basis[0]->xx();
+
+    double eta[Nt_max];
+    eta[0] = eta_mms(x, time + dt_);
+    eta[1] = eta_mms(x, time);
+    eta[2] = eta_mms(x, time - dtold_);
+
+    double dc_dt;
+    double source[Nt_max];
+
+    for (int tdx = 0; tdx < Nt; ++tdx) {
+      dc_dt = (cb - ca) * dh_deta(eta[tdx]) 
+                * ((2 * v) / (epsilon * std::sqrt(2))) 
+                * eta[tdx] * (1 - eta[tdx]);;
+
+      source[tdx] = -(dc_dt) * phi;
+    }  // for tdx = 0, Nt
+
+    // time derivative entry is zero here because it will be added to the residual
+    // by pde_c()
+    return tools::utils::ret_value(0., source, dt_, dtold_, t_theta_, t_theta2_);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(source_mu_constcab)
+  {
+    const int Nt_max = pdes::kks::Nt_max;
+    const int Nt = 1;
+
+    const double k_c = pdes::kks::k_c;
+
+    const double phi = basis[0]->phi(i);
+    const double x = basis[0]->xx();
+
+    double d2c_dx2[Nt_max];
+    d2c_dx2[0] = d2c_dx2_mms_constcab(x, time + dt_);
+    d2c_dx2[1] = d2c_dx2_mms_constcab(x, time);
+    d2c_dx2[2] = d2c_dx2_mms_constcab(x, time - dtold_);
+
+    double source[Nt_max];
+
+    for (int tdx = 0; tdx < Nt; ++tdx) {
+      source[tdx] = k_c * d2c_dx2[tdx] * phi;
+    }
+
+    // the primary residual for mu only uses one time-level
+    return source[0];
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_eta_constcab)
+  {
+    return pdes::kks::pde_eta_nokks(basis, i, dt_, dtold_,
+                                    t_theta_, t_theta2_, time, eqn_id,
+                                    vol, rand, mobility) +
+           source_eta_constcab(basis, i, dt_, dtold_, 
+                              t_theta_, t_theta2_, time, eqn_id,
+                              vol, rand);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_eta_constcab_dp)) = residual_eta_constcab;
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_c_constcab)
+  {
+    return pdes::kks::pde_mu_nokks(basis, i, dt_, dtold_,
+                                   t_theta_, t_theta2_, time, eqn_id,
+                                   vol, rand, true) +
+           source_mu_constcab(basis, i, dt_, dtold_,
+                             t_theta_, t_theta2_, time, eqn_id,
+                             vol, rand);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_constcab_dp)) = residual_c_constcab;
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_mu_constcab)
+  {
+    return pdes::kks::pde_c_split(basis, i, dt_, dtold_,
+                                t_theta_, t_theta2_, time, eqn_id,
+                                vol, rand, mobility, true) +
+           source_c_constcab(basis, i, dt_, dtold_, 
+                             t_theta_, t_theta2_, time, eqn_id,
+                             vol, rand);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_constcab_dp)) = residual_mu_constcab;
+
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_eta)
+  {
+    return pdes::kks::prec_eta(basis, i, j, dt_, t_theta_, eqn_id);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_c_trans)
+  {
+    return pdes::kks::prec_c_trans(basis, i, j, dt_, t_theta_, eqn_id);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_mu_trans)
+  {
+    return pdes::kks::prec_mu_trans(basis, i, j, dt_, t_theta_, eqn_id, mobility);
+  }
+
+  DBC_FUNC(dbc_eta)
+  {
+    return eta_mms(x, t);
+  }
+
+  NBC_FUNC_TPETRA(nbc_eta)
+  {
+    const double x = basis[0].xx();
+    return deta_dx_mms(x, time);
+  }
+
+  DBC_FUNC(dbc_c_constcab)
+  {
+    return c_mms_constcab(x, t);
+  }
+
+  NBC_FUNC_TPETRA(nbc_c_constcab)
+  {
+    const double x = basis[0].xx();
+    return dc_dx_mms_constcab(x, time);
+  }
+
+  DBC_FUNC(dbc_mu_constcab)
+  {
+    return mu_mms_constcab(x, t);
+  }
+
+  NBC_FUNC_TPETRA(nbc_mu_constcab)
+  {
+    const double x = basis[0].xx();
+    return dmu_dx_mms_constcab(x, time);
+  }
+
+  PPR_FUNC(postproc_exact_soln_eta)
+  {
+    const double x = xyz[0];
+    return eta_mms(x, time);
+  }
+  
+  PPR_FUNC(postproc_exact_soln_c_constcab)
+  {
+    const double x = xyz[0];
+    return c_mms_constcab(x, time);
+  }
+
+  PPR_FUNC(postproc_exact_soln_mu_constcab)
+  {
+    const double x = xyz[0];
+    return mu_mms_constcab(x, time);
+  }
+
+  PPR_FUNC(postproc_diff_vs_exact_eta)
+  {
+    const double x = xyz[0];
+    return eta_mms(x, time) - u[pdes::kks::eta_start_idx];
+  }
+
+  PPR_FUNC(postproc_diff_vs_exact_c_constcab)
+  {
+    const double x = xyz[0];
+    return c_mms_constcab(x, time) - u[pdes::kks::c_start_idx];
+  }
+
+  PPR_FUNC(postproc_diff_vs_exact_mu_constcab)
+  {
+    const double x = xyz[0];
+    return mu_mms_constcab(x, time) - u[pdes::kks::mu_start_idx];
+  }
+
+}
+
+
 namespace tonks1
 {
 
@@ -29,6 +408,16 @@ namespace tonks1
     pdes::kks::param(plist);
   }
 
+  PARAM_FUNC(param_freeenergy_parabolic)
+  {
+    pdes::kks::param_freeenergy_parabolic(plist);
+  }
+  
+  PARAM_FUNC(param_freeenergy_calenergy)
+  {
+    pdes::kks::param_freeenergy_calenergy(plist);
+  }
+
   PARAM_FUNC(param_split)
   {
     // might be worth trying to think of a way for the user
@@ -36,6 +425,15 @@ namespace tonks1
     pdes::kks::eta_start_idx = 2;
     pdes::kks::c_start_idx = 0;
     pdes::kks::mu_start_idx = 1;
+  }
+
+  PARAM_FUNC(param_trans)
+  {
+    // might be worth trying to think of a way for the user
+    // to pass these values in from ModelEvaluator...
+    pdes::kks::eta_start_idx = 2;
+    pdes::kks::c_start_idx = 1;
+    pdes::kks::mu_start_idx = 0;
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -57,8 +455,8 @@ namespace tonks1
   INI_FUNC(init_c)
   {
     const double eta = init_eta(x, y, z, eqn_id, lid);
-    const double hh = pdes::parabolicenergy::h(&eta);
-    return pdes::parabolicenergy::c1 * hh + pdes::parabolicenergy::c2 * (1. - hh);
+    const double hh = pdes::kks::fe.h(&eta);
+    return pdes::kks::fe.c1a_0 * hh + pdes::kks::fe.c1b_0 * (1. - hh);
   }
 
   INI_FUNC(init_mu)
@@ -71,18 +469,18 @@ namespace tonks1
     for (int k = 0; k < Neta; ++k) {
       eta[k] = init_eta(x, y, z, k + eta_start_idx, lid);
     }
-    const double hh = pdes::parabolicenergy::h(eta);
+    const double hh = pdes::kks::fe.h(eta);
     const double c = init_c(x, y, z, eqn_id, lid);
 
-    double ca = pdes::parabolicenergy::c1;
-    double cb = pdes::parabolicenergy::c2;
+    double ca = pdes::kks::fe.c1a_0;
+    double cb = pdes::kks::fe.c1b_0;
     tools::solvers::solve_kks(c, hh, ca, cb,
-                              pdes::parabolicenergy::dfa_dca,
-                              pdes::parabolicenergy::dfb_dcb,
-                              pdes::parabolicenergy::d2fa_dca2,
-                              pdes::parabolicenergy::d2fb_dcb2);
+                              pdes::kks::fe.dfa_dca,
+                              pdes::kks::fe.dfb_dcb,
+                              pdes::kks::fe.d2fa_dca2,
+                              pdes::kks::fe.d2fb_dcb2);
     // based off eq (28) in the original KKS paper
-    return pdes::parabolicenergy::dfa_dca(ca);
+    return pdes::kks::fe.dfa_dca(ca);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -93,6 +491,15 @@ namespace tonks1
                               vol, rand, mobility);
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_eta_dp)) = residual_eta;
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_eta_lagkks)
+  {
+    return pdes::kks::pde_eta(basis, i, dt_, dtold_,
+                              t_theta_, t_theta2_, time, eqn_id,
+                              vol, rand, mobility, true);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_eta_lagkks_dp)) = residual_eta_lagkks;
 
   KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_c)
@@ -113,6 +520,25 @@ namespace tonks1
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_split_dp)) = residual_c_split;
 
   KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_c_trans)
+  {
+    return pdes::kks::pde_mu(basis, i, dt_, dtold_,
+                             t_theta_, t_theta2_, time, eqn_id,
+                             vol, rand, true);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_trans_dp)) = residual_c_trans;
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_c_trans_lagkks)
+  {
+    // TODO -- lagkks bug here??
+    return pdes::kks::pde_mu(basis, i, dt_, dtold_,
+                             t_theta_, t_theta2_, time, eqn_id,
+                             vol, rand, true, true);  // should be true
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_c_trans_lagkks_dp)) = residual_c_trans_lagkks;
+
+  KOKKOS_INLINE_FUNCTION
   RES_FUNC_TPETRA(residual_mu)
   {
     return pdes::kks::pde_mu(basis, i, dt_, dtold_,
@@ -120,6 +546,25 @@ namespace tonks1
                              vol, rand);
   }
   TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_dp)) = residual_mu;
+
+    
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_mu_trans)
+  {
+    return pdes::kks::pde_c_split(basis, i, dt_, dtold_,
+                                  t_theta_, t_theta2_, time, eqn_id,
+                                  vol, rand, mobility, true);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_trans_dp)) = residual_mu_trans;
+
+  KOKKOS_INLINE_FUNCTION
+  RES_FUNC_TPETRA(residual_mu_trans_lagkks)
+  {
+    return pdes::kks::pde_c_split(basis, i, dt_, dtold_,
+                                  t_theta_, t_theta2_, time, eqn_id,
+                                  vol, rand, mobility, true, true);
+  }
+  TUSAS_DEVICE RES_FUNC_TPETRA((*residual_mu_trans_lagkks_dp)) = residual_mu_trans_lagkks;
 
   KOKKOS_INLINE_FUNCTION
   PRE_FUNC_TPETRA(prec_eta)
@@ -131,6 +576,18 @@ namespace tonks1
   PRE_FUNC_TPETRA(prec_c)
   {
     return pdes::kks::prec_c(basis, i, j, dt_, t_theta_, eqn_id, mobility);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_c_trans)
+  {
+    return pdes::kks::prec_c_trans(basis, i, j, dt_, t_theta_, eqn_id);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PRE_FUNC_TPETRA(prec_mu_trans)
+  {
+    return pdes::kks::prec_mu_trans(basis, i, j, dt_, t_theta_, eqn_id, mobility);
   }
 
 
@@ -199,8 +656,8 @@ namespace sheng
   INI_FUNC(init_c)
   {
     const double eta = init_eta(x, y, z, eqn_id, lid);
-    const double hh = pdes::parabolicenergy::h(&eta);
-    return pdes::parabolicenergy::c1 * hh + initial_c_alpha * (1. - hh);
+    const double hh = pdes::kks::fe.h(&eta);
+    return pdes::kks::fe.c1a_0 * hh + initial_c_alpha * (1. - hh);
   }
 
   INI_FUNC(init_mu)
@@ -213,25 +670,24 @@ namespace sheng
     for (int k = 0; k < Neta; ++k) {
       eta[k] = init_eta(x, y, z, k + eta_start_idx, lid);
     }
-    const double hh = pdes::parabolicenergy::h(eta);
+    const double hh = pdes::kks::fe.h(eta);
     const double c = init_c(x, y, z, eqn_id, lid);
 
-    double ca = pdes::parabolicenergy::c1;
-    double cb = pdes::parabolicenergy::c2;
+    double ca = pdes::kks::fe.c1a_0;
+    double cb = pdes::kks::fe.c1b_0;
     tools::solvers::solve_kks(c, hh, ca, cb,
-                              pdes::parabolicenergy::dfa_dca,
-                              pdes::parabolicenergy::dfb_dcb,
-                              pdes::parabolicenergy::d2fa_dca2,
-                              pdes::parabolicenergy::d2fb_dcb2);
+                              pdes::kks::fe.dfa_dca,
+                              pdes::kks::fe.dfb_dcb,
+                              pdes::kks::fe.d2fa_dca2,
+                              pdes::kks::fe.d2fb_dcb2);
     // based off eq (28) in the original KKS paper
-    return pdes::parabolicenergy::dfa_dca(ca);
+    return pdes::kks::fe.dfa_dca(ca);
   }
 
   KOKKOS_INLINE_FUNCTION
   const double mobility(const double hh) {
     // M = D / d2f_dc2
-    return D / (pdes::parabolicenergy::d2fa_dca2() * pdes::parabolicenergy::d2fb_dcb2() 
-             / ((1 - hh) * pdes::parabolicenergy::d2fa_dca2() + hh * pdes::parabolicenergy::d2fb_dcb2()));
+    return D / pdes::kks::fe.d2f_dc2(hh, 0., 0.);
   }
   
   KOKKOS_INLINE_FUNCTION 
